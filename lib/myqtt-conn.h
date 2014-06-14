@@ -1,0 +1,323 @@
+/* 
+ *  MyQtt: A high performance open source MQTT implementation
+ *  Copyright (C) 2014 Advanced Software Production Line, S.L.
+ *
+ *  This program is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public License
+ *  as published by the Free Software Foundation; either version 2.1
+ *  of the License, or (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with this program; if not, write to the Free
+ *  Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+ *  02111-1307 USA
+ *  
+ *  You may find a copy of the license under this software is released
+ *  at COPYING file. This is LGPL software: you are welcome to develop
+ *  proprietary applications using this library without any royalty or
+ *  fee but returning back any change, improvement or addition in the
+ *  form of source code, project image, documentation patches, etc.
+ *
+ *  For commercial support on build MQTT enabled solutions contact us:
+ *          
+ *      Postal address:
+ *         Advanced Software Production Line, S.L.
+ *         C/ Antonio Suarez Nº 10, 
+ *         Edificio Alius A, Despacho 102
+ *         Alcalá de Henares 28802 (Madrid)
+ *         Spain
+ *
+ *      Email address:
+ *         info@aspl.es - http://www.aspl.es/mqtt
+ *                        http://www.aspl.es/myqtt
+ */
+
+#ifndef __MYQTT_CONN_H__
+#define __MYQTT_CONN_H__
+
+#include <myqtt.h>
+
+/** 
+ * \addtogroup myqtt_conn
+ * @{
+ */
+
+/** 
+ * @brief Allows to get the context associated to the provided
+ * conn, logging a more verbose message if the context is null
+ * or the conn provided is null.
+ *
+ * For myqtt, the context object is central for its
+ * function. Providing a function that warns that a null context is
+ * returned is a key to find bugs, since no proper result could be
+ * expected if no context is provided (\ref MyQttCtx). 
+ *
+ * @param c The conn that is required to return the context
+ * associated.
+ */
+#define CONN_CTX(c) myqtt_conn_get_ctx(c)
+
+MyQttConn  * myqtt_conn_new                    (MyQttCtx            * ctx,
+						 const char           * host, 
+						 const char           * port,
+						 MyQttConnNew    on_connected, 
+						 axlPointer             user_data);
+
+MyQttConn  * myqtt_conn_new_full               (MyQttCtx            * ctx,
+						 const char           * host, 
+						 const char           * port,
+						 MyQttConnOpts * options,
+						 MyQttConnNew    on_connected, 
+						 axlPointer             user_data);
+
+MyQttConn  * myqtt_conn_new6                   (MyQttCtx            * ctx,
+						 const char           * host, 
+						 const char           * port,
+						 MyQttConnNew    on_connected, 
+						 axlPointer             user_data);
+
+MyQttConn  * myqtt_conn_new_full6              (MyQttCtx            * ctx,
+						 const char           * host, 
+						 const char           * port,
+						 MyQttConnOpts * options,
+						 MyQttConnNew    on_connected, 
+						 axlPointer             user_data);
+
+axl_bool            myqtt_conn_reconnect              (MyQttConn * conn,
+							MyQttConnNew on_connected,
+							axlPointer user_data);
+
+axl_bool            myqtt_conn_close                  (MyQttConn  * conn);
+
+MYQTT_SOCKET       myqtt_conn_sock_connect           (MyQttCtx   * ctx,
+							const char  * host,
+							const char  * port,
+							int         * timeout,
+							axlError   ** error);
+
+MYQTT_SOCKET       myqtt_conn_sock_connect_common    (MyQttCtx            * ctx,
+							const char           * host,
+							const char           * port,
+							int                  * timeout,
+							MyQttNetTransport     transport,
+							axlError            ** error);
+
+axl_bool            myqtt_conn_ref                    (MyQttConn * conn,
+							const char       * who);
+
+axl_bool            myqtt_conn_uncheck_ref            (MyQttConn * conn);
+
+void                myqtt_conn_unref                  (MyQttConn * conn,
+							const char       * who);
+
+int                 myqtt_conn_ref_count              (MyQttConn * conn);
+
+MyQttConn  * myqtt_conn_new_empty              (MyQttCtx        * ctx,
+						 MYQTT_SOCKET      socket,
+						 MyQttPeerRole     role);
+
+MyQttConn  * myqtt_conn_new_empty_from_conn (MyQttCtx        * ctx,
+					      MYQTT_SOCKET      socket, 
+					      MyQttConn * __conn,
+					      MyQttPeerRole     role);
+
+axl_bool            myqtt_conn_set_socket                (MyQttConn * conn,
+							   MYQTT_SOCKET      socket,
+							   const char       * real_host,
+							   const char       * real_port);
+
+void                myqtt_conn_timeout                (MyQttCtx        * ctx,
+							long               microseconds_to_wait);
+void                myqtt_conn_connect_timeout        (MyQttCtx        * ctx,
+							long               microseconds_to_wait);
+
+long                myqtt_conn_get_timeout            (MyQttCtx        * ctx);
+long                myqtt_conn_get_connect_timeout    (MyQttCtx        * ctx);
+
+axl_bool            myqtt_conn_is_ok                  (MyQttConn * conn, 
+							axl_bool           free_on_fail);
+
+void                __myqtt_conn_shutdown_and_record_error (MyQttConn * conn,
+							     MyQttStatus       status,
+							     const char       * message,
+							     ...);
+
+void                myqtt_conn_free                   (MyQttConn * conn);
+
+MYQTT_SOCKET       myqtt_conn_get_socket             (MyQttConn * conn);
+
+void                myqtt_conn_set_close_socket       (MyQttConn * conn,
+							      axl_bool           action);
+
+const char        * myqtt_conn_get_host               (MyQttConn * conn);
+
+const char        * myqtt_conn_get_host_ip            (MyQttConn * conn);
+
+const char        * myqtt_conn_get_port               (MyQttConn * conn);
+
+const char        * myqtt_conn_get_local_addr         (MyQttConn * conn);
+
+const char        * myqtt_conn_get_local_port         (MyQttConn * conn);
+
+void                myqtt_conn_set_host_and_port      (MyQttConn * conn, 
+							const char       * host,
+							const char       * port,
+							const char       * host_ip);
+
+int                 myqtt_conn_get_id                 (MyQttConn * conn);
+
+const char        * myqtt_conn_get_server_name        (MyQttConn * conn);
+
+void                myqtt_conn_set_server_name        (MyQttConn * conn,
+							const       char * serverName);
+
+axl_bool            myqtt_conn_set_blocking_socket    (MyQttConn * conn);
+
+axl_bool            myqtt_conn_set_nonblocking_socket (MyQttConn * conn);
+
+axl_bool            myqtt_conn_set_sock_tcp_nodelay   (MYQTT_SOCKET socket,
+							axl_bool      enable);
+
+axl_bool            myqtt_conn_set_sock_block         (MYQTT_SOCKET socket,
+							      axl_bool      enable);
+
+void                myqtt_conn_set_data               (MyQttConn * conn,
+							const char       * key,
+							axlPointer         value);
+
+void                myqtt_conn_set_data_full          (MyQttConn * conn,
+							char             * key,
+							axlPointer         value,
+							axlDestroyFunc     key_destroy,
+							axlDestroyFunc     value_destroy);
+
+void                myqtt_conn_set_hook               (MyQttConn * conn,
+							axlPointer         ptr);
+
+axlPointer          myqtt_conn_get_hook               (MyQttConn * conn);
+
+void                myqtt_conn_delete_key_data        (MyQttConn * conn,
+							const char       * key);
+
+void                myqtt_conn_set_conn_actions (MyQttCtx              * ctx,
+						  MyQttConnStage    stage,
+						  MyQttConnAction   action_handler,
+						  axlPointer               handler_data);
+
+
+int                 myqtt_conn_actions_notify         (MyQttCtx                * ctx,
+							MyQttConn        ** caller_conn,
+							MyQttConnStage      stage);
+
+axlPointer          myqtt_conn_get_data               (MyQttConn * conn,
+							      const char       * key);
+
+MyQttHash        * myqtt_conn_get_data_hash          (MyQttConn * conn);
+
+MyQttPeerRole      myqtt_conn_get_role               (MyQttConn * conn);
+
+MyQttConn  * myqtt_conn_get_listener           (MyQttConn * conn);
+
+MyQttCtx         * myqtt_conn_get_ctx                (MyQttConn * conn);
+
+MyQttSendHandler      myqtt_conn_set_send_handler    (MyQttConn * conn,
+							      MyQttSendHandler  send_handler);
+
+MyQttReceiveHandler   myqtt_conn_set_receive_handler (MyQttConn * conn,
+							      MyQttReceiveHandler receive_handler);
+
+void                   myqtt_conn_set_default_io_handler (MyQttConn * conn);
+								 
+
+void                   myqtt_conn_set_on_close       (MyQttConn * conn,
+						       MyQttConnOnClose on_close_handler);
+
+void                    myqtt_conn_set_on_close_full  (MyQttConn * conn,
+							MyQttConnOnCloseFull on_close_handler,
+							axlPointer data);
+
+void                    myqtt_conn_set_on_close_full2  (MyQttConn * conn,
+							 MyQttConnOnCloseFull on_close_handler,
+							 axl_bool                    insert_last,
+							 axlPointer data);
+
+axl_bool            myqtt_conn_remove_on_close_full    (MyQttConn              * conn, 
+							 MyQttConnOnCloseFull     on_close_handler,
+							 axlPointer                      data);
+
+int                 myqtt_conn_invoke_receive         (MyQttConn * conn,
+							char             * buffer,
+							int                buffer_len);
+
+int                 myqtt_conn_invoke_send            (MyQttConn * conn,
+							const char       * buffer,
+							int                buffer_len);
+
+void                myqtt_conn_sanity_socket_check        (MyQttCtx * ctx, axl_bool      enable);
+
+void                myqtt_conn_set_preread_handler        (MyQttConn * conn, 
+								  MyQttConnOnPreRead pre_accept_handler);
+
+axl_bool            myqtt_conn_is_defined_preread_handler (MyQttConn * conn);
+
+void                myqtt_conn_invoke_preread_handler     (MyQttConn * conn);
+
+void                myqtt_conn_shutdown                   (MyQttConn * conn);
+
+void                myqtt_conn_shutdown_socket            (MyQttConn * conn);
+
+void                myqtt_conn_set_receive_stamp            (MyQttConn * conn, long bytes_received, long bytes_sent);
+
+void                myqtt_conn_get_receive_stamp            (MyQttConn * conn, long * bytes_received, long * bytes_sent, long * last_idle_stamp);
+
+void                myqtt_conn_check_idle_status            (MyQttConn * conn, MyQttCtx * ctx, long time_stamp);
+
+void                myqtt_conn_block                        (MyQttConn * conn,
+								    axl_bool           enable);
+
+axl_bool            myqtt_conn_is_blocked                   (MyQttConn  * conn);
+
+axl_bool            myqtt_conn_half_opened                  (MyQttConn  * conn);
+
+/** 
+ * @internal
+ * Do not use the following functions, internal MyQtt Library purposes.
+ */
+
+void                myqtt_conn_init                   (MyQttCtx        * ctx);
+
+void                myqtt_conn_cleanup                (MyQttCtx        * ctx);
+
+void                __myqtt_conn_set_not_connected    (MyQttConn * conn, 
+							const char       * message,
+							MyQttStatus       status);
+
+int                 myqtt_conn_do_a_sending_round     (MyQttConn * conn);
+
+void                __myqtt_conn_check_and_notify     (MyQttConn * conn, 
+							MyQttChannel    * channel, 
+							axl_bool           is_added);
+
+int                 myqtt_conn_get_mss                (MyQttConn * conn);
+
+axl_bool            myqtt_conn_check_socket_limit     (MyQttCtx        * ctx, 
+							MYQTT_SOCKET      socket);
+
+/** private API **/
+axl_bool               myqtt_conn_ref_internal        (MyQttConn * conn, 
+							const char       * who,
+							axl_bool           check_ref);
+
+void                myqtt_conn_set_initial_accept     (MyQttConn * conn,
+							axl_bool           status);
+
+#endif
+
+/* @} */
+
+
