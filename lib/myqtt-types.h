@@ -142,20 +142,30 @@ typedef struct _MyQttCtx MyQttCtx;
  * can be created using \ref myqtt_connection_new and then checked
  * with \ref myqtt_connection_is_ok.
  *
- * Internal \ref MyQttConnection representation is not exposed to
+ * Internal \ref MyQttConn representation is not exposed to
  * user code space to ensure the minimal impact while improving or
  * changing MyQtt Library internals. 
  * 
- * To operate with a \ref MyQttConnection object \ref myqtt_connection "check out its API documentation".
+ * To operate with a \ref MyQttConn object \ref myqtt_connection "check out its API documentation".
  * 
  */
-typedef struct _MyQttConnection  MyQttConnection;
+typedef struct _MyQttConn  MyQttConn;
+
+/** 
+ * @brief A single MQTT received message.
+ */
+typedef struct _MyQttMsg  MyQttMsg;
+
+/** 
+ * @brief Thread safe hash used by MyQtt
+ */
+typedef struct _MyQttHash MyQttHash;
 
 /** 
  * @brief MyQtt Operation Status.
  * 
  * This enum is used to represent different MyQtt Library status,
- * especially while operating with \ref MyQttConnection
+ * especially while operating with \ref MyQttConn
  * references. Values described by this enumeration are returned by
  * \ref myqtt_connection_get_status.
  */
@@ -600,6 +610,51 @@ typedef enum {
 	 */
 	MYQTT_IPv6 = 2
 } MyQttNetTransport;
+
+/**
+ * @internal
+ */
+typedef struct _MyQttSequencerData {
+	/**
+	 * @brief Reference to the connection.
+	 */
+	MyQttConn * conn;
+
+	/** 
+	 * @brief The content to be sequenced into frames.
+	 */
+	char      * message;
+
+	/** 
+	 * @brief The message size content.
+	 */
+        int         message_size;
+
+	/** 
+	 * @brief This is a tricky value and it is used to allow
+	 * myqtt sequencer to keep track about byte stream to be used
+	 * while sending remaining data.
+	 *
+	 * Because it could happened that a message to be sent doesn't
+	 * hold into the buffer that the remote peer holds for the
+	 * channel, the sequencer could find that the entire message
+	 * could not be send because the channel is stale. 
+	 * 
+	 * On this context the myqtt sequencer queue the message to
+	 * be pending and flags on steps how many bytes remains to be
+	 * sent *for the given message.
+	 */
+	unsigned int     step;
+
+} MyQttSequencerData;
+
+/**
+ * @internal
+ */
+typedef struct _MyQttWriterData {
+	char            * msg;
+	int               size;
+} MyQttWriterData;
 
 #endif
 

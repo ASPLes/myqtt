@@ -36,51 +36,24 @@
  *         info@aspl.es - http://www.aspl.es/mqtt
  *                        http://www.aspl.es/myqtt
  */
-#ifndef __MYQTT_READER_H__
-#define __MYQTT_READER_H__
+#ifndef __MYQTT_HASH_PRIVATE_H__
+#define __MYQTT_HASH_PRIVATE_H__
 
-#include <myqtt.h>
+struct _MyQttHash {
+	axlHash          * table;
+	MyQttMutex        mutex;
+	int                ref_count;
 
-void myqtt_reader_watch_listener              (MyQttCtx        * ctx,
-						MyQttConn * listener);
+	/* configuration functions */
+	axlHashFunc        hash_func;
+	axlEqualFunc       key_equal_func;
 
-void myqtt_reader_watch_connection            (MyQttCtx        * ctx,
-						MyQttConn * connection);
-
-void myqtt_reader_unwatch_connection          (MyQttCtx        * ctx,
-						MyQttConn * connection);
-
-int  myqtt_reader_connections_watched         (MyQttCtx        * ctx);
-
-int  myqtt_reader_run                         (MyQttCtx * ctx);
-
-void myqtt_reader_stop                        (MyQttCtx * ctx);
-
-int  myqtt_reader_notify_change_io_api        (MyQttCtx * ctx);
-
-void myqtt_reader_notify_change_done_io_api   (MyQttCtx * ctx);
-
-axl_bool  myqtt_reader_invoke_msg_received  (MyQttCtx  * ctx,
-					     MyQttConn * connection,
-					     MyQttMsg  * msg);
-
-/* internal API */
-typedef void (*MyQttForeachFunc) (MyQttConn * conn, axlPointer user_data);
-typedef void (*MyQttForeachFunc3) (MyQttConn * conn, 
-				    axlPointer         user_data, 
-				    axlPointer         user_data2,
-				    axlPointer         user_data3);
-
-MyQttAsyncQueue * myqtt_reader_foreach       (MyQttCtx            * ctx,
-						MyQttForeachFunc      func,
-						axlPointer             user_data);
-
-void               myqtt_reader_foreach_offline (MyQttCtx           * ctx,
-						  MyQttForeachFunc3    func,
-						  axlPointer            user_data,
-						  axlPointer            user_data2,
-						  axlPointer            user_data3);
-
-void               myqtt_reader_restart (MyQttCtx * ctx);
+	/* destroy functions */
+	axlDestroyFunc     key_destroy;
+	axlDestroyFunc     value_destroy;
+	
+	/* watchers */
+	MyQttAsyncQueue * changed_queue;
+};
 
 #endif

@@ -41,11 +41,11 @@
 #include <myqtt.h>
 
 /* private include */
-#include <myqtt_ctx_private.h>
-#include <myqtt_hash_private.h>
+#include <myqtt-ctx-private.h>
+#include <myqtt-hash-private.h>
 
 /* include connection internal definition */
-#include <myqtt_conn_private.h>
+#include <myqtt-conn-private.h>
 
 #if defined(AXL_OS_UNIX)
 # include <netinet/tcp.h>
@@ -185,7 +185,6 @@ int  __myqtt_conn_get_next_id (MyQttCtx * ctx)
 
 typedef struct _MyQttConnNewData {
 	MyQttConn      * connection;
-	MyQttConnOpts  * options;
 	MyQttConnNew     on_connected;
 	axlPointer              user_data;
 	axl_bool                threaded;
@@ -232,11 +231,11 @@ typedef struct _MyQttConnOnCloseData {
  * @return a newly allocated \ref MyQttConn. 
  */
 MyQttConn * myqtt_conn_new_empty            (MyQttCtx *    ctx, 
-							   MYQTT_SOCKET  socket, 
-							   MyQttPeerRole role)
+					     MYQTT_SOCKET  socket, 
+					     MyQttPeerRole role)
 {
 	/* creates a new connection */
-	return myqtt_conn_new_empty_from_connection (ctx, socket, NULL, role);
+	return myqtt_conn_new_empty_from_conn (ctx, socket, NULL, role);
 }
 
 
@@ -283,10 +282,6 @@ MyQttConn * myqtt_conn_new_empty_from_connection (MyQttCtx        * ctx,
 	myqtt_ctx_ref2 (ctx, "new connection"); /* acquire a reference to context */
 	connection->id                 = __myqtt_conn_get_next_id (ctx);
 
-	connection->message            = axl_strdup ("session established and ready");
-	MYQTT_CHECK_REF2 (connection->message, NULL, connection, axl_free);
-
-	connection->status             = MyQttOk;
 	connection->is_connected       = axl_true;
 	connection->ref_count          = 1;
 
@@ -298,10 +293,6 @@ MyQttConn * myqtt_conn_new_empty_from_connection (MyQttCtx        * ctx,
 
 		/* creates the user space data */
 		if (__connection != NULL) {
-			/* set current serverName if defined */
-			connection->serverName        = __connection->serverName;
-			__connection->serverName      = NULL;
-
 			/* transfer hash used by previous connection into the new one */
 			connection->data       = __connection->data;
 			/* creates a new hash to keep the connection internal state consistent */
@@ -1021,7 +1012,7 @@ MYQTT_SOCKET myqtt_conn_sock_connect_common (MyQttCtx            * ctx,
 			shutdown (session, SHUT_RDWR);
 			myqtt_close_socket (session);
 			myqtt_log (MYQTT_LEVEL_WARNING, "unable to connect(), session=%d to remote host errno=%d (%s), timeout reached", session, errno, strerror (errno));
-			axl_error_report (error, MyQttConnError, "unable to connect to remote host");
+			axl_error_report (error, MyQttConnectionError, "unable to connect to remote host");
 			return -1;
 		} /* end if */
 	} /* end if */
@@ -1076,15 +1067,14 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 	socklen_t              sin_size     = sizeof (sin);
 #endif
 	/* get current context */
-	MyQttConn     * connection   = data->connection;
-	MyQttConnOpts * options      = data->options;
-	MyQttCtx            * ctx          = connection->ctx;
+	MyQttConn            * connection   = data->connection;
+	MyQttCtx             * ctx          = connection->ctx;
 	axlError             * error        = NULL;
 	int                    d_timeout    = 0;
 	axl_bool               threaded     = data->threaded;
-	MyQttConnNew    on_connected = data->on_connected;
+	MyQttConnNew           on_connected = data->on_connected;
 	axlPointer             user_data    = data->user_data;
-	MyQttNetTransport     transport    = data->transport;
+	MyQttNetTransport      transport    = data->transport;
 	char                   host_name[NI_MAXHOST];
 	char                   srv_name[NI_MAXSERV]; 
 
@@ -1103,13 +1093,8 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 	/* configure the socket created */
 	connection->session = myqtt_conn_sock_connect_common (ctx, connection->host, connection->port, &d_timeout, transport, &error);
 	if (connection->session == -1) {
-		/* free previous message */
-		if (connection->message)
-			axl_free (connection->message);
 
 		/* get error message and error status */
-		connection->message = axl_strdup (axl_error_get (error));
-		connection->status  = axl_error_get_code (error);
 		axl_error_free (error);
 
 		/* flag as not connected */
@@ -1129,9 +1114,6 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 		if (getsockname (connection->session, (struct sockaddr *) &sin, &sin_size) < 0) {
 			myqtt_log (MYQTT_LEVEL_DEBUG, "unable to get local hostname and port to resolve local address");
 
-			/* check to release options if defined */
-			myqtt_conn_opts_check_and_release (options);
-
 			return NULL;
 		} /* end if */
 
@@ -1147,13 +1129,6 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 		connection->local_addr = axl_strdup (host_name);
 		connection->local_port = axl_strdup (srv_name);
 
-		/* block thread until received remote greetings */
-		if (myqtt_conn_do_greetings_exchange (ctx, connection, options, d_timeout)) {
-
-			/* call to notify CONECTION_STAGE_POST_CREATED */
-			myqtt_log (MYQTT_LEVEL_DEBUG, "doing post creation notification for connection id=%d", connection->id);
-			myqtt_conn_actions_notify (ctx, &connection, CONNECTION_STAGE_POST_CREATED);
-		} /* end if */
 	} /* end if */
 
 	/* notify on callback or simply return */
@@ -1161,54 +1136,36 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 		/* notify connection */
 		on_connected (connection, user_data);
 
-		/* check to release options if defined */
-		myqtt_conn_opts_check_and_release (options);
-	
 		return NULL;
 	}
-
-	/* check to release options if defined */
-	myqtt_conn_opts_check_and_release (options);
 
 	return connection;
 }
 
-MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx            * ctx,
-							      const char           * host, 
-							      const char           * port,
-							      MyQttConnOpts * options,
-							      MyQttConnNew    on_connected, 
-							      MyQttNetTransport     transport,
-							      axlPointer             user_data)
+MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
+						const char           * host, 
+						const char           * port,
+						MyQttConnNew          on_connected, 
+						MyQttNetTransport     transport,
+						axlPointer            user_data)
 {
 	MyQttConnNewData * data;
 
 	/* check context is initialized */
-	if ((! myqtt_init_check (ctx)) || ctx->myqtt_exit) {
-		/* check to release options if defined */
-		myqtt_conn_opts_check_and_release (options);
+	if ((! myqtt_init_check (ctx)) || ctx->myqtt_exit) 
 		return NULL;
-	}
 
 	/* check parameters */
-	if (host == NULL || port == NULL) {
-		/* check to release options if defined */
-		myqtt_conn_opts_check_and_release (options);
+	if (host == NULL || port == NULL) 
 		return NULL;
-	} /* end if */
 
 	data                                  = axl_new (MyQttConnNewData, 1);
-	if (data == NULL) {
-		/* check to release options if defined */
-		myqtt_conn_opts_check_and_release (options);
+	if (data == NULL) 
 		return NULL;
-	} /* end if */
-	data->options                         = options;
+	
 	data->connection                      = axl_new (MyQttConn, 1);
 	/* check allocated connection */
 	if (data->connection == NULL) {
-		/* check to release options if defined */
-		myqtt_conn_opts_check_and_release (options);
 		axl_free (data);
 		return NULL;
 	} /* end if */
@@ -1269,12 +1226,11 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx            * ctx,
 }
 
 
-MyQttConn  * myqtt_conn_new_full               (MyQttCtx            * ctx,
-							      const char           * host, 
-							      const char           * port,
-							      MyQttConnOpts * options,
-							      MyQttConnNew    on_connected, 
-							      axlPointer             user_data)
+MyQttConn  * myqtt_conn_new_full               (MyQttCtx      * ctx,
+						const char    * host, 
+						const char    * port,
+						MyQttConnNew    on_connected, 
+						axlPointer      user_data)
 {
 	MyQttNetTransport transport;
 	
@@ -1282,27 +1238,26 @@ MyQttConn  * myqtt_conn_new_full               (MyQttCtx            * ctx,
 	transport = __myqtt_conn_detect_transport (ctx, host);
 
 	/* call to create the connection */
-	return myqtt_conn_new_full_common (ctx, host, port, options, on_connected, transport, user_data);
+	return myqtt_conn_new_full_common (ctx, host, port, on_connected, transport, user_data);
 }
 
-MyQttConn  * myqtt_conn_new_full6              (MyQttCtx            * ctx,
-						      const char           * host, 
-						      const char           * port,
-						      MyQttConnOpts * options,
-						      MyQttConnNew    on_connected, 
-						      axlPointer             user_data)
+MyQttConn  * myqtt_conn_new_full6              (MyQttCtx      * ctx,
+						const char    * host, 
+						const char    * port,
+						MyQttConnNew    on_connected, 
+						axlPointer      user_data)
 {
 	/* call to create the connection */
-	return myqtt_conn_new_full_common (ctx, host, port, options, on_connected, MYQTT_IPv6, user_data);
+	return myqtt_conn_new_full_common (ctx, host, port, on_connected, MYQTT_IPv6, user_data);
 }
 
 MyQttConn * myqtt_conn_new (MyQttCtx   * ctx,
-				  const char  * host, 
-				  const char  * port, 
-				  MyQttConnNew on_connected,
-				  axlPointer user_data)
+			    const char  * host, 
+			    const char  * port, 
+			    MyQttConnNew on_connected,
+			    axlPointer user_data)
 {
-	return myqtt_conn_new_full (ctx, host, port, NULL, on_connected, user_data);
+	return myqtt_conn_new_full (ctx, host, port, on_connected, user_data);
 }
 
 MyQttConn * myqtt_conn_new6 (MyQttCtx   * ctx,
@@ -1311,7 +1266,7 @@ MyQttConn * myqtt_conn_new6 (MyQttCtx   * ctx,
 				   MyQttConnNew on_connected,
 				   axlPointer user_data)
 {
-	return myqtt_conn_new_full6 (ctx, host, port, NULL, on_connected, user_data);
+	return myqtt_conn_new_full6 (ctx, host, port, on_connected, user_data);
 }
 
 /** 
@@ -1392,11 +1347,6 @@ axl_bool            myqtt_conn_reconnect              (MyQttConn * connection,
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "reconnection request is prepared, doing so..");
 
-	/* clear previous message if defined */
-	if (connection->message)
-		axl_free (connection->message);
-	connection->message = NULL;
-
 	/* detect transport we have to configure */
 	data->transport = connection->transport;
 	
@@ -1440,8 +1390,8 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
 
 	/* close all channel on this connection */
 	if (myqtt_conn_is_ok (connection, axl_false)) {
-		myqtt_log (MYQTT_LEVEL_DEBUG, "closing a connection id=%d which is already opened with %d channels opened..",
-			    connection->id, axl_hash_items (connection->channels->table));
+		myqtt_log (MYQTT_LEVEL_DEBUG, "closing a connection id=%d",
+			   connection->id);
 
 		/* update the connection reference to avoid race
 		 * conditions caused by deallocations */
@@ -1456,7 +1406,7 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
 		
 		/* set the connection to be not connected */
 		__myqtt_conn_shutdown_and_record_error (
-			connection, MyQttConnCloseCalled, "close connection called");
+			connection, MyQttConnectionCloseCalled, "close connection called");
 
 		/* update the connection reference to avoid race
 		 * conditions caused by deallocations */
@@ -1917,7 +1867,6 @@ axl_bool                myqtt_conn_is_ok (MyQttConn * connection,
  */
 void               myqtt_conn_free (MyQttConn * connection)
 {
-	MyQttChannelError * error;
 #if defined(ENABLE_MYQTT_LOG)
 	MyQttCtx          * ctx;
 #endif
@@ -1946,14 +1895,6 @@ void               myqtt_conn_free (MyQttConn * connection)
 		connection->data = NULL;
 	}
 
-	myqtt_log (MYQTT_LEVEL_DEBUG, "freeing connection message id=%d", connection->id);
-
-        /* free all resources */
-	if (connection->message != NULL) {
-		axl_free (connection->message);
-		connection->message = NULL;
-	}
-
 	myqtt_log (MYQTT_LEVEL_DEBUG, "freeing connection host id=%d", connection->id);
 
 	/* free host and port */
@@ -1974,16 +1915,6 @@ void               myqtt_conn_free (MyQttConn * connection)
 		connection->local_port = NULL;
 	}
 
-	/* profile masks */
-	axl_list_free (connection->profile_masks);
-	connection->profile_masks = NULL;
-	myqtt_mutex_destroy (&connection->profile_masks_mutex);
-
-	/* do not free features and localize because they are handled
-	 * thourgh the cache */
-	connection->features = NULL;
-	connection->localize = NULL;
-
 	/* free pending line */
 	axl_free (connection->pending_line);
 	connection->pending_line = NULL;
@@ -1998,22 +1929,6 @@ void               myqtt_conn_free (MyQttConn * connection)
 	myqtt_mutex_destroy (&connection->op_mutex);
 
 	myqtt_mutex_destroy (&connection->handlers_mutex);
-
-	/* free items from the stack */
-	if (connection->pending_errors) {
-		while (! axl_stack_is_empty (connection->pending_errors)) {
-			/* pop error */
-			error = axl_stack_pop (connection->pending_errors);
-			
-			/* free the error */
-			axl_free (error->msg);
-			axl_free (error);
-		} /* end if */
-		/* free the stack */
-		axl_stack_free (connection->pending_errors);
-		connection->pending_errors = NULL;
-	} /* end if */
-	myqtt_mutex_destroy (&connection->pending_errors_mutex);
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "freeing/terminating connection id=%d", connection->id);
 
@@ -2036,7 +1951,6 @@ void               myqtt_conn_free (MyQttConn * connection)
 
 	/* free posible frame and buffer */
 	axl_free (connection->buffer);
-	myqtt_frame_free (connection->last_frame);
 
 	/* release reference to context */
 	myqtt_ctx_unref2 (&connection->ctx, "end connection");
@@ -2472,7 +2386,7 @@ void __myqtt_conn_invoke_on_close (MyQttConn * connection,
 void    myqtt_conn_shutdown           (MyQttConn * connection)
 {
 	/* call to internal set not connected */
-	__myqtt_conn_set_not_connected (connection, "(myqtt connection shutdown)", MyQttConnForcedClose);
+	__myqtt_conn_set_not_connected (connection, "(myqtt connection shutdown)", MyQttConnectionForcedClose);
 	return;
 	
 } /* end myqtt_conn_shutdown */
@@ -2609,14 +2523,6 @@ void           __myqtt_conn_set_not_connected (MyQttConn * connection,
 		connection->is_connected = axl_false;
 		myqtt_mutex_unlock  (&(connection->ref_mutex));
 
-		/* renew the message */
-		if (connection->message)
-			axl_free (connection->message);
-		connection->message = axl_strdup (message);
-
-		/* configure status */
-		connection->status  = status;
-
 		/* unlock now the op mutex is not blocked */
 		myqtt_mutex_unlock (&connection->op_mutex);
 
@@ -2662,79 +2568,6 @@ void           __myqtt_conn_set_not_connected (MyQttConn * connection,
 	return;
 }
 
-
-/** 
- * @internal
- *
- * @brief The function which actually send the data
- *
- * This function helps the myqtt writer to do a sending round over
- * this connection. Because there are several channels over the same
- * connection sending frames, this function ensure a package for every
- * channel is sent on every round. This allows to avoid channel or
- * session starvation. 
- *
- * This function is executed from \ref
- * myqtt_conn_do_a_sending_round as a foreach channel for a
- * given connection.
- * 
- * @param key   
- * @param value a channel to check if packets to be sent are waiting
- * @param user_data 
- */
-axl_bool   __myqtt_conn_one_sending_round (axlPointer key,
-						  axlPointer value,
-						  axlPointer user_data)
-{
-	/* deprecated function */
-	return axl_false;
-}
-
-/** 
- * @internal
- * @brief Helper function to MyQtt Writer process
- * 
- * This function must be not used by myqtt library consumer. This
- * function is mainly used by the myqtt writer process to signal a
- * connection to do a sending round. 
- *
- * A sending round means to check every channel queue to see if have
- * pending frames to send. If have pending frames to be sent, the next
- * one to is sent. This tries to avoid a channel consuming all the
- * myqtt connection bandwidth.
- * 
- * @param connection a connection where a sending round robin will
- * performed.
- * 
- * @return  it returns how message frame have been sent or 0 if
- * no message was sent.
- */
-int                myqtt_conn_do_a_sending_round (MyQttConn * connection)
-{
-#if defined(ENABLE_MYQTT_LOG)
-	MyQttCtx * ctx;
-#endif
-	int         messages = 0;
-
-	/* check connection status */
-	if (! myqtt_conn_is_ok (connection, axl_false))
-		return 0;
-
-#if defined(ENABLE_MYQTT_LOG)	
-	/* get a reference to the ctx */
-	ctx = connection->ctx;
-#endif
-
-	/* foreach channel, check if we have something to send */
-	myqtt_hash_foreach (connection->channels, 
-			     __myqtt_conn_one_sending_round, &messages);
-
-	myqtt_log (MYQTT_LEVEL_DEBUG, "message sent for this connection id=%d: %d", 
-		    myqtt_conn_get_id (connection),
-		    messages);
-
-	return messages;
-}
 
 /** 
  * @brief Sets user defined data associated with the given connection.
@@ -3496,13 +3329,8 @@ void                myqtt_conn_init                   (MyQttCtx        * ctx)
 	ctx->connection_enable_sanity_check       = axl_true;
 	ctx->connection_std_timeout               = 60000000;
 
-	myqtt_mutex_create (&ctx->connection_xml_cache_mutex);
 	myqtt_mutex_create (&ctx->connection_hostname_mutex);
-	myqtt_mutex_create (&ctx->connection_actions_mutex);
 
-	/* init hashes */
-	if (ctx->connection_xml_cache == NULL)
-		ctx->connection_xml_cache = axl_hash_new (axl_hash_string, axl_hash_equal_string);
 	if (ctx->connection_hostname == NULL)
 		ctx->connection_hostname  = axl_hash_new (axl_hash_string, axl_hash_equal_string);
 	return;
@@ -3519,21 +3347,10 @@ void                myqtt_conn_cleanup                (MyQttCtx        * ctx)
 	v_return_if_fail (ctx);
 
 	/**** myqtt_conn.c: cleanup ****/
-	myqtt_mutex_destroy (&ctx->connection_xml_cache_mutex);
 	myqtt_mutex_destroy (&ctx->connection_hostname_mutex);
-	myqtt_mutex_destroy (&ctx->connection_actions_mutex);
-
-	/* drop hashes */
-	axl_hash_free (ctx->connection_xml_cache);
-	ctx->connection_xml_cache = NULL;
 
 	axl_hash_free (ctx->connection_hostname);
 	ctx->connection_hostname = NULL;
-
-	/* free list */
-	if (ctx->connection_actions != NULL)
-		axl_list_free (ctx->connection_actions);
-	ctx->connection_actions = NULL;
 
 	return;
 }

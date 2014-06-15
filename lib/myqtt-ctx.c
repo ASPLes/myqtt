@@ -41,7 +41,7 @@
 #include <myqtt.h>
 
 /* private include */
-#include <myqtt_ctx_private.h>
+#include <myqtt-ctx-private.h>
 
 /** 
  * \defgroup myqtt_ctx MyQtt context: functions to manage myqtt context, an object that represent a myqtt library state.
@@ -91,7 +91,7 @@ MyQttCtx * myqtt_ctx_new (void)
 	MYQTT_CHECK_REF2 (ctx->data, NULL, ctx, axl_free);
 
 	/**** myqtt_frame_factory.c: init module ****/
-	ctx->frame_id = 1;
+	ctx->msg_id = 1;
 
 	/* init mutex for the log */
 	myqtt_mutex_create (&ctx->log_mutex);
@@ -102,9 +102,6 @@ MyQttCtx * myqtt_ctx_new (void)
 	/* init reference counting */
 	myqtt_mutex_create (&ctx->ref_mutex);
 	ctx->ref_count = 1;
-
-	/* set default serverName acquire value */
-	ctx->serverName_acquire = axl_true;
 
 	/* return context created */
 	return ctx;
@@ -272,47 +269,15 @@ axlPointer  myqtt_ctx_get_data (MyQttCtx       * ctx,
  * received handler each time it is activated.
  */
 void      myqtt_ctx_set_frame_received          (MyQttCtx             * ctx,
-						  MyQttOnFrameReceived   received,
-						  axlPointer              received_user_data)
+						  MyQttOnMsgReceived    received,
+						  axlPointer            received_user_data)
 {
 	v_return_if_fail (ctx);
 	
 	/* configure handler and data even if they are null */
-	ctx->global_frame_received      = received;
-	ctx->global_frame_received_data = received_user_data;
+	ctx->global_msg_received      = received;
+	ctx->global_msg_received_data = received_user_data;
 
-	return;
-}
-
-/** 
- * @brief Allows to configure a global close notify handler on the
- * provided on the provided context. 
- * 
- * See \ref MyQttOnNotifyCloseChannel and \ref
- * myqtt_channel_notify_close to know more about this function. The
- * handler configured on this function will affect to all channel
- * close notifications received on the provided context.
- * 
- * @param ctx The context to configure with a global close channel notify.
- *
- * @param close_notify The close notify handler to execute.
- *
- * @param user_data User defined data to be passed to the close notify
- * handler.
- */
-void               myqtt_ctx_set_close_notify_handler     (MyQttCtx                  * ctx,
-							    MyQttOnNotifyCloseChannel   close_notify,
-							    axlPointer                   user_data)
-{
-	/* check context received */
-	if (ctx == NULL)
-		return;
-
-	/* configure handlers */
-	ctx->global_notify_close      = close_notify;
-	ctx->global_notify_close_data = user_data;
-
-	/* nothing more to do over here */
 	return;
 }
 
@@ -356,7 +321,7 @@ void        myqtt_ctx_set_idle_handler          (MyQttCtx                       
 	return;
 }
 
-axlPointer __myqtt_ctx_notify_idle (MyQttConnection * conn)
+axlPointer __myqtt_ctx_notify_idle (MyQttConn * conn)
 {
 	MyQttCtx          * ctx     = CONN_CTX (conn);
 	MyQttIdleHandler    handler = ctx->global_idle_handler;
@@ -367,18 +332,18 @@ axlPointer __myqtt_ctx_notify_idle (MyQttConnection * conn)
 
 	/* call to notify idle */
 	myqtt_log (MYQTT_LEVEL_DEBUG, "notifying idle connection on id=%d because %ld was exceeded", 
-		    myqtt_connection_get_id (conn), ctx->max_idle_period);
+		    myqtt_conn_get_id (conn), ctx->max_idle_period);
 	handler (ctx, conn, ctx->global_idle_handler_data, ctx->global_idle_handler_data2);
 	
 	/* reduce reference acquired */
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Calling to reduce reference counting now finished idle handler for id=%d",
-		    myqtt_connection_get_id (conn));
+		    myqtt_conn_get_id (conn));
 
 	/* reset idle state to current time and notify idle notification finished */
-	myqtt_connection_set_receive_stamp (conn, 0, 0);
-	myqtt_connection_set_data (conn, "vo:co:idle", NULL);
+	myqtt_conn_set_receive_stamp (conn, 0, 0);
+	myqtt_conn_set_data (conn, "vo:co:idle", NULL);
 
-	myqtt_connection_unref (conn, "notify-idle");
+	myqtt_conn_unref (conn, "notify-idle");
 
 	return NULL;
 }
@@ -386,21 +351,21 @@ axlPointer __myqtt_ctx_notify_idle (MyQttConnection * conn)
 /** 
  * @internal Function used to implement idle notify on a connection.
  */
-void        myqtt_ctx_notify_idle               (MyQttCtx                       * ctx,
-						  MyQttConnection                * conn)
+void        myqtt_ctx_notify_idle               (MyQttCtx              * ctx,
+						 MyQttConn             * conn)
 {
 	/* do nothing if handler or context aren't defined */
 	if (ctx == NULL || ctx->global_idle_handler == NULL)
 		return;
 
 	/* check if the connection was already notified */
-	if (PTR_TO_INT (myqtt_connection_get_data (conn, "vo:co:idle")))
+	if (PTR_TO_INT (myqtt_conn_get_data (conn, "vo:co:idle")))
 		return;
 	/* notify idle notification is in progress */
-	myqtt_connection_set_data (conn, "vo:co:idle", INT_TO_PTR (axl_true));
+	myqtt_conn_set_data (conn, "vo:co:idle", INT_TO_PTR (axl_true));
 
 	/* check unchecked reference (always acquire reference) */
-	myqtt_connection_ref_internal (conn, "notify-idle", axl_false);
+	myqtt_conn_ref_internal (conn, "notify-idle", axl_false);
 
 	/* call to notify */
 	myqtt_thread_pool_new_task (ctx, (MyQttThreadFunc) __myqtt_ctx_notify_idle, conn);

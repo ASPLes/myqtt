@@ -60,7 +60,7 @@ struct _MyQttCtx {
 	axl_bool             myqtt_initialized;
 
 	/* global mutex */
-	MyQttMutex           frame_id_mutex;
+	MyQttMutex           msg_id_mutex;
 	MyQttMutex           connection_id_mutex;
 	MyQttMutex           search_path_mutex;
 	MyQttMutex           exit_mutex;
@@ -103,15 +103,10 @@ struct _MyQttCtx {
 	MyQttOnFinishHandler             finish_handler;
 	axlPointer                       finish_handler_data;
 
-	/* @internal Handler used to implement global frame received.
+	/* @internal Handler used to implement global msg received.
 	 */
-	MyQttOnFrameReceived             global_frame_received;
-	axlPointer                       global_frame_received_data;
-
-	/* @internal Handler used to implement global close channel
-	 * request received. */
-	MyQttOnNotifyCloseChannel        global_notify_close;
-	axlPointer                       global_notify_close_data;
+	MyQttOnMsgReceived             global_msg_received;
+	axlPointer                       global_msg_received_data;
 
 	/* @internal Handler used to implement global idle
 	   notification */
@@ -153,20 +148,20 @@ struct _MyQttCtx {
 	axl_bool             connection_connect_timeout_checked;
 	char              *  connection_connect_timeout_str;
 
-	/**** myqtt frame module state ****/
+	/**** myqtt msg module state ****/
 	/** 
 	 * @internal
 	 *
-	 * Internal variables (frame_id and frame_id_mutex) to make frame
+	 * Internal variables (msg_id and msg_id_mutex) to make msg
 	 * identification for the on going process. This allows to check if
-	 * two frames are equal or to track which frames are not properly
+	 * two msgs are equal or to track which msgs are not properly
 	 * released by the MyQtt Library.
 	 *
-	 * Frames are generated calling to __myqtt_frame_get_next_id. Thus,
-	 * every frame created while the running process is alive have a
-	 * different frame unique identifier. 
+	 * Msgs are generated calling to __myqtt_msg_get_next_id. Thus,
+	 * every msg created while the running process is alive have a
+	 * different msg unique identifier. 
 	 */
-	long                frame_id;
+	long                msg_id;
 
 	/**** myqtt io waiting module state ****/
 	MyQttIoCreateFdGroup  waiting_create;

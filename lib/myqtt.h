@@ -236,25 +236,25 @@ BEGIN_C_DECLS
 
 /* Internal includes and external includes for MyQtt API
  * consumers. */
-#include <myqtt_types.h>
-#include <myqtt_support.h>
-#include <myqtt_handlers.h>
-#include <myqtt_ctx.h>
-#include <myqtt_thread.h>
-#include <myqtt_thread_pool.h>
-#include <myqtt_queue.h>
-#include <myqtt_hash.h>
-#include <myqtt_connection.h>
-#include <myqtt_listener.h>
-#include <myqtt_frame_factory.h>
-#include <myqtt_io.h>
-#include <myqtt_reader.h>
-#include <myqtt_errno.h>
+#include <myqtt-types.h>
+#include <myqtt-support.h>
+#include <myqtt-handlers.h>
+#include <myqtt-hash.h>
+#include <myqtt-ctx.h>
+#include <myqtt-thread.h>
+#include <myqtt-thread-pool.h>
+#include <myqtt-conn.h>
+#include <myqtt-listener.h>
+#include <myqtt-io.h>
+#include <myqtt-reader.h>
+#include <myqtt-errno.h>
+#include <myqtt-sequencer.h>
+#include <myqtt-msg.h>
 
 END_C_DECLS
 
 #if defined(AXL_OS_WIN32)
-#include <myqtt_win32.h>
+#include <myqtt-win32.h>
 #endif
 
 #include <errno.h>
@@ -386,8 +386,6 @@ MyQttLogHandler myqtt_log_get_handler (MyQttCtx      * ctx);
 void     myqtt_log_filter_level     (MyQttCtx * ctx, const char * filter_string);
 
 axl_bool    myqtt_log_filter_is_enabled (MyQttCtx * ctx);
-
-void     myqtt_writer_data_free     (MyQttWriterData * writer_data);
 
 /**
  * @brief Allowed items to use for \ref myqtt_conf_get.

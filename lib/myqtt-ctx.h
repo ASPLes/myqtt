@@ -60,12 +60,8 @@ axlPointer  myqtt_ctx_get_data                  (MyQttCtx       * ctx,
 
 /*** global event notificaitons ***/
 void        myqtt_ctx_set_frame_received        (MyQttCtx             * ctx,
-						 MyQttOnFrameReceived   received,
-						 axlPointer              received_user_data);
-
-void        myqtt_ctx_set_close_notify_handler  (MyQttCtx                  * ctx,
-						  MyQttOnNotifyCloseChannel   close_notify,
-						  axlPointer                   user_data);
+						 MyQttOnMsgReceived     received,
+						 axlPointer             received_user_data);
 
 void        myqtt_ctx_set_idle_handler          (MyQttCtx                       * ctx,
 						 MyQttIdleHandler                 idle_handler,
@@ -73,8 +69,8 @@ void        myqtt_ctx_set_idle_handler          (MyQttCtx                       
 						 axlPointer                        user_data,
 						 axlPointer                        user_data2);
 
-void        myqtt_ctx_notify_idle               (MyQttCtx                       * ctx,
-						  MyQttConnection                * conn);
+void        myqtt_ctx_notify_idle               (MyQttCtx     * ctx,
+						 MyQttConn    * conn);
 
 void        myqtt_ctx_install_cleanup           (MyQttCtx * ctx,
 						  axlDestroyFunc cleanup);
