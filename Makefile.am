@@ -1,9 +1,5 @@
-if ENABLE_READLINE 
-MYQTT_TEST_DIR = 
-endif
 
-
-SUBDIRS = lib 
+SUBDIRS = lib test
 EXTRA_DIST = myqtt-1.0.pc.in VERSION
 
 pkgconfigdir = $(libdir)/pkgconfig
