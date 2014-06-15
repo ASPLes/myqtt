@@ -42,7 +42,7 @@
 #include <signal.h>
 
 /* private include */
-#include <myqtt_ctx_private.h>
+#include <myqtt-ctx-private.h>
 
 #define LOG_DOMAIN "myqtt"
 
@@ -897,7 +897,7 @@ axl_bool    myqtt_init_ctx (MyQttCtx * ctx)
 	myqtt_io_init (ctx);
 
 	/**** myqtt.c: init global mutex *****/
-	myqtt_mutex_create (&ctx->frame_id_mutex);
+	myqtt_mutex_create (&ctx->msg_id_mutex);
 	myqtt_mutex_create (&ctx->connection_id_mutex);
 	myqtt_mutex_create (&ctx->listener_mutex);
 	myqtt_mutex_create (&ctx->listener_unlock);
@@ -905,10 +905,7 @@ axl_bool    myqtt_init_ctx (MyQttCtx * ctx)
 	myqtt_mutex_create (&ctx->port_share_mutex);
 
 	/* init connection module */
-	myqtt_connection_init (ctx);
-
-	/* init profiles module */
-	myqtt_profiles_init (ctx);
+	myqtt_conn_init (ctx);
 
 	/* init myqtt support module on the context provided: 
 	 * 
@@ -944,12 +941,6 @@ axl_bool    myqtt_init_ctx (MyQttCtx * ctx)
 	   library to perform a local copy path */
 	myqtt_support_add_search_path (ctx, ".");
 	
-	/* init dtds */
-	if (!myqtt_dtds_init (ctx)) {
-		fprintf (stderr, "MYQTT_ERROR: unable to load dtd files (this means some DTD (or all) file wasn't possible to be loaded.\n");
-		return axl_false;
-	}
-
 	/* before starting, check if we are using select(2) system
 	 * call method, to adequate the number of sockets that can
 	 * *really* handle the FD_* function family, to the number of
@@ -1032,7 +1023,7 @@ axl_bool myqtt_init_check (MyQttCtx * ctx)
  *
  * NOTE: Although it isn't explicitly stated, this function shouldn't
  * be called from inside a handler notification: \ref
- * MyQttOnFrameReceived "Frame Receive", \ref MyQttOnCloseChannel
+ * MyQttOnMsgReceived "Msg Receive", \ref MyQttOnCloseChannel
  * "Channel close", etc. This is because those handlers works inside
  * the context of the myqtt library execution. Making a call to this
  * function in the middle of that context, will produce undefined
@@ -1055,7 +1046,7 @@ axl_bool myqtt_init_check (MyQttCtx * ctx)
  *
  * Currently this is allowed and supported only in the following handlers:
  *
- * - \ref MyQttOnFrameReceived (\ref myqtt_channel_set_received_handler)
+ * - \ref MyQttOnMsgReceived (\ref myqtt_channel_set_received_handler)
  * - \ref MyQttConnectionOnCloseFull (\ref myqtt_connection_set_on_close_full)
  *
  * The rest of handlers has being not tested.
@@ -1100,9 +1091,6 @@ void myqtt_exit_ctx (MyQttCtx * ctx, axl_bool  free_ctx)
 	/* stop myqtt sequencer */
 	myqtt_sequencer_stop (ctx);
 
-	/* stop myqtt profiles process */
-	myqtt_profiles_cleanup (ctx);
-
 	/* clean up myqtt modules */
 	myqtt_log (MYQTT_LEVEL_DEBUG, "shutting down myqtt xml subsystem");
 
@@ -1129,10 +1117,7 @@ void myqtt_exit_ctx (MyQttCtx * ctx, axl_bool  free_ctx)
 	myqtt_thread_pool_exit (ctx); 
 
 	/* cleanup connection module */
-	myqtt_connection_cleanup (ctx); 
-
-	/* cleanup channel module */
-	myqtt_channel_cleanup (ctx); 
+	myqtt_conn_cleanup (ctx); 
 
 	/* cleanup listener module */
 	myqtt_listener_cleanup (ctx);
@@ -1141,11 +1126,10 @@ void myqtt_exit_ctx (MyQttCtx * ctx, axl_bool  free_ctx)
 	myqtt_support_cleanup (ctx);
 
 	/* destroy global mutex */
-	myqtt_mutex_destroy (&ctx->frame_id_mutex);
+	myqtt_mutex_destroy (&ctx->msg_id_mutex);
 	myqtt_mutex_destroy (&ctx->connection_id_mutex);
 	myqtt_mutex_destroy (&ctx->listener_mutex);
 	myqtt_mutex_destroy (&ctx->listener_unlock);
-	myqtt_mutex_destroy (&ctx->profiles_list_mutex);
 	myqtt_mutex_destroy (&ctx->port_share_mutex);
 
 	/* release port share handlers (if any) */

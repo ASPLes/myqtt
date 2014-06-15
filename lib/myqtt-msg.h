@@ -36,51 +36,44 @@
  *         info@aspl.es - http://www.aspl.es/mqtt
  *                        http://www.aspl.es/myqtt
  */
-#ifndef __MYQTT_READER_H__
-#define __MYQTT_READER_H__
+#ifndef __MYQTT_MSG_H__
+#define __MYQTT_MSG_H__
 
 #include <myqtt.h>
 
-void myqtt_reader_watch_listener              (MyQttCtx        * ctx,
-						MyQttConn * listener);
+/**
+ * \addtogroup myqtt_msg
+ * @{
+ */
 
-void myqtt_reader_watch_connection            (MyQttCtx        * ctx,
-						MyQttConn * connection);
+MyQttMsg    * myqtt_msg_get_next              (MyQttConn   * conn);
 
-void myqtt_reader_unwatch_connection          (MyQttCtx        * ctx,
-						MyQttConn * connection);
+axl_bool      myqtt_msg_send_raw              (MyQttConn   * conn, 
+					       const char  * msg, 
+					       int           msg_size);
 
-int  myqtt_reader_connections_watched         (MyQttCtx        * ctx);
+int           myqtt_msg_receive_raw           (MyQttConn * conn, 
+					       char      * buffer, 
+					       int         maxlen);
 
-int  myqtt_reader_run                         (MyQttCtx * ctx);
+int           myqtt_msg_readline              (MyQttConn * connection, 
+					       char      * buffer, 
+					       int         maxlen);
 
-void myqtt_reader_stop                        (MyQttCtx * ctx);
+axl_bool      myqtt_msg_ref                   (MyQttMsg * msg);
 
-int  myqtt_reader_notify_change_io_api        (MyQttCtx * ctx);
+void          myqtt_msg_unref                 (MyQttMsg * msg);
 
-void myqtt_reader_notify_change_done_io_api   (MyQttCtx * ctx);
+int           myqtt_msg_ref_count             (MyQttMsg * msg);
 
-axl_bool  myqtt_reader_invoke_msg_received  (MyQttCtx  * ctx,
-					     MyQttConn * connection,
-					     MyQttMsg  * msg);
+void          myqtt_msg_free                  (MyQttMsg * msg);
 
-/* internal API */
-typedef void (*MyQttForeachFunc) (MyQttConn * conn, axlPointer user_data);
-typedef void (*MyQttForeachFunc3) (MyQttConn * conn, 
-				    axlPointer         user_data, 
-				    axlPointer         user_data2,
-				    axlPointer         user_data3);
+int           myqtt_msg_get_id                (MyQttMsg * msg);
 
-MyQttAsyncQueue * myqtt_reader_foreach       (MyQttCtx            * ctx,
-						MyQttForeachFunc      func,
-						axlPointer             user_data);
+int           myqtt_msg_get_payload_size      (MyQttMsg * msg);
 
-void               myqtt_reader_foreach_offline (MyQttCtx           * ctx,
-						  MyQttForeachFunc3    func,
-						  axlPointer            user_data,
-						  axlPointer            user_data2,
-						  axlPointer            user_data3);
+const void *  myqtt_msg_get_payload           (MyQttMsg * msg);
 
-void               myqtt_reader_restart (MyQttCtx * ctx);
+/* @} */
 
 #endif

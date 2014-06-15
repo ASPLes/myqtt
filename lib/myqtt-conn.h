@@ -62,50 +62,36 @@
  */
 #define CONN_CTX(c) myqtt_conn_get_ctx(c)
 
-MyQttConn  * myqtt_conn_new                    (MyQttCtx            * ctx,
-						 const char           * host, 
-						 const char           * port,
-						 MyQttConnNew    on_connected, 
-						 axlPointer             user_data);
+MyQttConn  * myqtt_conn_new                    (MyQttCtx      * ctx,
+						const char    * host, 
+						const char    * port,
+						MyQttConnNew    on_connected, 
+						axlPointer      user_data);
 
-MyQttConn  * myqtt_conn_new_full               (MyQttCtx            * ctx,
-						 const char           * host, 
-						 const char           * port,
-						 MyQttConnOpts * options,
-						 MyQttConnNew    on_connected, 
-						 axlPointer             user_data);
+MyQttConn  * myqtt_conn_new6                   (MyQttCtx      * ctx,
+						const char    * host, 
+						const char    * port,
+						MyQttConnNew    on_connected, 
+						axlPointer      user_data);
 
-MyQttConn  * myqtt_conn_new6                   (MyQttCtx            * ctx,
-						 const char           * host, 
-						 const char           * port,
-						 MyQttConnNew    on_connected, 
-						 axlPointer             user_data);
-
-MyQttConn  * myqtt_conn_new_full6              (MyQttCtx            * ctx,
-						 const char           * host, 
-						 const char           * port,
-						 MyQttConnOpts * options,
-						 MyQttConnNew    on_connected, 
-						 axlPointer             user_data);
-
-axl_bool            myqtt_conn_reconnect              (MyQttConn * conn,
-							MyQttConnNew on_connected,
-							axlPointer user_data);
+axl_bool            myqtt_conn_reconnect       (MyQttConn * conn,
+						MyQttConnNew on_connected,
+						axlPointer user_data);
 
 axl_bool            myqtt_conn_close                  (MyQttConn  * conn);
 
-MYQTT_SOCKET       myqtt_conn_sock_connect           (MyQttCtx   * ctx,
-							const char  * host,
-							const char  * port,
-							int         * timeout,
-							axlError   ** error);
+MYQTT_SOCKET       myqtt_conn_sock_connect     (MyQttCtx    * ctx,
+						const char  * host,
+						const char  * port,
+						int         * timeout,
+						axlError   ** error);
 
 MYQTT_SOCKET       myqtt_conn_sock_connect_common    (MyQttCtx            * ctx,
-							const char           * host,
-							const char           * port,
-							int                  * timeout,
-							MyQttNetTransport     transport,
-							axlError            ** error);
+						      const char           * host,
+						      const char           * port,
+						      int                  * timeout,
+						      MyQttNetTransport     transport,
+						      axlError            ** error);
 
 axl_bool            myqtt_conn_ref                    (MyQttConn * conn,
 							const char       * who);
@@ -204,20 +190,9 @@ axlPointer          myqtt_conn_get_hook               (MyQttConn * conn);
 void                myqtt_conn_delete_key_data        (MyQttConn * conn,
 							const char       * key);
 
-void                myqtt_conn_set_conn_actions (MyQttCtx              * ctx,
-						  MyQttConnStage    stage,
-						  MyQttConnAction   action_handler,
-						  axlPointer               handler_data);
-
-
-int                 myqtt_conn_actions_notify         (MyQttCtx                * ctx,
-							MyQttConn        ** caller_conn,
-							MyQttConnStage      stage);
 
 axlPointer          myqtt_conn_get_data               (MyQttConn * conn,
 							      const char       * key);
-
-MyQttHash        * myqtt_conn_get_data_hash          (MyQttConn * conn);
 
 MyQttPeerRole      myqtt_conn_get_role               (MyQttConn * conn);
 
@@ -298,10 +273,6 @@ void                __myqtt_conn_set_not_connected    (MyQttConn * conn,
 							MyQttStatus       status);
 
 int                 myqtt_conn_do_a_sending_round     (MyQttConn * conn);
-
-void                __myqtt_conn_check_and_notify     (MyQttConn * conn, 
-							MyQttChannel    * channel, 
-							axl_bool           is_added);
 
 int                 myqtt_conn_get_mss                (MyQttConn * conn);
 

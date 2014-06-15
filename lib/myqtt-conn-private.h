@@ -102,7 +102,7 @@ void freeaddrinfo(struct addrinfo *ai);
  * @internal
  * @brief Internal MyQttConnection representation.
  */
-struct _MyQttConnection {
+struct _MyQttConn {
 	/** 
 	 * @brief MyQtt context where the connection was created.
 	 */
@@ -232,11 +232,6 @@ struct _MyQttConnection {
 	axlList * on_close_full;
 
 	/** 
-	 * @brief Stack storing pending channel errors found.
-	 */ 
-	axlStack * pending_errors;
-
-	/** 
 	 * @brief Mutex used to open the pending errors list.
 	 */
 	MyQttMutex pending_errors_mutex;
@@ -273,7 +268,7 @@ struct _MyQttConnection {
 
 	/** 
 	 * @internal Reference to a line that wasn't totally read when
-	 * call myqtt_frame_readline.
+	 * call myqtt_msg_readline.
 	 */ 
 	char                  * pending_line;
 
@@ -281,22 +276,22 @@ struct _MyQttConnection {
 	 * @internal Pointer to the currently configured pre accept
 	 * handler.
 	 */ 
-	MyQttConnectionOnPreRead    pre_accept_handler;
+	MyQttConnOnPreRead    pre_accept_handler;
 
 	/** 
 	 * @internal Pointer used to store the buffer that is holding
-	 * the content of the next frame.
+	 * the content of the next msg.
 	 */
 	char                       * buffer;
 	
 	/** 
-	 * @internal Pointer to the last frame being read at the
+	 * @internal Pointer to the last msg being read at the
 	 * connection.
 	 */
-	MyQttFrame                * last_frame;
+	MyQttMsg                  * last_msg;
 
 	/** 
-	 * @internal Variable that is used by myqtt_frame_get_next to
+	 * @internal Variable that is used by myqtt_msg_get_next to
 	 * track status for partial reads.
 	 */
 	int                          remaining_bytes;

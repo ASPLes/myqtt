@@ -39,13 +39,13 @@
 #include <myqtt.h>
 
 /* local/private includes */
-#include <myqtt_ctx_private.h>
-#include <myqtt_connection_private.h>
+#include <myqtt-ctx-private.h>
+#include <myqtt-conn-private.h>
 
 #define LOG_DOMAIN "myqtt-reader"
 
 /**
- * \defgroup myqtt_reader MyQtt Reader: The module that reads you frames. 
+ * \defgroup myqtt_reader MyQtt Reader: The module that reads your msgs. 
  */
 
 /**
@@ -63,7 +63,7 @@ typedef enum {CONNECTION,
 
 typedef struct _MyQttReaderData {
 	WatchType            type;
-	MyQttConnection   * connection;
+	MyQttConn   * connection;
 	MyQttForeachFunc    func;
 	axlPointer           user_data;
 	/* queue used to notify that the foreach operation was
@@ -74,112 +74,67 @@ typedef struct _MyQttReaderData {
 /** 
  * @internal
  * 
- * The main purpose of this function is to dispatch received frames
+ * The main purpose of this function is to dispatch received msgs
  * into the appropriate channel. It also makes all checks to ensure the
- * frame receive have all indicators (seqno, channel, message number,
+ * msg receive have all indicators (seqno, channel, message number,
  * payload size correctness,..) to ensure the channel receive correct
- * frames and filter those ones which have something wrong.
+ * msgs and filter those ones which have something wrong.
  *
- * This function also manage frame fragment joining. There are two
- * levels of frame fragment managed by the myqtt reader.
+ * This function also manage msg fragment joining. There are two
+ * levels of msg fragment managed by the myqtt reader.
  * 
  * We call the first level of fragment, the one described at RFC3080,
- * as the complete frame which belongs to a group of frames which
+ * as the complete msg which belongs to a group of msgs which
  * conform a message which was splitted due to channel window size
  * restrictions.
  *
  * The second level of fragment happens when the myqtt reader receive
- * a frame header which describes a frame size payload to receive but
+ * a msg header which describes a msg size payload to receive but
  * not all payload was actually received. This can happen because
  * myqtt uses non-blocking socket configuration so it can avoid DOS
  * attack. But this behavior introduce the asynchronous problem of
- * reading at the moment where the whole frame was not received.  We
- * call to this internal frame fragmentation. It is also supported
+ * reading at the moment where the whole msg was not received.  We
+ * call to this internal msg fragmentation. It is also supported
  * without blocking to myqtt reader.
  *
  * While reading this function, you have to think about it as a
- * function which is executed for only one frame, received inside only
+ * function which is executed for only one msg, received inside only
  * one channel for the given connection.
  *
  * @param connection the connection which have something to be read
  * 
  **/
 void __myqtt_reader_process_socket (MyQttCtx        * ctx, 
-				     MyQttConnection * connection)
+				     MyQttConn * connection)
 {
 
-	MyQttFrame      * frame;
-	MyQttFrame      * previous;
-	MyQttFrameType    type;
-	MyQttChannel    * channel;
-	axl_bool           more;
-#if defined(ENABLE_MYQTT_LOG)
-	char             * raw_frame;
-	int                frame_id;
-#endif
+	MyQttMsg      * msg;
 
-	myqtt_log (MYQTT_LEVEL_DEBUG, "something to read conn-id=%d", myqtt_connection_get_id (connection));
+	myqtt_log (MYQTT_LEVEL_DEBUG, "something to read conn-id=%d", myqtt_conn_get_id (connection));
 
 	/* check if there are pre read handler to be executed on this 
 	   connection. */
-	if (myqtt_connection_is_defined_preread_handler (connection)) {
+	if (myqtt_conn_is_defined_preread_handler (connection)) {
 		/* if defined preread handler invoke it and return. */
-		myqtt_connection_invoke_preread_handler (connection);
+		myqtt_conn_invoke_preread_handler (connection);
 		return;
 	} /* end if */
 
 	/* before doing anything, check if the connection is broken */
-	if (! myqtt_connection_is_ok (connection, axl_false))
+	if (! myqtt_conn_is_ok (connection, axl_false))
 		return;
 
 	/* check for unwatch requests */
 	if (connection->reader_unwatch)
 		return;
 
-	/* read all frames received from remote site */
-	frame   = myqtt_frame_get_next (connection);
-	if (frame == NULL) 
+	/* read all msgs received from remote site */
+	msg   = myqtt_msg_get_next (connection);
+	if (msg == NULL) 
 		return;
 
-	/* get frame type to avoid calling everytime to
-	 * myqtt_frame_get_type */
-	type    = myqtt_frame_get_type (frame);
-
-	/* NOTE: After this point, frame received is
-	 * complete. myqtt_frame_get_next function takes cares about
-	 * joining frame fragments. */
-
-	/* check for debug to throw some debug messages.*/
-#if defined(ENABLE_MYQTT_LOG)
-	/* get frame id */ 
-	frame_id = myqtt_frame_get_id (frame);
-
-	if (myqtt_log2_is_enabled (ctx)) {
-		raw_frame = myqtt_frame_get_raw_frame (frame);
-		myqtt_log (MYQTT_LEVEL_DEBUG, "frame id=%d received (before all filters)\n%s",
-			    frame_id, raw_frame);
-		axl_free (raw_frame);
-	}
-#endif
-	
-	/* if not, try to deliver to first level. If second level
-	 * invocation was ok, the frame have been freed. If not, the
-	 * first level will do this */
-	if (myqtt_profiles_invoke_frame_received (myqtt_channel_get_profile    (channel),
-						   myqtt_channel_get_number     (channel),
-						   myqtt_channel_get_connection (channel),
-						   frame)) {
-		myqtt_log (MYQTT_LEVEL_DEBUG, "frame id=%d delivered on first (profile) level handler channel",
-			    frame_id);
-		return; /* frame was successfully delivered */
-	}
-	
-	myqtt_log (MYQTT_LEVEL_WARNING, 
-		    "unable to deliver incoming frame id=%d, no first or second level handler defined, dropping frame",
-		    frame_id);
-
-	/* unable to deliver the frame, free it */
-	myqtt_frame_unref (frame);
+	/* unable to deliver the msg, free it */
+	myqtt_msg_unref (msg);
 
 	/* that's all I can do */
 	return;
@@ -198,7 +153,7 @@ void __myqtt_reader_process_socket (MyQttCtx        * ctx,
  */
 axl_bool   myqtt_reader_register_watch (MyQttReaderData * data, axlList * con_list, axlList * srv_list)
 {
-	MyQttConnection * connection;
+	MyQttConn * connection;
 #if defined(ENABLE_MYQTT_LOG)
 	MyQttCtx        * ctx;
 #endif
@@ -207,15 +162,15 @@ axl_bool   myqtt_reader_register_watch (MyQttReaderData * data, axlList * con_li
 	 * defined) */
 	connection = data->connection;
 #if defined(ENABLE_MYQTT_LOG)
-	ctx        = myqtt_connection_get_ctx (connection);
+	ctx        = myqtt_conn_get_ctx (connection);
 #endif
 
 	switch (data->type) {
 	case CONNECTION:
 		/* check the connection */
-		if (!myqtt_connection_is_ok (connection, axl_false)) {
+		if (!myqtt_conn_is_ok (connection, axl_false)) {
 			/* check if we can free this connection */
-			myqtt_connection_unref (connection, "myqtt reader (watch)");
+			myqtt_conn_unref (connection, "myqtt reader (watch)");
 			myqtt_log (MYQTT_LEVEL_DEBUG, "received a non-valid connection, ignoring it");
 
 			/* release data */
@@ -225,16 +180,16 @@ axl_bool   myqtt_reader_register_watch (MyQttReaderData * data, axlList * con_li
 			
 		/* now we have a first connection, we can start to wait */
 		myqtt_log (MYQTT_LEVEL_DEBUG, "new connection (conn-id=%d) to be watched (%d)", 
-			    myqtt_connection_get_id (connection), myqtt_connection_get_socket (connection));
+			    myqtt_conn_get_id (connection), myqtt_conn_get_socket (connection));
 		axl_list_append (con_list, connection);
 
 		break;
 	case LISTENER:
 		myqtt_log (MYQTT_LEVEL_DEBUG, "new listener connection to be watched (socket: %d --> %s:%s, conn-id: %d)",
-			    myqtt_connection_get_socket (connection), 
-			    myqtt_connection_get_host (connection), 
-			    myqtt_connection_get_port (connection),
-			    myqtt_connection_get_id (connection));
+			    myqtt_conn_get_socket (connection), 
+			    myqtt_conn_get_host (connection), 
+			    myqtt_conn_get_port (connection),
+			    myqtt_conn_get_id (connection));
 		axl_list_append (srv_list, connection);
 		break;
 	case TERMINATE:
@@ -306,7 +261,7 @@ void myqtt_reader_foreach_impl (MyQttCtx        * ctx,
 	while (axl_list_cursor_has_item (cursor)) {
 
 		/* notify, if the connection is ok */
-		if (myqtt_connection_is_ok (axl_list_cursor_get (cursor), axl_false)) {
+		if (myqtt_conn_is_ok (axl_list_cursor_get (cursor), axl_false)) {
 			data->func (axl_list_cursor_get (cursor), data->user_data);
 		} /* end if */
 
@@ -321,7 +276,7 @@ void myqtt_reader_foreach_impl (MyQttCtx        * ctx,
 	cursor = axl_list_cursor_new (srv_list);
 	while (axl_list_cursor_has_item (cursor)) {
 		/* notify, if the connection is ok */
-		if (myqtt_connection_is_ok (axl_list_cursor_get (cursor), axl_false)) {
+		if (myqtt_conn_is_ok (axl_list_cursor_get (cursor), axl_false)) {
 			data->func (axl_list_cursor_get (cursor), data->user_data);
 		} /* end if */
 
@@ -340,35 +295,34 @@ void myqtt_reader_foreach_impl (MyQttCtx        * ctx,
 }
 
 /**
- * @internal Function that checks if there are a global frame received
+ * @internal Function that checks if there are a global msg received
  * handler configured on the context provided and, in the case it is
- * defined, the frame is delivered to that handler.
+ * defined, the msg is delivered to that handler.
  *
- * @param ctx The context to check for a global frame received.
+ * @param ctx The context to check for a global msg received.
  *
- * @param connection The connection where the frame was received.
+ * @param connection The connection where the msg was received.
  *
- * @param channel The channel where the frame was received.
+ * @param channel The channel where the msg was received.
  *
- * @param frame The frame that was received.
+ * @param msg The msg that was received.
  *
- * @return axl_true in the case the global frame received handler is
- * defined and the frame was delivered on it.
+ * @return axl_true in the case the global msg received handler is
+ * defined and the msg was delivered on it.
  */
-axl_bool  myqtt_reader_invoke_frame_received       (MyQttCtx        * ctx,
-						    MyQttConnection * connection,
-						    MyQttChannel    * channel,
-						    MyQttFrame      * frame)
+axl_bool  myqtt_reader_invoke_msg_received       (MyQttCtx    * ctx,
+						  MyQttConn   * connection,
+						  MyQttMsg    * msg)
 {
 	/* check the reference and the handler */
-	if (ctx == NULL || ctx->global_frame_received == NULL)
+	if (ctx == NULL || ctx->global_msg_received == NULL)
 		return axl_false;
 	
 	/* no thread activation */
-	ctx->global_frame_received (channel, connection, frame, ctx->global_frame_received_data);
+	ctx->global_msg_received (connection, msg, ctx->global_msg_received_data);
 	
-	/* unref the frame here */
-	myqtt_frame_unref (frame);
+	/* unref the msg here */
+	myqtt_msg_unref (msg);
 
 	/* return delivered */
 	return axl_true;
@@ -489,7 +443,7 @@ MYQTT_SOCKET __myqtt_reader_build_set_to_watch_aux (MyQttCtx     * ctx,
 {
 	MYQTT_SOCKET      max_fds     = current_max;
 	MYQTT_SOCKET      fds         = 0;
-	MyQttConnection * connection;
+	MyQttConn * connection;
 	long               time_stamp  = 0;
 
 	/* get current time stamp if idle handler is defined */
@@ -504,10 +458,10 @@ MYQTT_SOCKET __myqtt_reader_build_set_to_watch_aux (MyQttCtx     * ctx,
 
 		/* check for idle status */
 		if (ctx->global_idle_handler)
-			myqtt_connection_check_idle_status (connection, ctx, time_stamp);
+			myqtt_conn_check_idle_status (connection, ctx, time_stamp);
 
 		/* check ok status */
-		if (! myqtt_connection_is_ok (connection, axl_false)) {
+		if (! myqtt_conn_is_ok (connection, axl_false)) {
 
 			/* FIRST: remove current cursor to ensure the
 			 * connection is out of our handling before
@@ -515,7 +469,7 @@ MYQTT_SOCKET __myqtt_reader_build_set_to_watch_aux (MyQttCtx     * ctx,
 			axl_list_cursor_unlink (cursor);
 
 			/* connection isn't ok, unref it */
-			myqtt_connection_unref (connection, "myqtt reader (build set)");
+			myqtt_conn_unref (connection, "myqtt reader (build set)");
 
 			continue;
 		} /* end if */
@@ -531,16 +485,16 @@ MYQTT_SOCKET __myqtt_reader_build_set_to_watch_aux (MyQttCtx     * ctx,
 			axl_list_cursor_unlink (cursor);
 
 			/* connection isn't ok, unref it */
-			myqtt_connection_unref (connection, "myqtt reader (process: unwatch)");
+			myqtt_conn_unref (connection, "myqtt reader (process: unwatch)");
 
 			continue;
 		} /* end if */
 
 		/* check if the connection is blocked (no I/O read to
 		 * perform on it) */
-		if (myqtt_connection_is_blocked (connection)) {
-			/* myqtt_log (MYQTT_LEVEL_DEBUG, "connection id=%d has I/O read blocked (myqtt_connection_block)", 
-			   myqtt_connection_get_id (connection)); */
+		if (myqtt_conn_is_blocked (connection)) {
+			/* myqtt_log (MYQTT_LEVEL_DEBUG, "connection id=%d has I/O read blocked (myqtt_conn_block)", 
+			   myqtt_conn_get_id (connection)); */
 			/* get the next */
 			axl_list_cursor_next (cursor);
 			continue;
@@ -548,7 +502,7 @@ MYQTT_SOCKET __myqtt_reader_build_set_to_watch_aux (MyQttCtx     * ctx,
 
 		/* get the socket to ge added and get its maximum
 		 * value */
-		fds        = myqtt_connection_get_socket (connection);
+		fds        = myqtt_conn_get_socket (connection);
 		max_fds    = fds > max_fds ? fds: max_fds;
 
 		/* add the socket descriptor into the given on reading
@@ -564,9 +518,9 @@ MYQTT_SOCKET __myqtt_reader_build_set_to_watch_aux (MyQttCtx     * ctx,
 			axl_list_cursor_unlink (cursor);
 
 			/* set it as not connected */
-			if (myqtt_connection_is_ok (connection, axl_false))
-				__myqtt_connection_shutdown_and_record_error (connection, MyQttError, "myqtt reader (add fail)");
-			myqtt_connection_unref (connection, "myqtt reader (add fail)");
+			if (myqtt_conn_is_ok (connection, axl_false))
+				__myqtt_conn_shutdown_and_record_error (connection, MyQttError, "myqtt reader (add fail)");
+			myqtt_conn_unref (connection, "myqtt reader (add fail)");
 
 			continue;
 		} /* end if */
@@ -607,7 +561,7 @@ void __myqtt_reader_check_connection_list (MyQttCtx     * ctx,
 {
 
 	MYQTT_SOCKET       fds        = 0;
-	MyQttConnection  * connection = NULL;
+	MyQttConn  * connection = NULL;
 	int                 checked    = 0;
 
 	/* check all connections */
@@ -621,19 +575,19 @@ void __myqtt_reader_check_connection_list (MyQttCtx     * ctx,
 		/* check if we have to keep on listening on this
 		 * connection */
 		connection = axl_list_cursor_get (conn_cursor);
-		if (!myqtt_connection_is_ok (connection, axl_false)) {
+		if (!myqtt_conn_is_ok (connection, axl_false)) {
 			/* FIRST: remove current cursor to ensure the
 			 * connection is out of our handling before
 			 * finishing the reference the reader owns */
 			axl_list_cursor_unlink (conn_cursor);
 
 			/* connection isn't ok, unref it */
-			myqtt_connection_unref (connection, "myqtt reader (check list)");
+			myqtt_conn_unref (connection, "myqtt reader (check list)");
 			continue;
 		}
 		
 		/* get the connection and socket. */
-	        fds = myqtt_connection_get_socket (connection);
+	        fds = myqtt_conn_get_socket (connection);
 		
 		/* ask if this socket have changed */
 		if (myqtt_io_waiting_invoke_is_set_fd_group (ctx, fds, on_reading, ctx)) {
@@ -663,7 +617,7 @@ int  __myqtt_reader_check_listener_list (MyQttCtx     * ctx,
 
 	int                fds      = 0;
 	int                checked  = 0;
-	MyQttConnection * connection;
+	MyQttConn * connection;
 
 	/* check all listeners */
 	axl_list_cursor_first (srv_cursor);
@@ -672,9 +626,9 @@ int  __myqtt_reader_check_listener_list (MyQttCtx     * ctx,
 		/* get the connection */
 		connection = axl_list_cursor_get (srv_cursor);
 
-		if (!myqtt_connection_is_ok (connection, axl_false)) {
+		if (!myqtt_conn_is_ok (connection, axl_false)) {
 			myqtt_log (MYQTT_LEVEL_DEBUG, "myqtt reader found listener id=%d not operational, unreference",
-				    myqtt_connection_get_id (connection));
+				    myqtt_conn_get_id (connection));
 
 			/* FIRST: remove current cursor to ensure the
 			 * connection is out of our handling before
@@ -682,7 +636,7 @@ int  __myqtt_reader_check_listener_list (MyQttCtx     * ctx,
 			axl_list_cursor_unlink (srv_cursor);
 
 			/* connection isn't ok, unref it */
-			myqtt_connection_unref (connection, "myqtt reader (process), listener closed");
+			myqtt_conn_unref (connection, "myqtt reader (process), listener closed");
 
 			/* update checked connections */
 			checked++;
@@ -691,7 +645,7 @@ int  __myqtt_reader_check_listener_list (MyQttCtx     * ctx,
 		} /* end if */
 		
 		/* get the connection and socket. */
-		fds  = myqtt_connection_get_socket (connection);
+		fds  = myqtt_conn_get_socket (connection);
 
 		/* check if the socket is activated */
 		if (myqtt_io_waiting_invoke_is_set_fd_group (ctx, fds, on_reading, ctx)) {
@@ -756,11 +710,11 @@ void __myqtt_reader_stop_process (MyQttCtx     * ctx,
 
 void __myqtt_reader_close_connection (axlPointer pointer)
 {
-	MyQttConnection * conn = pointer;
+	MyQttConn * conn = pointer;
 
 	/* unref the connection */
-	myqtt_connection_shutdown (conn);
-	myqtt_connection_unref (conn, "myqtt reader");
+	myqtt_conn_shutdown (conn);
+	myqtt_conn_unref (conn, "myqtt reader");
 
 	return;
 }
@@ -775,19 +729,19 @@ void __myqtt_reader_close_connection (axlPointer pointer)
  */
 void __myqtt_reader_dispatch_connection (int                  fds,
 					  MyQttIoWaitingFor   wait_to,
-					  MyQttConnection   * connection,
+					  MyQttConn   * connection,
 					  axlPointer           user_data)
 {
 	/* cast the reference */
 	MyQttCtx * ctx = user_data;
 
-	switch (myqtt_connection_get_role (connection)) {
+	switch (myqtt_conn_get_role (connection)) {
 	case MyQttRoleMasterListener:
 		/* check if there are pre read handler to be executed on this 
 		   connection. */
-		if (myqtt_connection_is_defined_preread_handler (connection)) {
+		if (myqtt_conn_is_defined_preread_handler (connection)) {
 			/* if defined preread handler invoke it and return. */
-			myqtt_connection_invoke_preread_handler (connection);
+			myqtt_conn_invoke_preread_handler (connection);
 			return;
 		} /* end if */
 
@@ -805,7 +759,7 @@ void __myqtt_reader_dispatch_connection (int                  fds,
 
 axl_bool __myqtt_reader_detect_and_cleanup_connection (axlListCursor * cursor) 
 {
-	MyQttConnection * conn;
+	MyQttConn * conn;
 	char               bytes[3];
 	int                result;
 	int                fds;
@@ -815,10 +769,10 @@ axl_bool __myqtt_reader_detect_and_cleanup_connection (axlListCursor * cursor)
 	
 	/* get connection from cursor */
 	conn = axl_list_cursor_get (cursor);
-	if (myqtt_connection_is_ok (conn, axl_false)) {
+	if (myqtt_conn_is_ok (conn, axl_false)) {
 
 		/* get the connection and socket. */
-		fds    = myqtt_connection_get_socket (conn);
+		fds    = myqtt_conn_get_socket (conn);
 #if defined(AXL_OS_UNIX)
 		errno  = 0;
 #endif
@@ -830,13 +784,13 @@ axl_bool __myqtt_reader_detect_and_cleanup_connection (axlListCursor * cursor)
 			ctx = CONN_CTX (conn);
 #endif
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Found connection-id=%d, with session=%d not working (errno=%d), shutting down",
-				    myqtt_connection_get_id (conn), fds, errno);
+				    myqtt_conn_get_id (conn), fds, errno);
 			/* close connection, but remove the socket reference to avoid closing some's socket */
 			conn->session = -1;
-			myqtt_connection_shutdown (conn);
+			myqtt_conn_shutdown (conn);
 			
 			/* connection isn't ok, unref it */
-			myqtt_connection_unref (conn, "myqtt reader (process), wrong socket");
+			myqtt_conn_unref (conn, "myqtt reader (process), wrong socket");
 			axl_list_cursor_unlink (cursor);
 			return axl_false;
 		} /* end if */
@@ -1021,7 +975,7 @@ int  myqtt_reader_connections_watched         (MyQttCtx        * ctx)
  * @param connection The connection where to be unwatched from the reader...
  */
 void myqtt_reader_unwatch_connection          (MyQttCtx        * ctx,
-						MyQttConnection * connection)
+						MyQttConn * connection)
 {
 	v_return_if_fail (ctx && connection);
 	/* flag connection myqtt reader unwatch */
@@ -1036,27 +990,27 @@ void myqtt_reader_unwatch_connection          (MyQttCtx        * ctx,
  * function is for internal myqtt library use.
  **/
 void myqtt_reader_watch_connection (MyQttCtx        * ctx,
-				     MyQttConnection * connection)
+				     MyQttConn * connection)
 {
 	/* get current context */
 	MyQttReaderData * data;
 
-	v_return_if_fail (myqtt_connection_is_ok (connection, axl_false));
+	v_return_if_fail (myqtt_conn_is_ok (connection, axl_false));
 	v_return_if_fail (ctx->reader_queue);
 
-	if (!myqtt_connection_set_nonblocking_socket (connection)) {
+	if (!myqtt_conn_set_nonblocking_socket (connection)) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "unable to set non-blocking I/O operation, at connection registration, closing session");
  		return;
 	}
 
 	/* increase reference counting */
-	if (! myqtt_connection_ref (connection, "myqtt reader (watch)")) {
+	if (! myqtt_conn_ref (connection, "myqtt reader (watch)")) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "unable to increase connection reference count, dropping connection");
 		return;
 	}
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Accepting conn-id=%d into reader queue %p, library status: %d", 
-		    myqtt_connection_get_id (connection),
+		    myqtt_conn_get_id (connection),
 		    ctx->reader_queue,
 		    myqtt_is_exiting (ctx));
 
@@ -1077,7 +1031,7 @@ void myqtt_reader_watch_connection (MyQttCtx        * ctx,
  * Install a new listener to watch for new incoming connections.
  **/
 void myqtt_reader_watch_listener   (MyQttCtx        * ctx,
-				     MyQttConnection * listener)
+				     MyQttConn * listener)
 {
 	/* get current context */
 	MyQttReaderData * data;
@@ -1102,7 +1056,7 @@ void myqtt_reader_watch_listener   (MyQttCtx        * ctx,
 axl_bool __myqtt_reader_configure_conn (axlPointer ptr, axlPointer data)
 {
 	/* set the connection socket to be not closed */
-	myqtt_connection_set_close_socket ((MyQttConnection *) ptr, axl_false);
+	myqtt_conn_set_close_socket ((MyQttConn *) ptr, axl_false);
 	return axl_false; /* not found so all items are iterated */
 }
 

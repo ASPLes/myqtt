@@ -32,16 +32,35 @@ lib_LTLIBRARIES = libmyqtt-1.0.la
 
 libmyqtt_1_0_la_SOURCES =	\
 	myqtt.c \
-	myqtt_ctx.c \
-	myqtt_conn.c \
-	myqtt_reader.c 
+	myqtt-ctx.c \
+	myqtt-conn.c \
+	myqtt-reader.c \
+	myqtt-win32.c \
+	myqtt-thread.c \
+	myqtt-thread-pool.c \
+	myqtt-support.c \
+	myqtt-msg.c \
+	myqtt-listener.c \
+	myqtt-errno.c \
+	myqtt-hash.c \
+	myqtt-sequencer.c
 
 libmyqtt_1_0_include_HEADERS = myqtt.h \
-	myqtt_ctx.h \
-	myqtt_ctx_private.h \
-	myqtt_conn.h \
-	myqtt_conn_private.h \
-	myqtt_reader.h 
+	myqtt-ctx.h \
+	myqtt-ctx-private.h \
+	myqtt-conn.h \
+	myqtt-conn-private.h \
+	myqtt-reader.h  \
+	myqtt-win32.h \
+	myqtt-thread.h \
+	myqtt-thread-pool.h \
+	myqtt-support.h \
+	myqtt-handlers.h \
+	myqtt-msg.h \
+	myqtt-listener.h \
+	myqtt-errno.h \
+	myqtt-hash.h \
+	myqtt-sequencer.h
 
 libmyqtt_1_0_la_LIBADD = \
 	$(AXL_LIBS) $(PTHREAD_LIBS) $(ADDITIONAL_LIBS)
