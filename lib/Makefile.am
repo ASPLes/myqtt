@@ -43,7 +43,8 @@ libmyqtt_1_0_la_SOURCES =	\
 	myqtt-listener.c \
 	myqtt-errno.c \
 	myqtt-hash.c \
-	myqtt-sequencer.c
+	myqtt-sequencer.c \
+	myqtt-io.c
 
 libmyqtt_1_0_include_HEADERS = myqtt.h \
 	myqtt-ctx.h \
@@ -60,7 +61,8 @@ libmyqtt_1_0_include_HEADERS = myqtt.h \
 	myqtt-listener.h \
 	myqtt-errno.h \
 	myqtt-hash.h \
-	myqtt-sequencer.h
+	myqtt-sequencer.h \
+	myqtt-io.h
 
 libmyqtt_1_0_la_LIBADD = \
 	$(AXL_LIBS) $(PTHREAD_LIBS) $(ADDITIONAL_LIBS)

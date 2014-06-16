@@ -41,8 +41,91 @@
 
 axl_bool test_common_enable_debug = axl_false;
 
+/* default listener location */
+const char * listener_host = "localhost";
+const char * listener_port = "1909";
+
+MyQttCtx * init_ctx (void)
+{
+	MyQttCtx * ctx;
+
+	/* call to init the base library and close it */
+	ctx = myqtt_ctx_new ();
+
+	if (! myqtt_init_ctx (ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return NULL;
+	} /* end if */
+
+	/* enable log if requested by the user */
+	if (test_common_enable_debug) {
+		myqtt_log_enable (ctx, axl_true);
+		myqtt_color_log_enable (ctx, axl_true);
+		myqtt_log2_enable (ctx, axl_true);
+	} /* end if */
+		
+
+	return ctx;
+}
+
 axl_bool  test_00 (void) {
 
+	MyQttCtx * ctx;
+	
+	/* call to init the base library and close it */
+	ctx = myqtt_ctx_new ();
+
+	if (! myqtt_init_ctx (ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+
+	/* now close the library */
+	myqtt_exit_ctx (ctx, axl_true);
+		
+	return axl_true;
+}
+
+axl_bool test_01 (void) {
+
+	MyQttCtx  * ctx = init_ctx ();
+	MyQttConn * listener;
+	MyQttConn * conn;
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 01: startup listener..\n");
+
+	/* start a listener */
+	listener = myqtt_listener_new (ctx, listener_host, listener_port, NULL, NULL);
+	if (! myqtt_conn_is_ok (listener, axl_false)) {
+		printf ("ERROR: failed to start listener at: %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 01: listener created, now connecting..\n");
+
+	/* now connect to the listener:
+	   client_identifier -> test_01
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	conn = myqtt_conn_new (ctx, "test_01", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 01: connected without problems..\n");
+
+	/* do some checkings */
+
+	/* close connection */
+	printf ("Test 01: closing connection..\n");
+	myqtt_conn_close (conn);
+
+	/* release context */
+	printf ("Test 01: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
 
 	return axl_true;
 }
@@ -58,6 +141,8 @@ typedef axl_bool (* MyQttTestHandler) (void);
  * @param message The message value.
  */
 int run_test (MyQttTestHandler function, const char * message) {
+
+	printf ("--- --: starting %s\n", message);
 
 	if (function ()) {
 		printf ("%s [   OK   ]\n", message);
@@ -106,6 +191,9 @@ int main (int argc, char ** argv)
 	/* run tests */
 	CHECK_TEST("test_00")
 	run_test (test_00, "Test 00: generic API function checks");
+
+	CHECK_TEST("test_01")
+	run_test (test_01, "Test 01: basic listener startup and client connection");
 
 	printf ("All tests passed OK!\n");
 

@@ -305,4 +305,22 @@ struct _MyQttConn {
 	MyQttNetTransport           transport;
 };
 
+struct _MyQttConnOpts {
+	/** 
+	 * @internal The following is an indication to avoid releasing this object if reuse == axl_true.
+	 */
+	axl_bool   reuse;
+
+	/* support for auth */
+	axl_bool   use_auth;
+	char     * username;
+	char     * password;
+
+	/* will topic and will message configuration */
+	MyQttQos   will_qos;
+	char     * will_topic;
+	char     * will_message;
+	int        will_retain;
+};
+
 #endif /* __MYQTT_CONNECTION_PRIVATE_H__ */

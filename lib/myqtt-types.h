@@ -162,6 +162,11 @@ typedef struct _MyQttMsg  MyQttMsg;
 typedef struct _MyQttHash MyQttHash;
 
 /** 
+ * @brief Connection options. 
+ */
+typedef struct _MyQttConnOpts MyQttConnOpts;
+
+/** 
  * @brief MyQtt Operation Status.
  * 
  * This enum is used to represent different MyQtt Library status,
@@ -610,6 +615,99 @@ typedef enum {
 	 */
 	MYQTT_IPv6 = 2
 } MyQttNetTransport;
+
+/** 
+ * @brief Quality of service for message delivery. \ref
+ * MYQTT_QOS_AT_MOST_ONCE is the lowest quality of service because it
+ * does not track missing messages and replication while \ref
+ * MYQTT_QOS_EXACTLY_ONCE_DELIVERY is the highest quality of service
+ * possible.
+ */
+typedef enum {
+	/** 
+	 * @brief This is Qos 0. The message is delivered according to
+	 * the capabilities of the underlying network. No response is
+	 * sent by the receiver and no retry is performed by the
+	 * sender.
+	 */
+	MYQTT_QOS_AT_MOST_ONCE = 0,
+	/** 
+	 * @brief This is Qos 1. The receiver of a QoS 1 PUBLISH
+	 * Packet acknowledges receipt with a PUBACK Packet.
+	 */
+	MYQTT_QOS_AT_LEAST_ONCE_DELIVERY = 1,
+	/** 
+	 * @brief This is Qos 2. This is the highest quality of
+	 * service, for use when neither loss nor duplication of
+	 * messages are acceptable. There is an increased overhead
+	 * associated with this quality of service.
+	 */
+	MYQTT_QOS_EXACTLY_ONCE_DELIVERY = 2,
+} MyQttQos;
+
+/** 
+ * @brief Message type (Control packet types).
+ */
+typedef enum {
+	/** 
+	 * @brief Client request to connect to Server.
+	 */
+	MYQTT_CONNECT      = 1,
+	/** 
+	 * @brief Connect acknowledgment.
+	 */
+	MYQTT_CONNACK      = 2,
+	/** 
+	 * @brief Publish message.
+	 */
+	MYQTT_PUBLISH      = 3,
+	/** 
+	 * @brief Publish acknowledgment.
+	 */
+	MYQTT_PUBACK       = 4,
+	/** 
+	 * @brief Publish received (assured delivery part 1).
+	 */
+	MYQTT_PUBREC       = 5,
+	/** 
+	 * @brief Publish release (assured delivery part 2).
+	 */
+	MYQTT_PUBREL       = 6,
+	/** 
+	 * @brief Publish complete (assured delivery part 3).
+	 */
+	MYQTT_PUBCOMP      = 7,
+	/** 
+	 * @brief Client subscribe request.
+	 */
+	MYQTT_SUBSCRIBE    = 8,
+	/** 
+	 * @brief Subscribe acknowledgment.
+	 */
+	MYQTT_SUBACK       = 9,
+	/** 
+	 * @brief Unsubscribe request.
+	 */
+	MYQTT_UNSUBSCRIBE  = 10,
+	/** 
+	 * @brief Unsubscribe acknowledgment.
+	 */
+	MYQTT_UNSUBACK     = 11,
+	/** 
+	 * @brief PING request from client.
+	 */
+	MYQTT_PINGREQ      = 12,
+	/** 
+	 * @brief PING response from server.
+	 */
+	MYQTT_PINGRESP     = 13,
+	/** 
+	 * @brief Client is disconnecting.
+	 */
+	MYQTT_DISCONNECT   = 14,
+	
+} MyQttMsgType;
+
 
 /**
  * @internal

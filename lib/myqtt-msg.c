@@ -37,6 +37,7 @@
  *                        http://www.aspl.es/myqtt
  */
 #include <myqtt.h>
+#include <stdarg.h>
 
 /* local include */
 #include <myqtt-ctx-private.h>
@@ -284,6 +285,96 @@ int          myqtt_msg_readline (MyQttConn * connection, char  * buffer, int  ma
 	*ptr = 0;
 	return (n + desp);
 
+}
+
+/** 
+ * @internal Allows to build a raw MQTT message to be sent over the
+ * network.
+ *
+ * The function creates a network representation with the provided
+ * arguments which is suitable for sending through the network.
+ *
+ * @param ctx The context where the operation will take place.
+ *
+ * @param type The control packet type.
+ *
+ * @param dup If dup bit should be enabled.
+ *
+ * @param qos What type of QoS should be enabled.
+ *
+ * @param retain If retain bit should be enabled.
+ *
+ * @param size A reference to report the size of the chunk.
+ *
+ * The rest of parameters is a list of references where it is provided
+ * a reference to a memory chunk plus the size of that chunk ended by
+ * a NULL parameter. You must release that chunk of memory usign \ref myqtt_msg_free_build
+ */
+char        * myqtt_msg_build                 (MyQttCtx     * ctx,
+					       MyQttMsgType   type,
+					       axl_bool       dup,
+					       MyQttQos       qos,
+					       axl_bool       retain,
+					       int          * size,
+					       ...)
+{
+	const char * ref;
+	int          ref_size;
+	int          iterator = 0;
+	int          total_size;
+	char       * result;
+	va_list      args;
+
+	/* open stdargs */
+	va_start (args, size);
+
+	total_size = 3;
+	
+	do {
+		/* get reference */
+		ref      = va_arg (args, const char *);
+		if (ref == NULL) 
+			break;
+		ref_size = va_arg (args, int);
+		
+		/* accumulate */
+		total_size += (ref_size + 2);
+
+		/* limit, never go more than 20 parameters */
+		iterator += 1;
+
+		if (iterator < 20) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Parameter list exceeded %d", iterator);
+			/* call to close to avoid problems with amd64 platforms */
+			va_end (args);
+			return NULL;
+		}
+
+	} while ( axl_true );
+
+	/* call to close to avoid problems with amd64 platforms */
+	va_end (args);
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Output message is %d bytes long", total_size);
+	result = axl_new (char, total_size + 1);
+	if (result == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to allocate memory for msg, errno=%d", errno);
+		return NULL;
+	} /* end if */
+
+	/* dump headers */
+	
+	
+
+	return result;
+}
+
+/** 
+ * @internal Releases a memory chunk created by \ref myqtt_msg_build.
+ */
+void myqtt_msg_free_build (MyQttCtx * ctx, char * msg_build, int size)
+{
+	
 }
 
 /** 
