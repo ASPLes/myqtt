@@ -184,11 +184,12 @@ int  __myqtt_conn_get_next_id (MyQttCtx * ctx)
 
 
 typedef struct _MyQttConnNewData {
-	MyQttConn      * connection;
-	MyQttConnNew     on_connected;
-	axlPointer              user_data;
-	axl_bool                threaded;
-	MyQttNetTransport      transport;
+	MyQttConn           * connection;
+	MyQttConnOpts       * opts;
+	MyQttConnNew          on_connected;
+	axlPointer            user_data;
+	axl_bool              threaded;
+	MyQttNetTransport     transport;
 }MyQttConnNewData;
 
 
@@ -266,10 +267,10 @@ MyQttConn * myqtt_conn_new_empty            (MyQttCtx *    ctx,
  * @return A newly created connection, using the provided data, that
  * must be deallocated using \ref myqtt_conn_close.
  */
-MyQttConn * myqtt_conn_new_empty_from_connection (MyQttCtx        * ctx,
-								MYQTT_SOCKET      socket,
-								MyQttConn * __connection,
-								MyQttPeerRole     role)
+MyQttConn * myqtt_conn_new_empty_from_conn (MyQttCtx        * ctx,
+					    MYQTT_SOCKET      socket,
+					    MyQttConn * __connection,
+					    MyQttPeerRole     role)
 {
 	MyQttConn   * connection;
 
@@ -1043,6 +1044,152 @@ MYQTT_SOCKET myqtt_conn_sock_connect_common (MyQttCtx            * ctx,
 
 	return session;
 }
+
+/* now we have to send greetings and process them */
+axl_bool __myqtt_conn_send_connect (MyQttCtx * ctx, MyQttConn * connection, MyQttConnOpts * opts) {
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Sending CONNECT package to %s:%s (conn-id=%d)", connection->host, connection->port, connection->id);
+	
+	
+	
+
+	return axl_false;
+}
+
+axl_bool __myqtt_conn_parse_greetings (MyQttConn * connection, MyQttMsg * msg) {
+	/* parse incoming greetings message received */
+	return axl_false;
+}
+
+axl_bool      myqtt_conn_parse_greetings_and_enable (MyQttConn * connection, 
+						     MyQttMsg  * msg)
+{
+	MyQttCtx * ctx;
+
+	/* check parametes received */
+	if (connection == NULL || msg == NULL)
+		return axl_false;
+
+	/* get the connection context */
+	ctx = connection->ctx;
+
+	/* process msg response */
+	if (msg != NULL) {
+		/* now check reply received */
+		if (!__myqtt_conn_parse_greetings (connection, msg)) {
+			/* parse ok, free msg and establish new
+			 * message */
+			myqtt_msg_unref (msg);
+
+			/* something wrong have happened while parsing
+			 * XML greetings */
+			return axl_false;
+		} /* end if */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "greetings parsed..");
+		
+		/* parse ok, free msg and establish new message */
+		myqtt_msg_unref (msg);
+
+		myqtt_log (MYQTT_LEVEL_DEBUG, "new connection created to %s:%s", connection->host, connection->port);
+
+		/* now, every initial message have been sent, we need
+		 * to send this to the reader manager */
+		myqtt_reader_watch_connection (ctx, connection); 
+		return axl_true;
+	}
+	__myqtt_conn_shutdown_and_record_error (
+		connection, MyQttProtocolError,
+		"received a null msg (null reply) from remote side when expected a greetings reply, closing session");
+	return axl_false;
+}
+
+axl_bool __myqtt_conn_do_greetings_exchange (MyQttCtx      * ctx, 
+					     MyQttConn     * connection, 
+					     MyQttConnOpts * opts,
+					     int             timeout)
+{
+	MyQttMsg            * msg;
+	int                   err;
+
+	v_return_val_if_fail (myqtt_conn_is_ok (connection, axl_false), axl_false);
+
+	/* now we have to send greetings and process them */
+	if (! __myqtt_conn_send_connect (ctx, connection, opts)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send CONNECT package to broker (conn-id=%d)", connection->id);
+		return axl_false;
+	}
+	
+	myqtt_log (MYQTT_LEVEL_DEBUG, "greetings sent, waiting for reply");
+
+	/* while we did not finish */
+	while (axl_true) {
+
+		/* block thread until received remote greetings */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "getting CONNECT reply..");
+		msg = myqtt_msg_get_next (connection);
+		myqtt_log (MYQTT_LEVEL_DEBUG, "finished wait for initial greetings msg=%p timeout=%d, conn-id=%d, socket=%d", 
+			   msg, timeout, connection->id, connection->session);
+
+		/* check msg received */
+		if (msg != NULL) {
+
+			myqtt_log (MYQTT_LEVEL_DEBUG, "greetings received, process reply msg");
+			break;
+
+		} else if (timeout > 0 && myqtt_conn_is_ok (connection, axl_false)) {
+
+			myqtt_log (MYQTT_LEVEL_WARNING, 
+				    "found NULL msg referecence connection=%d, checking to wait timeout=%d seconds for read operation..",
+				    connection->id, timeout);
+
+			/* try to perform a wait operation */
+			err = __myqtt_conn_wait_on (ctx, READ_OPERATIONS, connection->session, &timeout);
+			if (err <= 0 || timeout <= 0) {
+				/* timeout reached while waiting for the connection to terminate */
+				myqtt_log (MYQTT_LEVEL_WARNING, 
+					    "reached timeout=%d or general operation failure=%d while waiting for initial greetings msg for connection id=%d",
+					    err, timeout, connection->id);
+				
+				/* close the connection */
+				shutdown (connection->session, SHUT_RDWR);
+				myqtt_close_socket (connection->session);
+				connection->session      = -1;
+
+				/* error found, stop greetings process */
+				return axl_false;
+			} /* end if */
+				
+			myqtt_log (MYQTT_LEVEL_DEBUG,
+				    "found the connection is ready to provide data, checking..");
+			continue;
+		} else {
+
+			/* null msg received */
+			myqtt_log (MYQTT_LEVEL_CRITICAL,
+				   "Connection refused. Received nul msg were it was expected initial greetings, finish connection id=%d", connection->id);
+			
+			/* timeout reached while waiting for the connection to terminate */
+			shutdown (connection->session, SHUT_RDWR);
+			myqtt_close_socket (connection->session);
+			connection->session      = -1;
+
+			connection->is_connected = axl_false;
+			return axl_false;
+		} /* end if */
+		
+	} /* end while */
+
+	/* make the connection to be blocking during the
+	 * greetings process (if it were not) */
+	myqtt_conn_set_blocking_socket (connection);
+	
+	/* process msg response */
+	if (!myqtt_conn_parse_greetings_and_enable (connection, msg))
+		return axl_false;
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "greetings exchange ok");
+
+	return axl_true;
+} 
 			
 
 /** 
@@ -1068,6 +1215,7 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 #endif
 	/* get current context */
 	MyQttConn            * connection   = data->connection;
+	MyQttConnOpts        * opts         = data->opts;
 	MyQttCtx             * ctx          = connection->ctx;
 	axlError             * error        = NULL;
 	int                    d_timeout    = 0;
@@ -1103,6 +1251,8 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 		/* flag as connected */
 		connection->is_connected = axl_true;
 	} /* end if */
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Did session socket work? conn-id=%d, session=%d..", connection->id, connection->session);
 	
 	/* according to the connection status (is_connected attribute)
 	 * perform the final operations so the connection becomes
@@ -1113,8 +1263,9 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 		/* now set local address */
 		if (getsockname (connection->session, (struct sockaddr *) &sin, &sin_size) < 0) {
 			myqtt_log (MYQTT_LEVEL_DEBUG, "unable to get local hostname and port to resolve local address");
+			connection->is_connected = axl_false;
+			goto report_connection;
 
-			return NULL;
 		} /* end if */
 
 		/* set host and port from socket recevied */
@@ -1122,14 +1273,28 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 		memset (srv_name, 0, NI_MAXSERV);
 		if (getnameinfo ((struct sockaddr *) &sin, sin_size, host_name, NI_MAXHOST, srv_name, NI_MAXSERV, NI_NUMERICSERV | NI_NUMERICHOST) != 0) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "getnameinfo () call failed, error was errno=%d", errno);
-			return axl_false;
+			connection->is_connected = axl_false;
+			goto report_connection;
 		}
 	
 		/* set local addr and local port */
 		connection->local_addr = axl_strdup (host_name);
 		connection->local_port = axl_strdup (srv_name);
 
+		/* block thread until received remote greetings */
+		if (! __myqtt_conn_do_greetings_exchange (ctx, connection, opts, d_timeout)) { 
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "MQTT greetings exchange failed (conn-id=%d) with MQTT broker, error was errno=%d", 
+				   connection->id, errno);
+			connection->is_connected = axl_false;
+			goto report_connection;
+		}
+
+		/* connection ok */
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "MQTT connection OK (conn-id=%d)", connection->id);
 	} /* end if */
+
+ report_connection:
+	/* call to report connection */
 
 	/* notify on callback or simply return */
 	if (threaded) {
@@ -1143,11 +1308,15 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 }
 
 MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
+						const char           * client_identifier,
+						axl_bool               clean_session,
+						int                    keep_alive,
 						const char           * host, 
 						const char           * port,
-						MyQttConnNew          on_connected, 
-						MyQttNetTransport     transport,
-						axlPointer            user_data)
+						MyQttConnNew           on_connected, 
+						MyQttNetTransport      transport,
+						MyQttConnOpts        * opts,
+						axlPointer             user_data)
 {
 	MyQttConnNewData * data;
 
@@ -1164,6 +1333,7 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 		return NULL;
 	
 	data->connection                      = axl_new (MyQttConn, 1);
+	data->opts                            = opts;
 	/* check allocated connection */
 	if (data->connection == NULL) {
 		axl_free (data);
@@ -1225,12 +1395,48 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 	return __myqtt_conn_new (data);
 }
 
-
-MyQttConn  * myqtt_conn_new_full               (MyQttCtx      * ctx,
-						const char    * host, 
-						const char    * port,
-						MyQttConnNew    on_connected, 
-						axlPointer      user_data)
+/** 
+ * @brief Allows to create a new MQTT connection a MQTT broker/server.
+ *
+ * @param The context where the operation will take place.
+ *
+ * @param client_identifier The client identifier that uniquely
+ * identifies this MQTT client from others. 
+ *
+ * @param clean_session Flag to clean client session or to reuse the existing one.
+ *
+ * @param keep_alive Keep alive configuration in seconds after which
+ * the server/broker will close the connection if it doesn't detect
+ * any activity. Setting 0 will disable keep alive mechanism.
+ *
+ * @param host The location of the MQTT server/broker
+ *
+ * @param port The port of the MQTT server/broker
+ *
+ * @param opts Optional connection options. See \ref myqtt_conn_opts_new
+ *
+ * @param on_connected Async notification handler that will be called
+ * once the connection fails or it is completed. In the case this
+ * handler is configured the caller will not be blocked. In the case
+ * this parameter is NULL, the caller will be blocked until the
+ * connection completes or fails.
+ *
+ * @param user_data User defined pointer that will be passed to the on_connected handler (in case it is defined).
+ *
+ * @return A reference to the newli created connection or NULL if
+ * on_connected handler is provided. In both cases, the reference
+ * returned (or received at the on_connected handler) must be checked
+ * with \ref myqtt_conn_is_ok.
+ */
+MyQttConn  * myqtt_conn_new                    (MyQttCtx       * ctx,
+						const char     * client_identifier,
+						axl_bool         clean_session,
+						int              keep_alive,
+						const char     * host, 
+						const char     * port,
+						MyQttConnOpts  * opts,
+						MyQttConnNew     on_connected, 
+						axlPointer       user_data)
 {
 	MyQttNetTransport transport;
 	
@@ -1238,35 +1444,54 @@ MyQttConn  * myqtt_conn_new_full               (MyQttCtx      * ctx,
 	transport = __myqtt_conn_detect_transport (ctx, host);
 
 	/* call to create the connection */
-	return myqtt_conn_new_full_common (ctx, host, port, on_connected, transport, user_data);
+	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, on_connected, transport, opts, user_data);
 }
 
-MyQttConn  * myqtt_conn_new_full6              (MyQttCtx      * ctx,
-						const char    * host, 
-						const char    * port,
-						MyQttConnNew    on_connected, 
-						axlPointer      user_data)
+/** 
+ * @brief Allows to create a new MQTT connection a MQTT broker/server.
+ *
+ * @param The context where the operation will take place.
+ *
+ * @param client_identifier The client identifier that uniquely
+ * identifies this MQTT client from others. 
+ *
+ * @param clean_session Flag to clean client session or to reuse the existing one.
+ *
+ * @param keep_alive Keep alive configuration in seconds after which
+ * the server/broker will close the connection if it doesn't detect
+ * any activity. Setting 0 will disable keep alive mechanism.
+ *
+ * @param host The location of the MQTT server/broker
+ *
+ * @param port The port of the MQTT server/broker
+ *
+ * @param opts Optional connection options. See \ref myqtt_conn_opts_new
+ *
+ * @param on_connected Async notification handler that will be called
+ * once the connection fails or it is completed. In the case this
+ * handler is configured the caller will not be blocked. In the case
+ * this parameter is NULL, the caller will be blocked until the
+ * connection completes or fails.
+ *
+ * @param user_data User defined pointer that will be passed to the on_connected handler (in case it is defined).
+ *
+ * @return A reference to the newli created connection or NULL if
+ * on_connected handler is provided. In both cases, the reference
+ * returned (or received at the on_connected handler) must be checked
+ * with \ref myqtt_conn_is_ok.
+ */
+MyQttConn  * myqtt_conn_new6                   (MyQttCtx       * ctx,
+						const char     * client_identifier,
+						axl_bool         clean_session,
+						int              keep_alive,
+						const char     * host, 
+						const char     * port,
+						MyQttConnOpts  * opts,
+						MyQttConnNew     on_connected, 
+						axlPointer       user_data)
 {
 	/* call to create the connection */
-	return myqtt_conn_new_full_common (ctx, host, port, on_connected, MYQTT_IPv6, user_data);
-}
-
-MyQttConn * myqtt_conn_new (MyQttCtx   * ctx,
-			    const char  * host, 
-			    const char  * port, 
-			    MyQttConnNew on_connected,
-			    axlPointer user_data)
-{
-	return myqtt_conn_new_full (ctx, host, port, on_connected, user_data);
-}
-
-MyQttConn * myqtt_conn_new6 (MyQttCtx   * ctx,
-				   const char  * host, 
-				   const char  * port, 
-				   MyQttConnNew on_connected,
-				   axlPointer user_data)
-{
-	return myqtt_conn_new_full6 (ctx, host, port, on_connected, user_data);
+	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, on_connected, MYQTT_IPv6, opts, user_data);
 }
 
 /** 
@@ -1444,6 +1669,143 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
 
 	return axl_true;
 }
+
+/** 
+ * @brief Allows to create an empty connection options. 
+ *
+ * See the following funcionts to handle the object before passing it
+ * to any of the connect functions (\ref myqtt_conn_new).
+ *
+ * - \ref myqtt_conn_opts_set_auth
+ * - \ref myqtt_conn_opts_set_reuse
+ * - \ref myqtt_conn_opts_set_will
+ *
+ * @return The function returns a newly created and empty connection
+ * options object or NULL if it fails. You don't have to release it by
+ * default because this is done automatically by the connecting
+ * function (for example \ref myqtt_conn_new). In the case you want to
+ * reuse this connection options object across several calls, please
+ * call \ref myqtt_conn_opts_set_reuse. After you are done with those
+ * connection options, you can release it by calling to \ref
+ * myqtt_conn_opts_free.
+ */
+MyQttConnOpts     * myqtt_conn_opts_new (void) {
+	/* create an empty connection option object */
+	return axl_new (MyQttConnOpts, 1);
+}
+
+/** 
+ * @brief Allows to configure auth options to be used by the
+ * connection function. Any previous configuration 
+ *
+ * @param opts The connection options where the operation will take place. It cannot be NULL.
+ *
+ * @param username The username to be configured on the connection. If
+ * the value provide is NULL, all authentication info will be removed
+ * from the connection options.
+ *
+ * @param password The password to be configured on the connection.
+ *
+ */
+void                myqtt_conn_opts_set_auth (MyQttConnOpts * opts, 
+					      const    char * username, 
+					      const    char * password)
+{
+	if (opts == NULL)
+		return;
+	/* username */
+	if (opts->username) {
+		axl_free (opts->username);
+		opts->username = NULL;
+	} /* end if */
+
+	/* password */
+	if (opts->password) {
+		axl_free (opts->password);
+		opts->password = NULL;
+	} /* end if */
+
+	/* copy values from user space */
+	if (username && password) {
+		opts->username = axl_strdup (username);
+		opts->password = axl_strdup (password);
+	} /* end if */
+
+	return;
+}
+
+/** 
+ * @brief Allows to configrue the reuse option. By default connection
+ * options aren't used across connection calls. In the case you want
+ * to do so, call this function passing reuse=axl_true.
+ *
+ * @param opts The connection option where the operation will take place.
+ *
+ * @param reuse The reuse option to configure.
+ */
+void                myqtt_conn_opts_set_reuse (MyQttConnOpts * opts,
+					       axl_bool        reuse)
+{
+	if (opts == NULL)
+		return;
+	opts->reuse = reuse;
+	return;
+}
+
+/** 
+ * @brief Allows to configure Will options on the provided connection options.
+ *
+ * @param opts The connection option where the operation will take place.
+ *
+ * @param will_qos Qos to be configured in the Will.
+ *
+ * @param will_topic The Will topic where the will message will be posted on abnormal connection.
+ *
+ * @param will_message The Will message that will be posted.
+ *
+ * @param will_retain The Will retain flag configured.
+ *
+ */
+void                myqtt_conn_opts_set_will (MyQttConnOpts  * opts,
+					      MyQttQos         will_qos,
+					      const char     * will_topic,
+					      const char     * will_message,
+					      axl_bool         will_retain)
+{
+	if (opts == NULL)
+		return;
+
+	/* still nothing implemented */
+	return;
+}
+
+/** 
+ * @brief Releases the connection object created by \ref myqtt_conn_opts_new.
+ *
+ * In general you don't have to call this function unless you called
+ * \ref myqtt_conn_opts_set_reuse to reuse the connection object
+ * across calls.
+ *
+ * @param opts The object to release.
+ *
+ */
+void                myqtt_conn_opts_free     (MyQttConnOpts  * opts)
+{
+	if (opts == NULL)
+		return;
+
+	/* release user and password (if present) */
+	axl_free (opts->username);
+	axl_free (opts->password);
+
+	/* release will configuration (if present) */
+	axl_free (opts->will_topic);
+	axl_free (opts->will_message);
+
+	axl_free (opts);
+	return;
+}
+
 
 /**
  * @internal Reference counting update implementation.
@@ -1949,7 +2311,7 @@ void               myqtt_conn_free (MyQttConn * connection)
 	axl_list_free (connection->on_close_full);
 	connection->on_close_full = NULL;
 
-	/* free posible frame and buffer */
+	/* free posible msg and buffer */
 	axl_free (connection->buffer);
 
 	/* release reference to context */
@@ -2397,7 +2759,7 @@ void    myqtt_conn_shutdown           (MyQttConn * connection)
  *
  * This function differs from \ref myqtt_conn_shutdown in the
  * sense this one do not triggers all the internal connection close
- * (like calling connection close handlers, dropping frames associated
+ * (like calling connection close handlers, dropping msgs associated
  * to this connection at the sequencer). 
  *
  * @param connection The connection where the socket will be closed.
@@ -2766,10 +3128,10 @@ MyQttHash        * myqtt_conn_get_data_hash          (MyQttConn * connection)
 
 
 /** 
- * @brief Allows to get current frames waiting to be sent on the given connection.
+ * @brief Allows to get current msgs waiting to be sent on the given connection.
  *
  * This function will iterate over all channels the connection have
- * checking if there are frames pending to be sent. The cumulative
+ * checking if there are msgs pending to be sent. The cumulative
  * result for this iteration will be returned as the pending message
  * to be sent over this connection or session.
  *
@@ -3429,6 +3791,52 @@ axl_bool myqtt_conn_check_socket_limit (MyQttCtx * ctx, MYQTT_SOCKET socket_to_c
 	myqtt_close_socket (temp);
 
 	return axl_true; /* connection check ok */
+}
+
+/**
+ * @internal Function used to record and error and then shutdown the
+ * connection in the same step.
+ *
+ * @param conn The connection where the error was detected.
+ * @param message The message to report
+ * 
+ */
+void                __myqtt_conn_shutdown_and_record_error (MyQttConn     * conn,
+							    MyQttStatus     status,
+							    const char    * message,
+							    ...)
+{
+	va_list     args;
+	char      * _msg;
+#if defined(ENABLE_MYQTT_LOG)
+	MyQttCtx * ctx;
+#endif
+	if (conn == NULL)
+		return;
+
+#if defined(ENABLE_MYQTT_LOG)
+	/* get reference */
+	ctx = conn->ctx;
+#endif
+
+	/* log error */
+	if (status != MyQttOk && status != MyQttConnectionCloseCalled) {
+
+		/* prepare message */
+		va_start (args, message);
+		_msg = axl_strdup_printfv (message, args);
+		va_end (args);
+
+		myqtt_log (MYQTT_LEVEL_CRITICAL, _msg);
+		
+		/* release message */
+		axl_free (_msg);
+	} 
+	
+	/* shutdown connection */
+	myqtt_conn_shutdown (conn);
+
+	return;
 }
 
 /* @} */

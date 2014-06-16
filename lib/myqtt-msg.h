@@ -60,6 +60,14 @@ int           myqtt_msg_readline              (MyQttConn * connection,
 					       char      * buffer, 
 					       int         maxlen);
 
+char        * myqtt_msg_build                 (MyQttCtx     * ctx,
+					       MyQttMsgType   type,
+					       axl_bool       dup,
+					       MyQttQos       qos,
+					       axl_bool       retain,
+					       int          * size,
+					       ...);
+
 axl_bool      myqtt_msg_ref                   (MyQttMsg * msg);
 
 void          myqtt_msg_unref                 (MyQttMsg * msg);

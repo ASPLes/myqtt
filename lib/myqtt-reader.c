@@ -350,13 +350,15 @@ axl_bool      myqtt_reader_read_queue (MyQttCtx  * ctx,
 {
 	/* get current context */
 	MyQttReaderData * data;
-	int                should_continue;
+	int               should_continue = axl_true;
 
 	do {
 		data            = myqtt_async_queue_pop (ctx->reader_queue);
 
 		/* check if we have to continue working */
 		should_continue = (data->type != TERMINATE);
+
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Reading from queue, should_continue=%d..", should_continue);
 
 		/* check if the io/wait mech have changed */
 		if (data->type == IO_WAIT_CHANGED) {
@@ -372,7 +374,7 @@ axl_bool      myqtt_reader_read_queue (MyQttCtx  * ctx,
 
 		} /* end if */
 
-	}while (!myqtt_reader_register_watch (data, con_list, srv_list));
+	}while (should_continue && !myqtt_reader_register_watch (data, con_list, srv_list));
 
 	return should_continue;
 }
@@ -402,15 +404,15 @@ axl_bool      myqtt_reader_read_pending (MyQttCtx  * ctx,
 	axl_bool           should_continue = axl_true;
 
 	length = myqtt_async_queue_length (ctx->reader_queue);
-	while (length > 0) {
+	while (length > 0 && should_continue) {
 		length--;
 		data            = myqtt_async_queue_pop (ctx->reader_queue);
 
-		myqtt_log (MYQTT_LEVEL_DEBUG, "read pending type=%d",
-			    data->type);
-
 		/* check if we have to continue working */
 		should_continue = (data->type != TERMINATE);
+
+		myqtt_log (MYQTT_LEVEL_DEBUG, "read pending type=%d (should_continue=%d)",
+			   data->type, should_continue);
 
 		/* check if the io/wait mech have changed */
 		if (data->type == IO_WAIT_CHANGED) {
@@ -684,7 +686,8 @@ void __myqtt_reader_stop_process (MyQttCtx     * ctx,
 {
 	/* stop myqtt reader process unreferring already managed
 	 * connections */
-
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Stopping reading..");
+	
 	myqtt_async_queue_unref (ctx->reader_queue);
 
 	/* unref listener connections */
@@ -944,7 +947,8 @@ axlPointer __myqtt_reader_run (MyQttCtx * ctx)
 		error_tries = 0;
 
 		/* read new connections to be managed */
-		if (!myqtt_reader_read_pending (ctx, ctx->conn_list, ctx->srv_list, &(ctx->on_reading))) {
+		if (! myqtt_reader_read_pending (ctx, ctx->conn_list, ctx->srv_list, &(ctx->on_reading))) {
+			myqtt_log (MYQTT_LEVEL_DEBUG, "Calling to stop process..");
 			__myqtt_reader_stop_process (ctx, ctx->on_reading, ctx->conn_cursor, ctx->srv_cursor);
 			return NULL;
 		}

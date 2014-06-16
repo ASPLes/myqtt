@@ -39,7 +39,7 @@
 #include <myqtt.h>
 
 /* local include */
-#include <myqtt_ctx_private.h>
+#include <myqtt-ctx-private.h>
 
 #define LOG_DOMAIN "myqtt-io"
 
@@ -175,12 +175,12 @@ int __myqtt_io_waiting_default_wait_on (axlPointer __fd_group, int max_fds, MyQt
  * @param fd_set The fd set where the socket descriptor will be added.
  */
 axl_bool  __myqtt_io_waiting_default_add_to (int                fds, 
-					      MyQttConn * connection,
-					      axlPointer         __fd_set)
+					     MyQttConn * connection,
+					     axlPointer         __fd_set)
 {
 	MyQttSelect * select = (MyQttSelect *) __fd_set;
 #if defined(ENABLE_MYQTT_LOG) && ! defined(SHOW_FORMAT_BUGS)
-	MyQttCtx    * ctx    = myqtt_connection_get_ctx (connection);
+	MyQttCtx    * ctx    = myqtt_conn_get_ctx (connection);
 #endif
 
 #if defined(AXL_OS_UNIX)
@@ -722,7 +722,7 @@ void     __myqtt_io_waiting_epoll_dispatch (axlPointer           fd_group,
 				/* found read event, dispatch */
 				dispatch_func (
 					/* socket found */
-					myqtt_connection_get_socket (connection),
+					myqtt_conn_get_socket (connection),
 					/* purpose for the waiting set */
 					epoll->wait_to, 
 					/* connection associated */
@@ -743,7 +743,7 @@ void     __myqtt_io_waiting_epoll_dispatch (axlPointer           fd_group,
 				/* found read event, dispatch */
 				dispatch_func (
 					/* socket found */
-					myqtt_connection_get_socket (connection),
+					myqtt_conn_get_socket (connection),
 					/* purpose for the waiting set */
 					epoll->wait_to, 
 					/* connection associated */

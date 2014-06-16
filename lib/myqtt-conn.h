@@ -62,23 +62,48 @@
  */
 #define CONN_CTX(c) myqtt_conn_get_ctx(c)
 
-MyQttConn  * myqtt_conn_new                    (MyQttCtx      * ctx,
-						const char    * host, 
-						const char    * port,
-						MyQttConnNew    on_connected, 
-						axlPointer      user_data);
+MyQttConn  * myqtt_conn_new                    (MyQttCtx        * ctx,
+						const char      * client_identifier,
+						axl_bool          clean_session,
+						int               keep_alive,
+						const char      * host, 
+						const char      * port,
+						MyQttConnOpts   * opts,
+						MyQttConnNew      on_connected, 
+						axlPointer        user_data);
 
-MyQttConn  * myqtt_conn_new6                   (MyQttCtx      * ctx,
-						const char    * host, 
-						const char    * port,
-						MyQttConnNew    on_connected, 
-						axlPointer      user_data);
+MyQttConn  * myqtt_conn_new6                   (MyQttCtx       * ctx,
+						const char     * client_identifier,
+						axl_bool         clean_session,
+						int              keep_alive,
+						const char     * host, 
+						const char     * port,
+						MyQttConnOpts  * opts,
+						MyQttConnNew     on_connected, 
+						axlPointer       user_data);
 
 axl_bool            myqtt_conn_reconnect       (MyQttConn * conn,
 						MyQttConnNew on_connected,
 						axlPointer user_data);
 
 axl_bool            myqtt_conn_close                  (MyQttConn  * conn);
+
+MyQttConnOpts     * myqtt_conn_opts_new (void);
+
+void                myqtt_conn_opts_set_auth (MyQttConnOpts * opts, 
+					      const    char * username, 
+					      const    char * password);
+
+void                myqtt_conn_opts_set_reuse (MyQttConnOpts * opts,
+					       axl_bool        reuse);
+
+void                myqtt_conn_opts_set_will (MyQttConnOpts  * opts,
+					      MyQttQos         will_qos,
+					      const char     * will_topic,
+					      const char     * will_message,
+					      axl_bool         will_retain);
+
+void                myqtt_conn_opts_free     (MyQttConnOpts  * opts);
 
 MYQTT_SOCKET       myqtt_conn_sock_connect     (MyQttCtx    * ctx,
 						const char  * host,
@@ -126,7 +151,7 @@ long                myqtt_conn_get_timeout            (MyQttCtx        * ctx);
 long                myqtt_conn_get_connect_timeout    (MyQttCtx        * ctx);
 
 axl_bool            myqtt_conn_is_ok                  (MyQttConn * conn, 
-							axl_bool           free_on_fail);
+							axl_bool   free_on_fail);
 
 void                __myqtt_conn_shutdown_and_record_error (MyQttConn * conn,
 							     MyQttStatus       status,

@@ -351,7 +351,7 @@ axl_bool myqtt_init_ctx             (MyQttCtx * ctx);
 axl_bool myqtt_init_check           (MyQttCtx * ctx);
 
 void     myqtt_exit_ctx             (MyQttCtx * ctx, 
-				      axl_bool    free_ctx);
+				     axl_bool    free_ctx);
 
 axl_bool myqtt_is_exiting           (MyQttCtx * ctx);
 
@@ -479,6 +479,26 @@ void     _myqtt_log2                (MyQttCtx        * ctx,
 				      MyQttDebugLevel   level, 
 				      const char       * message, 
 				      ...);
+
+int    myqtt_get_bit (char byte, int position);
+
+void   myqtt_set_bit     (char * buffer, int position);
+
+void   myqtt_show_byte (MyQttCtx * ctx, char byte, const char * label);
+
+char * myqtt_int2bin (int a, char *buffer, int buf_size);
+
+void   myqtt_int2bin_print (MyQttCtx * ctx, int value);
+
+int    myqtt_get_8bit  (const char * buffer);
+
+int    myqtt_get_16bit (const char * buffer);
+
+void   myqtt_set_16bit (int value, char * buffer);
+
+void   myqtt_set_32bit (int value, char * buffer);
+
+int    myqtt_get_32bit (const char * buffer);
 
 #if defined(__COMPILING_MYQTT__) && defined(__GNUC__)
 /* makes gcc happy, by prototyping functions which aren't exported
