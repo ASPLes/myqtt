@@ -288,6 +288,44 @@ int          myqtt_msg_readline (MyQttConn * connection, char  * buffer, int  ma
 }
 
 /** 
+ * @internal Function used to encode remaining length on the provided
+ * buffer using representation provided by the MQTT standard.
+ */
+axl_bool myqtt_msg_encode_remaining_length (MyQttCtx * ctx, char * result, int value, int * out_position)
+{
+	int  value_to_encode = value;
+	int  iterator        = 0;
+
+	char encoded_byte;
+	do {
+		/* check values before continue */
+		if (iterator == 4) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Found internal engine encoding error, reached a position that shouldn't be reached (iterator=%d)",
+				   iterator);
+			return axl_false;
+		} /* end if */
+
+		/* encode byte */
+		encoded_byte = value_to_encode % 128;
+
+		/* signal more to come in the upper part */
+		if (value_to_encode > 0)
+			encoded_byte |= 128;
+
+		/* save value at the right position and move next */
+		result[iterator] = encoded_byte;
+		iterator++;
+		
+	} while (value_to_encode > 0);
+
+	/* report caller where he should be writing next byte */
+	if (out_position)
+		(*out_position) = iterator;
+
+	return axl_true;
+}
+
+/** 
  * @internal Allows to build a raw MQTT message to be sent over the
  * network.
  *
@@ -328,7 +366,7 @@ char        * myqtt_msg_build                 (MyQttCtx     * ctx,
 	/* open stdargs */
 	va_start (args, size);
 
-	total_size = 3;
+	total_size = 0;
 	
 	do {
 		/* get reference */
@@ -355,6 +393,25 @@ char        * myqtt_msg_build                 (MyQttCtx     * ctx,
 	/* call to close to avoid problems with amd64 platforms */
 	va_end (args);
 
+	/* according to the total size to send */
+	if (total_size <= 127) {
+		/* 2 bytes from the header plus 1 for the remaining length header */
+		total_size += 3;
+	} else if (total_size <= 16383) {
+		/* 2 bytes from the header plus 2 for the remaining length header */
+		total_size += 4;
+	} else if (total_size <= 2097151) {
+		/* 2 bytes from the header plus 3 for the remaining length header */
+		total_size += 5;
+	} else if (total_size <= 268435455) {
+		/* 2 bytes from the header plus 4 for the remaining length header */
+		total_size += 6;
+	} else {
+		/* ERROR: size not suppoted */
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Requested to size an unsuppored size which is bigger than 268435455 bytes");
+		return NULL;
+	} /* end if */
+
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Output message is %d bytes long", total_size);
 	result = axl_new (char, total_size + 1);
 	if (result == NULL) {
@@ -362,9 +419,51 @@ char        * myqtt_msg_build                 (MyQttCtx     * ctx,
 		return NULL;
 	} /* end if */
 
-	/* dump headers */
+	/* dump MQTT control packet type */
+	result[0] = (( 0x00000f & type) << 4);
+	if (dup)
+		myqtt_set_bit (result, 3);
+	if (retain)
+		myqtt_set_bit (result, 0);
+	switch (qos) {
+	case MYQTT_QOS_AT_MOST_ONCE:
+		/* nothing requried */
+		break;
+	case MYQTT_QOS_AT_LEAST_ONCE_DELIVERY:
+		/* set the bit required */
+		myqtt_set_bit (result, 1);
+		break;
+	case MYQTT_QOS_EXACTLY_ONCE_DELIVERY:
+		/* set the bit required */
+		myqtt_set_bit (result, 2);
+		break;
+	} /* end if */
+
+	/* now save remaining bytes */
+	iterator = 0;
+	if (! myqtt_msg_encode_remaining_length (ctx, result, total_size, &iterator)) {
+		axl_free (result);
+		return NULL;
+	} /* end if */
+
+	/* now encode each additional part */
+	va_start (args, size);
+
+	do {
+		/* get reference */
+		ref      = va_arg (args, const char *);
+		if (ref == NULL) 
+			break;
+		ref_size = va_arg (args, int);
+		
+		
+
+	} while ( axl_true );
+
+	/* call to close to avoid problems with amd64 platforms */
+	va_end (args);
 	
-	
+
 
 	return result;
 }
