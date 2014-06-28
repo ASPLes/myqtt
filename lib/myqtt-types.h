@@ -708,6 +708,34 @@ typedef enum {
 	
 } MyQttMsgType;
 
+typedef enum {
+	/** 
+	 * @internal Indication for no more parameters 
+	 */
+	MYQTT_PARAM_END            = 0,
+	/** 
+	 * @internal Variable header or payload parameter that that
+	 * representings an utf-8 string.
+	 * 2 bytes + the string as indicated by MQTT standard
+	 * MSB+LSB + string.
+	 */
+	MYQTT_PARAM_UTF8_STRING    = 1,
+	/**
+	 * @internal Binary payload without checking its content.
+	 */
+	MYQTT_PARAM_BINARY_PAYLOAD = 2,
+	/** 
+	 * @internal Integer value codified with 2 bytes. Only allowed
+	 * values up to 65535
+	 */
+	MYQTT_PARAM_16BIT_INT      = 3,
+	/** 
+	 * @internal Integer value codified with 1 byte. Only allowed
+	 * values up to 255.
+	 */
+	MYQTT_PARAM_8BIT_INT       = 4,
+} MyQttParamType;
+
 
 /**
  * @internal
@@ -750,7 +778,7 @@ typedef struct _MyQttSequencerData {
  * @internal
  */
 typedef struct _MyQttWriterData {
-	char            * msg;
+	unsigned char   * msg;
 	int               size;
 } MyQttWriterData;
 

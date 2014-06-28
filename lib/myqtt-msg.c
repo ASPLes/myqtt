@@ -42,45 +42,9 @@
 /* local include */
 #include <myqtt-ctx-private.h>
 #include <myqtt-conn-private.h>
+#include <myqtt-msg-private.h>
 
 #define LOG_DOMAIN "myqtt-msg"
-
-struct _MyQttMsg {
-	/**
-	 * Context where the msg was created.
-	 */ 
-	MyQttCtx       * ctx;
-
-	/** 
-	 * Msg unique identifier. Every msg read have a different
-	 * msg id. This is used to track down msgs that are
-	 * allocated and deallocated.
-	 */
-	int               id;
-	
-	/* the payload message, that is, all the message content
-	 * (including MIME headers and body) */
-	axlPointer           payload;
-
-	/* hold message size */
-	int                  size;
-
-	MyQttMutex           mutex;
-
-	/* real reference to the memory allocated, having all the
-	 * msg received (including trailing END\x0A\x0D but
-	 * nullified), this is used to avoid double allocating memory
-	 * to receive the content and memory to place the content. See
-	 * myqtt_msg_get_next for more information. */
-	axlPointer           buffer;
-
-	/* reference to the payload content, from a MIME
-	 * perspective. This is the body part of the msg received */
-	axlPointer           content;
-
-	/* msg reference counting */
-	int                  ref_count;
-};
 
 /** 
  * @internal
@@ -129,7 +93,7 @@ int  __myqtt_msg_get_next_id (MyQttCtx * ctx, char  * from)
  * 
  * @return how many bytes were read.
  */
-int         myqtt_msg_receive_raw  (MyQttConn * connection, char  * buffer, int  maxlen)
+int         myqtt_msg_receive_raw  (MyQttConn * connection, unsigned char  * buffer, int  maxlen)
 {
 	int         nread;
 #if defined(ENABLE_MYQTT_LOG)
@@ -178,125 +142,16 @@ int         myqtt_msg_receive_raw  (MyQttConn * connection, char  * buffer, int 
 	return nread;
 }
 
-/**
- * @brief Read the next line, byte by byte until it gets a \n or
- * maxlen is reached. Some code errors are used to manage exceptions
- * (see return values)
- * 
- * @param connection The connection where the read operation will be done.
- *
- * @param buffer A buffer to store content read from the network.
- *
- * @param maxlen max content to read from the network.
- * 
- * @return  values returned by this function follows:
- *  0 - remote peer have closed the connection
- * -1 - an error have happened while reading
- * -2 - could read because this connection is on non-blocking mode and there is no data.
- *  n - some data was read.
- * 
- **/
-int          myqtt_msg_readline (MyQttConn * connection, char  * buffer, int  maxlen)
-{
-	int         n, rc;
-	int         desp;
-	char        c, *ptr;
-#if defined(ENABLE_MYQTT_LOG)
-	char      * error_msg;
-#endif
-#if defined(ENABLE_MYQTT_LOG) && ! defined(SHOW_FORMAT_BUGS)
-	MyQttCtx * ctx = myqtt_conn_get_ctx (connection);
-#endif
-
-	/* avoid calling to read when no good socket is defined */
-	if (connection->session == -1)
-		return -1;
-
-	/* clear the buffer received */
-	/* memset (buffer, 0, maxlen * sizeof (char ));  */
-
-	/* check for pending line read */
-	desp         = 0;
-	if (connection->pending_line) {
-		/* get size and check exceeded values */
-		desp = strlen (connection->pending_line);
-		if (desp >= maxlen) {
-			__myqtt_conn_shutdown_and_record_error (
-				connection, MyQttProtocolError,
-				"found fragmented msg line header but allowed size was exceeded (desp:%d >= maxlen:%d)",
-				desp, maxlen);
-			return -1;
-		} /* end if */
-
-		/* now store content into the buffer */
-		memcpy (buffer, connection->pending_line, desp);
-
-		/* clear from the connection the line */
-		axl_free (connection->pending_line);
-		connection->pending_line = NULL;
-	}
-
-
-	/* read current next line */
-	ptr = (buffer + desp);
-	for (n = 1; n < (maxlen - desp); n++) {
-	__myqtt_msg_readline_again:
-		if (( rc = myqtt_conn_invoke_receive (connection, &c, 1)) == 1) {
-			*ptr++ = c;
-			if (c == '\x0A')
-				break;
-		}else if (rc == 0) {
-			if (n == 1)
-				return 0;
-			else
-				break;
-		} else {
-			if (errno == MYQTT_EINTR) 
-				goto __myqtt_msg_readline_again;
-			if ((errno == MYQTT_EWOULDBLOCK) || (errno == MYQTT_EAGAIN) || (rc == -2)) {
-				if (n > 0) {
-					/* store content read until now */
-					if ((n + desp - 1) > 0) {
-						buffer[n+desp - 1] = 0;
-						/* myqtt_log (MYQTT_LEVEL_WARNING, "storing partially line read: '%s' n:%d, desp:%d", buffer, n, desp);*/
-						connection->pending_line = axl_strdup (buffer);
-					} /* end if */
-				} /* end if */
-				return (-2);
-			}
-			
-#if defined(ENABLE_MYQTT_LOG)
-			/* if the connection is closed, just return
-			 * without logging a message */
-			if (myqtt_conn_is_ok (connection, axl_false)) {
-				error_msg = myqtt_errno_get_last_error ();
-				myqtt_log (MYQTT_LEVEL_CRITICAL, "unable to read a line from conn-id=%d (socket %d, rc %d), error was: %s",
-					    myqtt_conn_get_id (connection), myqtt_conn_get_socket (connection), rc,
-					    error_msg ? error_msg : "");
-			}
-#endif
-			return (-1);
-		}
-	}
-
-	/* notify here msg received (content received) */
-	myqtt_conn_set_receive_stamp (connection, (long) (n + desp), 0);
-
-	*ptr = 0;
-	return (n + desp);
-
-}
-
 /** 
  * @internal Function used to encode remaining length on the provided
  * buffer using representation provided by the MQTT standard.
  */
-axl_bool myqtt_msg_encode_remaining_length (MyQttCtx * ctx, char * result, int value, int * out_position)
+axl_bool myqtt_msg_encode_remaining_length (MyQttCtx * ctx, unsigned char * input, int value, int * out_position)
 {
 	int  value_to_encode = value;
 	int  iterator        = 0;
 
-	char encoded_byte;
+	int encoded_byte;
 	do {
 		/* check values before continue */
 		if (iterator == 4) {
@@ -308,12 +163,18 @@ axl_bool myqtt_msg_encode_remaining_length (MyQttCtx * ctx, char * result, int v
 		/* encode byte */
 		encoded_byte = value_to_encode % 128;
 
+		/* update value */
+		value_to_encode = value_to_encode / 128;
+
 		/* signal more to come in the upper part */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Encoded value %d): encoded_byte=0x%x (value_to_encode=%d)", iterator, encoded_byte, value_to_encode);
 		if (value_to_encode > 0)
-			encoded_byte |= 128;
+			encoded_byte = (encoded_byte | 0x80);
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Encoded value (after adding continuator): 0x%x", encoded_byte);
 
 		/* save value at the right position and move next */
-		result[iterator] = encoded_byte;
+		input[iterator] = 0;
+		input[iterator] = encoded_byte;
 		iterator++;
 		
 	} while (value_to_encode > 0);
@@ -323,6 +184,37 @@ axl_bool myqtt_msg_encode_remaining_length (MyQttCtx * ctx, char * result, int v
 		(*out_position) = iterator;
 
 	return axl_true;
+}
+
+
+/** 
+ * @internal Function that recovers remaining length from the provided
+ * buffer and reports the value. The function also reports the next
+ * position that should be read from the package.
+ */
+int      myqtt_msg_decode_remaining_length (MyQttCtx * ctx, unsigned char * input, int * out_position)
+{
+	int multiplier = 1;
+	int value = 0;
+	int iterator = 0;
+	unsigned char encoded_byte;
+
+	do {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "%d) current value is %d", iterator, value);
+		encoded_byte = input[iterator];
+		value += (encoded_byte & 0x7f) * multiplier;
+		multiplier = multiplier * 128;
+		if (iterator > 3)
+			return -1;
+
+		iterator++;
+
+	} while ((encoded_byte & 128) != 0);
+
+	/* report caller iterator */
+	(*out_position) = iterator;
+
+	return value;
 }
 
 /** 
@@ -344,11 +236,18 @@ axl_bool myqtt_msg_encode_remaining_length (MyQttCtx * ctx, char * result, int v
  *
  * @param size A reference to report the size of the chunk.
  *
- * The rest of parameters is a list of references where it is provided
+ * The rest of parameters is a list of if parameters that configures
+ * the payload to be sent. Here are the allowed combination:
+ * 
+ * - (MYQTT_PARAM_UTF8_STRING, length in bytes, utf-8 string)
+ * - (MYQTT_PARAM_BINARY_PAYLOAD, length in bytes, binary data)
+ * - (MYQTT_PARAM_16BIT_INT, value)
+ * - (MYQTT_PARAM_8BIT_INT, value)
+ *
  * a reference to a memory chunk plus the size of that chunk ended by
  * a NULL parameter. You must release that chunk of memory usign \ref myqtt_msg_free_build
  */
-char        * myqtt_msg_build                 (MyQttCtx     * ctx,
+unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 					       MyQttMsgType   type,
 					       axl_bool       dup,
 					       MyQttQos       qos,
@@ -356,12 +255,14 @@ char        * myqtt_msg_build                 (MyQttCtx     * ctx,
 					       int          * size,
 					       ...)
 {
-	const char * ref;
-	int          ref_size;
-	int          iterator = 0;
-	int          total_size;
-	char       * result;
-	va_list      args;
+	const char      * ref;
+	int               ref_size;
+	int               iterator = 0;
+	int               total_size;
+	unsigned char   * result;
+	va_list           args;
+	MyQttParamType    param_type;
+	int               int_value;
 
 	/* open stdargs */
 	va_start (args, size);
@@ -369,19 +270,86 @@ char        * myqtt_msg_build                 (MyQttCtx     * ctx,
 	total_size = 0;
 	
 	do {
-		/* get reference */
-		ref      = va_arg (args, const char *);
-		if (ref == NULL) 
+		/* get paramter type to process */
+		param_type = va_arg (args, MyQttParamType);
+		if (param_type == MYQTT_PARAM_END)
 			break;
-		ref_size = va_arg (args, int);
-		
+
+		/* reset size */
+		ref_size = 0;
+
+		switch (param_type) {
+
+		case MYQTT_PARAM_UTF8_STRING:
+			/* get size */
+			ref_size = va_arg (args, int);
+
+			/* check parameter */
+			ref      = va_arg (args, const char *);
+			if (ref == NULL)  {
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Null parameter found while expecting UTF-8 string");
+				/* call to close to avoid problems with amd64 platforms */
+				va_end (args);
+				return NULL;
+			} /* end if */
+
+			/* add the additional vlue */
+			ref_size += 2;
+
+			break;
+		case MYQTT_PARAM_8BIT_INT:
+			/* report size */
+			ref_size = 1;
+			/* get the value from parameters */
+			int_value = va_arg (args, int);
+
+			if (int_value > 255) {
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Received a bigger value than 255 for a 8bit parameter");
+				/* call to close to avoid problems with amd64 platforms */
+				va_end (args);
+				return NULL;
+			} /* end if */
+
+			break;
+		case MYQTT_PARAM_16BIT_INT:
+			/* report size */
+			ref_size = 2;
+			/* value reported */
+			int_value = va_arg (args, int);
+
+			if (int_value > 65535) {
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Received a bigger value than 255 for a 8bit parameter");
+				/* call to close to avoid problems with amd64 platforms */
+				va_end (args);
+				return NULL;
+			} /* end if */
+
+			break;
+		case MYQTT_PARAM_BINARY_PAYLOAD:
+			/* get size */
+			ref_size = va_arg (args, int);
+
+			/* check parameter */
+			ref      = va_arg (args, const char *);
+			if (ref == NULL)  {
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Null parameter found while expecting binary payload");
+				/* call to close to avoid problems with amd64 platforms */
+				va_end (args);
+				return NULL;
+			} /* end if */
+
+			break;
+		default:
+			break;
+		}
+
 		/* accumulate */
-		total_size += (ref_size + 2);
+		total_size += ref_size;
 
 		/* limit, never go more than 20 parameters */
 		iterator += 1;
 
-		if (iterator < 20) {
+		if (iterator > 20) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Parameter list exceeded %d", iterator);
 			/* call to close to avoid problems with amd64 platforms */
 			va_end (args);
@@ -413,7 +381,7 @@ char        * myqtt_msg_build                 (MyQttCtx     * ctx,
 	} /* end if */
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Output message is %d bytes long", total_size);
-	result = axl_new (char, total_size + 1);
+	result = axl_new (unsigned char, total_size + 1);
 	if (result == NULL) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to allocate memory for msg, errno=%d", errno);
 		return NULL;
@@ -441,7 +409,7 @@ char        * myqtt_msg_build                 (MyQttCtx     * ctx,
 
 	/* now save remaining bytes */
 	iterator = 0;
-	if (! myqtt_msg_encode_remaining_length (ctx, result, total_size, &iterator)) {
+	if (! myqtt_msg_encode_remaining_length (ctx, result + 1, total_size, &iterator)) {
 		axl_free (result);
 		return NULL;
 	} /* end if */
@@ -450,30 +418,85 @@ char        * myqtt_msg_build                 (MyQttCtx     * ctx,
 	va_start (args, size);
 
 	do {
-		/* get reference */
-		ref      = va_arg (args, const char *);
-		if (ref == NULL) 
+		/* get paramter type to process */
+		param_type = va_arg (args, MyQttParamType);
+		if (param_type == MYQTT_PARAM_END)
 			break;
-		ref_size = va_arg (args, int);
-		
-		
+
+		/* reset size */
+		ref_size = 0;
+
+		switch (param_type) {
+		case MYQTT_PARAM_UTF8_STRING:
+			/* get size */
+			ref_size = va_arg (args, int);
+
+			/* store value at iterator */
+			myqtt_set_16bit (ref_size, result + 1 + iterator);
+			iterator += 2;
+
+			/* check parameter */
+			ref      = va_arg (args, const char *);
+			
+			/* now store the string itself */
+			memcpy (result + 1 + iterator, ref, ref_size);
+			iterator += ref_size;
+
+			break;
+		case MYQTT_PARAM_8BIT_INT:
+			/* get the value from parameters */
+			int_value = va_arg (args, int);
+
+			result[iterator + 1] = int_value;
+			iterator += 1;
+
+			break;
+		case MYQTT_PARAM_16BIT_INT:
+			/* get the value from parameters */
+			int_value = va_arg (args, int);
+
+			myqtt_set_16bit (int_value, result + 1 + iterator);
+			iterator += 2;
+
+			break;
+		case MYQTT_PARAM_BINARY_PAYLOAD:
+			/* get size */
+			ref_size = va_arg (args, int);
+
+			/* check parameter */
+			ref      = va_arg (args, const char *);
+			
+			/* now store the string itself */
+			memcpy (result + 1 + iterator, ref, ref_size);
+			iterator += ref_size;
+
+			break;
+		default:
+			break;
+		}
+
 
 	} while ( axl_true );
 
 	/* call to close to avoid problems with amd64 platforms */
 	va_end (args);
+
+	/* report size to the caller */
+	if (size)
+		(*size) = total_size;
 	
-
-
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Created MQTT message string of %d bytes (iterator=%d)", total_size, iterator);
 	return result;
 }
 
 /** 
  * @internal Releases a memory chunk created by \ref myqtt_msg_build.
  */
-void myqtt_msg_free_build (MyQttCtx * ctx, char * msg_build, int size)
+void myqtt_msg_free_build (MyQttCtx * ctx, unsigned char * msg_build, int size)
 {
-	
+	/* call to release message */
+	axl_free (msg_build);
+	return;
 }
 
 /** 
@@ -493,12 +516,13 @@ void myqtt_msg_free_build (MyQttCtx * ctx, char * msg_build, int size)
  **/
 MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 {
-	int           bytes_read;
-	int           remaining;
-	MyQttMsg    * msg;
-	char          line[100];
-	char        * buffer = NULL;
-	MyQttCtx    * ctx    = myqtt_conn_get_ctx (connection);
+	int              bytes_read;
+	int              remaining;
+	MyQttMsg       * msg;
+	unsigned char    header[6];
+	unsigned char  * buffer = NULL;
+	MyQttCtx       * ctx    = myqtt_conn_get_ctx (connection);
+	int              iterator;
 
 	/* check here port sharing for this connection before reading
 	 * the content. The function returns axl_true if the
@@ -554,7 +578,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 		/* We have a complete buffer for the msg, let's
 		 * continue the process but, before doing that we have
 		 * to restore expected state of bytes_read. */
-		bytes_read = (msg->size + 5);
+		bytes_read = msg->size;
 
 		connection->buffer     = NULL;
 		connection->last_msg = NULL;
@@ -564,7 +588,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	}
 	
 	/* parse msg header, read the first line */
-	bytes_read = myqtt_msg_readline (connection, line, 99);
+	bytes_read = myqtt_msg_receive_raw (connection, header, 2);
 	if (bytes_read == -2) {
 		/* count number of non-blocking operations on this
 		 * connection to avoid iterating for ever */
@@ -613,18 +637,34 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	        if (myqtt_conn_is_ok (connection, axl_false))
 		        __myqtt_conn_shutdown_and_record_error (connection, MyQttProtocolError, "an error have ocurred while reading socket");
 		return NULL;
-	}
+	} /* end if */
 
-	if (bytes_read == 1 || (line[bytes_read - 1] != '\x0A') || (line[bytes_read - 2] != '\x0D')) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, 
-			    "no line definition found for msg, over connection id=%d, bytes read: %d, line: '%s' errno=%d, closing session",
-			    myqtt_conn_get_id (connection),
-			    bytes_read, line, errno);
-		__myqtt_conn_shutdown_and_record_error (
-			connection, MyQttProtocolError, "no line definition found for msg");
-		return NULL;
-	}
+	/* get remaining length values to get the final amount to read
+	 * from the network */
+	iterator = 0;
+	while (iterator < 3) {
+		/* check if the highest order bit indicates whether
+		 * there is more bytes */
+		if (myqtt_get_bit (header[1 + iterator], 7) == 0)
+			break;
 
+		/* next position */
+		iterator++;
+
+		/* get the value */
+		bytes_read = myqtt_msg_receive_raw (connection, header + 1 + iterator, 1);
+		if (bytes_read == 0) {
+			/* incomplete header received */
+			__myqtt_conn_shutdown_and_record_error (connection, MyQttProtocolError, "incomplete header received");
+			return NULL;
+		} /* end if */
+	} /* end if */
+
+	/* report content received */
+	iterator  = 0;
+	remaining = myqtt_msg_decode_remaining_length (ctx, header + 1, &iterator);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "New packet received, header size indication is: %d (iterator=%d)", remaining, iterator);
+	
 	/* create a msg */
 	msg       = axl_new (MyQttMsg, 1);
 	if (msg == NULL) {
@@ -632,6 +672,13 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 			connection, MyQttMemoryFail, "Failed to allocate memory for msg");
 		return NULL;
 	} /* end if */
+
+	/* report the message type */
+	msg->type = (header[0] & 0xf0) >> 4;
+	myqtt_log (MYQTT_LEVEL_DEBUG, "New packet received: %s, header size indication is: %d (iterator=%d)", myqtt_msg_get_type_str (msg), remaining, iterator);
+
+	/* update message size */
+	msg->size = remaining;
 
 	/* acquire a reference to the context */
 	myqtt_ctx_ref2 (ctx, "new msg");
@@ -643,13 +690,12 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	msg-> id  = __myqtt_msg_get_next_id (ctx, "get-next");
 	msg->ctx  = ctx;
 
-
-	/* allocate exactly msg->size + 5 bytes */
-	buffer = malloc (sizeof (char) * (msg->size + 6));
+	/* allocate exactly msg->size + 1 bytes */
+	buffer = malloc (sizeof (unsigned char) * msg->size + 1);
 	MYQTT_CHECK_REF2 (buffer, NULL, msg, axl_free);
 	
 	/* read the next msg content */
-	bytes_read = myqtt_msg_receive_raw (connection, buffer, msg->size + 5);
+	bytes_read = myqtt_msg_receive_raw (connection, buffer, msg->size);
  	if (bytes_read == 0 && errno != MYQTT_EAGAIN && errno != MYQTT_EWOULDBLOCK) {
 		__myqtt_conn_shutdown_and_record_error (
 			connection, MyQttProtocolError, "remote peer have closed connection while reading the rest of the msg");
@@ -662,7 +708,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 		return NULL;
 	}
 
-	if (bytes_read != (msg->size + 5)) {
+	if (bytes_read != (msg->size - 1 - iterator)) {
 		/* ok, we have received few bytes than expected but
 		 * this is not wrong. Non-blocking sockets behave this
 		 * way. What we have to do is to store the msg chunk
@@ -679,14 +725,14 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 		connection->buffer = buffer;
 		
 		/* save remaining bytes */
-		connection->remaining_bytes = (msg->size + 5) - bytes_read;
+		connection->remaining_bytes = msg->size - bytes_read - 1 - iterator;
 
 		/* save read bytes */
 		connection->bytes_read      = bytes_read;
 
 		myqtt_log (MYQTT_LEVEL_DEBUG, 
-		       "(ok message) received a msg fragment (expected: %d read: %d remaining: %d), storing into this connection id=%d",
-		       (msg->size + 5), bytes_read, (msg->size + 5) - bytes_read, myqtt_conn_get_id (connection));
+			   "received a msg fragment (expected: %d read: %d remaining: %d), storing into this connection id=%d",
+			   msg->size, bytes_read, msg->size - bytes_read - 1 - iterator, myqtt_conn_get_id (connection));
 		return NULL;
 	}
 
@@ -705,6 +751,68 @@ process_buffer:
 
 }
 
+/** 
+ * @brief Allows to get the MQTT message type from the provided message.
+ *
+ * @param msg The message to report type from.
+ *
+ * @return The message type. The function returns -1 if it fails (msg reference is NULL).
+ */
+MyQttMsgType  myqtt_msg_get_type              (MyQttMsg    * msg)
+{
+	if (msg == NULL)
+		return -1;
+	return msg->type;
+}
+
+/** 
+ * @brief Allows to get the MQTT message type from the provided message in string format.
+ *
+ * This function is similar to \ref myqtt_msg_get_type but this one reports a string.
+ *
+ * @param msg The message to report type from.
+ *
+ * @return The message type in the form of a string.
+ */
+const char  * myqtt_msg_get_type_str          (MyQttMsg    * msg)
+{
+	if (msg == NULL)
+		return "UNKNONW";
+	switch (msg->type) {
+	case MYQTT_CONNECT:
+		return "CONNECT";
+	case MYQTT_CONNACK:
+		return "CONNACK";
+	case MYQTT_PUBLISH:
+		return "PUBLISH";
+	case MYQTT_PUBACK:
+		return "PUBACK";
+	case MYQTT_PUBREC:
+		return "PUBREC";
+	case MYQTT_PUBREL:
+		return "PUBREL";
+	case MYQTT_PUBCOMP:
+		return "PUBCOMP";
+	case MYQTT_SUBSCRIBE:
+		return "SUBSCRIBE";
+	case MYQTT_SUBACK:
+		return "SUBACK";
+	case MYQTT_UNSUBSCRIBE:
+		return "UNSUBSCRIBE";
+	case MYQTT_UNSUBACK:
+		return "UNSUBACK";
+	case MYQTT_PINGREQ:
+		return "PINGREQA";
+	case MYQTT_PINGRESP:
+		return "PINGRESP";
+	case MYQTT_DISCONNECT:
+		return "DISCONNECT";
+	default:
+		return "UNKNOWN";
+	}
+	return "UNKNOWN";
+}
+
 
 /** 
  * @internal
@@ -717,7 +825,7 @@ process_buffer:
  * 
  * @return 
  */
-axl_bool             myqtt_msg_send_raw     (MyQttConn * connection, const char  * a_msg, int  msg_size)
+axl_bool             myqtt_msg_send_raw     (MyQttConn * connection, const unsigned char  * a_msg, int  msg_size)
 {
 
 	MyQttCtx  * ctx    = myqtt_conn_get_ctx (connection);
@@ -964,7 +1072,7 @@ void          myqtt_msg_free (MyQttMsg * msg)
 	else if (msg->content != NULL)
 		axl_free (msg->content);
 	else if (msg->payload != NULL)
-		axl_free (msg->payload);
+		axl_free ((char *) msg->payload);
 
 	/* release reference to the context */
 	myqtt_ctx_unref2 (&msg->ctx, "end msg");

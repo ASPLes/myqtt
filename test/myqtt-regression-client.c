@@ -396,21 +396,11 @@ axl_bool  test_00_a (void) {
 axl_bool test_01 (void) {
 
 	MyQttCtx  * ctx = init_ctx ();
-	MyQttConn * listener;
 	MyQttConn * conn;
 	if (! ctx)
 		return axl_false;
 
-	printf ("Test 01: startup listener..\n");
-
-	/* start a listener */
-	listener = myqtt_listener_new (ctx, listener_host, listener_port, NULL, NULL);
-	if (! myqtt_conn_is_ok (listener, axl_false)) {
-		printf ("ERROR: failed to start listener at: %s:%s..\n", listener_host, listener_port);
-		return axl_false;
-	} /* end if */
-
-	printf ("Test 01: listener created, now connecting..\n");
+	printf ("Test 01: creating connection..\n");
 
 	/* now connect to the listener:
 	   client_identifier -> test_01

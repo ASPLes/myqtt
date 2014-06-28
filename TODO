@@ -1,3 +1,7 @@
+* Limit utf-8 strings to avoid memory consumption. It makes no sense
+  to have a username or password with 64K long (or the client
+  identifier).
+
 * Check references to VortexFrame and frame_received handlers to
   change them to MyQttMsg and msg_received
 

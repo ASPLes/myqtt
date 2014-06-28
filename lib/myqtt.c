@@ -1208,7 +1208,7 @@ axl_bool myqtt_is_exiting           (MyQttCtx * ctx)
  *    | 7  6  5  4  3  2  1  0 | position
  *    +------------------------+
  */
-int myqtt_get_bit (char byte, int position) {
+int myqtt_get_bit (unsigned char byte, int position) {
 	return ( ( byte & (1 << position) ) >> position);
 }
 
@@ -1220,12 +1220,12 @@ int myqtt_get_bit (char byte, int position) {
  *    | 7  6  5  4  3  2  1  0 | position
  *    +------------------------+
  */
-void myqtt_set_bit (char * buffer, int position) {
+void myqtt_set_bit (unsigned char * buffer, int position) {
 	buffer[0] |= (1 << position);
 	return;
 }
 
-void myqtt_show_byte (MyQttCtx * ctx, char byte, const char * label) {
+void myqtt_show_byte (MyQttCtx * ctx, unsigned char byte, const char * label) {
 	
 	myqtt_log (MYQTT_LEVEL_DEBUG, "  byte (%s) = %d %d %d %d  %d %d %d %d",
 		   label,
@@ -1240,7 +1240,7 @@ void myqtt_show_byte (MyQttCtx * ctx, char byte, const char * label) {
 	return;
 }
 
-char * myqtt_int2bin (int a, char *buffer, int buf_size) {
+unsigned char * myqtt_int2bin (int a, unsigned char *buffer, int buf_size) {
 	int i;
 
 	buffer += (buf_size - 1);
@@ -1258,7 +1258,7 @@ char * myqtt_int2bin (int a, char *buffer, int buf_size) {
 
 void myqtt_int2bin_print (MyQttCtx * ctx, int value) {
 	
-	char buffer[BUF_SIZE];
+	unsigned char buffer[BUF_SIZE];
 	buffer[BUF_SIZE - 1] = '\0';
 
 	myqtt_int2bin (value, buffer, BUF_SIZE - 1);
@@ -1276,7 +1276,7 @@ void myqtt_int2bin_print (MyQttCtx * ctx, int value) {
  *
  * @return The 16 bit integer value found at the buffer pointer.
  */
-int    myqtt_get_16bit (const char * buffer)
+int    myqtt_get_16bit (const unsigned char * buffer)
 {
 	int high_part = buffer[0] << 8;
 	int low_part  = buffer[1] & 0x000000ff;
@@ -1292,7 +1292,7 @@ int    myqtt_get_16bit (const char * buffer)
  *
  * @erturn The 8 bit integer value found at the buffer pointer.
  */
-int    myqtt_get_8bit  (const char * buffer)
+int    myqtt_get_8bit  (const unsigned char * buffer)
 {
 	return buffer[0] & 0x00000000ff;
 }
@@ -1305,7 +1305,7 @@ int    myqtt_get_8bit  (const char * buffer)
  *
  * @param buffer The buffer where the content will be placed.
  */
-void   myqtt_set_16bit (int value, char * buffer)
+void   myqtt_set_16bit (int value, unsigned char * buffer)
 {
 	buffer[0] = (value & 0x0000ff00) >> 8;
 	buffer[1] = value & 0x000000ff;
@@ -1321,7 +1321,7 @@ void   myqtt_set_16bit (int value, char * buffer)
  *
  * @param buffer The buffer where the content will be placed.
  */
-void   myqtt_set_32bit (int value, char * buffer)
+void   myqtt_set_32bit (int value, unsigned char * buffer)
 {
 	buffer[0] = (value & 0x00ff000000) >> 24;
 	buffer[1] = (value & 0x0000ff0000) >> 16;
@@ -1338,7 +1338,7 @@ void   myqtt_set_32bit (int value, char * buffer)
  *
  * @return The integer value reported by the buffer.
  */
-int    myqtt_get_32bit (const char * buffer)
+int    myqtt_get_32bit (const unsigned char * buffer)
 {
 	int part1 = (int)(buffer[0] & 0x0ff) << 24;
 	int part2 = (int)(buffer[1] & 0x0ff) << 16;

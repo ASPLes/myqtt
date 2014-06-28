@@ -133,9 +133,9 @@ axl_bool      myqtt_conn_do_sanity_check (MyQttCtx * ctx, MYQTT_SOCKET session)
  * 
  * See \ref myqtt_conn_set_send_handler.
  */
-int  myqtt_conn_default_send (MyQttConn * connection,
-				     const char       * buffer,
-				     int                buffer_len)
+int  myqtt_conn_default_send (MyQttConn           * connection,
+			      const unsigned char * buffer,
+			      int                   buffer_len)
 {
 	/* send the message */
 	return send (connection->session, buffer, buffer_len, 0);
@@ -147,9 +147,9 @@ int  myqtt_conn_default_send (MyQttConn * connection,
  *
  * See \ref myqtt_conn_set_receive_handler.
  */
-int  myqtt_conn_default_receive (MyQttConn * connection,
-					char             * buffer,
-					int                buffer_len)
+int  myqtt_conn_default_receive (MyQttConn          * connection,
+				 unsigned char      * buffer,
+				 int                  buffer_len)
 {
 	/* receive content */
 	return recv (connection->session, buffer, buffer_len, 0);
@@ -1046,13 +1046,48 @@ MYQTT_SOCKET myqtt_conn_sock_connect_common (MyQttCtx            * ctx,
 }
 
 /* now we have to send greetings and process them */
-axl_bool __myqtt_conn_send_connect (MyQttCtx * ctx, MyQttConn * connection, MyQttConnOpts * opts) {
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Sending CONNECT package to %s:%s (conn-id=%d)", connection->host, connection->port, connection->id);
-	
-	
-	
+axl_bool __myqtt_conn_send_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * opts) {
+	unsigned char * msg;
+	int             size;
 
-	return axl_false;
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Sending CONNECT package to %s:%s (conn-id=%d)", conn->host, conn->port, conn->id);
+	
+	size = 0;
+	msg  = myqtt_msg_build  (ctx, MYQTT_CONNECT, axl_false, 0, axl_false, &size,  /* 2 bytes */
+				 MYQTT_PARAM_UTF8_STRING, 4, "MQTT", /* 6 bytes */
+				 MYQTT_PARAM_8BIT_INT, 4, /* 1 byte */
+				 /* connect flags */
+				 MYQTT_PARAM_8BIT_INT, 0, /* 1 byte */
+				 /* keep alive value, for now nothing */
+				 MYQTT_PARAM_16BIT_INT, 0, /* 2 bytes */
+				 /* client identifier */
+				 MYQTT_PARAM_UTF8_STRING, 17, "client.identifier", /* 19 */
+				 /* will topic */
+				 /* will message */
+				 /* user */
+				 /* password */
+				 MYQTT_PARAM_END);
+	if (msg == NULL || size == 0) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create CONNECT message, empty/NULL value reported by myqtt_msg_build()");
+		return axl_false;
+	} /* end if */
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Created a CONNECT message of %d bytes", size);
+	
+	if (! myqtt_msg_send_raw (conn, msg, size)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send CONNECT message, errno=%d", errno);
+		/* call to release */
+		myqtt_msg_free_build (ctx, msg, size);
+		return axl_false;
+	}
+	
+	/* report message sent */
+	myqtt_log (MYQTT_LEVEL_DEBUG, "CONNECT message of %d bytes sent", size);
+
+	/* call to release */
+	myqtt_msg_free_build (ctx, msg, size);
+
+	return axl_true;
 }
 
 axl_bool __myqtt_conn_parse_greetings (MyQttConn * connection, MyQttMsg * msg) {
@@ -3541,9 +3576,9 @@ axl_bool   myqtt_conn_remove_on_close_full (MyQttConn              * connection,
  * function returns -2 if the connection isn't still prepared to read
  * data.
  */
-int                 myqtt_conn_invoke_receive         (MyQttConn * connection,
-							      char             * buffer,
-							      int                buffer_len)
+int                 myqtt_conn_invoke_receive         (MyQttConn        * connection,
+						       unsigned char    * buffer,
+						       int                buffer_len)
 {
 	/* return -1 */
 	if (connection == NULL || buffer == NULL || connection->receive == NULL)
@@ -3567,9 +3602,9 @@ int                 myqtt_conn_invoke_receive         (MyQttConn * connection,
  * returned if the connection isn't still prepared to write or send
  * the data.
  */
-int                 myqtt_conn_invoke_send            (MyQttConn * connection,
-							      const char       * buffer,
-							      int                buffer_len)
+int                 myqtt_conn_invoke_send            (MyQttConn           * connection,
+						       const unsigned char * buffer,
+						       int                   buffer_len)
 {
 	if (connection == NULL || buffer == NULL || ! myqtt_conn_is_ok (connection, axl_false))
 		return -1;

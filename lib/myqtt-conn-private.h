@@ -114,6 +114,15 @@ struct _MyQttConn {
 	int          id;
 
 	/** 
+	 * @brief MQTT client identifier.
+	 */
+	char * client_identifier;
+	char * will_topic;
+	char * will_msg;
+	char * username;
+	char * password;
+
+	/** 
 	 * @brief Host name this connection is actually connected to.
 	 */
 	char       * host;
@@ -245,6 +254,7 @@ struct _MyQttConn {
 	 * @internal Value to track connection activity.
 	 */
 	long                    last_idle_stamp;
+	int                     keep_alive;
 
 	/** 
 	 * @internal Value to track now many bytes has being received
@@ -265,6 +275,7 @@ struct _MyQttConn {
 	 */
 	axl_bool                initial_accept;
 	axl_bool                transport_detected;
+	axl_bool                connect_received;
 
 	/** 
 	 * @internal Reference to a line that wasn't totally read when
@@ -282,7 +293,7 @@ struct _MyQttConn {
 	 * @internal Pointer used to store the buffer that is holding
 	 * the content of the next msg.
 	 */
-	char                       * buffer;
+	unsigned char             * buffer;
 	
 	/** 
 	 * @internal Pointer to the last msg being read at the

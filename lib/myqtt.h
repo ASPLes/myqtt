@@ -480,25 +480,25 @@ void     _myqtt_log2                (MyQttCtx        * ctx,
 				      const char       * message, 
 				      ...);
 
-int    myqtt_get_bit (char byte, int position);
+int    myqtt_get_bit (unsigned char byte, int position);
 
-void   myqtt_set_bit     (char * buffer, int position);
+void   myqtt_set_bit     (unsigned char * buffer, int position);
 
-void   myqtt_show_byte (MyQttCtx * ctx, char byte, const char * label);
+void   myqtt_show_byte (MyQttCtx * ctx, unsigned char byte, const char * label);
 
-char * myqtt_int2bin (int a, char *buffer, int buf_size);
+unsigned char * myqtt_int2bin (int a, unsigned char *buffer, int buf_size);
 
 void   myqtt_int2bin_print (MyQttCtx * ctx, int value);
 
-int    myqtt_get_8bit  (const char * buffer);
+int    myqtt_get_8bit  (const unsigned char * buffer);
 
-int    myqtt_get_16bit (const char * buffer);
+int    myqtt_get_16bit (const unsigned char * buffer);
 
-void   myqtt_set_16bit (int value, char * buffer);
+void   myqtt_set_16bit (int value, unsigned char * buffer);
 
-void   myqtt_set_32bit (int value, char * buffer);
+void   myqtt_set_32bit (int value, unsigned char * buffer);
 
-int    myqtt_get_32bit (const char * buffer);
+int    myqtt_get_32bit (const unsigned  char * buffer);
 
 #if defined(__COMPILING_MYQTT__) && defined(__GNUC__)
 /* makes gcc happy, by prototyping functions which aren't exported

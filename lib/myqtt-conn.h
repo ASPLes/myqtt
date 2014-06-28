@@ -250,13 +250,13 @@ axl_bool            myqtt_conn_remove_on_close_full    (MyQttConn              *
 							 MyQttConnOnCloseFull     on_close_handler,
 							 axlPointer                      data);
 
-int                 myqtt_conn_invoke_receive         (MyQttConn * conn,
-							char             * buffer,
-							int                buffer_len);
+int                 myqtt_conn_invoke_receive         (MyQttConn        * conn,
+						       unsigned char    * buffer,
+						       int                buffer_len);
 
-int                 myqtt_conn_invoke_send            (MyQttConn * conn,
-							const char       * buffer,
-							int                buffer_len);
+int                 myqtt_conn_invoke_send            (MyQttConn             * conn,
+							const unsigned char  * buffer,
+							int                    buffer_len);
 
 void                myqtt_conn_sanity_socket_check        (MyQttCtx * ctx, axl_bool      enable);
 
