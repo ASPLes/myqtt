@@ -20,7 +20,7 @@ INCLUDE_WEBSOCKET_SUPPORT = -DENABLE_WEBSOCKET_SUPPORT -I$(top_srcdir)/web-socke
 WEBSOCKET_SUPPORT_LIBS = $(top_builddir)/web-socket/libmyqtt-websocket-1.1.la
 endif
 
-noinst_PROGRAMS = test_01
+noinst_PROGRAMS = myqtt-regression-client myqtt-regression-listener
 
 INCLUDES = -I$(top_srcdir)/lib $(AXL_CFLAGS)  $(PTHREAD_CFLAGS) \
 	-I$(READLINE_PATH)/include $(compiler_options) -D__axl_disable_broken_bool_def__   \
@@ -28,8 +28,13 @@ INCLUDES = -I$(top_srcdir)/lib $(AXL_CFLAGS)  $(PTHREAD_CFLAGS) \
 
 LIBS            = $(AXL_LIBS) $(PTHREAD_LIBS) $(ADDITIONAL_LIBS) $(NOPOLL_LIBS)
 
-test_01_SOURCES        = test_01.c
-test_01_LDADD          = $(LIBS) $(top_builddir)/lib/libmyqtt-1.0.la 
+# client
+myqtt_regression_client_SOURCES        = myqtt-regression-client.c
+myqtt_regression_client_LDADD          = $(LIBS) $(top_builddir)/lib/libmyqtt-1.0.la 
+
+# listener
+myqtt_regression_listener_SOURCES        = myqtt-regression-listener.c
+myqtt_regression_listener_LDADD          = $(LIBS) $(top_builddir)/lib/libmyqtt-1.0.la 
 
 
 

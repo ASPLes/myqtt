@@ -125,9 +125,9 @@ typedef void (*MyQttConnNew) (MyQttConn * connection, axlPointer user_data);
  * 
  * @return     How many data was actually sent.
  */
-typedef int      (*MyQttSendHandler)         (MyQttConn  * connection,
-					      const char * buffer,
-					      int          buffer_len);
+typedef int      (*MyQttSendHandler)         (MyQttConn           * connection,
+					      const unsigned char * buffer,
+					      int                   buffer_len);
 
 /** 
  * @brief Defines the readers handlers used to actually received data
@@ -142,9 +142,9 @@ typedef int      (*MyQttSendHandler)         (MyQttConn  * connection,
  * 
  * @return How many data was actually received.
  */
-typedef int      (*MyQttReceiveHandler)         (MyQttConn * connection,
-						 char      * buffer,
-						 int         buffer_len);
+typedef int      (*MyQttReceiveHandler)         (MyQttConn          * connection,
+						 unsigned char      * buffer,
+						 int                  buffer_len);
 
 /** 
  * @brief Allows to set a handler that will be called when a

@@ -58,6 +58,7 @@ libmyqtt_1_0_include_HEADERS = myqtt.h \
 	myqtt-support.h \
 	myqtt-handlers.h \
 	myqtt-msg.h \
+	myqtt-msg-private.h \
 	myqtt-listener.h \
 	myqtt-errno.h \
 	myqtt-hash.h \

@@ -48,25 +48,29 @@
 
 MyQttMsg    * myqtt_msg_get_next              (MyQttConn   * conn);
 
-axl_bool      myqtt_msg_send_raw              (MyQttConn   * conn, 
-					       const char  * msg, 
-					       int           msg_size);
+MyQttMsgType  myqtt_msg_get_type              (MyQttMsg    * msg);
 
-int           myqtt_msg_receive_raw           (MyQttConn * conn, 
-					       char      * buffer, 
-					       int         maxlen);
+const char  * myqtt_msg_get_type_str          (MyQttMsg    * msg);
 
-int           myqtt_msg_readline              (MyQttConn * connection, 
-					       char      * buffer, 
-					       int         maxlen);
+axl_bool      myqtt_msg_send_raw              (MyQttConn            * conn, 
+					       const unsigned char  * msg, 
+					       int                    msg_size);
 
-char        * myqtt_msg_build                 (MyQttCtx     * ctx,
+int           myqtt_msg_receive_raw           (MyQttConn          * conn, 
+					       unsigned char      * buffer, 
+					       int                  maxlen);
+
+unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 					       MyQttMsgType   type,
 					       axl_bool       dup,
 					       MyQttQos       qos,
 					       axl_bool       retain,
 					       int          * size,
 					       ...);
+
+void          myqtt_msg_free_build            (MyQttCtx * ctx, 
+					       unsigned char * msg_build, 
+					       int size);
 
 axl_bool      myqtt_msg_ref                   (MyQttMsg * msg);
 
@@ -81,6 +85,12 @@ int           myqtt_msg_get_id                (MyQttMsg * msg);
 int           myqtt_msg_get_payload_size      (MyQttMsg * msg);
 
 const void *  myqtt_msg_get_payload           (MyQttMsg * msg);
+
+
+/*** INTERNAL API: don't use it, it may change ***/
+axl_bool myqtt_msg_encode_remaining_length (MyQttCtx * ctx, unsigned char * input, int value, int * out_position);
+
+int      myqtt_msg_decode_remaining_length (MyQttCtx * ctx, unsigned char * input, int * out_position);
 
 /* @} */
 

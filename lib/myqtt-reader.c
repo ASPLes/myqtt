@@ -41,6 +41,7 @@
 /* local/private includes */
 #include <myqtt-ctx-private.h>
 #include <myqtt-conn-private.h>
+#include <myqtt-msg-private.h>
 
 #define LOG_DOMAIN "myqtt-reader"
 
@@ -70,6 +71,157 @@ typedef struct _MyQttReaderData {
 	 * finished: currently only used for type == FOREACH */
 	MyQttAsyncQueue   * notify;
 }MyQttReaderData;
+
+/** 
+ * @internal Internal function that allows to get the utf-8 string
+ * found at the provided payload.
+ *
+ * @param ctx The context where the operation will take place.
+ *
+ * @param payload The payload where it is expected to find a MQTT
+ * utf-8 encoded string (2 bytes indicating the length, followed by
+ * the string itself).
+ */
+char * __myqtt_reader_get_utf8_string (MyQttCtx * ctx, const unsigned char * payload, int limit)
+{
+	int    length;
+	char * result;
+	
+	if (payload == NULL)
+		return NULL;
+
+	/* get the length to read */
+	length = myqtt_get_16bit (payload);
+
+	if (length > limit) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Requested to read an utf-8 string of length %d but limit is %d", length, limit);
+		return NULL;
+	} /* end if */
+
+	if (length > 65535) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Requested to read an utf-8 string of length %d but that is not accepted", length);
+		return NULL;
+	} /* end if */
+	
+	/* allocate memory to hold the string */
+	result = axl_new (char, length + 1);
+	if (result == NULL)
+		return NULL;
+
+	/* copy content into result */
+	memcpy (result, payload + 2, length);
+
+	return result;
+}
+
+void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * conn)
+{
+	int desp;
+	/* const char * username = NULL;
+	   const char * password = NULL; */
+
+	/* check if the connection was already accepted */
+	if (conn->connect_received) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received second CONNECT request, protocol violation, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
+		myqtt_conn_shutdown (conn);
+		return;
+	} /* end if */
+
+	/* flag that CONNECT message was received over this connection */
+	conn->connect_received = axl_true;
+
+	/* check protocol declaration */
+	if (! axl_memcmp ((const char * ) msg->payload + 2, "MQTT", 4)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to receive MQTT indication, but found something different, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
+		myqtt_conn_shutdown (conn);
+		return;
+	} /* end if */
+
+	/* check protocol level */
+	if (msg->payload[6] != 4) {
+		myqtt_log (MYQTT_LEVEL_WARNING, "Expected to receive MQTT protocol level 4 but found %d, conn-id=%d from %s:%s", 
+			   msg->payload[6], conn->id, conn->host, conn->port);
+		
+	} /* end if */
+
+	/* get keep alive configuration */
+	conn->keep_alive = myqtt_get_16bit (msg->payload + 8);
+
+	/* get client identifier */
+	desp = 10;
+	conn->client_identifier = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
+	if (! conn->client_identifier) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined client identifier, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
+		myqtt_conn_shutdown (conn);
+		return;
+	} /* end if */
+
+	/* update desp */
+	desp += (strlen (conn->client_identifier) + 2);
+
+	/* now get the will topic if indicated */
+	if (myqtt_get_bit (2, msg->payload[7])) {
+		/* will flag is on, find will topic and will message */
+		conn->will_topic = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
+		if (! conn->will_topic) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined will topic, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
+			myqtt_conn_shutdown (conn);
+			return;
+		} /* end if */
+
+		/* update desp */
+		desp += (strlen (conn->will_topic) + 2);
+
+		/* will flag is on, find will topic and will message */
+		conn->will_msg = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
+		if (! conn->will_msg) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined will msg, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
+			myqtt_conn_shutdown (conn);
+			return;
+		} /* end if */
+
+		/* update desp */
+		desp += (strlen (conn->will_msg) + 2);
+	} /* end if */
+
+	/* now get user and password */
+	if (myqtt_get_bit (7, msg->payload[7])) {
+		/* username flag on, get username */
+		conn->username = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
+		if (! conn->username) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined username, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
+			myqtt_conn_shutdown (conn);
+			return;
+		} /* end if */
+
+		/* update desp */
+		desp += (strlen (conn->username) + 2);
+	}
+
+	/* now get password */
+	if (myqtt_get_bit (6, msg->payload[7])) {
+		/* username flag on, get username */
+		conn->password = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
+		if (! conn->password) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined username, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
+			myqtt_conn_shutdown (conn);
+			return;
+		} /* end if */
+
+		/* update desp */
+		desp += (strlen (conn->password) + 2);
+	}
+
+	/* report that we've received a connection */
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Received CONNECT request conn-id=%d from %s:%s, client-identifier=%s, keep alive=%d, username=%s, password=%s", 
+		   conn->id, conn->host, conn->port, 
+		   conn->client_identifier ? conn->client_identifier : "",
+		   conn->keep_alive,
+		   conn->username ? conn->username : "",
+		   conn->password ? "*****" : "");
+
+	return;
+}
 
 /** 
  * @internal
@@ -132,6 +284,19 @@ void __myqtt_reader_process_socket (MyQttCtx        * ctx,
 	msg   = myqtt_msg_get_next (connection);
 	if (msg == NULL) 
 		return;
+
+	/* according to message type, handle it */
+	switch (msg->type) {
+	case MYQTT_CONNECT:
+		/* handle CONNECT packet */
+		__myqtt_reader_handle_connect (ctx, msg, connection);
+		break;
+	default:
+		/* report unhandled packet type */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Received unhandled message type (%d : %s) conn-id=%d from %s:%s", 
+			   msg->type, myqtt_msg_get_type_str (msg), connection->host, connection->port);
+		break;
+	}
 
 	/* unable to deliver the msg, free it */
 	myqtt_msg_unref (msg);
@@ -373,6 +538,10 @@ axl_bool      myqtt_reader_read_queue (MyQttCtx  * ctx,
 			myqtt_reader_foreach_impl (ctx, con_list, srv_list, data);
 
 		} /* end if */
+
+		if (data->type == TERMINATE) {
+			axl_free (data);
+		}
 
 	}while (should_continue && !myqtt_reader_register_watch (data, con_list, srv_list));
 
