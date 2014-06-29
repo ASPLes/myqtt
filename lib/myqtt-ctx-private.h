@@ -214,14 +214,12 @@ struct _MyQttCtx {
 	 * server side */
 	char                    * listener_default_realm;
 
-	/** 
-	 * @internal References to client connection created handler.
-	 */
-	MyQttClientConnCreated  conn_created;
-	axlPointer              conn_created_data;
-	
 	axlList               * port_share_handlers;
 	MyQttMutex              port_share_mutex;
+
+	/** references to on connect handlers **/
+	MyQttOnConnectHandler        on_connect;
+	axlPointer                   on_connect_data;
 };
 
 #endif /* __MYQTT_CTX_PRIVATE_H__ */

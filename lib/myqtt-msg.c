@@ -259,6 +259,7 @@ unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 	int               ref_size;
 	int               iterator = 0;
 	int               total_size;
+	int               total_header;
 	unsigned char   * result;
 	va_list           args;
 	MyQttParamType    param_type;
@@ -267,7 +268,8 @@ unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 	/* open stdargs */
 	va_start (args, size);
 
-	total_size = 0;
+	total_size   = 0;
+	total_header = 0;
 	
 	do {
 		/* get paramter type to process */
@@ -363,17 +365,21 @@ unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 
 	/* according to the total size to send */
 	if (total_size <= 127) {
-		/* 2 bytes from the header plus 1 for the remaining length header */
-		total_size += 3;
+		/* 1 bytes from the header plus 1 for the remaining length header */
+		total_size  += 2;
+		total_header = 2;
 	} else if (total_size <= 16383) {
-		/* 2 bytes from the header plus 2 for the remaining length header */
-		total_size += 4;
+		/* 1 bytes from the header plus 2 for the remaining length header */
+		total_size  += 3;
+		total_header = 3;
 	} else if (total_size <= 2097151) {
-		/* 2 bytes from the header plus 3 for the remaining length header */
-		total_size += 5;
+		/* 1 bytes from the header plus 3 for the remaining length header */
+		total_size  += 4;
+		total_header = 4;
 	} else if (total_size <= 268435455) {
-		/* 2 bytes from the header plus 4 for the remaining length header */
-		total_size += 6;
+		/* 1 bytes from the header plus 4 for the remaining length header */
+		total_size  += 5;
+		total_header = 5;
 	} else {
 		/* ERROR: size not suppoted */
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Requested to size an unsuppored size which is bigger than 268435455 bytes");
@@ -409,7 +415,7 @@ unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 
 	/* now save remaining bytes */
 	iterator = 0;
-	if (! myqtt_msg_encode_remaining_length (ctx, result + 1, total_size, &iterator)) {
+	if (! myqtt_msg_encode_remaining_length (ctx, result + 1, total_size - total_header, &iterator)) {
 		axl_free (result);
 		return NULL;
 	} /* end if */
@@ -708,7 +714,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 		return NULL;
 	}
 
-	if (bytes_read != (msg->size - 1 - iterator)) {
+	if (bytes_read != msg->size) {
 		/* ok, we have received few bytes than expected but
 		 * this is not wrong. Non-blocking sockets behave this
 		 * way. What we have to do is to store the msg chunk
@@ -725,14 +731,14 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 		connection->buffer = buffer;
 		
 		/* save remaining bytes */
-		connection->remaining_bytes = msg->size - bytes_read - 1 - iterator;
+		connection->remaining_bytes = msg->size - bytes_read;
 
 		/* save read bytes */
 		connection->bytes_read      = bytes_read;
 
 		myqtt_log (MYQTT_LEVEL_DEBUG, 
 			   "received a msg fragment (expected: %d read: %d remaining: %d), storing into this connection id=%d",
-			   msg->size, bytes_read, msg->size - bytes_read - 1 - iterator, myqtt_conn_get_id (connection));
+			   msg->size, bytes_read, msg->size - bytes_read, myqtt_conn_get_id (connection));
 		return NULL;
 	}
 

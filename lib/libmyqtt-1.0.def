@@ -41,6 +41,7 @@ myqtt_conn_default_send
 myqtt_conn_delete_key_data
 myqtt_conn_do_sanity_check
 myqtt_conn_free
+myqtt_conn_get_client_id
 myqtt_conn_get_connect_timeout
 myqtt_conn_get_ctx
 myqtt_conn_get_data
@@ -53,12 +54,14 @@ myqtt_conn_get_listener
 myqtt_conn_get_local_addr
 myqtt_conn_get_local_port
 myqtt_conn_get_mss
+myqtt_conn_get_password
 myqtt_conn_get_pending_msgs
 myqtt_conn_get_port
 myqtt_conn_get_receive_stamp
 myqtt_conn_get_role
 myqtt_conn_get_socket
 myqtt_conn_get_timeout
+myqtt_conn_get_username
 myqtt_conn_half_opened
 myqtt_conn_init
 myqtt_conn_invoke_preread_handler
@@ -121,7 +124,7 @@ myqtt_ctx_ref2
 myqtt_ctx_ref_count
 myqtt_ctx_reinit
 myqtt_ctx_remove_cleanup
-myqtt_ctx_set_client_conn_created
+myqtt_ctx_set_connect_handler
 myqtt_ctx_set_data
 myqtt_ctx_set_data_full
 myqtt_ctx_set_frame_received

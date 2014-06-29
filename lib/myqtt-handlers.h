@@ -538,10 +538,10 @@ typedef axl_bool (* MyQttThreadAsyncEvent)        (MyQttCtx  * ctx,
  *
  * - \ref myqtt_ctx_set_idle_handler
  */
-typedef void (* MyQttIdleHandler) (MyQttCtx        * ctx, 
-				    MyQttConn * conn,
-				    axlPointer         user_data,
-				    axlPointer         user_data2);
+typedef void (* MyQttIdleHandler) (MyQttCtx     * ctx, 
+				   MyQttConn    * conn,
+				   axlPointer     user_data,
+				   axlPointer     user_data2);
 
 /** 
  * @brief Port sharing handler definition used by those functions that
@@ -575,13 +575,32 @@ typedef void (* MyQttIdleHandler) (MyQttCtx        * ctx,
  */
 typedef int (*MyQttPortShareHandler) (MyQttCtx * ctx, MyQttConn * listener, MyQttConn * conn, MYQTT_SOCKET _session, const char * bytes, axlPointer user_data);
 
-				      
+
 /** 
- * @internal Handler used for debugging. Not really useful for end user application.
+ * @brief Set of handlers used by the library to check with user level
+ * if the provided connection should be accepted. The function must
+ * return of the codes available at \ref MyQttConnAckTypes to report
+ * to the library what to do with the connection.
+ *
+ * This handler is used by the following functions:
+ *
+ * \ref myqtt_ctx_set_connect_handler
+ *
+ * You can use the following function to get various elements
+ * associated to the CONNECT method. 
+ *
+ * - \ref myqtt_conn_get_username
+ * - \ref myqtt_conn_get_password
+ * - \ref myqtt_conn_get_client_id 
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param conn The connection where the CONNECT packet was received.
+ *
+ * @param user_data User defined pointer passed in into the handler.
  */
-typedef void (* MyQttClientConnCreated) (MyQttCtx        * ctx,
-					 MyQttConn * conn,
-					 axlPointer         user_data);
+typedef MyQttConnAckTypes (*MyQttOnConnectHandler) (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_data);
+				      
 #endif
 
 /* @} */

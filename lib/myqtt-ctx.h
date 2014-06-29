@@ -69,6 +69,10 @@ void        myqtt_ctx_set_idle_handler          (MyQttCtx                       
 						 axlPointer                        user_data,
 						 axlPointer                        user_data2);
 
+void        myqtt_ctx_set_connect_handler (MyQttCtx                * ctx, 
+					   MyQttOnConnectHandler     on_connect_handler, 
+					   axlPointer                user_data);
+
 void        myqtt_ctx_notify_idle               (MyQttCtx     * ctx,
 						 MyQttConn    * conn);
 
@@ -97,10 +101,6 @@ void        myqtt_ctx_set_on_finish        (MyQttCtx              * ctx,
 					     axlPointer               user_data);
 
 void        myqtt_ctx_check_on_finish      (MyQttCtx * ctx);
-
-void        myqtt_ctx_set_client_conn_created (MyQttCtx * ctx, 
-					       MyQttClientConnCreated conn_created,
-					       axlPointer              user_data);
 
 void        myqtt_ctx_reinit (MyQttCtx * ctx);
 

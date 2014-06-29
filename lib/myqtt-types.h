@@ -708,6 +708,54 @@ typedef enum {
 	
 } MyQttMsgType;
 
+/** 
+ * @brief Set of return codes that are used by the library to reply to
+ * CONNECT requests. 
+ */
+typedef enum {
+	/** 
+	 * @brief Report code used to indicate the library to skip
+	 * replying the particular connect method. Then, the
+	 * application library can reply to that connect request later
+	 * or maybe close the connection....or introduce certain delay
+	 * according to some security scheme. Because the reply is
+	 * deferred, the library won't be locked waiting the handler
+	 * to reply the CONNACK code.
+	 */
+	MYQTT_CONNACK_DEFERRED                 = -1,
+	/** 
+	 * @brief Return code for connection accepted.
+	 */
+	MYQTT_CONNACK_ACCEPTED                 = 0,
+	/** 
+	 * @brief Return code for Connection refused, unacceptable
+	 * protocol version. This return code will report that the
+	 * server does not support the level of the MQTT protocol
+	 * requested by the client.
+	 */
+	MYQTT_CONNACK_REFUSED                  = 1,
+	/** 
+	 * @brief Return code for connection refused, identifier
+	 * rejected.
+	 */
+	MYQTT_CONNACK_IDENTIFIER_REJECTED      = 2,
+	/** 
+	 * @brief Return code for connection refused, server
+	 * unavailable. This return code will report that the network
+	 * connection has been made but the MQTT service is
+	 * unavailable.
+	 */
+	MYQTT_CONNACK_SERVER_UNAVAILABLE       = 3,
+	/** 
+	 * @brief Return code for connection refused, bad user name or password. 
+	 */
+	MYQTT_CONNACK_BAD_USERNAME_OR_PASSWORD = 4,
+	/** 
+	 * @brief Return code for connection refused, not authorized.
+	 */
+	MYQTT_CONNACK_NOT_AUTHORIZED           = 5
+} MyQttConnAckTypes;
+
 typedef enum {
 	/** 
 	 * @internal Indication for no more parameters 

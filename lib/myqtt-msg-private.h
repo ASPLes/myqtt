@@ -56,7 +56,8 @@ struct _MyQttMsg {
 	/* the payload message, without including header and remaining length */
 	const unsigned char *     payload;
 
-	/* hold message size */
+	/* holds size of the payload (just includes variable header
+	 * and payload) */
 	int                  size;
 
 	MyQttMutex           mutex;

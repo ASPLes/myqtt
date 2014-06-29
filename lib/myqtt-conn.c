@@ -43,6 +43,7 @@
 /* private include */
 #include <myqtt-ctx-private.h>
 #include <myqtt-hash-private.h>
+#include <myqtt-msg-private.h>
 
 /* include connection internal definition */
 #include <myqtt-conn-private.h>
@@ -1090,9 +1091,20 @@ axl_bool __myqtt_conn_send_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 	return axl_true;
 }
 
-axl_bool __myqtt_conn_parse_greetings (MyQttConn * connection, MyQttMsg * msg) {
+axl_bool __myqtt_conn_parse_greetings (MyQttCtx * ctx, MyQttConn * connection, MyQttMsg * msg) {
 	/* parse incoming greetings message received */
-	return axl_false;
+	if (msg->type != MYQTT_CONNACK) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received unexpected control packet type (%d : %s)", msg->type, myqtt_msg_get_type_str (msg));
+		return axl_false;
+	} /* end if */
+
+	if (msg->size != 2) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected packet reply of 2 but found: %d", msg->size);
+		return axl_false;
+	}
+
+	/* check the payload */
+	return msg->payload[1] == MYQTT_CONNACK_ACCEPTED;
 }
 
 axl_bool      myqtt_conn_parse_greetings_and_enable (MyQttConn * connection, 
@@ -1110,7 +1122,7 @@ axl_bool      myqtt_conn_parse_greetings_and_enable (MyQttConn * connection,
 	/* process msg response */
 	if (msg != NULL) {
 		/* now check reply received */
-		if (!__myqtt_conn_parse_greetings (connection, msg)) {
+		if (!__myqtt_conn_parse_greetings (ctx, connection, msg)) {
 			/* parse ok, free msg and establish new
 			 * message */
 			myqtt_msg_unref (msg);
@@ -1268,10 +1280,6 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 
 	/* release data */
 	axl_free (data);
-
-	/* notify connection created before running TCP connect */
-	if (ctx->conn_created)
-		ctx->conn_created (ctx, connection, ctx->conn_created_data);
 
 	/* configure the socket created */
 	connection->session = myqtt_conn_sock_connect_common (ctx, connection->host, connection->port, &d_timeout, transport, &error);
@@ -2583,6 +2591,58 @@ int                myqtt_conn_get_id               (MyQttConn * connection)
 		return -1;
 
 	return connection->id;
+}
+
+/** 
+ * @brief Allows to get the username used during CONNECT phase on the
+ * provided connection.
+ *
+ * @param conn The connection where the operation takes place.
+ *
+ * @return The username used or NULL if the CONNECT phase didn't
+ * provide a username. The function also reports NULL when conn
+ * reference received is NULL.
+ */
+const char *        myqtt_conn_get_username           (MyQttConn * conn)
+{
+	if (conn == NULL)
+		return NULL;
+	return conn->username;
+}
+
+/** 
+ * @brief Allows to get the password used during CONNECT phase on the
+ * provided connection.
+ *
+ * @param conn The connection where the operation takes place.
+ *
+ * @return The password used or NULL if the CONNECT phase didn't
+ * provide a password. For security reasons, the function won't return
+ * the password (if any) after the CONNECT method completes. The
+ * function also reports NULL when conn reference received is NULL.
+ */
+const char *        myqtt_conn_get_password           (MyQttConn * conn)
+{
+	if (conn == NULL)
+		return NULL;
+	return conn->password;
+}
+
+/** 
+ * @brief Allows to get the client id used during CONNECT phase on the
+ * provided connection.
+ *
+ * @param conn The connection where the operation takes place.
+ *
+ * @return The client id used or NULL if the CONNECT phase didn't
+ * provide a client id. The function also reports NULL when conn
+ * reference received is NULL.
+ */
+const char *        myqtt_conn_get_client_id          (MyQttConn * conn)
+{
+	if (conn == NULL)
+		return NULL;
+	return conn->client_identifier;
 }
 
 /** 

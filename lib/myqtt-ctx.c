@@ -321,6 +321,24 @@ void        myqtt_ctx_set_idle_handler          (MyQttCtx                       
 	return;
 }
 
+/** 
+ * @brief Allows to configure the handler that will be called to
+ * delegate decision about CONNECT requests received.
+ *
+ * @param ctx The context that will be configured.
+ *
+ * @param on_connect_handler The handler that will be configured.
+ *
+ * @param user_data User defined pointer that will be passed in into
+ * the handler when called.
+ */
+void                myqtt_ctx_set_connect_handler (MyQttCtx               * ctx, 
+						   MyQttOnConnectHandler    on_connect_handler, 
+						   axlPointer               user_data)
+{
+	return;
+}
+
 axlPointer __myqtt_ctx_notify_idle (MyQttConn * conn)
 {
 	MyQttCtx          * ctx     = CONN_CTX (conn);
@@ -610,21 +628,6 @@ void        myqtt_ctx_free2 (MyQttCtx * ctx, const char * who)
 	/* free the context */
 	axl_free (ctx);
 	
-	return;
-}
-
-/** 
- * @internal Function that allows to configure MyQttClientConnCreated
- * handler.
- */
-void        myqtt_ctx_set_client_conn_created (MyQttCtx * ctx, 
-						MyQttClientConnCreated conn_created,
-						axlPointer              user_data)
-{
-	if (ctx == NULL)
-		return;
-	ctx->conn_created = conn_created;
-	ctx->conn_created_data = user_data;
 	return;
 }
 
