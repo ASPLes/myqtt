@@ -116,7 +116,15 @@ char * __myqtt_reader_get_utf8_string (MyQttCtx * ctx, const unsigned char * pay
 
 void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * conn)
 {
-	int desp;
+	/** 
+	 * By default all connections are accepted. User application
+	 * can set their own handler to control this.
+	 */
+	MyQttConnAckTypes   response = MYQTT_CONNACK_ACCEPTED;
+	int                 desp;
+	unsigned char     * reply;
+	int                 size;
+
 	/* const char * username = NULL;
 	   const char * password = NULL; */
 
@@ -196,7 +204,7 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 
 		/* update desp */
 		desp += (strlen (conn->username) + 2);
-	}
+	} /* end if */
 
 	/* now get password */
 	if (myqtt_get_bit (6, msg->payload[7])) {
@@ -210,7 +218,7 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 
 		/* update desp */
 		desp += (strlen (conn->password) + 2);
-	}
+	} /* end if */
 
 	/* report that we've received a connection */
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Received CONNECT request conn-id=%d from %s:%s, client-identifier=%s, keep alive=%d, username=%s, password=%s", 
@@ -219,6 +227,40 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 		   conn->keep_alive,
 		   conn->username ? conn->username : "",
 		   conn->password ? "*****" : "");
+
+	/* call here to autorize connect request received */
+	if (ctx->on_connect) {
+		/* call to user level application to decide about this
+		 * new request */
+		response = ctx->on_connect (ctx, conn, ctx->on_connect_data);
+	} /* end if */
+
+	/* handle deferred responses */
+	if (response == MYQTT_CONNACK_DEFERRED) {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "CONNECT decision deferred");
+		return;
+	} /* end if */
+
+	/* rest of cases, reply with the response */
+	reply = myqtt_msg_build (ctx, MYQTT_CONNACK, axl_false, 0, axl_false, &size, 
+				 /* variable header and payload */
+				 MYQTT_PARAM_16BIT_INT, response, 
+				 MYQTT_PARAM_END);
+
+	/* send message */
+	if (! myqtt_msg_send_raw (conn, reply, size))
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send CONNACK message, errno=%d", errno);
+
+	/* free reply */
+	myqtt_msg_free_build (ctx, reply, size);
+
+	/* close connection in the case it is not an accepted */
+	if (response != MYQTT_CONNACK_ACCEPTED) {
+		myqtt_conn_shutdown (conn);
+		myqtt_log (MYQTT_LEVEL_WARNING, "Connection conn-id=%d denied from %s:%s", conn->id, conn->host, conn->port);
+	} else {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Connection conn-id=%d accepted from %s:%s", conn->id, conn->host, conn->port);
+	} /* end if */
 
 	return;
 }

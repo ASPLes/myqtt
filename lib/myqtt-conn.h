@@ -128,24 +128,24 @@ void                myqtt_conn_unref                  (MyQttConn * conn,
 
 int                 myqtt_conn_ref_count              (MyQttConn * conn);
 
-MyQttConn  * myqtt_conn_new_empty              (MyQttCtx        * ctx,
-						 MYQTT_SOCKET      socket,
-						 MyQttPeerRole     role);
+MyQttConn         * myqtt_conn_new_empty              (MyQttCtx        * ctx,
+						       MYQTT_SOCKET      socket,
+						       MyQttPeerRole     role);
 
-MyQttConn  * myqtt_conn_new_empty_from_conn (MyQttCtx        * ctx,
-					      MYQTT_SOCKET      socket, 
-					      MyQttConn * __conn,
-					      MyQttPeerRole     role);
+MyQttConn         * myqtt_conn_new_empty_from_conn (MyQttCtx        * ctx,
+						    MYQTT_SOCKET      socket, 
+						    MyQttConn * __conn,
+						    MyQttPeerRole     role);
 
 axl_bool            myqtt_conn_set_socket                (MyQttConn * conn,
-							   MYQTT_SOCKET      socket,
-							   const char       * real_host,
-							   const char       * real_port);
+							  MYQTT_SOCKET      socket,
+							  const char       * real_host,
+							  const char       * real_port);
 
 void                myqtt_conn_timeout                (MyQttCtx        * ctx,
-							long               microseconds_to_wait);
+						       long               microseconds_to_wait);
 void                myqtt_conn_connect_timeout        (MyQttCtx        * ctx,
-							long               microseconds_to_wait);
+						       long               microseconds_to_wait);
 
 long                myqtt_conn_get_timeout            (MyQttCtx        * ctx);
 long                myqtt_conn_get_connect_timeout    (MyQttCtx        * ctx);
@@ -160,7 +160,7 @@ void                __myqtt_conn_shutdown_and_record_error (MyQttConn * conn,
 
 void                myqtt_conn_free                   (MyQttConn * conn);
 
-MYQTT_SOCKET       myqtt_conn_get_socket             (MyQttConn * conn);
+MYQTT_SOCKET        myqtt_conn_get_socket             (MyQttConn * conn);
 
 void                myqtt_conn_set_close_socket       (MyQttConn * conn,
 							      axl_bool           action);
@@ -175,24 +175,25 @@ const char        * myqtt_conn_get_local_addr         (MyQttConn * conn);
 
 const char        * myqtt_conn_get_local_port         (MyQttConn * conn);
 
-void                myqtt_conn_set_host_and_port      (MyQttConn * conn, 
-							const char       * host,
-							const char       * port,
-							const char       * host_ip);
+void                myqtt_conn_set_host_and_port      (MyQttConn   * conn, 
+						       const char  * host,
+						       const char  * port,
+						       const char  * host_ip);
 
 int                 myqtt_conn_get_id                 (MyQttConn * conn);
 
-const char        * myqtt_conn_get_server_name        (MyQttConn * conn);
+const char *        myqtt_conn_get_username           (MyQttConn * conn);
 
-void                myqtt_conn_set_server_name        (MyQttConn * conn,
-							const       char * serverName);
+const char *        myqtt_conn_get_password           (MyQttConn * conn);
+
+const char *        myqtt_conn_get_client_id          (MyQttConn * conn);
 
 axl_bool            myqtt_conn_set_blocking_socket    (MyQttConn * conn);
 
 axl_bool            myqtt_conn_set_nonblocking_socket (MyQttConn * conn);
 
 axl_bool            myqtt_conn_set_sock_tcp_nodelay   (MYQTT_SOCKET socket,
-							axl_bool      enable);
+						       axl_bool      enable);
 
 axl_bool            myqtt_conn_set_sock_block         (MYQTT_SOCKET socket,
 							      axl_bool      enable);
@@ -219,17 +220,17 @@ void                myqtt_conn_delete_key_data        (MyQttConn * conn,
 axlPointer          myqtt_conn_get_data               (MyQttConn * conn,
 							      const char       * key);
 
-MyQttPeerRole      myqtt_conn_get_role               (MyQttConn * conn);
+MyQttPeerRole       myqtt_conn_get_role               (MyQttConn * conn);
 
-MyQttConn  * myqtt_conn_get_listener           (MyQttConn * conn);
+MyQttConn         * myqtt_conn_get_listener           (MyQttConn * conn);
 
-MyQttCtx         * myqtt_conn_get_ctx                (MyQttConn * conn);
+MyQttCtx          * myqtt_conn_get_ctx                (MyQttConn * conn);
 
 MyQttSendHandler      myqtt_conn_set_send_handler    (MyQttConn * conn,
-							      MyQttSendHandler  send_handler);
+						      MyQttSendHandler  send_handler);
 
 MyQttReceiveHandler   myqtt_conn_set_receive_handler (MyQttConn * conn,
-							      MyQttReceiveHandler receive_handler);
+						      MyQttReceiveHandler receive_handler);
 
 void                   myqtt_conn_set_default_io_handler (MyQttConn * conn);
 								 
