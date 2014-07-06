@@ -2354,6 +2354,12 @@ void               myqtt_conn_free (MyQttConn * connection)
 	axl_list_free (connection->on_close_full);
 	connection->on_close_full = NULL;
 
+	/* free identifiers */
+	axl_free (connection->client_identifier);
+	axl_free (connection->username);
+	axl_free (connection->will_topic);
+	axl_free (connection->will_msg);
+
 	/* free posible msg and buffer */
 	axl_free (connection->buffer);
 
