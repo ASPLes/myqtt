@@ -1630,6 +1630,135 @@ axl_bool            myqtt_conn_reconnect              (MyQttConn * connection,
 
 
 /** 
+ * @internal Get the next package id available over the provided
+ * connection.
+ */
+int __myqtt_conn_get_next_pkgid (MyQttCtx * ctx, MyQttConn * conn)
+{
+	int pkg_id = 1;
+
+	/* lock operation mutex */
+	myqtt_lock_mutex (conn->op_mutex);
+
+	/* get the list */
+	if (conn->sent_pkgids == NULL)
+		conn->sent_pkgids = axl_list_new (axl_list_equal_int);
+
+	if (axl_list_length (conn->sent_pkgids) == 0) {
+		/* report default pkgid = 1 */
+		axl_list_append (conn->sent_pkgids, INT_TO_PTR (pkg_id));
+	} else {
+		axl_list_lookup (conn->sent_pkgds, __myqtt_conn_get_next_pkgid_search, &pkg_id);
+	}
+
+	/* unlock operation mutex */
+	myqtt_unlock_mutex (conn->op_mutex);
+
+	return;
+}
+
+
+/** 
+ * @brief Allows to publish a new application message with the
+ * provided topic name on the provided connection.
+ *
+ * The function will publish the application message provided with the QOS indicated. 
+ *
+ * Optionally, the function allows to wait for publish operation to
+ * fully complete blocking the caller until that is done. For \ref
+ * MYQTT_QOS_AT_MOST_ONCE (Qos 1) this has no effect. But for \ref
+ * MYQTT_QOS_AT_LEAST_ONCE_DELIVERY (QoS 1) it implies waiting for
+ * PUBACK control packet to be received. The same applies to \ref
+ * MYQTT_QOS_EXACTLY_ONCE_DELIVERY (QoS 2) which implies waiting until
+ * PUBCOMP is received.
+ *
+ * @param conn The connection where the publish operation will take place.
+ *
+ * @param topic_name The name of the topic for the application message published.
+ *
+ * @param app_message The application message to publish. From MyQtt's
+ * perspective, this is binary data that has a format that is only
+ * meaningful to the application on top using MQTT.
+ *
+ * @param app_message_size The size of the application message. 
+ *
+ * @param qos The quality of service under which the message will be
+ * published. See \ref MyQttQos
+ *
+ * @param retain Enable message retention for this published
+ * message. This way new subscribers will be able to get last
+ * published retained message.
+ *
+ * @param wait_publish Wait for full publication of the message
+ * blocking the caller until that happens. If 0 is provided no wait is
+ * performed. If some value is provided that will be the max amount of
+ * time, in seconds, to wait for complete publication.
+ *
+ * @return The function returns axl_true in the case the message was
+ * published, otherwise axl_false is returned. The function returns
+ * axl_false when the connection received is broken or topic name is
+ * NULL or it is bigger than 65535 bytes.
+ * 
+ */
+axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
+						const char          * topic_name,
+						const unsigned char * app_message,
+						int                   app_message_size,
+						MyQttQos              qos,
+						axl_bool              retain,
+						int                   wait_publish)
+{
+	unsigned char * msg;
+	int             size;
+
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to publish, connection received is not working");
+		return axl_false;
+	} /* end if */
+
+	if (! topic_name || strlen (topic_name) > 65535) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Topic name is bigger than 65535 and this is not allowed by MQTT");
+		return axl_false;
+	} /* end if */
+
+	/* create message */
+	size = 0;
+
+	if (qos == 0) {
+		/* build QOS=0 message */
+		/* dup = axl_false, qos = 0, retain = <as described by parameter> */
+		msg  = myqtt_msg_build  (ctx, MYQTT_PUBLISH, axl_false, 0, retain, &size,  /* 2 bytes */
+					 /* topic name */
+					 MYQTT_PARAM_UTF8_STRING, strlen (topic_name), topic_name,
+					 /* message */
+					 MYQTT_PARAM_BINARY_PAYLOAD, app_message_size, app_message,
+					 MYQTT_PARAM_END);
+	} else if (qos == 1 || qos == 2) {
+		/* build QOS=0 message */
+		/* dup = axl_false, qos = 0, retain = <as described by parameter> */
+		msg  = myqtt_msg_build  (ctx, MYQTT_PUBLISH, axl_false, 0, retain, &size,  /* 2 bytes */
+					 /* topic name */
+					 MYQTT_PARAM_UTF8_STRING, strlen (topic_name), topic_name,
+					 /* packet id */
+					 MYQTT_PARAM_16BIT_INT, __myqtt_conn_get_next_pkgid (ctx, conn),
+					 /* message */
+					 MYQTT_PARAM_BINARY_PAYLOAD, app_message_size, app_message,
+					 MYQTT_PARAM_END);
+	} else {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Wrong QoS value received=%d, unable to publish message", qos);
+		return axl_false;
+	} /* end if */
+
+
+	if (msg == NULL || size == 0) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create CONNECT message, empty/NULL value reported by myqtt_msg_build()");
+		return axl_false;
+	} /* end if */
+	
+}
+
+
+/** 
  * @brief Allows to cleanly close the connection by sending the
  * DISCONNECT control packet.
  *

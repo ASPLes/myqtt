@@ -86,6 +86,14 @@ axl_bool            myqtt_conn_reconnect       (MyQttConn * conn,
 						MyQttConnNew on_connected,
 						axlPointer user_data);
 
+axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
+						const char          * topic_name,
+						const unsigned char * app_message,
+						int                   app_message_size,
+						MyQttQos              qos,
+						axl_bool              retain,
+						int                   wait_publish);
+
 axl_bool            myqtt_conn_close                  (MyQttConn  * conn);
 
 MyQttConnOpts     * myqtt_conn_opts_new (void);
