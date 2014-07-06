@@ -314,6 +314,12 @@ struct _MyQttConn {
 
 	/** reference to the transport used by the library */
 	MyQttNetTransport           transport;
+
+	/** 
+	 * @internal Reference to the list of sent pkg ids that are
+	 * waiting for publish confirmation.
+	 */
+	axlList                   * sent_pkgids;
 };
 
 struct _MyQttConnOpts {

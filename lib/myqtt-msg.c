@@ -717,7 +717,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 		/* unref buffer allocated */
 		axl_free (buffer);
 		return NULL;
-	}
+	} /* end if */
 
 	if (bytes_read != msg->size) {
 		/* ok, we have received few bytes than expected but
