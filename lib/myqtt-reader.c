@@ -168,7 +168,7 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 	desp += (strlen (conn->client_identifier) + 2);
 
 	/* now get the will topic if indicated */
-	if (myqtt_get_bit (2, msg->payload[7])) {
+	if (myqtt_get_bit (2, msg->payload[6])) {
 		/* will flag is on, find will topic and will message */
 		conn->will_topic = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
 		if (! conn->will_topic) {
@@ -193,7 +193,9 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 	} /* end if */
 
 	/* now get user and password */
-	if (myqtt_get_bit (7, msg->payload[7])) {
+	if (myqtt_get_bit (7, msg->payload[6])) {
+		printf ("It seems user is provided (%c,%d) bit is %d\n", msg->payload[6], (int) msg->payload[6], myqtt_get_bit (7, msg->payload[6]));
+
 		/* username flag on, get username */
 		conn->username = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
 		if (! conn->username) {
@@ -207,7 +209,7 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 	} /* end if */
 
 	/* now get password */
-	if (myqtt_get_bit (6, msg->payload[7])) {
+	if (myqtt_get_bit (6, msg->payload[6])) {
 		/* username flag on, get username */
 		conn->password = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
 		if (! conn->password) {

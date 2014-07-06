@@ -36,8 +36,49 @@
  *         info@aspl.es - http://www.aspl.es/mqtt
  *                        http://www.aspl.es/myqtt
  */
-
 #include <myqtt.h>
+
+#ifdef AXL_OS_UNIX
+#include <signal.h>
+#endif
+
+/** global context used by the regression test */
+MyQttCtx  * ctx;
+
+#ifdef AXL_OS_UNIX
+void __block_test (int value) 
+{
+	MyQttAsyncQueue * queue;
+
+	printf ("******\n");
+	printf ("****** Received a signal (the regression test is failing): pid %d..locking..!!!\n", myqtt_getpid ());
+	printf ("******\n");
+
+	/* block the caller */
+	queue = myqtt_async_queue_new ();
+	myqtt_async_queue_pop (queue);
+
+	return;
+}
+#endif
+
+axl_bool __doing_exit = axl_false;
+
+void __terminate_myqtt_listener (int value)
+{
+	
+	if (__doing_exit) 
+		return;
+
+	/* printf ("Terminating myqtt regression listener..\n");*/
+	__doing_exit = axl_true;
+
+	/* unlocking listener */
+	/* printf ("Calling to unlock listener due to signal received: MyqttCtx %p", ctx); */
+	myqtt_listener_unlock (ctx);
+
+	return;
+}
 
 axl_bool test_common_enable_debug = axl_false;
 
@@ -74,12 +115,19 @@ MyQttCtx * init_ctx (void)
 int main (int argc, char ** argv)
 {
 	MyQttConn * listener;
-	MyQttCtx  * ctx;
 
 	printf ("** MyQtt: A high performance open source MQTT implementation\n");
 	printf ("** Copyright (C) 2014 Advanced Software Production Line, S.L.\n**\n");
 	printf ("** Regression test listener: %s \n",
 		VERSION);
+
+	/* install default handling to get notification about
+	 * segmentation faults */
+#ifdef AXL_OS_UNIX
+	signal (SIGSEGV, __block_test);
+	signal (SIGABRT, __block_test);
+	signal (SIGTERM,  __terminate_myqtt_listener);
+#endif
 
 	/* uncomment the following four lines to get debug */
 	while (argc > 0) {
