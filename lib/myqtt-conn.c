@@ -1629,9 +1629,27 @@ axl_bool            myqtt_conn_reconnect              (MyQttConn * connection,
 }
 
 
+/** 
+ * @brief Allows to cleanly close the connection by sending the
+ * DISCONNECT control packet.
+ *
+ * After the connection is closed it mustn't be used. If no other
+ * references are acquired to the connection, it is then released. 
+ *
+ * In the case the connection is a listener or a master listener, it
+ * is just closed without sending DISCONNECT message.
+ *
+ * @param connection The connection to be closed. 
+ *
+ * @return axl_true if the connection was closed, othewise axl_false
+ * is returned. 
+ */
 axl_bool                    myqtt_conn_close                  (MyQttConn * connection)
 {
-	int         refcount = 0;
+	int             refcount = 0;
+	unsigned char * msg;
+	int             size;
+
 #if defined(ENABLE_MYQTT_LOG)
 	MyQttCtx * ctx;
 #endif
@@ -1657,9 +1675,20 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
 	myqtt_mutex_unlock (&connection->op_mutex);
 
 	/* close all channel on this connection */
-	if (myqtt_conn_is_ok (connection, axl_false)) {
-		myqtt_log (MYQTT_LEVEL_DEBUG, "closing a connection id=%d",
-			   connection->id);
+	if (myqtt_conn_is_ok (connection, axl_false) && connection->role == MyQttRoleInitiator) {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "closing a connection id=%d", connection->id);
+
+		/* send disconnect message */
+		size = 0;
+		/* dup = axl_false, qos = 0, retain = axl_false */
+		msg  = myqtt_msg_build  (ctx, MYQTT_DISCONNECT, axl_false, 0, axl_false, &size,  /* 2 bytes */
+					 /* no variable header and no payload */
+					 MYQTT_PARAM_END);
+		if (msg == NULL || size == 0) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create DISCONNECT message, empty/NULL value reported by myqtt_msg_build()");
+			return axl_false;
+		} /* end if */
+
 
 		/* update the connection reference to avoid race
 		 * conditions caused by deallocations */
@@ -1670,8 +1699,23 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
 				"failed to update reference counting on the connection during close operation, skiping clean close operation..");
 			myqtt_conn_unref (connection, "myqtt_conn_close");
 			return axl_true;
-		}
-		
+		} /* end if */
+
+		/* send DISCONNECT message */
+		if (! myqtt_msg_send_raw (connection, msg, size)) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send DISCONNECT message, errno=%d", errno);
+
+			/* don't release anything because we are not
+			 * waiting for reply, just notify the
+			 * server */
+		} /* end if */
+	
+		/* report message sent */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "DISCONNECT message of %d bytes sent", size);
+
+		/* call to release */
+		myqtt_msg_free_build (ctx, msg, size);
+
 		/* set the connection to be not connected */
 		__myqtt_conn_shutdown_and_record_error (
 			connection, MyQttConnectionCloseCalled, "close connection called");

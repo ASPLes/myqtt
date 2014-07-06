@@ -267,6 +267,16 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 	return;
 }
 
+void __myqtt_reader_handle_disconnect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * conn)
+{
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Received DISCONNECT notification for conn-id=%d from %s:%s, closing connection..", conn->id, conn->host, conn->port);
+	myqtt_conn_shutdown (conn);
+
+	/* unregister connection for all subscriptions */
+
+	return;
+}
+
 /** 
  * @internal
  * 
@@ -334,6 +344,10 @@ void __myqtt_reader_process_socket (MyQttCtx        * ctx,
 	case MYQTT_CONNECT:
 		/* handle CONNECT packet */
 		__myqtt_reader_handle_connect (ctx, msg, connection);
+		break;
+	case MYQTT_DISCONNECT:
+		/* handle DISCONNECT packet */
+		__myqtt_reader_handle_disconnect (ctx, msg, connection);
 		break;
 	default:
 		/* report unhandled packet type */

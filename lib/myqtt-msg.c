@@ -696,6 +696,11 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	msg-> id  = __myqtt_msg_get_next_id (ctx, "get-next");
 	msg->ctx  = ctx;
 
+	if (msg->size == 0) {
+		/* report message with empty payload */
+		return msg;
+	} /* end if */
+
 	/* allocate exactly msg->size + 1 bytes */
 	buffer = malloc (sizeof (unsigned char) * msg->size + 1);
 	MYQTT_CHECK_REF2 (buffer, NULL, msg, axl_free);
