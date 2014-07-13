@@ -49,65 +49,72 @@ axl_bool myqtt_sequencer_queue_data (MyQttCtx * ctx, MyQttSequencerData * data)
 
 	/* check state before handling this message with the sequencer */
 	if (ctx->myqtt_exit) {
-			axl_free (data->message);
+		axl_free (data->message);
 		axl_free (data);
 		return axl_false;
 	}
+
+	/* lock connection and queue message */
+	myqtt_mutex_lock (&ctx->pending_messages_m);
+
+	/* queue message */
+	axl_list_append (ctx->pending_messages, data);
+
+	myqtt_mutex_unlock (&ctx->pending_messages_m);
+
+	/* signal sequencer to move on! */
+	myqtt_cond_signal (&ctx->pending_messages_c);
 
 
 	return axl_true;
 }
 
-axl_bool myqtt_sequencer_remove_message_sent (MyQttCtx * ctx)
+void myqtt_sequencer_process_pending_messages (MyQttCtx * ctx)
 {
-
-
-	return axl_false;
-}
-
-int myqtt_sequencer_build_packet_to_send (MyQttCtx           * ctx, 
-					  MyQttConn          * conn, 
-					  MyQttSequencerData * data, 
-					  MyQttWriterData    * packet)
-{
- 	int          size_to_copy        = 0;
-
-	/* clear packet */
-	memset (packet, 0, sizeof (MyQttWriterData));
-
-	/* check particular case where an empty message is to be sent
-	 * and the message is NUL */
-	if (data->message_size == 0)
-		goto build_frame;
-  
-	/* check that the next_frame_size do not report wrong values */
-	if (size_to_copy > data->message_size || size_to_copy <= 0) 
-		return 0;
-
-	/* we have the payload on buffer */
-build_frame:
-
-
-	
-	/* return size used from the entire message */
-	return size_to_copy;
-}
-
-/** 
- * @internal Function that does a send round for a channel. The
- * function assumes the channel is not stalled (but can end stalled
- * after the function finished).
- *
- */ 
-void __myqtt_sequencer_do_send_round (MyQttCtx * ctx, MyQttConn * conn, axl_bool * paused, axl_bool * complete)
-{
-
-	/* that's all myqtt sequencer process can do */
 	return;
 }
 
+
 axlPointer __myqtt_sequencer_run (axlPointer _data)
 {
+
+	/* get current context */
+	MyQttCtx             * ctx = _data;
+
+	/* lock mutex to handle pending messages */
+	myqtt_mutex_lock (&ctx->pending_messages_m);
+
+	while (axl_true) {
+		/* block until receive a new message to be sent (but
+		 * only if there are no ready events) */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "sequencer locking (pending messages: %d, exit: %d)",
+			   axl_list_length (ctx->pending_messages), ctx->myqtt_exit);
+		while ((axl_list_length (ctx->pending_messages) == 0) && (! ctx->myqtt_exit )) {
+			myqtt_cond_timedwait (&ctx->pending_messages_c, &ctx->pending_messages_m, 10000);
+		} /* end if */
+
+		myqtt_log (MYQTT_LEVEL_DEBUG, "sequencer unlocked (pending messages: %d, exit: %d)",
+			   axl_list_length (ctx->pending_messages), ctx->myqtt_exit);
+
+		/* check if it was requested to stop the myqtt
+		 * sequencer operation */
+		if (ctx->myqtt_exit) {
+
+			/* release unlock now we are finishing */
+			myqtt_mutex_unlock (&ctx->pending_messages_m);
+			
+			myqtt_log (MYQTT_LEVEL_DEBUG, "exiting myqtt sequencer thread ..");
+
+			/* release reference acquired here */
+			myqtt_ctx_unref (&ctx);
+
+			return NULL;
+		} /* end if */
+
+		/* process all ready administrative channels (channel 0) */
+		myqtt_sequencer_process_pending_messages (ctx);
+		
+	} /* end while */
 
 	/* never reached */
 	return NULL;
@@ -115,24 +122,6 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 
 /** 
  * @internal
- * 
- * Starts the myqtt sequencer process. This process with the myqtt
- * writer process conforms the subsystem which actually send a message
- * inside myqtt. While myqtt reader process threats all incoming
- * message and dispatch them to appropriate destination, the myqtt
- * sequencer waits for messages to be send over channels.
- *
- * Once the myqtt sequencer receive a petition to send a message, it
- * checks if actual channel window size is appropriate to actual
- * message being sent. If not, the myqtt sequencer splits the message
- * into many pieces until all pieces can be sent using the actual
- * channel window size.
- *
- * Once the message is segmented, the myqtt sequencer build up the
- * frames and enqueue the messages inside the channel waiting
- * queue. Once the sequencer have queue the first frame to be sent, it
- * signal the myqtt writer to starting to send messages.
- *
  *
  * @return axl_true if the sequencer was init, otherwise axl_false is
  * returned.
@@ -142,10 +131,23 @@ axl_bool  myqtt_sequencer_run (MyQttCtx * ctx)
 
 	v_return_val_if_fail (ctx, axl_false);
 
+	/* acquire a reference to the context to avoid loosing it
+	 * during a log running sequencer not stopped */
+	myqtt_ctx_ref2 (ctx, "sequencer");
+
+	/* starts the myqtt sequencer */
+	if (! myqtt_thread_create (&ctx->sequencer_thread,
+				   (MyQttThreadFunc) __myqtt_sequencer_run,
+				   ctx,
+				   MYQTT_THREAD_CONF_END)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "unable to initialize the sequencer thread");
+		return axl_false;
+	} /* end if */
 
 	/* ok, sequencer initialized */
 	return axl_true;
 }
+
 
 /** 
  * @internal

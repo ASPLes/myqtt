@@ -220,6 +220,15 @@ struct _MyQttCtx {
 	/** references to on connect handlers **/
 	MyQttOnConnectHandler        on_connect;
 	axlPointer                   on_connect_data;
+
+	/** 
+	 * @internal References to pending messages to be sent by
+	 * sequencer.
+	 */
+	MyQttMutex                  pending_messages_m;
+	MyQttCond                   pending_messages_c;
+	axlList                   * pending_messages;
+	MyQttThread                 sequencer_thread;
 };
 
 #endif /* __MYQTT_CTX_PRIVATE_H__ */

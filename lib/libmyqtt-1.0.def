@@ -81,6 +81,7 @@ myqtt_conn_opts_set_auth
 myqtt_conn_opts_set_reuse
 myqtt_conn_opts_set_will
 myqtt_conn_parse_greetings_and_enable
+myqtt_conn_pub
 myqtt_conn_reconnect
 myqtt_conn_ref
 myqtt_conn_ref_count
@@ -252,10 +253,9 @@ myqtt_reader_stop
 myqtt_reader_unwatch_connection
 myqtt_reader_watch_connection
 myqtt_reader_watch_listener
-myqtt_sequencer_build_packet_to_send
 myqtt_sequencer_direct_send
+myqtt_sequencer_process_pending_messages
 myqtt_sequencer_queue_data
-myqtt_sequencer_remove_message_sent
 myqtt_sequencer_run
 myqtt_sequencer_stop
 myqtt_set_16bit

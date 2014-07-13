@@ -240,7 +240,6 @@ MyQttConn * myqtt_conn_new_empty            (MyQttCtx *    ctx,
 	return myqtt_conn_new_empty_from_conn (ctx, socket, NULL, role);
 }
 
-
 /** 
  * @internal
  *
@@ -1382,6 +1381,7 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 		axl_free (data);
 		return NULL;
 	} /* end if */
+
 	data->connection->id                  = __myqtt_conn_get_next_id (ctx);
 	data->connection->ctx                 = ctx;
 	myqtt_ctx_ref2 (ctx, "new connection"); /* acquire a reference to context */
@@ -1636,25 +1636,51 @@ axl_bool            myqtt_conn_reconnect              (MyQttConn * connection,
 int __myqtt_conn_get_next_pkgid (MyQttCtx * ctx, MyQttConn * conn)
 {
 	int pkg_id = 1;
+	int value;
+	int iterator;
 
 	/* lock operation mutex */
-	myqtt_lock_mutex (conn->op_mutex);
+	myqtt_mutex_lock (&conn->op_mutex);
 
 	/* get the list */
 	if (conn->sent_pkgids == NULL)
-		conn->sent_pkgids = axl_list_new (axl_list_equal_int);
+		conn->sent_pkgids = axl_list_new (axl_list_equal_int, NULL);
 
 	if (axl_list_length (conn->sent_pkgids) == 0) {
 		/* report default pkgid = 1 */
 		axl_list_append (conn->sent_pkgids, INT_TO_PTR (pkg_id));
 	} else {
-		axl_list_lookup (conn->sent_pkgds, __myqtt_conn_get_next_pkgid_search, &pkg_id);
+		iterator = 0;
+		while (iterator < axl_list_length (conn->sent_pkgids)) {
+			/* get stored value */
+			value = PTR_TO_INT (axl_list_get_nth (conn->sent_pkgids, iterator));
+
+			/* if pkg id is already in use, jump to next value */
+			if (pkg_id == value) {
+				pkg_id ++;
+			} else if (pkg_id < value) {
+				/* insert value into this position */
+				axl_list_add_at (conn->sent_pkgids, INT_TO_PTR (pkg_id), iterator);
+
+				/* unlock operation mutex */
+				myqtt_mutex_unlock (&conn->op_mutex);
+
+				return pkg_id;
+			} /* end if */
+
+			/* next operation */
+			iterator++;
+		}
+
+		/* reached this point we are adding it on the end */
+		axl_list_append (conn->sent_pkgids, INT_TO_PTR (pkg_id));
+		
 	}
 
 	/* unlock operation mutex */
-	myqtt_unlock_mutex (conn->op_mutex);
+	myqtt_mutex_unlock (&conn->op_mutex);
 
-	return;
+	return pkg_id;
 }
 
 
@@ -1708,8 +1734,16 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 						axl_bool              retain,
 						int                   wait_publish)
 {
-	unsigned char * msg;
-	int             size;
+	unsigned char       * msg;
+	int                   size;
+	MyQttCtx            * ctx;
+	MyQttSequencerData  * data;
+
+	if (conn == NULL || conn->ctx == NULL)
+		return axl_false;
+
+	/* get reference to the context */
+	ctx = conn->ctx;
 
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to publish, connection received is not working");
@@ -1754,7 +1788,29 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create CONNECT message, empty/NULL value reported by myqtt_msg_build()");
 		return axl_false;
 	} /* end if */
+
+	/* queue package to be sent */
+	data = axl_new (MyQttSequencerData, 1);
+	if (data == NULL) {
+		/* free build */
+		myqtt_msg_free_build (ctx, msg, size);
+
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to acquire memory to send message, unable to subscribe");
+		return axl_false;
+	} /* end if */
+
+	/* configure package to send */
+	data->conn = conn;
+	data->message = msg;
+	data->message_size = size;       
+
+	if (! myqtt_sequencer_queue_data (ctx, data)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to queue data for delivery, failed to send publish message");
+		return axl_false;
+	} /* end if */
 	
+	/* message sent */
+	return axl_true;
 }
 
 
