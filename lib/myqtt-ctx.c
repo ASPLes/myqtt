@@ -103,6 +103,11 @@ MyQttCtx * myqtt_ctx_new (void)
 	myqtt_mutex_create (&ctx->ref_mutex);
 	ctx->ref_count = 1;
 
+	/* init pending messages */
+	ctx->pending_messages = axl_list_new (axl_list_always_return_1, NULL);
+	myqtt_mutex_create (&ctx->pending_messages_m);
+	myqtt_cond_create (&ctx->pending_messages_c);
+
 	/* return context created */
 	return ctx;
 }
@@ -622,6 +627,11 @@ void        myqtt_ctx_free2 (MyQttCtx * ctx, const char * who)
 	/* release and clean mutex */
 	myqtt_mutex_unlock (&ctx->ref_mutex);
 	myqtt_mutex_destroy (&ctx->ref_mutex);
+
+	/* init pending messages */
+	axl_list_free (ctx->pending_messages);
+	myqtt_mutex_destroy (&ctx->pending_messages_m);
+	myqtt_cond_destroy (&ctx->pending_messages_c);
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "about.to.free MyQttCtx %p", ctx);
 

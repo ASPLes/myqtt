@@ -320,6 +320,7 @@ struct _MyQttConn {
 	 * waiting for publish confirmation.
 	 */
 	axlList                   * sent_pkgids;
+
 };
 
 struct _MyQttConnOpts {

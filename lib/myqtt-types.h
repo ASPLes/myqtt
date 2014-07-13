@@ -797,7 +797,7 @@ typedef struct _MyQttSequencerData {
 	/** 
 	 * @brief The content to be sequenced into frames.
 	 */
-	char      * message;
+	unsigned char      * message;
 
 	/** 
 	 * @brief The message size content.
