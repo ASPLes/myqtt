@@ -792,7 +792,7 @@ typedef struct _MyQttSequencerData {
 	/**
 	 * @brief Reference to the connection.
 	 */
-	MyQttConn * conn;
+	MyQttConn          * conn;
 
 	/** 
 	 * @brief The content to be sequenced into frames.
@@ -802,7 +802,7 @@ typedef struct _MyQttSequencerData {
 	/** 
 	 * @brief The message size content.
 	 */
-        int         message_size;
+        int                  message_size;
 
 	/** 
 	 * @brief This is a tricky value and it is used to allow
@@ -818,7 +818,12 @@ typedef struct _MyQttSequencerData {
 	 * be pending and flags on steps how many bytes remains to be
 	 * sent *for the given message.
 	 */
-	unsigned int     step;
+	unsigned int         step;
+
+	/** 
+	 * @brief Message type been sent.
+	 */
+	MyQttMsgType         type;
 
 } MyQttSequencerData;
 

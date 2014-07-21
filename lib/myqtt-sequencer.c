@@ -69,8 +69,32 @@ axl_bool myqtt_sequencer_queue_data (MyQttCtx * ctx, MyQttSequencerData * data)
 	return axl_true;
 }
 
-void myqtt_sequencer_process_pending_messages (MyQttCtx * ctx)
+axl_bool myqtt_sequencer_process_pending_messages (axlPointer _data, axlPointer _conn)
 {
+	MyQttConn          * conn = _conn;
+	MyQtt              * ctx;
+	MyQttSequencerData * data = _data;
+	int                  size;
+
+	/* get context */
+	ctx  = conn->ctx;
+
+	/* write step */
+	if ((data->message_size - data->step) > 4096)
+		size = 4096;
+	else
+		size = data->message_size - data-> step
+
+	if (! myqtt_msg_send_raw (conn, data->message + data->step, size)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send MQTT message (type: %d, size: %d (total: %d), step: %d) error was errno=%d", 
+			   data->type, data->size, size, data->step, data->errno);
+		
+		return;
+	} /* end if */
+
+	/* increase step */
+	data->step += size;
+
 	return;
 }
 
@@ -112,7 +136,7 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 		} /* end if */
 
 		/* process all ready administrative channels (channel 0) */
-		myqtt_sequencer_process_pending_messages (ctx);
+		axl_list_lookup (ctx->pending_messages, myqtt_sequencer_process_pending_messages, ctx);
 		
 	} /* end while */
 
