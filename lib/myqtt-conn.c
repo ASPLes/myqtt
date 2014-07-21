@@ -1800,9 +1800,10 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 	} /* end if */
 
 	/* configure package to send */
-	data->conn = conn;
-	data->message = msg;
-	data->message_size = size;       
+	data->conn         = conn;
+	data->message      = msg;
+	data->message_size = size;
+	data->type         = MYQTT_PUBLISH;
 
 	if (! myqtt_sequencer_queue_data (ctx, data)) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to queue data for delivery, failed to send publish message");
