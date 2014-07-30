@@ -244,7 +244,7 @@ int      myqtt_msg_decode_remaining_length (MyQttCtx * ctx, unsigned char * inpu
  * - (MYQTT_PARAM_16BIT_INT, value)
  * - (MYQTT_PARAM_8BIT_INT, value)
  *
- * a reference to a memory chunk plus the size of that chunk ended by
+ * @return a reference to a memory chunk plus the size of that chunk ended by
  * a NULL parameter. You must release that chunk of memory usign \ref myqtt_msg_free_build
  */
 unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
@@ -264,6 +264,11 @@ unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 	va_list           args;
 	MyQttParamType    param_type;
 	int               int_value;
+
+	if (qos != 0 && qos != 1 && qos != 2) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received unallowed QOS value=%d, unable to build message", qos);
+		return NULL;
+	} /* end if */
 
 	/* open stdargs */
 	va_start (args, size);
@@ -400,6 +405,8 @@ unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 	if (retain)
 		myqtt_set_bit (result, 0);
 	switch (qos) {
+	case MYQTT_QOS_DENIED:
+		break; /* never reached */
 	case MYQTT_QOS_AT_MOST_ONCE:
 		/* nothing requried */
 		break;
@@ -1080,8 +1087,6 @@ void          myqtt_msg_free (MyQttMsg * msg)
 	 * defined, then payload) */
 	if (msg->buffer != NULL)
 		axl_free (msg->buffer);
-	else if (msg->content != NULL)
-		axl_free (msg->content);
 	else if (msg->payload != NULL)
 		axl_free ((char *) msg->payload);
 

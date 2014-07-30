@@ -87,6 +87,7 @@ myqtt_conn_ref
 myqtt_conn_ref_count
 myqtt_conn_ref_internal
 myqtt_conn_remove_on_close_full
+myqtt_conn_report_and_close
 myqtt_conn_sanity_socket_check
 myqtt_conn_set_blocking_socket
 myqtt_conn_set_close_socket
@@ -110,6 +111,7 @@ myqtt_conn_shutdown
 myqtt_conn_shutdown_socket
 myqtt_conn_sock_connect
 myqtt_conn_sock_connect_common
+myqtt_conn_sub
 myqtt_conn_timeout
 myqtt_conn_uncheck_ref
 myqtt_conn_unref
@@ -254,7 +256,6 @@ myqtt_reader_unwatch_connection
 myqtt_reader_watch_connection
 myqtt_reader_watch_listener
 myqtt_sequencer_direct_send
-myqtt_sequencer_process_pending_messages
 myqtt_sequencer_queue_data
 myqtt_sequencer_run
 myqtt_sequencer_stop

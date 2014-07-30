@@ -40,6 +40,7 @@
 
 /* local include */
 #include <myqtt-ctx-private.h>
+#include <myqtt-conn-private.h>
 
 #define LOG_DOMAIN "myqtt-sequencer"
 
@@ -69,41 +70,22 @@ axl_bool myqtt_sequencer_queue_data (MyQttCtx * ctx, MyQttSequencerData * data)
 	return axl_true;
 }
 
-axl_bool myqtt_sequencer_process_pending_messages (axlPointer _data, axlPointer _conn)
-{
-	MyQttConn          * conn = _conn;
-	MyQtt              * ctx;
-	MyQttSequencerData * data = _data;
-	int                  size;
-
-	/* get context */
-	ctx  = conn->ctx;
-
-	/* write step */
-	if ((data->message_size - data->step) > 4096)
-		size = 4096;
-	else
-		size = data->message_size - data-> step
-
-	if (! myqtt_msg_send_raw (conn, data->message + data->step, size)) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send MQTT message (type: %d, size: %d (total: %d), step: %d) error was errno=%d", 
-			   data->type, data->size, size, data->step, data->errno);
-		
-		return;
-	} /* end if */
-
-	/* increase step */
-	data->step += size;
-
-	return;
-}
-
-
 axlPointer __myqtt_sequencer_run (axlPointer _data)
 {
 
 	/* get current context */
 	MyQttCtx             * ctx = _data;
+	axlListCursor        * cursor;
+
+	/* references to local state */
+	MyQttSequencerData   * data;
+	MyQttConn            * conn;
+	int                    size;
+
+	axl_bool               rm_conn;
+
+	/* get a cursor */
+	cursor = axl_list_cursor_new (ctx->pending_messages);
 
 	/* lock mutex to handle pending messages */
 	myqtt_mutex_lock (&ctx->pending_messages_m);
@@ -126,6 +108,9 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 
 			/* release unlock now we are finishing */
 			myqtt_mutex_unlock (&ctx->pending_messages_m);
+
+			/* release cursor */
+			axl_list_cursor_free (cursor);
 			
 			myqtt_log (MYQTT_LEVEL_DEBUG, "exiting myqtt sequencer thread ..");
 
@@ -136,7 +121,42 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 		} /* end if */
 
 		/* process all ready administrative channels (channel 0) */
-		axl_list_lookup (ctx->pending_messages, myqtt_sequencer_process_pending_messages, ctx);
+		axl_list_cursor_first (cursor);
+		while (axl_list_cursor_has_item (cursor)) {
+
+			/* get data */
+			data    = axl_list_cursor_get (cursor);
+			conn    = data->conn;
+			rm_conn = axl_false;
+
+			/* write step */
+			if ((data->message_size - data->step) > 4096)
+				size = 4096;
+			else
+				size = data->message_size - data-> step;
+
+			if (! myqtt_msg_send_raw (conn, data->message + data->step, size)) {
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send MQTT message (type: %d, size: %d (total: %d), step: %d) error was errno=%d",  
+					   data->type, size, data->message_size, data->step, myqtt_errno_get_last_error ()); 
+				rm_conn = axl_true;
+			} /* end if */
+			
+			/* increase step */
+			data->step += size;
+
+			/* check if we have finished with this data to be sent */
+			if (data->step == data->message_size || rm_conn) {
+				/* release message */
+				axl_free (data->message);
+				axl_free (data);
+
+				axl_list_cursor_remove (cursor);
+				continue;
+			} /* end if */
+
+			/* call to get next */
+			axl_list_cursor_next (cursor);
+		} /* end while */
 		
 	} /* end while */
 
@@ -180,10 +200,11 @@ axl_bool  myqtt_sequencer_run (MyQttCtx * ctx)
 void myqtt_sequencer_stop (MyQttCtx * ctx)
 {
 
+	/* terminate sequencer thread */
+	myqtt_thread_destroy (&ctx->sequencer_thread, axl_false);
+
 	return; 
 }
-
-
 
 axl_bool      myqtt_sequencer_direct_send (MyQttConn    * connection,
 					   MyQttWriterData    * packet)

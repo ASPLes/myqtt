@@ -94,7 +94,13 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 						axl_bool              retain,
 						int                   wait_publish);
 
-axl_bool            myqtt_conn_close                  (MyQttConn  * conn);
+axl_bool            myqtt_conn_sub             (MyQttConn           * conn,
+						int                   wait_sub,
+						const char          * topic_filter,
+						MyQttQos              qos,
+						int                 * subs_result);
+
+axl_bool            myqtt_conn_close           (MyQttConn  * conn);
 
 MyQttConnOpts     * myqtt_conn_opts_new (void);
 
@@ -320,6 +326,8 @@ axl_bool               myqtt_conn_ref_internal        (MyQttConn * conn,
 
 void                myqtt_conn_set_initial_accept     (MyQttConn * conn,
 							axl_bool           status);
+
+void                 myqtt_conn_report_and_close (MyQttConn * conn, const char * msg);
 
 #endif
 

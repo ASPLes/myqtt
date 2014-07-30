@@ -600,6 +600,26 @@ typedef int (*MyQttPortShareHandler) (MyQttCtx * ctx, MyQttConn * listener, MyQt
  * @param user_data User defined pointer passed in into the handler.
  */
 typedef MyQttConnAckTypes (*MyQttOnConnectHandler) (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_data);
+
+/** 
+ * @brief Async notification handler that allows application level to
+ * control whether a subscription request should be accepted or not.
+ *
+ * It can also be used as a way to track subscription taking place.
+ *
+ * @param ctx The context wherethe operation takes place.
+ *
+ * @param conn The connection where the SUBSCRIBE request was received.
+ *
+ * @param topic_filter The topic filter requested on the SUBSCRIBE packet.
+ *
+ * @param qos The QOS value requested for this subscription.
+ *
+ * @param user_data User defined pointer received on the function and
+ * provided at the configuration handler.
+ * 
+ */
+typedef MyQttQos          (*MyQttOnSubscribeHandler) (MyQttCtx * ctx, MyQttConn * conn, const char * topic_filter, MyQttQos qos, axlPointer user_data);
 				      
 #endif
 

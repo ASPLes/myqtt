@@ -321,6 +321,17 @@ struct _MyQttConn {
 	 */
 	axlList                   * sent_pkgids;
 
+	/** 
+	 * @internal Reference to keep track about wait replies ( pkg
+	 * id => async queues) where the async queue are used to push
+	 * replies received for a certain pkd id.
+	 */
+	axlHash                   * wait_replies;
+
+	/*** subscriptions ***/
+	axlHash                   * subs;
+	axlHash                   * wild_subs;
+
 };
 
 struct _MyQttConnOpts {

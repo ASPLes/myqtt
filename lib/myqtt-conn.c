@@ -286,6 +286,13 @@ MyQttConn * myqtt_conn_new_empty_from_conn (MyQttCtx        * ctx,
 	connection->is_connected       = axl_true;
 	connection->ref_count          = 1;
 
+	/* wait reply hash */
+	connection->wait_replies       = axl_hash_new (axl_hash_int, axl_hash_equal_int);
+
+	/* subscriptions **/
+	connection->subs               = axl_hash_new (axl_hash_string, axl_hash_equal_string);
+	connection->wild_subs          = axl_hash_new (axl_hash_string, axl_hash_equal_string);
+
 	/* call to init all mutex associated to this particular connection */
 	__myqtt_conn_init_mutex (connection);
 
@@ -1332,7 +1339,7 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 		}
 
 		/* connection ok */
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "MQTT connection OK (conn-id=%d)", connection->id);
+		myqtt_log (MYQTT_LEVEL_DEBUG, "MQTT connection OK (conn-id=%d)", connection->id);
 	} /* end if */
 
  report_connection:
@@ -1388,6 +1395,13 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 	data->connection->host                = axl_strdup (host);
 	data->connection->port                = axl_strdup (port);
 	data->connection->ref_count           = 1;
+
+	/* wait reply hash */
+	data->connection->wait_replies        = axl_hash_new (axl_hash_int, axl_hash_equal_int);
+
+	/* subscriptions **/
+	data->connection->subs                = axl_hash_new (axl_hash_string, axl_hash_equal_string);
+	data->connection->wild_subs           = axl_hash_new (axl_hash_string, axl_hash_equal_string);
 
 	/* call to init all mutex associated to this particular connection */
 	__myqtt_conn_init_mutex (data->connection);
@@ -1785,7 +1799,7 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 
 
 	if (msg == NULL || size == 0) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create CONNECT message, empty/NULL value reported by myqtt_msg_build()");
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create PUBLISH message, empty/NULL value reported by myqtt_msg_build()");
 		return axl_false;
 	} /* end if */
 
@@ -1812,6 +1826,153 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 	
 	/* message sent */
 	return axl_true;
+}
+
+
+/**  
+ * @brief Allows to subscribe to one or multiple topics.
+ *
+ * @param conn The connection where the operation will take place.
+ *
+ * @param wait_publish Wait for subscription reply blocking the caller
+ * until that happens. If 0 is provided no wait is performed. If some
+ * value is provided that will be the max amount of time, in seconds,
+ * to wait for complete subscription reply.
+ *
+ * @param topic_filter Topic filter to subscribe to.
+ *
+ * @param qos Requested QoS, maximum QoS level at which the server can
+ * send publications to this client.
+ *
+ * @param subs_result Reference to a integer value where the function
+ * will report subscription result. If subs_result is NULL, no
+ * subscription result will be reported. In the case subs_result is
+ * provided, it can either -1 (indicating that subscription was
+ * rejected/denied by the server or there was any other error) or any
+ * value of \ref MyQttQos.
+ *
+ * @return The function reports axl_true in the case the subscription
+ * request was completed without any error. In the case of a
+ * connection failure, subscription failure or timeout, the function
+ * will report axl_false. The function also reports axl_false in the
+ * case conn and any topic_filter provided is NULL.
+ */
+axl_bool            myqtt_conn_sub             (MyQttConn           * conn,
+						int                   wait_sub,
+						const char          * topic_filter,
+						MyQttQos              qos,
+						int                 * subs_result) 
+{
+	unsigned char       * msg;
+	int                   size;
+	MyQttCtx            * ctx;
+	MyQttSequencerData  * data;
+	MyQttMsg            * reply;
+	int                   packet_id;
+	int                   _subs_result;
+
+	if (conn == NULL || conn->ctx == NULL)
+		return axl_false;
+
+	/* get reference to the context */
+	ctx = conn->ctx;
+
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to publish, connection received is not working");
+		return axl_false;
+	} /* end if */
+
+	if (! topic_filter || strlen (topic_filter) > 65535) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Topic filter is bigger than 65535 and this is not allowed by MQTT");
+		return axl_false;
+	} /* end if */
+
+	/* create message */
+	size = 0;
+
+	/* generate a packet id */
+	packet_id = __myqtt_conn_get_next_pkgid (ctx, conn);
+
+	/* build SUBSCRIBE message */
+	/* dup = axl_false, qos = 1, retain = axl_false */
+	msg  = myqtt_msg_build  (ctx, MYQTT_SUBSCRIBE, axl_false, 1, axl_false, &size,  /* 2 bytes */
+				 /* packet id */
+				 MYQTT_PARAM_16BIT_INT, packet_id,
+				 /* topic name */
+				 MYQTT_PARAM_UTF8_STRING, strlen (topic_filter), topic_filter,
+				 /* qos */
+				 MYQTT_PARAM_8BIT_INT, qos,
+				 MYQTT_PARAM_END);
+
+	if (msg == NULL || size == 0) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create SUBSCRIBE message, empty/NULL value reported by myqtt_msg_build()");
+		return axl_false;
+	} /* end if */
+
+	/* queue package to be sent */
+	data = axl_new (MyQttSequencerData, 1);
+	if (data == NULL) {
+		/* free build */
+		myqtt_msg_free_build (ctx, msg, size);
+
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to acquire memory to send message, unable to subscribe");
+		return axl_false;
+	} /* end if */
+
+	/* prepare wait reply */
+	__myqtt_reader_prepare_wait_reply (conn, packet_id);
+
+	/* configure package to send */
+	data->conn         = conn;
+	data->message      = msg;
+	data->message_size = size;
+	data->type         = MYQTT_SUBSCRIBE;
+
+	if (! myqtt_sequencer_queue_data (ctx, data)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to queue data for delivery, failed to send publish message");
+		return axl_false;
+	} /* end if */
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "SUBSCRIBE to %s sent (packet id=%d, conn-id=%d), waiting reply (%d secs)..", topic_filter, packet_id, conn->id, wait_sub);
+
+	/* wait here for suback reply limiting wait by wait_sub */
+	reply = __myqtt_reader_get_reply (conn, packet_id, wait_sub);
+	if (reply == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received NULL reply while waiting for reply (SUBACK) to SUBSCRIBE request");
+		return axl_false;
+	} /* end if */
+
+	/* handle reply */
+	if (reply->type != MYQTT_SUBACK) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected SUBACK reply but found: %s", myqtt_msg_get_type_str (reply));
+		myqtt_msg_unref (reply);
+		return axl_false;
+	} /* end if */
+
+	if (reply->packet_id != packet_id) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to receive packet id = %d in reply but found %d", 
+			   reply->packet_id, packet_id);
+		myqtt_msg_unref (reply);
+		return axl_false;
+	} /* end if */
+
+	/* get subscription result */
+	_subs_result = myqtt_get_8bit (reply->payload);
+	myqtt_msg_unref (reply);
+
+	if (subs_result)
+		(*subs_result) = _subs_result;
+
+	if (_subs_result == 128) {
+		myqtt_log (MYQTT_LEVEL_WARNING, "SUBSCRIBE reply was = %d (denied/error) (packet id=%d, conn-id=%d)", _subs_result, packet_id, conn->id);
+		return axl_false;
+	} /* end if */
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "SUBSCRIBE reply was = %d (packet id=%d, conn-id=%d)", _subs_result, packet_id, conn->id);
+	
+	/* report final result */
+	return axl_true;
+						
 }
 
 
@@ -2584,11 +2745,25 @@ void               myqtt_conn_free (MyQttConn * connection)
 	axl_list_free (connection->on_close_full);
 	connection->on_close_full = NULL;
 
+	/* wait reply hash */
+	axl_hash_free (connection->wait_replies);
+	connection->wait_replies = NULL;
+
+	/* wild subs */
+	axl_hash_free (connection->subs);
+	connection->subs = NULL;
+	axl_hash_free (connection->wild_subs);
+	connection->wild_subs = NULL;
+
 	/* free identifiers */
 	axl_free (connection->client_identifier);
 	axl_free (connection->username);
 	axl_free (connection->will_topic);
 	axl_free (connection->will_msg);
+
+	/* sending package ids */
+	axl_list_free (connection->sent_pkgids);
+	connection->sent_pkgids = NULL;
 
 	/* free posible msg and buffer */
 	axl_free (connection->buffer);
@@ -4167,6 +4342,16 @@ void                __myqtt_conn_shutdown_and_record_error (MyQttConn     * conn
 	/* shutdown connection */
 	myqtt_conn_shutdown (conn);
 
+	return;
+}
+
+void myqtt_conn_report_and_close (MyQttConn * conn, const char * msg)
+{
+	MyQttCtx * ctx;
+	ctx = conn->ctx;
+	myqtt_log (MYQTT_LEVEL_CRITICAL, "%s from conn-id=%d from %s:%s, closing connection..", 
+		   msg, conn->id, conn->host, conn->port);
+	myqtt_conn_shutdown (conn);
 	return;
 }
 
