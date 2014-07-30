@@ -49,35 +49,33 @@ struct _MyQttMsg {
 	/** 
 	 * Msg unique identifier. Every msg read have a different
 	 * msg id. This is used to track down msgs that are
-	 * allocated and deallocated.
+	 * allocated and deallocated. This message id is not the packet id.
 	 */
 	int               id;
 	
 	/* the payload message, without including header and remaining length */
 	const unsigned char *     payload;
 
-	/* holds size of the payload (just includes variable header
+	/* holds size of the payload (it just includes variable header
 	 * and payload) */
 	int                  size;
 
 	MyQttMutex           mutex;
 
 	/* real reference to the memory allocated, having all the
-	 * msg received (including trailing END\x0A\x0D but
-	 * nullified), this is used to avoid double allocating memory
+	 * msg received this is used to avoid double allocating memory
 	 * to receive the content and memory to place the content. See
 	 * myqtt_msg_get_next for more information. */
 	axlPointer           buffer;
-
-	/* reference to the payload content, from a MIME
-	 * perspective. This is the body part of the msg received */
-	axlPointer           content;
 
 	/* msg reference counting */
 	int                  ref_count;
 
 	/* message type */
 	MyQttMsgType         type;
+
+	/* packet id if defined */
+	int                  packet_id;
 };
 
 #endif

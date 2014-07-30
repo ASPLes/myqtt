@@ -229,6 +229,10 @@ struct _MyQttCtx {
 	MyQttCond                   pending_messages_c;
 	axlList                   * pending_messages;
 	MyQttThread                 sequencer_thread;
+
+	/** references to the on subscribe handler */
+	MyQttOnSubscribeHandler     on_subscribe;
+	axlPointer                  on_subscribe_data;
 };
 
 #endif /* __MYQTT_CTX_PRIVATE_H__ */

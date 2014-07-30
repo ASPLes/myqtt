@@ -625,6 +625,13 @@ typedef enum {
  */
 typedef enum {
 	/** 
+	 * @brief Quality of service denied. API code used to report
+	 * to the engine, for example, that a particular subscription
+	 * is not accepted (\ref MyQttOnSubscribeHandler).
+	 */
+	MYQTT_QOS_DENIED = 128,
+
+	/** 
 	 * @brief This is Qos 0. The message is delivered according to
 	 * the capabilities of the underlying network. No response is
 	 * sent by the receiver and no retry is performed by the

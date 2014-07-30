@@ -427,6 +427,48 @@ axl_bool test_01 (void) {
 	return axl_true;
 }
 
+
+axl_bool test_02 (void) {
+
+	MyQttCtx  * ctx = init_ctx ();
+	MyQttConn * conn;
+	int         sub_result;
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 01: creating connection..\n");
+
+	/* now connect to the listener:
+	   client_identifier -> test_01
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	conn = myqtt_conn_new (ctx, "test_01", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 02: connected without problems..\n");
+
+	/* subscribe to a topic */
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* close connection */
+	printf ("Test 02: closing connection..\n");
+	myqtt_conn_close (conn);
+
+	/* release context */
+	printf ("Test 02: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+
+
+	return axl_true;
+}
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -466,7 +508,7 @@ int main (int argc, char ** argv)
 	printf ("** To gather information about memory consumed (and leaks) use:\n**\n");
 	printf ("**     >> libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes --error-limit=no ./test_01 [--debug]\n**\n");
 	printf ("** Providing --run-test=NAME will run only the provided regression test.\n");
-	printf ("** Available tests: test_00, test_00_a, test_01\n");
+	printf ("** Available tests: test_00, test_00_a, test_01, test_02\n");
 	printf ("**\n");
 	printf ("** Report bugs to:\n**\n");
 	printf ("**     <myqtt@lists.aspl.es> MyQtt Mailing list\n**\n");
@@ -495,6 +537,17 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_01")
 	run_test (test_01, "Test 01: basic listener startup and client connection");
+
+	CHECK_TEST("test_02")
+	run_test (test_02, "Test 02: basic subscribe function (QOS 0)");
+
+	/* test sending an unknown message */
+
+	/* test connection lost notification */
+
+	/* test automatic reconnection on connection lost */
+
+	/* test connection lost on subscription sent */
 
 	printf ("All tests passed OK!\n");
 
