@@ -1732,7 +1732,8 @@ int __myqtt_conn_get_next_pkgid (MyQttCtx * ctx, MyQttConn * conn)
  * @param wait_publish Wait for full publication of the message
  * blocking the caller until that happens. If 0 is provided no wait is
  * performed. If some value is provided that will be the max amount of
- * time, in seconds, to wait for complete publication.
+ * time, in seconds, to wait for complete publication. For \ref
+ * MYQTT_QOS_0 this value is ignored.
  *
  * @return The function returns axl_true in the case the message was
  * published, otherwise axl_false is returned. The function returns
@@ -1742,7 +1743,7 @@ int __myqtt_conn_get_next_pkgid (MyQttCtx * ctx, MyQttConn * conn)
  */
 axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 						const char          * topic_name,
-						const unsigned char * app_message,
+						const axlPointer      app_message,
 						int                   app_message_size,
 						MyQttQos              qos,
 						axl_bool              retain,
@@ -3813,6 +3814,35 @@ void                   myqtt_conn_set_default_io_handler (MyQttConn * connection
 	connection->receive    = myqtt_conn_default_receive;
 	myqtt_log (MYQTT_LEVEL_DEBUG, "restoring default IO handlers for connection id=%d", 
 		    connection->id);
+
+	return;
+}
+
+/** 
+ * @brief Allows to configure the on message handler for the provided connection.
+ *
+ * This handler will be called each time a PUBLISH message is received
+ * on the provided connection. 
+ *
+ * @param conn The connection that is going to be configured with the
+ * handler. Only one handler can be configured. Every call to this
+ * function will replace previous one.
+ *
+ * @param on_msg The handler to be configured.
+ *
+ * @param on_msg_data User defined pointer to be passed in to on_msg handler everytime it is called.
+ *
+ */
+void                   myqtt_conn_set_on_msg         (MyQttConn          * conn,
+						      MyQttOnMsgReceived   on_msg,
+						      axlPointer           on_msg_data)
+{
+	if (conn == NULL)
+		return;
+
+	/* configure handler */
+	conn->on_msg_data = on_msg_data;
+	conn->on_msg      = on_msg;
 
 	return;
 }

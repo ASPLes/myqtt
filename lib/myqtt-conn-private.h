@@ -332,6 +332,10 @@ struct _MyQttConn {
 	axlHash                   * subs;
 	axlHash                   * wild_subs;
 
+	/*** on message support */
+	MyQttOnMsgReceived          on_msg;
+	axlPointer                  on_msg_data;
+
 };
 
 struct _MyQttConnOpts {

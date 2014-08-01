@@ -88,7 +88,7 @@ axl_bool            myqtt_conn_reconnect       (MyQttConn * conn,
 
 axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 						const char          * topic_name,
-						const unsigned char * app_message,
+						const axlPointer      app_message,
 						int                   app_message_size,
 						MyQttQos              qos,
 						axl_bool              retain,
@@ -247,7 +247,10 @@ MyQttReceiveHandler   myqtt_conn_set_receive_handler (MyQttConn * conn,
 						      MyQttReceiveHandler receive_handler);
 
 void                   myqtt_conn_set_default_io_handler (MyQttConn * conn);
-								 
+
+void                   myqtt_conn_set_on_msg         (MyQttConn * conn,
+						      MyQttOnMsgReceived on_msg,
+						      axlPointer     on_msg_data);
 
 void                   myqtt_conn_set_on_close       (MyQttConn * conn,
 						       MyQttConnOnClose on_close_handler);

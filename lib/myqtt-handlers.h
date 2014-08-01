@@ -79,7 +79,8 @@ typedef void (*MyQttListenerReady)           (char         * host,
 					      axlPointer     user_data);
 
 /** 
- * @brief Async notification handler called to notify a new message received (\ref MyQttMsg) due to a PUBLISH packet.
+ * @brief Async notification handler called to notify a new message
+ * received (\ref MyQttMsg) due to a PUBLISH packet.
  *
  * @param conn The connection where the application message was received.
  *
