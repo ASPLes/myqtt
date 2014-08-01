@@ -108,6 +108,12 @@ MyQttCtx * myqtt_ctx_new (void)
 	myqtt_mutex_create (&ctx->pending_messages_m);
 	myqtt_cond_create (&ctx->pending_messages_c);
 
+	/* subscription list */
+	ctx->subs      = axl_hash_new (axl_hash_string, axl_hash_equal_string);
+	ctx->wild_subs = axl_hash_new (axl_hash_string, axl_hash_equal_string);
+	myqtt_mutex_create (&ctx->subs_m);
+	myqtt_cond_create (&ctx->subs_c);
+
 	/* return context created */
 	return ctx;
 }
@@ -632,6 +638,12 @@ void        myqtt_ctx_free2 (MyQttCtx * ctx, const char * who)
 	axl_list_free (ctx->pending_messages);
 	myqtt_mutex_destroy (&ctx->pending_messages_m);
 	myqtt_cond_destroy (&ctx->pending_messages_c);
+
+	/* release connections subscribed */
+	axl_hash_free (ctx->subs);
+	axl_hash_free (ctx->wild_subs);
+	myqtt_mutex_destroy (&ctx->subs_m);
+	myqtt_cond_destroy (&ctx->subs_c);
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "about.to.free MyQttCtx %p", ctx);
 

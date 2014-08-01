@@ -686,10 +686,18 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 		return NULL;
 	} /* end if */
 
-	/* report the message type */
+	/* report the message type and qos */
 	msg->type = (header[0] & 0xf0) >> 4;
-	myqtt_log (MYQTT_LEVEL_DEBUG, "New packet received: %s, header size indication is: %d (iterator=%d)", myqtt_msg_get_type_str (msg), remaining, iterator);
+	msg->qos  = (header[0] & 0x06) >> 1;
+	myqtt_log (MYQTT_LEVEL_DEBUG, "New packet received: %s (QoS %d), header size indication is: %d (iterator=%d)", myqtt_msg_get_type_str (msg), msg->qos, remaining, iterator);
 
+	/* check qos value here */
+	if (msg->qos < MYQTT_QOS_0 || msg->qos > MYQTT_QOS_2) {
+		myqtt_conn_report_and_close (connection, "Received a message with an unsupported QoS. It is not 0, 1 nor 2");
+		axl_free (msg);
+		return NULL;
+	} /* end if */
+	
 	/* update message size */
 	msg->size = remaining;
 
@@ -1090,6 +1098,10 @@ void          myqtt_msg_free (MyQttMsg * msg)
 	else if (msg->payload != NULL)
 		axl_free ((char *) msg->payload);
 
+	/* release topic name if defined */
+	if (msg->topic_name)
+		axl_free (msg->topic_name);
+
 	/* release reference to the context */
 	myqtt_ctx_unref2 (&msg->ctx, "end msg");
 
@@ -1130,8 +1142,47 @@ int           myqtt_msg_get_id                (MyQttMsg * msg)
 	return msg->id;
 }
 
-/**
- * @brief Returns the payload associated to the given msg. 
+/** 
+ * @brief Allows to get application message size inside the provided
+ * message (only for \ref MYQTT_PUBLISH type).
+ *
+ * @param msg The PUBLISH (\ref MYQTT_PUBLISH) message to get the application message size from
+ *
+ * @return Application message size or -1 if it fails. It also reports
+ * -1 when \ref MyQttMsg received is not a PUBLISH one.
+ */
+int           myqtt_msg_get_app_msg_size      (MyQttMsg * msg)
+{
+	if (msg == NULL || msg->type != MYQTT_PUBLISH)
+		return -1;
+
+	return msg->app_message_size;
+}
+
+/** 
+ * @brief Allows to get application message inside the provided
+ * message (only for \ref MYQTT_PUBLISH type).
+ *
+ * @param msg The PUBLISH (\ref MYQTT_PUBLISH) message to get the application message from.
+ *
+ * @return Application message or NULL if it fails. It also reports
+ * NULL when \ref MyQttMsg received is not a PUBLISH one.
+ */
+const axlPointer  myqtt_msg_get_app_msg           (MyQttMsg * msg)
+{
+	if (msg == NULL || msg->type != MYQTT_PUBLISH)
+		return NULL;
+
+	return (const axlPointer) msg->app_message;
+}
+
+/** 
+ * @brief Returns the raw payload associated to the given msg
+ * (variable header + payload).
+ *
+ * For PUBLISH (\ref MYQTT_PUBLISH) message types, you can use \ref
+ * myqtt_msg_get_app_msg and \ref myqtt_msg_get_app_msg_size to get a
+ * reference to the application message.
  * 
  * Return actual msg payload. You must not free returned reference.
  *
@@ -1139,30 +1190,19 @@ int           myqtt_msg_get_id                (MyQttMsg * msg)
  * 
  * @return the actual msg's payload or NULL if fail.
  **/
-const void *  myqtt_msg_get_payload  (MyQttMsg * msg)
+const axlPointer  myqtt_msg_get_payload  (MyQttMsg * msg)
 {
 	v_return_val_if_fail (msg, NULL);
 
-	return msg->payload;
+	return (const axlPointer) msg->payload;
 }
 
-/**
- * @brief Returns the current payload size the given msg have
- * without taking into account mime headers.
+/** 
+ * @brief Returns variable header + payload size.
  *
- * This function will return current payload size stored on the given
- * msg, skipping mime header size. This is because MyQtt Library
- * manages mime headers for every msg received, making a separation
- * between the mime header part and the mime content.
+ * See \ref myqtt_msg_get_payload for more information.
  *
- * However, if you don't use mime headers, this function will return
- * the entire payload size.
- *
- * If you need to get current msg content size, including payload
- * size and mime content size, use \ref myqtt_msg_get_content_size.
- *
- * 
- * @param msg The msg where the payload size will be reported.
+ * @param msg The msg where the variable header + payload size will be reported.
  *
  * @return the actual payload size or -1 if fail
  **/

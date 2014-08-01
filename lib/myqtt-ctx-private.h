@@ -45,7 +45,7 @@
 
 struct _MyQttCtx {
 
-	MyQttMutex          ref_mutex;
+	MyQttMutex           ref_mutex;
 	int                  ref_count;
 
 	/* global hash to store arbitrary data */
@@ -200,22 +200,22 @@ struct _MyQttCtx {
 	/** 
 	 * @internal Reference to the thread pool.
 	 */
-	axl_bool                  thread_pool_exclusive;
-	MyQttThreadPool *        thread_pool;
-	axl_bool                  thread_pool_being_stopped;
+	axl_bool                     thread_pool_exclusive;
+	MyQttThreadPool *            thread_pool;
+	axl_bool                     thread_pool_being_stopped;
 
 	/**** myqtt listener module state ****/
-	MyQttAsyncQueue        * listener_wait_lock;
+	MyQttAsyncQueue            * listener_wait_lock;
 
 	/* configuration handler for OnAccepted signal */
-	axlList                 * listener_on_accept_handlers;
+	axlList                    * listener_on_accept_handlers;
 
 	/* default realm configuration for all connections at the
 	 * server side */
-	char                    * listener_default_realm;
+	char                       * listener_default_realm;
 
-	axlList               * port_share_handlers;
-	MyQttMutex              port_share_mutex;
+	axlList                    * port_share_handlers;
+	MyQttMutex                   port_share_mutex;
 
 	/** references to on connect handlers **/
 	MyQttOnConnectHandler        on_connect;
@@ -233,6 +233,20 @@ struct _MyQttCtx {
 	/** references to the on subscribe handler */
 	MyQttOnSubscribeHandler     on_subscribe;
 	axlPointer                  on_subscribe_data;
+
+	/*** hash of subscriptions ***/
+	/* subs is a hash where key is the topic filter and it points
+	 * to a hash that contains the connection = > qos:
+	 * a/b => { conn1 => 1, conn2 => 0, conn3 => 0 }
+	 */
+	axlHash                   * subs;
+	/* wild_subs works the same as subs but with wildcard topic
+	 * filters.
+	 */
+	axlHash                   * wild_subs;
+	MyQttMutex                  subs_m;
+	MyQttCond                   subs_c;
+	int                         publish_ops;
 };
 
 #endif /* __MYQTT_CTX_PRIVATE_H__ */

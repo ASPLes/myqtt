@@ -70,6 +70,46 @@ axl_bool myqtt_sequencer_queue_data (MyQttCtx * ctx, MyQttSequencerData * data)
 	return axl_true;
 }
 
+/** 
+ * @internal Function to send content in an async manner, handled by
+ * the MyQtt Sequencer.
+ */
+axl_bool myqtt_sequencer_send                     (MyQttConn            * conn, 
+						   MyQttMsgType           type,
+						   unsigned char        * msg, 
+						   int                    msg_size)
+{
+	MyQttSequencerData * data;
+	MyQttCtx           * ctx;
+
+	if (conn == NULL || msg == NULL || msg_size <= 0)
+		return axl_false;
+
+	/* acquire reference to the context */
+	ctx = conn->ctx;
+
+	/* queue package to be sent */
+	data = axl_new (MyQttSequencerData, 1);
+	if (data == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to acquire memory to send message");
+		return axl_false;
+	} /* end if */
+
+	/* configure package to send */
+	data->conn         = conn;
+	data->message      = msg;
+	data->message_size = msg_size;
+	data->type         = type;
+
+	if (! myqtt_sequencer_queue_data (ctx, data)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to queue data for delivery, failed to send message");
+		return axl_false;
+	} /* end if */
+
+	/* data queued without problems */
+	return axl_true;
+}
+
 axlPointer __myqtt_sequencer_run (axlPointer _data)
 {
 
@@ -148,6 +188,9 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 			if (data->step == data->message_size || rm_conn) {
 				/* release message */
 				axl_free (data->message);
+				data->message = NULL;
+
+				/* release common container */
 				axl_free (data);
 
 				axl_list_cursor_remove (cursor);
@@ -204,29 +247,6 @@ void myqtt_sequencer_stop (MyQttCtx * ctx)
 	myqtt_thread_destroy (&ctx->sequencer_thread, axl_false);
 
 	return; 
-}
-
-axl_bool      myqtt_sequencer_direct_send (MyQttConn    * connection,
-					   MyQttWriterData    * packet)
-{
-	/* reply number */
-	axl_bool    result = axl_true;
-#if defined(ENABLE_MYQTT_LOG)
-	MyQttCtx * ctx    = myqtt_conn_get_ctx (connection);
-#endif
-
-	if (! myqtt_msg_send_raw (connection, packet->msg, packet->size)) {
-		/* drop a log */
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "unable to send frame over connection id=%d: errno=(%d): %s", 
-			    myqtt_conn_get_id (connection),
-			    errno, myqtt_errno_get_error (errno));
-		
-		/* set as non connected and flag the result */
-		result = axl_false;
-	}
-	
-	/* nothing more */
-	return result;
 }
 
 

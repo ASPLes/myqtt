@@ -84,7 +84,11 @@ int           myqtt_msg_get_id                (MyQttMsg * msg);
 
 int           myqtt_msg_get_payload_size      (MyQttMsg * msg);
 
-const void *  myqtt_msg_get_payload           (MyQttMsg * msg);
+const axlPointer  myqtt_msg_get_payload           (MyQttMsg * msg);
+
+int           myqtt_msg_get_app_msg_size      (MyQttMsg * msg);
+
+const axlPointer  myqtt_msg_get_app_msg  (MyQttMsg * msg);
 
 
 /*** INTERNAL API: don't use it, it may change ***/

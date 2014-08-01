@@ -639,10 +639,18 @@ typedef enum {
 	 */
 	MYQTT_QOS_AT_MOST_ONCE = 0,
 	/** 
+	 * @brief Alias to \ref MYQTT_QOS_AT_MOST_ONCE.
+	 */
+	MYQTT_QOS_0 = 0,
+	/** 
 	 * @brief This is Qos 1. The receiver of a QoS 1 PUBLISH
 	 * Packet acknowledges receipt with a PUBACK Packet.
 	 */
 	MYQTT_QOS_AT_LEAST_ONCE_DELIVERY = 1,
+	/** 
+	 * @brief Alias to \ref MYQTT_QOS_AT_LEAST_ONCE_DELIVERY.
+	 */
+	MYQTT_QOS_1 = 1,
 	/** 
 	 * @brief This is Qos 2. This is the highest quality of
 	 * service, for use when neither loss nor duplication of
@@ -650,6 +658,10 @@ typedef enum {
 	 * associated with this quality of service.
 	 */
 	MYQTT_QOS_EXACTLY_ONCE_DELIVERY = 2,
+	/** 
+	 * @brief Alias to \ref MYQTT_QOS_EXACTLY_ONCE_DELIVERY.
+	 */
+	MYQTT_QOS_2 = 2
 } MyQttQos;
 
 /** 

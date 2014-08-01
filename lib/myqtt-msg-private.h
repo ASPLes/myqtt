@@ -74,8 +74,19 @@ struct _MyQttMsg {
 	/* message type */
 	MyQttMsgType         type;
 
+	/* message qos */
+	MyQttQos             qos;
+
 	/* packet id if defined */
 	int                  packet_id;
+
+	/* reference to app message */
+	const unsigned char * app_message;
+	int                   app_message_size;
+
+	/* reference to the topic name in the case this is a PUBLISH
+	 * message */
+	char                * topic_name;
 };
 
 #endif

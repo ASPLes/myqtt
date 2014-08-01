@@ -114,6 +114,49 @@ char * __myqtt_reader_get_utf8_string (MyQttCtx * ctx, const unsigned char * pay
 	return result;
 }
 
+typedef struct _MyQttReaderAsyncData {
+
+	MyQttMsg  * msg;
+	MyQttConn * conn;
+
+} MyQttReaderAsyncData;
+
+/** 
+ * @internal Function used to create MyQttReaderData that is to convey
+ * (conn, msg) into the threaded function and then call if everything
+ * went ok during memory allocation.
+ */
+void __myqtt_reader_async_run (MyQttConn * conn, MyQttMsg * msg, MyQttThreadFunc func) 
+{
+	MyQttReaderAsyncData * data;
+	MyQttCtx             * ctx = conn->ctx;
+
+	/* acquire a reference to the message */
+	if (! myqtt_msg_ref (msg)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create reader data to handle incoming request");
+		return;
+	} /* end if */
+
+	data = axl_new (MyQttReaderAsyncData, 1);
+	if (data == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create reader data to handle incoming request");
+
+		/* reduce message reference previously acquired */
+		myqtt_msg_unref (msg);
+
+		return;
+	} /* end if */
+
+	/* pack all data and call function */
+	data->conn = conn;
+	data->msg  = msg;
+
+	/* run task */
+	myqtt_thread_pool_new_task (ctx, func, data);
+
+	return;
+}
+
 void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * conn)
 {
 	/** 
@@ -267,23 +310,39 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 	return;
 }
 
-void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * conn)
-{
-	int             packet_id;
-	char          * topic_filter;
-	MyQttQos        qos;
-	int             desp;
-	int           * replies_mem = NULL;
-	int             replies = 0;
-	unsigned char * reply;
-	int             iterator;
+axlPointer __myqtt_reader_handle_subscribe (axlPointer _data) {
+
+	/* common parameters */
+	MyQttReaderAsyncData   * data = _data;
+	MyQttMsg               * msg  = data->msg;
+	MyQttConn              * conn = data->conn;
+	MyQttCtx               * ctx  = msg->ctx;
+
+	/* local parameters */
+	int                      packet_id;
+	char                   * topic_filter;
+	MyQttQos                 qos;
+	int                      desp;
+	int                    * replies_mem = NULL;
+	int                      replies = 0;
+	unsigned char          * reply;
+	int                      iterator;
+	axlHash                * hash;
+	axlHash                * conn_hash;
+
+	/* release reader data */
+	axl_free (data);
 
 	/* check if this is a listener */
 	if (conn->role != MyQttRoleListener) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received SUBSCRIBE request over a connection that is not a listener from conn-id=%d from %s:%s, closing connection..", 
 			   conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
-		return;
+
+		/* release message */
+		myqtt_msg_unref (msg);
+
+		return NULL;
 	} /* end if */
 
 	/* get packet id */
@@ -299,7 +358,11 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn 
 				   conn->id, conn->host, conn->port);
 			myqtt_conn_shutdown (conn);
 			axl_free (replies_mem);
-			return;
+
+			/* release message */
+			myqtt_msg_unref (msg);
+
+			return NULL;
 		} /* end if */
 
 		/* increase desp */
@@ -310,7 +373,11 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn 
 				   topic_filter, conn->id, conn->host, conn->port);
 			myqtt_conn_shutdown (conn);
 			axl_free (replies_mem);
-			return;
+
+			/* release message */
+			myqtt_msg_unref (msg);
+
+			return NULL;
 		}
 
 		/* get qos */
@@ -342,13 +409,50 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn 
 			continue; 
 		} /* end if */
 
+		/** CONNECTION REGISTRY **/
 		/* reached this point, subscription is accepted */
+		myqtt_mutex_lock (&conn->op_mutex);
 		if ((strstr (topic_filter, "#") != NULL) || (strstr (topic_filter, "+") != NULL))
 			axl_hash_insert_full (conn->wild_subs, topic_filter, axl_free, INT_TO_PTR (qos), NULL);
 		else
 			axl_hash_insert_full (conn->subs, topic_filter, axl_free, INT_TO_PTR (qos), NULL);
-		
+		myqtt_mutex_unlock (&conn->op_mutex);
 		/* now reply */
+
+		/** CONTEXT REGISTRY **/
+		/* now, register this connection into the hash of subscribed
+		 * connections, if required */
+		myqtt_mutex_lock (&ctx->subs_m);
+
+		/* check no publish operation is taking place now */
+		while (ctx->publish_ops > 0)
+			myqtt_cond_timedwait (&ctx->subs_c, &ctx->subs_m, 10000);
+		
+		/* check if topic filter is already registred, if not create base structure */
+		if ((strstr (topic_filter, "#") != NULL) || (strstr (topic_filter, "+") != NULL)) 
+			hash = ctx->wild_subs;
+		else
+			hash = ctx->subs;
+		
+		/* check if the hash hold connections interested in
+		 * this topic filter is already created, if not,
+		 * proceed */
+		conn_hash = axl_hash_get (hash, topic_filter);
+		if (! conn_hash) {
+			/* create empty hash */
+			conn_hash = axl_hash_new (axl_hash_int, axl_hash_equal_int);
+			axl_hash_insert_full (hash, 
+					      /* key and destroy */
+					      axl_strdup (topic_filter), axl_free, 
+					      /* value and destroy */
+					      conn_hash, (axlDestroyFunc) axl_hash_free);
+		} /* end if */
+
+		/* record this connection and requested qos */
+		axl_hash_insert (conn_hash, conn, INT_TO_PTR (qos));
+
+		/* release lock */
+		myqtt_mutex_unlock (&ctx->subs_m);
 		
 	} /* end while */
 
@@ -383,15 +487,15 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn 
 	axl_free (replies_mem);
 
 	/* send message */
-	if (! myqtt_msg_send_raw (conn, reply, replies + 4))
+	if (! myqtt_sequencer_send (conn, MYQTT_SUBACK, reply, replies + 4))
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send SUBACK message, errno=%d", errno);
 
-	/* free reply */
-	axl_free (reply);
-
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Sent SUBACK reply to conn-id=%d at %s:%s..", conn->id, conn->host, conn->port);
-	
-	return;
+
+	/* release message */
+	myqtt_msg_unref (msg);
+
+	return NULL;
 }
 
 void __myqtt_reader_handle_disconnect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * conn)
@@ -404,20 +508,35 @@ void __myqtt_reader_handle_disconnect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn
 	return;
 }
 
-void __myqtt_reader_handle_suback (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * conn)
+axlPointer __myqtt_reader_handle_suback (axlPointer _data)
 {
-	MyQttAsyncQueue * queue;
+	MyQttAsyncQueue        * queue;
+	MyQttReaderAsyncData   * data = _data;
+	MyQttMsg               * msg  = data->msg;
+	MyQttConn              * conn = data->conn;
+	MyQttCtx               * ctx  = msg->ctx;
+
+	/* release reader data */
+	axl_free (data);
 
  	/* check if this is a listener */
 	if (conn->role != MyQttRoleInitiator) {
 		myqtt_conn_report_and_close (conn, "Received SUBACK request over a connection that is not an initiator");
-		return;
+
+		/* release message */
+		myqtt_msg_unref (msg);
+
+		return NULL;
 	} /* end if */
 
 	if (msg->size < 3) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "SUBACK message size=%d without header and remaining length is insufficient", msg->size);
 		myqtt_conn_report_and_close (conn, "Received poorly formed SUBACK request that do not contains bare minimum bytes");
-		return;
+
+		/* release message */
+		myqtt_msg_unref (msg);
+
+		return NULL;
 	} /* end if */
 
 	/* get packet id */
@@ -437,14 +556,136 @@ void __myqtt_reader_handle_suback (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * c
 		/* too late, unable to deliver message to wait reply */
 		myqtt_log (MYQTT_LEVEL_WARNING, "Received a SUBACK message but queue to handle reply wasn't there...it seems we arrived too late or packet id=%d do not match anything on our side",
 			   msg->packet_id);
-		return;
+
+		/* release message */
+		myqtt_msg_unref (msg);
+
+		return NULL;
 	} /* end if */
 
 	/* acquire reference and push content */
-	myqtt_msg_ref (msg);
 	myqtt_async_queue_push (queue, msg);
 
-	return;
+	/* NOTE: do not call to release myqtt_msg_unref because we are "delegating" this reference to the queue waiter */
+
+	return NULL;
+}
+
+/** 
+ * @internal PUBLISH handling..
+ */
+axlPointer __myqtt_reader_handle_publish (axlPointer _data)
+{
+
+	/* common variables */
+	MyQttReaderAsyncData   * data = _data;
+	MyQttMsg               * msg  = data->msg;
+	MyQttCtx               * ctx  = msg->ctx;
+	MyQttConn              * conn = data->conn;
+	MyQttQos                 qos;
+
+	/* local variables */
+	axlHash                * conn_hash;
+	int                      desp = 0;
+	axlHashCursor          * cursor;
+
+	/* release reader data */
+	axl_free (data);
+
+	/* parse content received inside message */
+	msg->topic_name = __myqtt_reader_get_utf8_string (ctx, msg->payload, msg->size);
+	if (! msg->topic_name ) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received PUBLISH message without topic name closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
+		myqtt_conn_shutdown (conn);
+
+		/* release reference acquired */
+		myqtt_msg_unref (msg);
+
+		return NULL;
+	} /* end if */
+
+	/* increase desp */
+	desp       += (strlen (msg->topic_name) + 2);
+
+	/* now, according to the qos, we have also a packet id */
+	if (msg->qos > MYQTT_QOS_0) {
+		/* get packet id */
+		msg->packet_id   = myqtt_get_16bit (msg->payload + desp); 
+		desp            += 2;
+	} /* end if */
+
+	/* get payload reference */
+	msg->app_message         = msg->payload + desp;
+	msg->app_message_size    = msg->size - desp;
+
+	/**** CLIENT HANDLING **** 
+	 * we have received a PUBLISH packet as client, we have to
+	 * notify it to the application level */
+	if (conn->role == MyQttRoleInitiator) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "ROLE TO HANDLE PUBLISH is %d (initiator is %d)",
+			   conn->role, MyQttRoleInitiator);
+
+		/* call to notify message */
+		if (conn->on_msg)
+			conn->on_msg (conn, msg, conn->on_msg_data);
+		
+		/* release reference acquired */
+		myqtt_msg_unref (msg);
+		return NULL;
+	} /* end if */
+
+	/**** SERVER HANDLING ****/
+	/* notify we are publishing */
+	myqtt_mutex_lock (&ctx->subs_m);
+	ctx->publish_ops++;
+	myqtt_mutex_unlock (&ctx->subs_m);
+
+	/* get the hash */
+	conn_hash = axl_hash_get (ctx->subs, (axlPointer) msg->topic_name);
+	if (conn_hash) {
+		/* found topic registered, now iterate over all
+		 * registered connections to send the message */
+		cursor = axl_hash_cursor_new (conn_hash);
+		axl_hash_cursor_first (cursor);
+		while (axl_hash_cursor_has_item (cursor)) {
+
+			/* get connection and qos */
+			conn = axl_hash_cursor_get_key (cursor);
+
+			/* skip connection because it is not ok */
+			if (! myqtt_conn_is_ok (conn, axl_false)) {
+				/* next item */
+				axl_hash_cursor_next (cursor);
+				continue;
+			} /* end if */
+
+			qos  = PTR_TO_INT (axl_hash_cursor_get_value (cursor));
+
+			/* publish message */
+			myqtt_log (MYQTT_LEVEL_DEBUG, "Publishing topic name '%s' on conn %p", msg->topic_name, conn);
+			if (! myqtt_conn_pub (conn, msg->topic_name, (axlPointer) msg->app_message, msg->app_message_size, qos, axl_false, 0))
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send SUBACK message, errno=%d", errno); 
+			
+			/* next item */
+			axl_hash_cursor_next (cursor);
+		} /* end if */
+
+		/* release cursor */
+		axl_hash_cursor_free (cursor);
+	} else {
+		/* no one interested in this, no one subscribed to received this */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Published topic name '%s' but no one was subscribed to it", msg->topic_name);
+	}
+
+	/* notify we have finished publishing */
+	myqtt_mutex_lock (&ctx->subs_m);
+	ctx->publish_ops--;
+	myqtt_mutex_unlock (&ctx->subs_m);
+
+	/* release reference acquired */
+	myqtt_msg_unref (msg);
+	
+	return NULL;
 }
 
 /** 
@@ -481,10 +722,10 @@ void __myqtt_reader_handle_suback (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * c
  * 
  **/
 void __myqtt_reader_process_socket (MyQttCtx        * ctx, 
-				     MyQttConn * conn)
+				    MyQttConn * conn)
 {
 
-	MyQttMsg      * msg;
+	MyQttMsg         * msg;
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "something to read conn-id=%d", myqtt_conn_get_id (conn));
 
@@ -520,12 +761,16 @@ void __myqtt_reader_process_socket (MyQttCtx        * ctx,
 		__myqtt_reader_handle_disconnect (ctx, msg, conn);
 		break;
 	case MYQTT_SUBSCRIBE:
-		/* handle SUBCRIBE PACKET */
-		__myqtt_reader_handle_subscribe (ctx, msg, conn);
+		/* handle SUBCRIBE packet */
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_subscribe);
 		break;
 	case MYQTT_SUBACK:
-		/* handle SUBACK PACKET */
-		__myqtt_reader_handle_suback (ctx, msg, conn);
+		/* handle SUBACK packet */
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_suback);
+		break;
+	case MYQTT_PUBLISH:
+		/* handle PUBLISH packet */
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_publish);
 		break;
 	default:
 		/* report unhandled packet type */
@@ -938,6 +1183,118 @@ axl_bool      myqtt_reader_read_pending (MyQttCtx  * ctx,
 	return should_continue;
 }
 
+void       __myqtt_reader_remove_conn_from_hash (MyQttConn * conn, axlHashCursor * cursor)
+{
+	axlHash       * conn_hash;
+	const char    * topic_filter;
+	MyQttCtx      * ctx = conn->ctx;
+
+	myqtt_mutex_lock (&conn->op_mutex);
+
+	/* iterate all subscriptions this connection hash */
+	while (axl_hash_cursor_has_item (cursor)) {
+
+		/* get topic filter where the connection has to be removed */
+		topic_filter = axl_hash_cursor_get_key (cursor);
+		if (! topic_filter) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to find topic filter value but found NULL [internal engine error]");
+			continue;
+		} /* end if */
+		
+		/* now get connection hash handling that topic */
+		conn_hash    = axl_hash_get (ctx->subs, (axlPointer) topic_filter);
+		if (! conn_hash) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to find connection hash under the topic %s but found NULL reference [internal engine error]..", 
+				   topic_filter);
+			continue;
+		} /* end if */
+
+		/* remove the connection from that connection hash */
+		axl_hash_remove (conn_hash, conn);
+
+		/* get next */
+		axl_hash_cursor_next (cursor);
+	} /* end while */
+
+	myqtt_mutex_unlock (&conn->op_mutex);
+
+	return;
+}
+
+axlPointer __myqtt_reader_remove_conn_refs_aux (axlPointer _conn) 
+{
+	MyQttConn     * conn = _conn;
+	MyQttCtx      * ctx;
+	axlHashCursor * cursor = NULL;
+
+	if (_conn == NULL)
+		return NULL;
+
+	/* get context reference */
+	ctx = conn->ctx;
+
+	if (axl_hash_items (conn->subs) > 0) {
+		/* create cursor */
+		cursor = axl_hash_cursor_new (conn->subs);
+		axl_hash_cursor_first (cursor);
+
+		/* lock subscribtions to remove all connection references */
+		myqtt_mutex_lock (&ctx->subs_m);
+
+		/* check no publish operation is taking place now */
+		while (ctx->publish_ops > 0)
+			myqtt_cond_timedwait (&ctx->subs_c, &ctx->subs_m, 10000);
+
+		/* call to remove connection from this hash */
+		__myqtt_reader_remove_conn_from_hash (conn, cursor);
+
+		/* release lock */
+		myqtt_mutex_unlock (&ctx->subs_m);
+		axl_hash_cursor_free (cursor);
+	} /* end if */
+
+	if (axl_hash_items (conn->wild_subs) > 0) {
+		cursor = axl_hash_cursor_new (conn->wild_subs);
+		axl_hash_cursor_first (cursor);
+
+		/* lock subscribtions to remove all connection references */
+		myqtt_mutex_lock (&ctx->subs_m);
+
+		/* check no publish operation is taking place now */
+		while (ctx->publish_ops > 0)
+			myqtt_cond_timedwait (&ctx->subs_c, &ctx->subs_m, 10000);
+
+		/* call to remove connection from this hash */
+		__myqtt_reader_remove_conn_from_hash (conn, cursor);
+
+		/* release lock */
+		myqtt_mutex_unlock (&ctx->subs_m);
+		axl_hash_cursor_free (cursor);
+	} /* end if */
+
+	/* connection isn't ok, unref it */
+	myqtt_conn_unref (conn, "myqtt reader (build set)");
+
+	return NULL;
+}
+
+/* call to remove all connection references */
+void __myqtt_reader_remove_conn_refs (MyQttConn * conn)
+{
+	/* if it has no subscription, just return */
+	if (axl_hash_items (conn->subs) == 0 && axl_hash_items (conn->wild_subs) == 0) {
+		/* connection isn't ok, unref it */
+		myqtt_conn_unref (conn, "myqtt reader");
+		return;
+	} /* end if */
+
+	/* call to run next task */
+	myqtt_thread_pool_new_task (conn->ctx, __myqtt_reader_remove_conn_refs_aux, conn);
+
+	return;
+}
+
+
 /** 
  * @internal Auxiliar function that populates the reading set of file
  * descriptors (on_reading), returning the max fds.
@@ -974,8 +1331,8 @@ MYQTT_SOCKET __myqtt_reader_build_set_to_watch_aux (MyQttCtx     * ctx,
 			 * finishing the reference the reader owns */
 			axl_list_cursor_unlink (cursor);
 
-			/* connection isn't ok, unref it */
-			myqtt_conn_unref (connection, "myqtt reader (build set)");
+			/* call to remove all connection references */
+			__myqtt_reader_remove_conn_refs (connection);
 
 			continue;
 		} /* end if */
@@ -990,8 +1347,8 @@ MYQTT_SOCKET __myqtt_reader_build_set_to_watch_aux (MyQttCtx     * ctx,
 			 * finishing the reference the reader owns */
 			axl_list_cursor_unlink (cursor);
 
-			/* connection isn't ok, unref it */
-			myqtt_conn_unref (connection, "myqtt reader (process: unwatch)");
+			/* call to remove all connection references */
+			__myqtt_reader_remove_conn_refs (connection);
 
 			continue;
 		} /* end if */
@@ -1026,7 +1383,9 @@ MYQTT_SOCKET __myqtt_reader_build_set_to_watch_aux (MyQttCtx     * ctx,
 			/* set it as not connected */
 			if (myqtt_conn_is_ok (connection, axl_false))
 				__myqtt_conn_shutdown_and_record_error (connection, MyQttError, "myqtt reader (add fail)");
-			myqtt_conn_unref (connection, "myqtt reader (add fail)");
+
+			/* call to remove all connection references */
+			__myqtt_reader_remove_conn_refs (connection);
 
 			continue;
 		} /* end if */
@@ -1087,8 +1446,8 @@ void __myqtt_reader_check_connection_list (MyQttCtx     * ctx,
 			 * finishing the reference the reader owns */
 			axl_list_cursor_unlink (conn_cursor);
 
-			/* connection isn't ok, unref it */
-			myqtt_conn_unref (connection, "myqtt reader (check list)");
+			/* call to remove all connection references */
+			__myqtt_reader_remove_conn_refs (connection);
 			continue;
 		}
 		
@@ -1141,8 +1500,8 @@ int  __myqtt_reader_check_listener_list (MyQttCtx     * ctx,
 			 * finishing the reference the reader owns */
 			axl_list_cursor_unlink (srv_cursor);
 
-			/* connection isn't ok, unref it */
-			myqtt_conn_unref (connection, "myqtt reader (process), listener closed");
+			/* call to remove all connection references */
+			__myqtt_reader_remove_conn_refs (connection);
 
 			/* update checked connections */
 			checked++;

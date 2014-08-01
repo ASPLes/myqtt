@@ -44,6 +44,11 @@
 axl_bool myqtt_sequencer_queue_data               (MyQttCtx           * ctx,
 						   MyQttSequencerData * data);
 
+axl_bool myqtt_sequencer_send                     (MyQttConn            * conn, 
+						   MyQttMsgType           type,
+						   unsigned char        * msg, 
+						   int                    msg_size);
+
 axl_bool myqtt_sequencer_run                      (MyQttCtx * ctx);
 
 void     myqtt_sequencer_stop                     (MyQttCtx * ctx);

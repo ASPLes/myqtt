@@ -100,6 +100,7 @@ myqtt_conn_set_nonblocking_socket
 myqtt_conn_set_on_close
 myqtt_conn_set_on_close_full
 myqtt_conn_set_on_close_full2
+myqtt_conn_set_on_msg
 myqtt_conn_set_preread_handler
 myqtt_conn_set_receive_handler
 myqtt_conn_set_receive_stamp
@@ -223,6 +224,8 @@ myqtt_msg_decode_remaining_length
 myqtt_msg_encode_remaining_length
 myqtt_msg_free
 myqtt_msg_free_build
+myqtt_msg_get_app_msg
+myqtt_msg_get_app_msg_size
 myqtt_msg_get_ctx
 myqtt_msg_get_id
 myqtt_msg_get_next
@@ -255,9 +258,9 @@ myqtt_reader_stop
 myqtt_reader_unwatch_connection
 myqtt_reader_watch_connection
 myqtt_reader_watch_listener
-myqtt_sequencer_direct_send
 myqtt_sequencer_queue_data
 myqtt_sequencer_run
+myqtt_sequencer_send
 myqtt_sequencer_stop
 myqtt_set_16bit
 myqtt_set_32bit
