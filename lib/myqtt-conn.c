@@ -195,8 +195,8 @@ typedef struct _MyQttConnNewData {
 
 
 typedef struct _MyQttConnOnCloseData {
-	MyQttConnOnCloseFull handler;
-	axlPointer                  data;
+	MyQttConnOnClose handler;
+	axlPointer       data;
 } MyQttConnOnCloseData;
 
 
@@ -2090,6 +2090,100 @@ axl_bool            myqtt_conn_unsub           (MyQttConn           * conn,
 }
 
 /** 
+ * @brief Allows to send a ping request (PINGREQ) to the server over
+ * the provided connection.
+ *
+ * The function handles server reply (PINGRESP) and allows to limit
+ * reply wait time to the value provided by wait_pingresp. 
+ *
+ * @param conn The connection where the PINGREQ will be sent.
+ *
+ * @param wait_pingresp How many seconds to wait for PINGRESP reply to
+ * come.
+ *
+ * @return axl_true if the PINGREQ operation went ok and a PINGRESP
+ * was received. Otherwise, axl_false is returned. Remember you can
+ * always use \ref myqtt_conn_is_ok to check if the connection is
+ * connected and working. Alternatively you can use \ref
+ * myqtt_conn_set_on_close to get a notification just when the
+ * connection is lost.
+ * 
+ */
+axl_bool            myqtt_conn_ping            (MyQttConn           * conn,
+						int                   wait_pingresp)
+{
+	unsigned char       * msg;
+	int                   size = 0;
+	MyQttCtx            * ctx;
+	MyQttMsg            * reply;
+
+	if (conn == NULL || conn->ctx == NULL)
+		return axl_false;
+
+	/* get reference to the context */
+	ctx = conn->ctx;
+
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to ping server, connection received is not working");
+		return axl_false;
+	} /* end if */
+
+	/* build UNSUBSCRIBE message */
+	/* dup = axl_false, qos = 0, retain = axl_false */
+	msg  = myqtt_msg_build  (ctx, MYQTT_PINGREQ, axl_false, MYQTT_QOS_0, axl_false, &size,  /* 2 bytes */
+				 MYQTT_PARAM_END);
+
+	if (msg == NULL || size == 0) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create UNSUBSCRIBE message, empty/NULL value reported by myqtt_msg_build()");
+		return axl_false;
+	} /* end if */
+
+	if (wait_pingresp > 0) {
+		/* ensure waiting queue is in place so we can make
+		 * this part thread safe */
+		myqtt_mutex_lock (&conn->op_mutex);
+		if (conn->ping_resp_queue == NULL)
+			conn->ping_resp_queue = myqtt_async_queue_new ();
+		myqtt_mutex_unlock (&conn->op_mutex);
+	} /* end if */
+
+	/* queue package to be sent */
+	if (! myqtt_sequencer_send (conn, MYQTT_PINGREQ, msg, size)) {
+		/* free build */
+		myqtt_msg_free_build (ctx, msg, size);
+
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to acquire memory to send message, unable to subscribe");
+		return axl_false;
+	} /* end if */
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "PINGREQ  sent (conn-id=%d), waiting reply (%d secs)..", conn->id, wait_pingresp);
+
+	/* check if caller didn't request to wait for reply */
+	if (wait_pingresp == 0) 
+		return axl_true;
+
+	/* wait here for suback reply limiting wait by wait_sub */
+	reply = myqtt_async_queue_timedpop (conn->ping_resp_queue, wait_pingresp * 1000000);
+	if (reply == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received NULL reply while waiting for reply (PINGRESP) to PINGREQ request");
+		return axl_false;
+	} /* end if */
+
+	/* handle reply */
+	if (reply->type != MYQTT_PINGRESP) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected PINGRESP reply but found: %s", myqtt_msg_get_type_str (reply));
+		myqtt_msg_unref (reply);
+		return axl_false;
+	} /* end if */
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "PINGRESP reply received (conn-id=%d)", conn->id);
+	myqtt_msg_unref (reply);
+	
+	/* report final result */
+	return axl_true;
+}
+
+/** 
  * @brief Allows to cleanly close the connection by sending the
  * DISCONNECT control packet.
  *
@@ -2852,9 +2946,6 @@ void               myqtt_conn_free (MyQttConn * connection)
 
 
 	/* release on close notification */
-	axl_list_free (connection->on_close);
-	connection->on_close = NULL;
-
 	axl_list_free (connection->on_close_full);
 	connection->on_close_full = NULL;
 
@@ -2880,6 +2971,10 @@ void               myqtt_conn_free (MyQttConn * connection)
 
 	/* free posible msg and buffer */
 	axl_free (connection->buffer);
+
+	/* release ping resp queue if defined */
+	myqtt_async_queue_unref (connection->ping_resp_queue);
+	connection->ping_resp_queue = NULL;
 
 	/* release reference to context */
 	myqtt_ctx_unref2 (&connection->ctx, "end connection");
@@ -3222,9 +3317,8 @@ const char        * myqtt_conn_get_local_port         (MyQttConn * connection)
 
 typedef struct __MyQttOnCloseNotify {
 	MyQttConn              * conn;
-	MyQttConnOnCloseFull     handler;
-	axlPointer                      data;
-	axl_bool                        is_full;
+	MyQttConnOnClose         handler;
+	axlPointer               data;
 } MyQttOnCloseNotify;
 
 axlPointer __myqtt_conn_on_close_do_notify (MyQttOnCloseNotify * data)
@@ -3233,10 +3327,7 @@ axlPointer __myqtt_conn_on_close_do_notify (MyQttOnCloseNotify * data)
 	MyQttCtx * ctx = CONN_CTX (data->conn);
 #endif
 	/* do notification */
-	if (data->is_full) 
-		data->handler (data->conn, data->data);
-	else
-		((MyQttConnOnClose) data->handler) (data->conn);
+	data->handler (data->conn, data->data);
 
 	/* terminate thread */
 	myqtt_log (MYQTT_LEVEL_DEBUG, "async on close notification done for conn-id=%d..", myqtt_conn_get_id (data->conn));
@@ -3247,9 +3338,8 @@ axlPointer __myqtt_conn_on_close_do_notify (MyQttOnCloseNotify * data)
 }
 
 void __myqtt_conn_invoke_on_close_do_notify (MyQttConn            * conn, 
-						    MyQttConnOnCloseFull   handler, 
-						    axlPointer                    user_data, 
-						    axl_bool                      is_full)
+					     MyQttConnOnClose       handler, 
+					     axlPointer             user_data)
 {
 	MyQttOnCloseNotify * data;
 #if defined(ENABLE_MYQTT_LOG) && ! defined(SHOW_FORMAT_BUGS)
@@ -3266,7 +3356,6 @@ void __myqtt_conn_invoke_on_close_do_notify (MyQttConn            * conn,
 	data->conn    = conn;
 	data->handler = handler;
 	data->data    = user_data;
-	data->is_full = is_full;
 	
 	/* increase reference counting during thread activation */
 	myqtt_conn_ref_internal (conn, "on-close-notification", axl_false);
@@ -3294,12 +3383,10 @@ void __myqtt_conn_invoke_on_close_do_notify (MyQttConn            * conn,
  * @param conneciton The connection where all on close handlers will
  * be notified.
  */
-void __myqtt_conn_invoke_on_close (MyQttConn * connection, 
-					  axl_bool           is_full)
+void __myqtt_conn_invoke_on_close (MyQttConn * connection)
 {
-	MyQttConnOnClose        on_close_handler;
 	MyQttConnOnCloseData  * handler;
-	MyQttCtx                    * ctx = connection->ctx;
+	MyQttCtx              * ctx = connection->ctx;
 
 	/* check if context is in process of finishing */
 	if (ctx->myqtt_exit) 
@@ -3309,54 +3396,31 @@ void __myqtt_conn_invoke_on_close (MyQttConn * connection,
 	myqtt_mutex_lock (&connection->handlers_mutex);
 
 	/* invoke full */
-	if (is_full) {
+	/* iterate over all full handlers and invoke them */
+	while (axl_list_length (connection->on_close_full) > 0) {
+		
+		/* get a reference to the handler */
+		handler = axl_list_get_first (connection->on_close_full);
+		
+		myqtt_log (MYQTT_LEVEL_DEBUG, "running on close full handler %p conn-id=%d, remaining handlers: %d",
+			   handler, connection->id, axl_list_length (connection->on_close_full));
+		
+		/* remove the handler from the list */
+		axl_list_unlink_first (connection->on_close_full);
+		
+		/* unlock now the op mutex is not blocked */
+		myqtt_mutex_unlock (&connection->handlers_mutex);
+		
+		/* invoke */
+		__myqtt_conn_invoke_on_close_do_notify (connection, handler->handler, handler->data);
+		
+		/* free handler node */
+		axl_free (handler);
+		
+		/* reacquire the mutex */
+		myqtt_mutex_lock (&connection->handlers_mutex);
 
-		/* iterate over all full handlers and invoke them */
-		while (axl_list_length (connection->on_close_full) > 0) {
-
-			/* get a reference to the handler */
-			handler = axl_list_get_first (connection->on_close_full);
-
-			myqtt_log (MYQTT_LEVEL_DEBUG, "running on close full handler %p conn-id=%d, remaining handlers: %d",
-				    handler, connection->id, axl_list_length (connection->on_close_full));
-
-			/* remove the handler from the list */
-			axl_list_unlink_first (connection->on_close_full);
-
-			/* unlock now the op mutex is not blocked */
-			myqtt_mutex_unlock (&connection->handlers_mutex);
-
-			/* invoke */
-			__myqtt_conn_invoke_on_close_do_notify (connection, handler->handler, handler->data, axl_true);
-			
-			/* free handler node */
-			axl_free (handler);
-
-			/* reacquire the mutex */
-			myqtt_mutex_lock (&connection->handlers_mutex);
-		} /* end if */
-
-	} else {
-
-		/* iterate over all full handlers and invoke them */
-		while (axl_list_length (connection->on_close) > 0) {
-			/* get a reference to the handler */
-			on_close_handler = axl_list_get_first (connection->on_close);
-
-			/* remove the handler from the list */
-			axl_list_unlink_first (connection->on_close);
-
-			/* unlock now the op mutex is not blocked */
-			myqtt_mutex_unlock (&connection->handlers_mutex);
-
-			/* invoke */
-			__myqtt_conn_invoke_on_close_do_notify (connection, (MyQttConnOnCloseFull) on_close_handler, NULL, axl_false);
-
-			/* reacquire the mutex */
-			myqtt_mutex_lock (&connection->handlers_mutex);
-		} /* end if */
-
-	} /* if */
+	} /* end while */
 
 	/* unlock now the op mutex is not blocked */
 	myqtt_mutex_unlock (&connection->handlers_mutex);
@@ -3507,18 +3571,11 @@ void           __myqtt_conn_set_not_connected (MyQttConn * connection,
 		/* unlock now the op mutex is not blocked */
 		myqtt_mutex_unlock (&connection->op_mutex);
 
-		/* check to invoke on close handler */
-		if (connection->on_close != NULL) {
-			myqtt_log (MYQTT_LEVEL_DEBUG, "notifying connection-id=%d close handlers", connection->id);
-			/* invoking on close handler */
-			__myqtt_conn_invoke_on_close (connection, axl_false);
-		}
-
 		/* check for the close handler full definition */
 		if (connection->on_close_full != NULL) {
 			myqtt_log (MYQTT_LEVEL_DEBUG, "notifying connection-id=%d close handlers", connection->id);
 			/* invokin on close handler full */ 
-			__myqtt_conn_invoke_on_close (connection, axl_true);
+			__myqtt_conn_invoke_on_close (connection);
 		}
 
 		/* close socket connection if weren't  */
@@ -3966,39 +4023,64 @@ void                   myqtt_conn_set_on_msg         (MyQttConn          * conn,
  * The handler provided on this function is called once the connection
  * provided is closed. This is useful to detect connection broken or "broken pipe".
  *
- * If you require to set a user pointer to be received by the handler,
- * you can use \ref myqtt_conn_set_on_close_full.
- * 
  * @param connection The connection being closed
+ *
  * @param on_close_handler The handler that will be executed.
+ *
+ * @param data User defined data to be passed to the handler.
+ *
+ * @param insert_last Allows to configure if the handler should be inserted at the last position.
+ *
+ * NOTE: handler configured will be skipped in the case \ref MyQttCtx
+ * hosting the provided connection is being closed (a call to \ref
+ * myqtt_exit_ctx was done). 
  * 
  */
-void myqtt_conn_set_on_close       (MyQttConn * connection,
-					   MyQttConnOnClose on_close_handler)
+void myqtt_conn_set_on_close       (MyQttConn         * connection,
+				    axl_bool            insert_last,
+				    MyQttConnOnClose    on_close_handler,
+				    axlPointer          data)
 {
 
-	/* check reference received */
-	v_return_if_fail (connection);
-	v_return_if_fail (on_close_handler);
+	MyQttConnOnCloseData * handler;
+#if defined(ENABLE_MYQTT_LOG)
+	MyQttCtx                   * ctx;
+#endif
 
-	/* lock until done */
+	/* check reference received */
+	if (connection == NULL || on_close_handler == NULL)
+		return;
+
+	/* lock during the operation */
 	myqtt_mutex_lock (&connection->handlers_mutex);
 
-	/* init on demand */
-	if (connection->on_close == NULL) {
-		connection->on_close  = axl_list_new (axl_list_always_return_1, NULL);
-		if (connection->on_close == NULL) {
+	/* init on close list on demand */
+	if (connection->on_close_full == NULL) {
+		connection->on_close_full  = axl_list_new (axl_list_always_return_1, axl_free);
+		if (connection->on_close_full == NULL) {
 			myqtt_mutex_unlock (&connection->handlers_mutex);
 			return;
 		} /* end if */
 	}
 
-	/* save previous handler defined */
-	axl_list_append (connection->on_close, on_close_handler);
+	/* save handler defined */
+	handler          = axl_new (MyQttConnOnCloseData, 1);
+	handler->handler = on_close_handler;
+	handler->data    = data;
 
-	/* unlock now the item is removed */
+	/* store the handler */
+	if (insert_last)
+		axl_list_append (connection->on_close_full, handler);
+	else
+		axl_list_prepend (connection->on_close_full, handler);
+#if defined(ENABLE_MYQTT_LOG)
+	ctx = connection->ctx;
+	myqtt_log (MYQTT_LEVEL_DEBUG, "on close full handlers %d on conn-id=%d, handler added %p (added %s)",
+		    axl_list_length (connection->on_close_full), connection->id, handler, insert_last ? "last" : "first");
+#endif
+
+	/* unlock now it is done */
 	myqtt_mutex_unlock (&connection->handlers_mutex);
-
 	/* returns previous handler */
 	return;
 }
@@ -4011,40 +4093,7 @@ void myqtt_conn_set_on_close       (MyQttConn * connection,
  * function could be called several times to install several handlers.
  *
  * Once a handler is installed, you can use \ref
- * myqtt_conn_remove_on_close_full to uninstall the handler if
- * it is required to avoid getting more notifications.
- * 
- * @param connection The connection that is required to get close
- * notifications.
- *
- * @param on_close_handler The handler to be executed once the event
- * is produced.
- *
- * @param data User defined data to be passed to the handler.
- * 
- *
- * NOTE: handler configured will be skipped in the case \ref MyQttCtx
- * hosting the provided connection is being closed (a call to \ref
- * myqtt_exit_ctx was done). 
- */
-void myqtt_conn_set_on_close_full  (MyQttConn * connection,
-					   MyQttConnOnCloseFull on_close_handler,
-					   axlPointer data)
-{
-	/* insert the connection */
-	myqtt_conn_set_on_close_full2 (connection, on_close_handler, axl_true, data);
-	return;
-}
-
-/** 
- * @brief Extended version for \ref myqtt_conn_set_on_close
- * handler which also support receiving a user data pointer.
- *
- * See \ref myqtt_conn_set_on_close for more details. This
- * function could be called several times to install several handlers.
- *
- * Once a handler is installed, you can use \ref
- * myqtt_conn_remove_on_close_full to uninstall the handler if
+ * myqtt_conn_remove_on_close to uninstall the handler if
  * it is required to avoid getting more notifications.
  * 
  * @param connection The connection that is required to get close
@@ -4058,10 +4107,10 @@ void myqtt_conn_set_on_close_full  (MyQttConn * connection,
  * @param data User defined data to be passed to the handler.
  * 
  */
-void                    myqtt_conn_set_on_close_full2  (MyQttConn             * connection,
-							       MyQttConnOnCloseFull    on_close_handler,
-							       axl_bool                       insert_last,
-							       axlPointer                     data)
+void                    myqtt_conn_set_on_close_full2  (MyQttConn          * connection,
+							MyQttConnOnClose     on_close_handler,
+							axl_bool             insert_last,
+							axlPointer           data)
 {
 	MyQttConnOnCloseData * handler;
 #if defined(ENABLE_MYQTT_LOG)
@@ -4129,9 +4178,9 @@ void                    myqtt_conn_set_on_close_full2  (MyQttConn             * 
  * @return axl_true if the function uninstalled the handler otherwise
  * axl_false is returned.
  */
-axl_bool   myqtt_conn_remove_on_close_full (MyQttConn              * connection, 
-					    MyQttConnOnCloseFull     on_close_handler,
-					    axlPointer                      data)
+axl_bool   myqtt_conn_remove_on_close (MyQttConn          * connection, 
+				       MyQttConnOnClose     on_close_handler,
+				       axlPointer           data)
 {
 	int                           iterator;
 	MyQttConnOnCloseData * handler;
@@ -4266,56 +4315,6 @@ void                myqtt_conn_sanity_socket_check (MyQttCtx * ctx, axl_bool    
 	return;
 }
 
-
-/** 
- * @brief Allows to configure a handler to be executed before any
- * operations is applied inside the MyQtt Reader process.
- * 
- * @param connection The connection where the pre read will be executed.
- *
- * @param pre_accept_handler The handler to be executed. If NULL is
- * used, the handler is no longer executed.
- */
-void                myqtt_conn_set_preread_handler        (MyQttConn * connection, 
-								  MyQttConnOnPreRead pre_accept_handler)
-{
-	/* no reference, no operation */
-	if (connection == NULL)
-		return;
-	/* configure handler */
-	connection->pre_accept_handler = pre_accept_handler;
-	return;
-}
-
-
-/** 
- * @brief Allows to check if there are an pre read handler defined on
- * the given connection.
- * 
- * @param connection The connection to check.
- * 
- * @return axl_true if the pre-read handler is defined, otherwise, axl_false is returned
- */
-axl_bool                 myqtt_conn_is_defined_preread_handler (MyQttConn * connection)
-{
-	return connection->pre_accept_handler != NULL;
-}
-
-/** 
- * @brief Invokes the prer-read handler defined on the given
- * connection.
- * 
- * @param connection The connection where the preread handler will be
- * invoked
- * 
- * @return 
- */
-void            myqtt_conn_invoke_preread_handler     (MyQttConn * connection)
-{
-	if (connection->pre_accept_handler != NULL)
-		connection->pre_accept_handler (connection);
-	return;
-}
 
 /** 
  * @internal Allows to init the connection module using the provided

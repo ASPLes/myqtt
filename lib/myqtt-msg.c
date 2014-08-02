@@ -828,7 +828,7 @@ const char  * myqtt_msg_get_type_str          (MyQttMsg    * msg)
 	case MYQTT_UNSUBACK:
 		return "UNSUBACK";
 	case MYQTT_PINGREQ:
-		return "PINGREQA";
+		return "PINGREQ";
 	case MYQTT_PINGRESP:
 		return "PINGRESP";
 	case MYQTT_DISCONNECT:

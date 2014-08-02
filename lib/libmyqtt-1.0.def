@@ -64,11 +64,9 @@ myqtt_conn_get_timeout
 myqtt_conn_get_username
 myqtt_conn_half_opened
 myqtt_conn_init
-myqtt_conn_invoke_preread_handler
 myqtt_conn_invoke_receive
 myqtt_conn_invoke_send
 myqtt_conn_is_blocked
-myqtt_conn_is_defined_preread_handler
 myqtt_conn_is_ok
 myqtt_conn_new
 myqtt_conn_new6
@@ -81,12 +79,13 @@ myqtt_conn_opts_set_auth
 myqtt_conn_opts_set_reuse
 myqtt_conn_opts_set_will
 myqtt_conn_parse_greetings_and_enable
+myqtt_conn_ping
 myqtt_conn_pub
 myqtt_conn_reconnect
 myqtt_conn_ref
 myqtt_conn_ref_count
 myqtt_conn_ref_internal
-myqtt_conn_remove_on_close_full
+myqtt_conn_remove_on_close
 myqtt_conn_report_and_close
 myqtt_conn_sanity_socket_check
 myqtt_conn_set_blocking_socket
@@ -98,10 +97,8 @@ myqtt_conn_set_hook
 myqtt_conn_set_host_and_port
 myqtt_conn_set_nonblocking_socket
 myqtt_conn_set_on_close
-myqtt_conn_set_on_close_full
 myqtt_conn_set_on_close_full2
 myqtt_conn_set_on_msg
-myqtt_conn_set_preread_handler
 myqtt_conn_set_receive_handler
 myqtt_conn_set_receive_stamp
 myqtt_conn_set_send_handler

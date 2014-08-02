@@ -162,30 +162,11 @@ typedef int      (*MyQttReceiveHandler)         (MyQttConn          * connection
  * handler. This is actually done by the library. </i>
  * 
  * @param connection The connection that is about to be unrefered.
+ *
+ * @param data User defined pointer passed to the handler and configured at \ref myqtt_conn_set_on_close
  * 
  */
-typedef void     (*MyQttConnOnClose)      (MyQttConn * connection);
-
-/** 
- * @brief Extended version for \ref MyQttConnOnClose, which
- * also supports passing an user defined data.
- *
- * This handler definition is the same as \ref
- * MyQttConnOnClose, being notified at the same time, but
- * providing an user defined pointer.
- *
- * See also:
- * 
- *  - \ref myqtt_conn_set_on_close_full
- *  - \ref myqtt_conn_set_on_close
- * 
- * @param The connection that is about to be closed.
- * @param The user defined pointer configured at \ref myqtt_conn_set_on_close_full.
- * 
- * @return 
- */
-typedef void     (*MyQttConnOnCloseFull)  (MyQttConn * connection, axlPointer data);
-
+typedef void     (*MyQttConnOnClose)      (MyQttConn * connection, axlPointer data);
 
 /** 
  * @brief Async handler definition to get a notification for
@@ -225,22 +206,6 @@ typedef void     (*MyQttConnOnCloseFull)  (MyQttConn * connection, axlPointer da
  * the connection, rejecting the incoming connection.
  */
 typedef axl_bool      (*MyQttOnAcceptedConnection)   (MyQttConn * connection, axlPointer data);
-
-/** 
- * @brief Pre read handler definition.
- * 
- * This handler definition is mainly used to perform especial
- * operations prior to fully accept a connection into the myqtt
- * library. This handler is detected and invoked in an abstract manner
- * from inside the MyQtt Reader.
- *
- * Functions using this handler are: 
- *  - \ref myqtt_conn_set_preread_handler
- * 
- * @param connection The connection which is receiving the on pre read
- * event.X
- */
-typedef void   (* MyQttConnOnPreRead)       (MyQttConn * connection);
 
 /** 
  * @brief IO handler definition to allow defining the method to be

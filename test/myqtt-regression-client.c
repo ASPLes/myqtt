@@ -652,6 +652,56 @@ axl_bool test_04 (void) {
 	return axl_true;
 }
 
+axl_bool test_05 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	struct timeval    start;
+	struct timeval    stop;
+	struct timeval    diff;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 05: creating connection..\n");
+
+	/* now connect to the listener:
+	   client_identifier -> test_05
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	gettimeofday (&start, NULL);
+	conn = myqtt_conn_new (ctx, "test_05", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	gettimeofday (&stop, NULL);
+	myqtt_timeval_substract (&stop, &start, &diff);
+
+	printf ("Test 05: connected without problems in %.2f ms, sending ping..\n", (double) diff.tv_usec / (double) 1000);
+	gettimeofday (&start, NULL);
+	if (! myqtt_conn_ping (conn, 10)) {
+		printf ("ERROR: failed to send PING request or reply wasn't received after wait period..\n");
+		return axl_false;
+	} /* end if */
+	gettimeofday (&stop, NULL);
+	myqtt_timeval_substract (&stop, &start, &diff);
+
+	printf ("Test 05: received ping reply in in %.2f ms..\n", (double)diff.tv_usec / (double) 1000);
+
+	/* close connection */
+	printf ("Test 05: closing connection..\n");
+	myqtt_conn_close (conn);
+
+	/* release context */
+	printf ("Test 05: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+
+
+	return axl_true;
+}
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -691,7 +741,7 @@ int main (int argc, char ** argv)
 	printf ("** To gather information about memory consumed (and leaks) use:\n**\n");
 	printf ("**     >> libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes --error-limit=no ./test_01 [--debug]\n**\n");
 	printf ("** Providing --run-test=NAME will run only the provided regression test.\n");
-	printf ("** Available tests: test_00, test_00_a, test_01, test_02, test_03, test_04\n");
+	printf ("** Available tests: test_00, test_00_a, test_01, test_02, test_03, test_04, test_05\n");
 	printf ("**\n");
 	printf ("** Report bugs to:\n**\n");
 	printf ("**     <myqtt@lists.aspl.es> MyQtt Mailing list\n**\n");
@@ -729,6 +779,9 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_04")
 	run_test (test_04, "Test 04: basic unsubscribe function (QOS 0)");
+
+	CHECK_TEST("test_05")
+	run_test (test_05, "Test 05: test ping server (PINGREQ)");
 
 	/* test close connection after subscribing... */
 

@@ -104,6 +104,9 @@ axl_bool            myqtt_conn_unsub           (MyQttConn           * conn,
 						const char          * topic_filter,
 						int                   wait_unsub);
 
+axl_bool            myqtt_conn_ping            (MyQttConn           * conn,
+						int                   wait_pingresp);
+
 axl_bool            myqtt_conn_close           (MyQttConn  * conn);
 
 MyQttConnOpts     * myqtt_conn_opts_new (void);
@@ -256,21 +259,14 @@ void                   myqtt_conn_set_on_msg         (MyQttConn * conn,
 						      MyQttOnMsgReceived on_msg,
 						      axlPointer     on_msg_data);
 
-void                   myqtt_conn_set_on_close       (MyQttConn * conn,
-						       MyQttConnOnClose on_close_handler);
+void                   myqtt_conn_set_on_close       (MyQttConn         * conn,
+						      axl_bool            insert_last,
+						      MyQttConnOnClose    on_close_handler,
+						      axlPointer          data);
 
-void                    myqtt_conn_set_on_close_full  (MyQttConn * conn,
-							MyQttConnOnCloseFull on_close_handler,
-							axlPointer data);
-
-void                    myqtt_conn_set_on_close_full2  (MyQttConn * conn,
-							 MyQttConnOnCloseFull on_close_handler,
-							 axl_bool                    insert_last,
-							 axlPointer data);
-
-axl_bool            myqtt_conn_remove_on_close_full    (MyQttConn              * conn, 
-							 MyQttConnOnCloseFull     on_close_handler,
-							 axlPointer                      data);
+axl_bool            myqtt_conn_remove_on_close       (MyQttConn              * conn, 
+						      MyQttConnOnClose         on_close_handler,
+						      axlPointer               data);
 
 int                 myqtt_conn_invoke_receive         (MyQttConn        * conn,
 						       unsigned char    * buffer,
@@ -281,13 +277,6 @@ int                 myqtt_conn_invoke_send            (MyQttConn             * c
 							int                    buffer_len);
 
 void                myqtt_conn_sanity_socket_check        (MyQttCtx * ctx, axl_bool      enable);
-
-void                myqtt_conn_set_preread_handler        (MyQttConn * conn, 
-								  MyQttConnOnPreRead pre_accept_handler);
-
-axl_bool            myqtt_conn_is_defined_preread_handler (MyQttConn * conn);
-
-void                myqtt_conn_invoke_preread_handler     (MyQttConn * conn);
 
 void                myqtt_conn_shutdown                   (MyQttConn * conn);
 
