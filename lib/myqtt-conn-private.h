@@ -231,11 +231,6 @@ struct _MyQttConn {
 	MyQttReceiveHandler receive;
 
 	/** 
-	 * @brief On close handler
-	 */
-	axlList * on_close;
-
-	/** 
 	 * @brief On close handler, extended version.
 	 */
 	axlList * on_close_full;
@@ -284,12 +279,6 @@ struct _MyQttConn {
 	char                  * pending_line;
 
 	/** 
-	 * @internal Pointer to the currently configured pre accept
-	 * handler.
-	 */ 
-	MyQttConnOnPreRead    pre_accept_handler;
-
-	/** 
 	 * @internal Pointer used to store the buffer that is holding
 	 * the content of the next msg.
 	 */
@@ -335,6 +324,9 @@ struct _MyQttConn {
 	/*** on message support */
 	MyQttOnMsgReceived          on_msg;
 	axlPointer                  on_msg_data;
+
+	/*** pingreq support ****/
+	MyQttAsyncQueue           * ping_resp_queue;
 
 };
 

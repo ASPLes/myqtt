@@ -533,6 +533,8 @@ axlPointer __myqtt_reader_handle_wait_reply (axlPointer _data)
 			myqtt_conn_report_and_close (conn, "Received SUBACK request over a connection that is not an initiator");
 		else if (msg->type == MYQTT_UNSUBACK)
 			myqtt_conn_report_and_close (conn, "Received UNSUBACK request over a connection that is not an initiator");
+		else if (msg->type == MYQTT_PINGRESP)
+			myqtt_conn_report_and_close (conn, "Received PINGRESP request over a connection that is not an initiator");
 
 		/* release message */
 		myqtt_msg_unref (msg);
@@ -540,13 +542,15 @@ axlPointer __myqtt_reader_handle_wait_reply (axlPointer _data)
 		return NULL;
 	} /* end if */
 
-	if ((msg->type == MYQTT_SUBACK && msg->size < 3) || (msg->type == MYQTT_UNSUBACK && msg->size < 2) ) {
+	if ((msg->type == MYQTT_SUBACK && msg->size < 3) || (msg->type == MYQTT_UNSUBACK && msg->size < 2) || (msg->type == MYQTT_PINGRESP && msg->size != 0) ) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "%s message size=%d without header and remaining length is insufficient", myqtt_msg_get_type_str (msg), msg->size);
 
 		if (msg->type == MYQTT_SUBACK)
 			myqtt_conn_report_and_close (conn, "Received poorly formed SUBACK request that do not contains bare minimum bytes");
 		else if (msg->type == MYQTT_UNSUBACK)
 			myqtt_conn_report_and_close (conn, "Received poorly formed UNSUBACK request that do not contains bare minimum bytes");
+		else if (msg->type == MYQTT_PINGRESP)
+			myqtt_conn_report_and_close (conn, "Received poorly formed PINGRESP request that contains unexpected content");
 
 		/* release message */
 		myqtt_msg_unref (msg);
@@ -555,22 +559,31 @@ axlPointer __myqtt_reader_handle_wait_reply (axlPointer _data)
 	} /* end if */
 
 	/* get packet id */
-	msg->packet_id = myqtt_get_16bit (msg->payload);
+	if (msg->type == MYQTT_PINGRESP)
+		msg->packet_id = -1;
+	else
+		msg->packet_id = myqtt_get_16bit (msg->payload);
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Pushing %s msg=%d, for packet-id=%d", myqtt_msg_get_type_str (msg), msg->id, msg->packet_id);
 
 	/* now call to wait queue if defined */
 	myqtt_mutex_lock (&conn->op_mutex);
 
 	/* get queue and remove it from the set of wait replies */
-	queue = axl_hash_get (conn->wait_replies, INT_TO_PTR (msg->packet_id));
+	if (msg->type == MYQTT_PINGRESP)
+		queue = conn->ping_resp_queue;
+	else
+		queue = axl_hash_get (conn->wait_replies, INT_TO_PTR (msg->packet_id));
 
 	/* release lock */
 	myqtt_mutex_unlock (&conn->op_mutex);
 
 	if (queue == NULL) {
-		/* too late, unable to deliver message to wait reply */
-		myqtt_log (MYQTT_LEVEL_WARNING, "Received a %s message but queue to handle reply wasn't there...it seems we arrived too late or packet id=%d do not match anything on our side",
-			   myqtt_msg_get_type_str (msg), msg->packet_id);
+		if (msg->packet_id != -1 && msg->type != MYQTT_PINGRESP) {
+			/* too late, unable to deliver message to wait reply */
+			myqtt_log (MYQTT_LEVEL_WARNING, 
+				   "Received a %s message but queue to handle reply wasn't there...it seems we arrived too late or packet id=%d do not match anything on our side",
+				   myqtt_msg_get_type_str (msg), msg->packet_id);
+		} /* end if */
 
 		/* release message */
 		myqtt_msg_unref (msg);
@@ -833,6 +846,55 @@ axlPointer __myqtt_reader_handle_publish (axlPointer _data)
 	return NULL;
 }
 
+axlPointer __myqtt_reader_handle_pingreq (axlPointer _data)
+{
+	/* common parameters */
+	MyQttReaderAsyncData   * data = _data;
+	MyQttMsg               * msg  = data->msg;
+	MyQttConn              * conn = data->conn;
+	MyQttCtx               * ctx  = msg->ctx;
+
+	/* local variables */
+	unsigned char          * reply;
+	int                      size;
+
+	/* release reader data */
+	axl_free (data);
+
+	/* release message */
+	myqtt_msg_unref (msg);
+
+	/* check if this is a listener */
+	if (conn->role != MyQttRoleListener) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received PINGREQ request over a connection that is not a listener from conn-id=%d from %s:%s, closing connection..", 
+			   conn->id, conn->host, conn->port);
+		myqtt_conn_shutdown (conn);
+		return NULL;
+	} /* end if */
+
+	/* myqtt_msg_free_build (ctx, reply, size); */
+	reply = myqtt_msg_build (ctx, MYQTT_PINGRESP, axl_false, 0, axl_false, &size, /* 2 bytes */
+				 MYQTT_PARAM_END);
+	if (reply == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to allocate memory required for PINGRESP reply for conn-id=%d from %s:%s, closing connection..", 
+			   conn->id, conn->host, conn->port);
+		myqtt_conn_shutdown (conn);
+		return NULL;
+	} /* end if */
+
+	/* send message */
+	if (! myqtt_sequencer_send (conn, MYQTT_PINGRESP, reply, size))
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send PINGRESP message, errno=%d", errno);
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Sent PINGRESP reply to conn-id=%d at %s:%s..", conn->id, conn->host, conn->port);
+
+	/* free reply */
+	/* myqtt_msg_free_build (ctx, reply, size); */
+
+	return NULL;
+}
+
+
 /** 
  * @internal
  * 
@@ -873,14 +935,6 @@ void __myqtt_reader_process_socket (MyQttCtx        * ctx,
 	MyQttMsg         * msg;
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "something to read conn-id=%d", myqtt_conn_get_id (conn));
-
-	/* check if there are pre read handler to be executed on this 
-	   conn. */
-	if (myqtt_conn_is_defined_preread_handler (conn)) {
-		/* if defined preread handler invoke it and return. */
-		myqtt_conn_invoke_preread_handler (conn);
-		return;
-	} /* end if */
 
 	/* before doing anything, check if the conn is broken */
 	if (! myqtt_conn_is_ok (conn, axl_false))
@@ -924,6 +978,14 @@ void __myqtt_reader_process_socket (MyQttCtx        * ctx,
 	case MYQTT_PUBLISH:
 		/* handle PUBLISH packet */
 		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_publish);
+		break;
+	case MYQTT_PINGREQ:
+		/* handle ping request */
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_pingreq);
+		break;
+	case MYQTT_PINGRESP:
+		/* handle ping request */
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_wait_reply);
 		break;
 	default:
 		/* report unhandled packet type */
@@ -1756,14 +1818,6 @@ void __myqtt_reader_dispatch_connection (int                  fds,
 
 	switch (myqtt_conn_get_role (connection)) {
 	case MyQttRoleMasterListener:
-		/* check if there are pre read handler to be executed on this 
-		   connection. */
-		if (myqtt_conn_is_defined_preread_handler (connection)) {
-			/* if defined preread handler invoke it and return. */
-			myqtt_conn_invoke_preread_handler (connection);
-			return;
-		} /* end if */
-
 		/* listener connections */
 		myqtt_listener_accept_connections (ctx, fds, connection);
 		break;
