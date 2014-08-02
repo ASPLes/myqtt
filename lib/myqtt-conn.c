@@ -1973,9 +1973,121 @@ axl_bool            myqtt_conn_sub             (MyQttConn           * conn,
 	
 	/* report final result */
 	return axl_true;
-						
 }
 
+/** 
+ * @brief Allows to unsubscribe the given particular topic filter on
+ * the provided connection.
+ *
+ * @param conn The connection where the unsubscribe operation will take place.
+ *
+ * @param topic_filter The topic filter to unsubscribe (that was
+ * subscribed previously using \ref myqtt_conn_pub).
+ *
+ * @param wait_unsub Wait for unsubscribe reply blocking the caller
+ * until that happens. If 0 is provided no wait is performed. If some
+ * value is provided that will be the max amount of time, in seconds,
+ * to wait for unsubscribe reply.
+ *
+ * @return The function reports axl_true in the case the unsubscribe
+ * request was completed without any error. In the case of a
+ * connection failure, unsubscribe timeout, the function
+ * will report axl_false. The function also reports axl_false in the
+ * case conn and any topic_filter provided is NULL.
+ */
+axl_bool            myqtt_conn_unsub           (MyQttConn           * conn,
+						const char          * topic_filter,
+						int                   wait_unsub)
+{
+	unsigned char       * msg;
+	int                   size;
+	MyQttCtx            * ctx;
+	MyQttMsg            * reply;
+	int                   packet_id;
+
+	if (conn == NULL || conn->ctx == NULL)
+		return axl_false;
+
+	/* get reference to the context */
+	ctx = conn->ctx;
+
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to publish, connection received is not working");
+		return axl_false;
+	} /* end if */
+
+	if (! topic_filter || strlen (topic_filter) > 65535) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Topic filter is bigger than 65535 and this is not allowed by MQTT");
+		return axl_false;
+	} /* end if */
+
+	/* create message */
+	size = 0;
+
+	/* generate a packet id */
+	packet_id = __myqtt_conn_get_next_pkgid (ctx, conn);
+
+	/* build UNSUBSCRIBE message */
+	/* dup = axl_false, qos = 0, retain = axl_false */
+	msg  = myqtt_msg_build  (ctx, MYQTT_UNSUBSCRIBE, axl_false, MYQTT_QOS_0, axl_false, &size,  /* 2 bytes */
+				 /* packet id */
+				 MYQTT_PARAM_16BIT_INT, packet_id,
+				 /* topic name */
+				 MYQTT_PARAM_UTF8_STRING, strlen (topic_filter), topic_filter,
+				 MYQTT_PARAM_END);
+
+	if (msg == NULL || size == 0) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create UNSUBSCRIBE message, empty/NULL value reported by myqtt_msg_build()");
+		return axl_false;
+	} /* end if */
+
+	if (wait_unsub > 0) {
+		/* prepare wait reply */
+		__myqtt_reader_prepare_wait_reply (conn, packet_id);
+	} /* end if */
+
+	/* queue package to be sent */
+	if (! myqtt_sequencer_send (conn, MYQTT_UNSUBSCRIBE, msg, size)) {
+		/* free build */
+		myqtt_msg_free_build (ctx, msg, size);
+
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to acquire memory to send message, unable to subscribe");
+		return axl_false;
+	} /* end if */
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "UNSUBSCRIBE for %s sent (packet id=%d, conn-id=%d), waiting reply (%d secs)..", topic_filter, packet_id, conn->id, wait_unsub);
+
+	/* check if caller didn't request to wait for reply */
+	if (wait_unsub == 0) 
+		return axl_true;
+
+	/* wait here for suback reply limiting wait by wait_sub */
+	reply = __myqtt_reader_get_reply (conn, packet_id, wait_unsub);
+	if (reply == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received NULL reply while waiting for reply (UNSUBACK) to UNSUBSCRIBE request");
+		return axl_false;
+	} /* end if */
+
+	/* handle reply */
+	if (reply->type != MYQTT_UNSUBACK) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected UNSUBACK reply but found: %s", myqtt_msg_get_type_str (reply));
+		myqtt_msg_unref (reply);
+		return axl_false;
+	} /* end if */
+
+	if (reply->packet_id != packet_id) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to receive packet id = %d in reply but found %d", 
+			   reply->packet_id, packet_id);
+		myqtt_msg_unref (reply);
+		return axl_false;
+	} /* end if */
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "UNSUBSCRIBE reply received (packet id=%d, conn-id=%d)", packet_id, conn->id);
+	myqtt_msg_unref (reply);
+	
+	/* report final result */
+	return axl_true;
+}
 
 /** 
  * @brief Allows to cleanly close the connection by sending the

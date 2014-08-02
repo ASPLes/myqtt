@@ -100,6 +100,10 @@ axl_bool            myqtt_conn_sub             (MyQttConn           * conn,
 						MyQttQos              qos,
 						int                 * subs_result);
 
+axl_bool            myqtt_conn_unsub           (MyQttConn           * conn,
+						const char          * topic_filter,
+						int                   wait_unsub);
+
 axl_bool            myqtt_conn_close           (MyQttConn  * conn);
 
 MyQttConnOpts     * myqtt_conn_opts_new (void);
