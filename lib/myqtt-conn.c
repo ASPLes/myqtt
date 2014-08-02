@@ -1068,7 +1068,7 @@ axl_bool __myqtt_conn_send_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 				 /* keep alive value, for now nothing */
 				 MYQTT_PARAM_16BIT_INT, 0, /* 2 bytes */
 				 /* client identifier */
-				 MYQTT_PARAM_UTF8_STRING, 17, "client.identifier", /* 19 */
+				 MYQTT_PARAM_UTF8_STRING, strlen (conn->client_identifier), conn->client_identifier, /* 19 */
 				 /* will topic */
 				 /* will message */
 				 /* user */
@@ -1108,6 +1108,9 @@ axl_bool __myqtt_conn_parse_greetings (MyQttCtx * ctx, MyQttConn * connection, M
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected packet reply of 2 but found: %d", msg->size);
 		return axl_false;
 	}
+
+	if (msg->payload[1] != MYQTT_CONNACK_ACCEPTED) 
+		myqtt_log (MYQTT_LEVEL_WARNING, "Connection denied by remote peer, conn ack value received is: %d", msg->payload[1]);
 
 	/* check the payload */
 	return msg->payload[1] == MYQTT_CONNACK_ACCEPTED;
@@ -1388,6 +1391,11 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 		axl_free (data);
 		return NULL;
 	} /* end if */
+
+	if (client_identifier == NULL)
+		data->connection->client_identifier   = axl_strdup ("");
+	else
+		data->connection->client_identifier   = axl_strdup (client_identifier);
 
 	data->connection->id                  = __myqtt_conn_get_next_id (ctx);
 	data->connection->ctx                 = ctx;

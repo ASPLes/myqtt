@@ -783,6 +783,9 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_05")
 	run_test (test_05, "Test 05: test ping server (PINGREQ)");
 
+	CHECK_TEST("test_06")
+	run_test (test_06, "Test 06: check client identifier function");
+
 	/* test close connection after subscribing... */
 
 	/* test sending an unknown message */

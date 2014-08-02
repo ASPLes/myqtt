@@ -240,6 +240,7 @@ struct _MyQttCtx {
 	 * a/b => { conn1 => 1, conn2 => 0, conn3 => 0 }
 	 */
 	axlHash                   * subs;
+
 	/* wild_subs works the same as subs but with wildcard topic
 	 * filters.
 	 */
@@ -247,6 +248,9 @@ struct _MyQttCtx {
 	MyQttMutex                  subs_m;
 	MyQttCond                   subs_c;
 	int                         publish_ops;
+
+	axlHash                   * client_ids;
+	MyQttMutex                  client_ids_m;
 };
 
 #endif /* __MYQTT_CTX_PRIVATE_H__ */
