@@ -157,8 +157,62 @@ void __myqtt_reader_async_run (MyQttConn * conn, MyQttMsg * msg, MyQttThreadFunc
 	return;
 }
 
-void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * conn)
+axl_bool __myqtt_reader_check_client_id (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, MyQttConnAckTypes * response)
 {
+	struct timeval stamp;
+
+	if (strlen (conn->client_identifier) == 0) {
+		/* check MQTT-3.1.3-7 */
+		if (myqtt_get_bit (msg->payload[7], 1) == 0) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Received CONNECT request with empty client id and clean session == 0 (MQTT-3.1.3-7), denying connect");
+			(*response) = MYQTT_CONNACK_IDENTIFIER_REJECTED;
+			return axl_false;
+		} /* end if */
+
+		/* generate a random client id */
+		gettimeofday (&stamp, NULL);
+		conn->client_identifier = axl_strdup_printf ("%s-%s-%g-%g", conn->host_ip, conn->local_port, stamp.tv_sec, stamp.tv_usec);
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received CONNECT request with empty client id, created new client id: %s", conn->client_identifier);
+	} /* end if */
+
+
+	/* check to initialise client ids hash */
+	if (ctx->client_ids == NULL) {
+		/* initialize client ids hash */
+		myqtt_mutex_lock (&ctx->client_ids_m);
+		if (ctx->client_ids == NULL) 
+			ctx->client_ids = axl_hash_new (axl_hash_string, axl_hash_equal_string);
+		myqtt_mutex_unlock (&ctx->client_ids_m);
+	} /* end if */
+
+	/* check if client id is already registered */
+	myqtt_mutex_lock (&ctx->client_ids_m);
+	if (axl_hash_get (ctx->client_ids, conn->client_identifier)) {
+		/* client id found, reject it */
+		(*response) = MYQTT_CONNACK_IDENTIFIER_REJECTED;
+
+		myqtt_mutex_unlock (&ctx->client_ids_m);
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Rejected CONNECT request because client id %s is already in use, denying connect", conn->client_identifier);
+		return axl_false; /* reject CONNECT */
+	}
+
+	/* register client identifier */
+	axl_hash_insert (ctx->client_ids, conn->client_identifier, conn);
+
+	/* not found, everything ok */
+	myqtt_mutex_unlock (&ctx->client_ids_m);
+
+	return axl_true; /* no problem found */
+}
+
+axlPointer __myqtt_reader_handle_connect (axlPointer _data) 
+{
+	/* common parameters */
+	MyQttReaderAsyncData   * data = _data;
+	MyQttMsg               * msg  = data->msg;
+	MyQttConn              * conn = data->conn;
+	MyQttCtx               * ctx  = msg->ctx;
+
 	/** 
 	 * By default all connections are accepted. User application
 	 * can set their own handler to control this.
@@ -168,6 +222,8 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 	unsigned char     * reply;
 	int                 size;
 
+	axl_free (data);
+
 	/* const char * username = NULL;
 	   const char * password = NULL; */
 
@@ -175,7 +231,8 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 	if (conn->connect_received) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received second CONNECT request, protocol violation, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
-		return;
+		myqtt_msg_unref (msg);
+		return NULL;
 	} /* end if */
 
 	/* flag that CONNECT message was received over this connection */
@@ -185,7 +242,8 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 	if (! axl_memcmp ((const char * ) msg->payload + 2, "MQTT", 4)) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to receive MQTT indication, but found something different, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
-		return;
+		myqtt_msg_unref (msg);
+		return NULL;
 	} /* end if */
 
 	/* check protocol level */
@@ -204,20 +262,26 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 	if (! conn->client_identifier) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined client identifier, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
-		return;
+		myqtt_msg_unref (msg);
+		return NULL;
 	} /* end if */
+
+	/* check client identifier */
+	if (! __myqtt_reader_check_client_id (ctx, conn, msg, &response)) 
+		goto connect_send_reply;
 
 	/* update desp */
 	desp += (strlen (conn->client_identifier) + 2);
 
 	/* now get the will topic if indicated */
-	if (myqtt_get_bit (2, msg->payload[6])) {
+	if (myqtt_get_bit (msg->payload[7], 2)) {
 		/* will flag is on, find will topic and will message */
 		conn->will_topic = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
 		if (! conn->will_topic) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined will topic, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 			myqtt_conn_shutdown (conn);
-			return;
+			myqtt_msg_unref (msg);
+			return NULL;
 		} /* end if */
 
 		/* update desp */
@@ -228,7 +292,8 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 		if (! conn->will_msg) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined will msg, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 			myqtt_conn_shutdown (conn);
-			return;
+			myqtt_msg_unref (msg);
+			return NULL;
 		} /* end if */
 
 		/* update desp */
@@ -236,13 +301,14 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 	} /* end if */
 
 	/* now get user and password */
-	if (myqtt_get_bit (7, msg->payload[6])) {
+	if (myqtt_get_bit (msg->payload[7], 7)) {
 		/* username flag on, get username */
 		conn->username = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
 		if (! conn->username) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined username, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 			myqtt_conn_shutdown (conn);
-			return;
+			myqtt_msg_unref (msg);
+			return NULL;
 		} /* end if */
 
 		/* update desp */
@@ -250,13 +316,14 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 	} /* end if */
 
 	/* now get password */
-	if (myqtt_get_bit (6, msg->payload[6])) {
+	if (myqtt_get_bit (msg->payload[7], 6)) {
 		/* username flag on, get username */
 		conn->password = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
 		if (! conn->password) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined username, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 			myqtt_conn_shutdown (conn);
-			return;
+			myqtt_msg_unref (msg);
+			return NULL;
 		} /* end if */
 
 		/* update desp */
@@ -278,11 +345,20 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 		response = ctx->on_connect (ctx, conn, ctx->on_connect_data);
 	} /* end if */
 
+	/* after on_connect has finished, clear password */
+	if (conn->password) {
+		axl_free (conn->password);
+		conn->password = NULL;
+	} /* end if */
+
 	/* handle deferred responses */
 	if (response == MYQTT_CONNACK_DEFERRED) {
 		myqtt_log (MYQTT_LEVEL_DEBUG, "CONNECT decision deferred");
-		return;
+		myqtt_msg_unref (msg);
+		return NULL;
 	} /* end if */
+
+connect_send_reply:
 
 	/* rest of cases, reply with the response */
 	reply = myqtt_msg_build (ctx, MYQTT_CONNACK, axl_false, 0, axl_false, &size, 
@@ -305,7 +381,10 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Connection conn-id=%d accepted from %s:%s", conn->id, conn->host, conn->port);
 	} /* end if */
 
-	return;
+	/* release message */
+	myqtt_msg_unref (msg);
+
+	return NULL;
 }
 
 axlPointer __myqtt_reader_handle_subscribe (axlPointer _data) {
@@ -953,7 +1032,7 @@ void __myqtt_reader_process_socket (MyQttCtx        * ctx,
 	switch (msg->type) {
 	case MYQTT_CONNECT:
 		/* handle CONNECT packet */
-		__myqtt_reader_handle_connect (ctx, msg, conn);
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_connect);
 		break;
 	case MYQTT_DISCONNECT:
 		/* handle DISCONNECT packet */
@@ -1496,6 +1575,13 @@ axlPointer __myqtt_reader_remove_conn_refs_aux (axlPointer _conn)
 /* call to remove all connection references */
 void __myqtt_reader_remove_conn_refs (MyQttConn * conn)
 {
+	MyQttCtx * ctx = conn->ctx;
+	
+	/* remove client id from global table */
+	myqtt_mutex_lock (&ctx->client_ids_m);
+	axl_hash_delete (ctx->client_ids, conn->client_identifier); 
+	myqtt_mutex_unlock (&ctx->client_ids_m);
+
 	/* if it has no subscription, just return */
 	if (axl_hash_items (conn->subs) == 0 && axl_hash_items (conn->wild_subs) == 0) {
 		/* connection isn't ok, unref it */

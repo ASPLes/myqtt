@@ -114,6 +114,9 @@ MyQttCtx * myqtt_ctx_new (void)
 	myqtt_mutex_create (&ctx->subs_m);
 	myqtt_cond_create (&ctx->subs_c);
 
+	/* client ids */
+	myqtt_mutex_create (&ctx->client_ids_m);
+
 	/* return context created */
 	return ctx;
 }
@@ -644,6 +647,10 @@ void        myqtt_ctx_free2 (MyQttCtx * ctx, const char * who)
 	axl_hash_free (ctx->wild_subs);
 	myqtt_mutex_destroy (&ctx->subs_m);
 	myqtt_cond_destroy (&ctx->subs_c);
+
+	/* release client ids hash */
+	myqtt_mutex_destroy (&ctx->client_ids_m);
+	axl_hash_free (ctx->client_ids);
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "about.to.free MyQttCtx %p", ctx);
 
