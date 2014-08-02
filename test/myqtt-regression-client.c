@@ -479,10 +479,17 @@ void test_03_on_message (MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 	return;
 } 
 
+void test_03_fail (MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+{
+	printf ("ERROR: this handler shouldn't be called because this connection has no subscriptions..\n");
+	return;
+} 
+
 axl_bool test_03 (void) {
 
 	MyQttCtx        * ctx = init_ctx ();
 	MyQttConn       * conn;
+	MyQttConn       * conn2;
 	int               sub_result;
 	MyQttAsyncQueue * queue;
 	MyQttMsg        * msg;
@@ -504,6 +511,18 @@ axl_bool test_03 (void) {
 
 	printf ("Test 03: connected without problems..\n");
 
+	/* now connect to the listener:
+	   client_identifier -> test_03
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	conn2 = myqtt_conn_new (ctx, "test_03-2", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn2, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 03: connected without problems (without subscriptions)..\n");
+
 	/* subscribe to a topic */
 	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
 		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
@@ -513,6 +532,7 @@ axl_bool test_03 (void) {
 	/* register on message handler */
 	queue = myqtt_async_queue_new ();
 	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+	myqtt_conn_set_on_msg (conn2, test_03_fail, NULL);
 
 	/* publish application message */
 	if (! myqtt_conn_pub (conn, "myqtt/test", "This is test message....", 24, MYQTT_QOS_0, axl_false, 0)) {
@@ -553,9 +573,78 @@ axl_bool test_03 (void) {
 	/* close connection */
 	printf ("Test 03: closing connection..\n");
 	myqtt_conn_close (conn);
+	myqtt_conn_close (conn2);
 
 	/* release context */
 	printf ("Test 03: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+
+
+	return axl_true;
+}
+
+axl_bool test_04 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	int               sub_result;
+	MyQttAsyncQueue * queue;
+	MyQttMsg        * msg;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 04: creating connection..\n");
+
+	/* now connect to the listener:
+	   client_identifier -> test_03
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	conn = myqtt_conn_new (ctx, "test_03", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 04: connected without problems..\n");
+
+
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	if (! myqtt_conn_unsub (conn, "myqtt/test", 10)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* register on message handler */
+	myqtt_conn_set_on_msg (conn, test_03_fail, NULL);
+
+	/* publish application message */
+	if (! myqtt_conn_pub (conn, "myqtt/test", "This is test message....", 24, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message, myqtt_conn_pub() failed\n");
+		return axl_false;
+	} /* end if */
+
+	/* waiting for reply */
+	printf ("Test 04: waiting for reply (we shouldn't get one, waiting 3 seconds)..\n");
+	queue = myqtt_async_queue_new ();
+	msg   = myqtt_async_queue_timedpop (queue, 3000000);
+	myqtt_async_queue_unref (queue);
+	if (msg != NULL) {
+		printf ("ERROR: expected to find message from queue, but NULL was found..\n");
+		return axl_false;
+	} /* end if */
+
+	/* close connection */
+	printf ("Test 04: closing connection..\n");
+	myqtt_conn_close (conn);
+
+	/* release context */
+	printf ("Test 04: releasing context..\n");
 	myqtt_exit_ctx (ctx, axl_true);
 
 
@@ -602,7 +691,7 @@ int main (int argc, char ** argv)
 	printf ("** To gather information about memory consumed (and leaks) use:\n**\n");
 	printf ("**     >> libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes --error-limit=no ./test_01 [--debug]\n**\n");
 	printf ("** Providing --run-test=NAME will run only the provided regression test.\n");
-	printf ("** Available tests: test_00, test_00_a, test_01, test_02, test_03\n");
+	printf ("** Available tests: test_00, test_00_a, test_01, test_02, test_03, test_04\n");
 	printf ("**\n");
 	printf ("** Report bugs to:\n**\n");
 	printf ("**     <myqtt@lists.aspl.es> MyQtt Mailing list\n**\n");
@@ -638,6 +727,11 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_03")
 	run_test (test_03, "Test 03: basic subscribe function (QOS 0) and publish");
 
+	CHECK_TEST("test_04")
+	run_test (test_04, "Test 04: basic unsubscribe function (QOS 0)");
+
+	/* test close connection after subscribing... */
+
 	/* test sending an unknown message */
 
 	/* test connection lost notification */
@@ -646,9 +740,17 @@ int main (int argc, char ** argv)
 
 	/* test connection lost on subscription sent */
 
+	/* test connection lost on unsubscribe sent */
+
+	/* test connection lost on publish sent with QOS 1 and QOS 2 */
+
 	/* test sending header, and then message */
 
 	/* test sending part of the header, then the rest, then the message */
+
+	/* test sending broken subscribe (not complete) */
+
+	/* test sending a broken unsubscribe (not complete) */
 
 	printf ("All tests passed OK!\n");
 

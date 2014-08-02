@@ -237,8 +237,6 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * 
 
 	/* now get user and password */
 	if (myqtt_get_bit (7, msg->payload[6])) {
-		printf ("It seems user is provided (%c,%d) bit is %d\n", msg->payload[6], (int) msg->payload[6], myqtt_get_bit (7, msg->payload[6]));
-
 		/* username flag on, get username */
 		conn->username = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
 		if (! conn->username) {
@@ -377,6 +375,9 @@ axlPointer __myqtt_reader_handle_subscribe (axlPointer _data) {
 			/* release message */
 			myqtt_msg_unref (msg);
 
+			/* release topic filter */
+			axl_free (topic_filter);
+
 			return NULL;
 		}
 
@@ -397,6 +398,7 @@ axlPointer __myqtt_reader_handle_subscribe (axlPointer _data) {
 			replies_mem = axl_new (int, 1);
 		else
 			replies_mem = realloc (replies_mem, sizeof (int) * (replies + 1));
+
 		/* increase replies */
 		replies ++;
 
@@ -463,6 +465,12 @@ axlPointer __myqtt_reader_handle_subscribe (axlPointer _data) {
 			   conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
 		axl_free (replies_mem);
+
+		/* release message */
+		myqtt_msg_unref (msg);
+
+		return NULL;
+
 	} /* end if */
 	
 	/* configure header */
@@ -508,7 +516,7 @@ void __myqtt_reader_handle_disconnect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn
 	return;
 }
 
-axlPointer __myqtt_reader_handle_suback (axlPointer _data)
+axlPointer __myqtt_reader_handle_wait_reply (axlPointer _data)
 {
 	MyQttAsyncQueue        * queue;
 	MyQttReaderAsyncData   * data = _data;
@@ -521,7 +529,10 @@ axlPointer __myqtt_reader_handle_suback (axlPointer _data)
 
  	/* check if this is a listener */
 	if (conn->role != MyQttRoleInitiator) {
-		myqtt_conn_report_and_close (conn, "Received SUBACK request over a connection that is not an initiator");
+		if (msg->type == MYQTT_SUBACK)
+			myqtt_conn_report_and_close (conn, "Received SUBACK request over a connection that is not an initiator");
+		else if (msg->type == MYQTT_UNSUBACK)
+			myqtt_conn_report_and_close (conn, "Received UNSUBACK request over a connection that is not an initiator");
 
 		/* release message */
 		myqtt_msg_unref (msg);
@@ -529,9 +540,13 @@ axlPointer __myqtt_reader_handle_suback (axlPointer _data)
 		return NULL;
 	} /* end if */
 
-	if (msg->size < 3) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "SUBACK message size=%d without header and remaining length is insufficient", msg->size);
-		myqtt_conn_report_and_close (conn, "Received poorly formed SUBACK request that do not contains bare minimum bytes");
+	if ((msg->type == MYQTT_SUBACK && msg->size < 3) || (msg->type == MYQTT_UNSUBACK && msg->size < 2) ) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "%s message size=%d without header and remaining length is insufficient", myqtt_msg_get_type_str (msg), msg->size);
+
+		if (msg->type == MYQTT_SUBACK)
+			myqtt_conn_report_and_close (conn, "Received poorly formed SUBACK request that do not contains bare minimum bytes");
+		else if (msg->type == MYQTT_UNSUBACK)
+			myqtt_conn_report_and_close (conn, "Received poorly formed UNSUBACK request that do not contains bare minimum bytes");
 
 		/* release message */
 		myqtt_msg_unref (msg);
@@ -541,7 +556,7 @@ axlPointer __myqtt_reader_handle_suback (axlPointer _data)
 
 	/* get packet id */
 	msg->packet_id = myqtt_get_16bit (msg->payload);
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Pushing SUBACK msg=%d, for packet-id=%d", msg->id, msg->packet_id);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Pushing %s msg=%d, for packet-id=%d", myqtt_msg_get_type_str (msg), msg->id, msg->packet_id);
 
 	/* now call to wait queue if defined */
 	myqtt_mutex_lock (&conn->op_mutex);
@@ -554,8 +569,8 @@ axlPointer __myqtt_reader_handle_suback (axlPointer _data)
 
 	if (queue == NULL) {
 		/* too late, unable to deliver message to wait reply */
-		myqtt_log (MYQTT_LEVEL_WARNING, "Received a SUBACK message but queue to handle reply wasn't there...it seems we arrived too late or packet id=%d do not match anything on our side",
-			   msg->packet_id);
+		myqtt_log (MYQTT_LEVEL_WARNING, "Received a %s message but queue to handle reply wasn't there...it seems we arrived too late or packet id=%d do not match anything on our side",
+			   myqtt_msg_get_type_str (msg), msg->packet_id);
 
 		/* release message */
 		myqtt_msg_unref (msg);
@@ -570,6 +585,136 @@ axlPointer __myqtt_reader_handle_suback (axlPointer _data)
 
 	return NULL;
 }
+
+axlPointer __myqtt_reader_handle_unsubscribe (axlPointer _data)
+{
+	/* common variables */
+	MyQttReaderAsyncData   * data = _data;
+	MyQttMsg               * msg  = data->msg;
+	MyQttCtx               * ctx  = msg->ctx;
+	MyQttConn              * conn = data->conn;
+
+	/* local parameters */
+	int                      packet_id;
+	char                   * topic_filter;
+	int                      desp = 0;
+	axlHash                * conn_hash;
+	unsigned char          * reply;
+	int                      size;
+
+	/* release reader data */
+	axl_free (data);	
+
+	/* check if this is a listener */
+	if (conn->role != MyQttRoleListener) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received UNSUBSCRIBE request over a connection that is not a listener from conn-id=%d from %s:%s, closing connection..", 
+			   conn->id, conn->host, conn->port);
+		myqtt_conn_shutdown (conn);
+
+		/* release message */
+		myqtt_msg_unref (msg);
+
+		return NULL;
+	} /* end if */
+
+	if (msg->size < 3) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received UNSUBSCRIBE request without enough data to continue with security from conn-id=%d from %s:%s, closing connection..", 
+			   conn->id, conn->host, conn->port);
+		myqtt_conn_shutdown (conn);
+
+		/* release message */
+		myqtt_msg_unref (msg);
+
+		return NULL;
+	} /* end if */
+
+	/* get packet id */
+	packet_id   = myqtt_get_16bit (msg->payload);
+	desp       += 2;
+
+	/* get topic filter */
+	while (desp < msg->size) {
+		topic_filter = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
+		if (topic_filter == NULL) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to process topic filter from received UNSUBSCRIBE request from conn-id=%d from %s:%s, closing connection..", 
+				   conn->id, conn->host, conn->port);
+			myqtt_conn_shutdown (conn);
+			
+			/* release message */
+			myqtt_msg_unref (msg);
+			return NULL;
+		} /* end if */
+
+		/* increase desp */
+		desp += (strlen (topic_filter) + 2);
+
+		/* call to unsubscribe */
+
+		/* CONNECTION CONTEXT: remove subscription from the connection */
+		myqtt_mutex_lock (&conn->op_mutex);
+		if ((strstr (topic_filter, "#") != NULL) || (strstr (topic_filter, "+") != NULL))
+			axl_hash_remove (conn->wild_subs, topic_filter);
+		else
+			axl_hash_remove (conn->subs, topic_filter);
+		myqtt_mutex_unlock (&conn->op_mutex);
+
+		/* CONTEXT: lock subscribtions to remove connection subscription */
+		myqtt_mutex_lock (&ctx->subs_m);
+
+		/* check no publish operation is taking place now */
+		while (ctx->publish_ops > 0)
+			myqtt_cond_timedwait (&ctx->subs_c, &ctx->subs_m, 10000);
+		
+		/* now get connection hash handling that topic */
+		conn_hash = axl_hash_get (ctx->subs, (axlPointer) topic_filter);
+		if (! conn_hash) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to find connection hash under the topic %s but found NULL reference [internal engine error]..", 
+				   topic_filter);
+			/* release lock */
+			myqtt_mutex_unlock (&ctx->subs_m);
+			continue;
+		} /* end if */
+
+		/* remove the connection from that connection hash */
+		axl_hash_remove (conn_hash, conn);
+
+		/* release lock */
+		myqtt_mutex_unlock (&ctx->subs_m);
+
+		/* release topic filter */
+		axl_free (topic_filter);
+
+	} /* end if */
+
+	/* send reply */
+	reply = myqtt_msg_build (ctx, MYQTT_UNSUBACK, axl_false, 0, axl_false, &size, /* 2 bytes */
+				 MYQTT_PARAM_16BIT_INT, packet_id,
+				 MYQTT_PARAM_END);
+	if (reply == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to allocate memory required for UNSUBSCRIBE reply for conn-id=%d from %s:%s, closing connection..", 
+			   conn->id, conn->host, conn->port);
+		myqtt_conn_shutdown (conn);
+			
+		/* release message */
+		myqtt_msg_unref (msg);
+		return NULL;
+	} /* end if */
+
+	/* send message */
+	if (! myqtt_sequencer_send (conn, MYQTT_UNSUBACK, reply, size))
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send UNSUBACK message, errno=%d", errno);
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Sent UNSUBACK reply to conn-id=%d at %s:%s..", conn->id, conn->host, conn->port);
+
+	/* release message */
+	myqtt_msg_unref (msg);
+
+	/* free reply */
+	/* myqtt_msg_free_build (ctx, reply, size); */
+
+	return NULL;
+}
+
 
 /** 
  * @internal PUBLISH handling..
@@ -766,7 +911,15 @@ void __myqtt_reader_process_socket (MyQttCtx        * ctx,
 		break;
 	case MYQTT_SUBACK:
 		/* handle SUBACK packet */
-		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_suback);
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_wait_reply);
+		break;
+	case MYQTT_UNSUBSCRIBE:
+		/* handle UNSUBSCRIBE packet */
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_unsubscribe);
+		break;
+	case MYQTT_UNSUBACK:
+		/* handle UNSUBACK packet */
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_wait_reply);
 		break;
 	case MYQTT_PUBLISH:
 		/* handle PUBLISH packet */

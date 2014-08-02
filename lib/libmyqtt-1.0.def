@@ -116,6 +116,7 @@ myqtt_conn_sub
 myqtt_conn_timeout
 myqtt_conn_uncheck_ref
 myqtt_conn_unref
+myqtt_conn_unsub
 myqtt_ctx_check_on_finish
 myqtt_ctx_free
 myqtt_ctx_free2

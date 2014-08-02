@@ -126,7 +126,7 @@ axlPointer         myqtt_async_queue_pop          (MyQttAsyncQueue * queue);
 axlPointer         myqtt_async_queue_unlocked_pop (MyQttAsyncQueue * queue);
 
 axlPointer         myqtt_async_queue_timedpop  (MyQttAsyncQueue * queue,
-						 long               microseconds);
+						long               microseconds);
 
 int                myqtt_async_queue_length    (MyQttAsyncQueue * queue);
 
