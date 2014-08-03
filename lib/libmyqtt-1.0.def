@@ -50,6 +50,7 @@ myqtt_conn_get_hook
 myqtt_conn_get_host
 myqtt_conn_get_host_ip
 myqtt_conn_get_id
+myqtt_conn_get_last_err
 myqtt_conn_get_listener
 myqtt_conn_get_local_addr
 myqtt_conn_get_local_port

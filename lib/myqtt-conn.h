@@ -86,6 +86,8 @@ axl_bool            myqtt_conn_reconnect       (MyQttConn * conn,
 						MyQttConnNew on_connected,
 						axlPointer user_data);
 
+MyQttConnAckTypes   myqtt_conn_get_last_err    (MyQttConn * conn);
+
 axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 						const char          * topic_name,
 						const axlPointer      app_message,

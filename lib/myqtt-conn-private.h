@@ -159,6 +159,10 @@ struct _MyQttConn {
 	 * received data.
 	 */
 	MYQTT_SOCKET  session;
+	/** 
+	 * @brief Last error reported by connection operation.
+	 */
+	MyQttConnAckTypes  last_err;
 
 	/** 
 	 * @brief Allows to configure if the given session (actually

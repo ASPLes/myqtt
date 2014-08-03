@@ -733,6 +733,18 @@ typedef enum {
  */
 typedef enum {
 	/** 
+	 * @brief Local error code reported when unknown error happened.
+	 */
+	MYQTT_CONNACK_UNKNOWN_ERR              = -4,
+	/** 
+	 * @brief Local error code reported when connection fails with a timeout.
+	 */
+	MYQTT_CONNACK_CONNECT_TIMEOUT          = -3,
+	/** 
+	 * @brief Local error code reported when connection was not possible (connection refused).
+	 */
+	MYQTT_CONNACK_UNABLE_TO_CONNECT        = -2,
+	/** 
 	 * @brief Report code used to indicate the library to skip
 	 * replying the particular connect method. Then, the
 	 * application library can reply to that connect request later
