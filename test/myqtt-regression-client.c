@@ -704,6 +704,8 @@ axl_bool test_06 (void) {
 
 	MyQttCtx        * ctx = init_ctx ();
 	MyQttConn       * conn;
+	MyQttConn       * conn2;
+	MyQttConn       * conn3;
 	MyQttMsg        * msg;
 
 	if (! ctx)
@@ -739,6 +741,49 @@ axl_bool test_06 (void) {
 	/* call to release message */
 	myqtt_msg_unref (msg);
 
+	printf ("Test 06: checking that is not accepted two connections with the same client identifier..\n");
+
+	/* now try to connect again with the same identifier */
+	conn2 = myqtt_conn_new (ctx, "test_06.identifier", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (myqtt_conn_is_ok (conn2, axl_false)) {
+		printf ("ERROR: expected to find connection error for same identifier but found connection ok\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 06: Error reported by myqtt_conn_new = %d\n", myqtt_conn_get_last_err (conn2));
+	if (myqtt_conn_get_last_err (conn2) != MYQTT_CONNACK_IDENTIFIER_REJECTED) {
+		printf ("ERROR: expected identifier rejected..but found different error\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 06: OK, now check automatic client ids..\n");
+
+	/* ok, connect with a NULL client id */
+	conn3 = myqtt_conn_new (ctx, NULL, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn3, axl_false)) {
+		printf ("ERROR: expected to find OK connection but found error\n");
+		return axl_false;
+	} /* end if */
+
+	/* call to get client identifier */
+	if (! myqtt_conn_pub (conn3, "myqtt/admin/get-client-identifier", "", 0, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message to get client identifier..\n");
+		return axl_false;
+	} /* end if */
+
+	/* push a message to ask for clientid identifier */
+	msg   = myqtt_conn_get_next (conn3, 10000);
+	if (msg == NULL || myqtt_msg_get_app_msg (msg) == NULL) {
+		printf ("ERROR: expected to received msg defined but found NULL\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 06: automatic id assigned is: %s (%p)\n", (const char *) myqtt_msg_get_app_msg (msg), msg);
+	myqtt_msg_unref (msg);
+
+	myqtt_conn_close (conn3);
+	myqtt_conn_close (conn2);
+
 	/* close connection */
 	printf ("Test 06: closing connection..\n");
 	myqtt_conn_close (conn);
@@ -746,8 +791,6 @@ axl_bool test_06 (void) {
 	/* release context */
 	printf ("Test 06: releasing context..\n");
 	myqtt_exit_ctx (ctx, axl_true);
-
-
 
 	return axl_true;
 }
@@ -837,6 +880,8 @@ int main (int argc, char ** argv)
 	run_test (test_06, "Test 06: check client identifier function");
 
 	/* test close connection after subscribing... */
+
+	/* test reconnect (after closing) */
 
 	/* test sending an unknown message */
 

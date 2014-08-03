@@ -171,8 +171,9 @@ axl_bool __myqtt_reader_check_client_id (MyQttCtx * ctx, MyQttConn * conn, MyQtt
 
 		/* generate a random client id */
 		gettimeofday (&stamp, NULL);
-		conn->client_identifier = axl_strdup_printf ("%s-%s-%g-%g", conn->host_ip, conn->local_port, stamp.tv_sec, stamp.tv_usec);
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received CONNECT request with empty client id, created new client id: %s", conn->client_identifier);
+		axl_free (conn->client_identifier);
+		conn->client_identifier = axl_strdup_printf ("%ld-%ld-%ld", conn, stamp.tv_sec, stamp.tv_usec);
+		myqtt_log (MYQTT_LEVEL_WARNING, "Received CONNECT request with empty client id, created new client id: %s", conn->client_identifier);
 	} /* end if */
 
 

@@ -191,6 +191,7 @@ typedef struct _MyQttConnNewData {
 	axlPointer            user_data;
 	axl_bool              threaded;
 	MyQttNetTransport     transport;
+	axl_bool              clean_session;
 }MyQttConnNewData;
 
 
@@ -279,6 +280,8 @@ MyQttConn * myqtt_conn_new_empty_from_conn (MyQttCtx        * ctx,
 	connection                     = axl_new (MyQttConn, 1);
 	MYQTT_CHECK_REF (connection, NULL);
 
+	/* for now, set default connection error */
+	connection->last_err           = MYQTT_CONNACK_UNKNOWN_ERR;
 	connection->ctx                = ctx;
 	myqtt_ctx_ref2 (ctx, "new connection"); /* acquire a reference to context */
 	connection->id                 = __myqtt_conn_get_next_id (ctx);
@@ -342,6 +345,10 @@ MyQttConn * myqtt_conn_new_empty_from_conn (MyQttCtx        * ctx,
 			myqtt_conn_unref (connection, "myqtt_conn_new_empty_from_connection");
 			return NULL;
 		} /* end if */
+
+		/* set accepted */
+		connection->last_err           = MYQTT_CONNACK_ACCEPTED;
+
 	} else {
 		/* set a wrong socket connection in the case a not
 		   proper value is received */
@@ -1053,18 +1060,23 @@ MYQTT_SOCKET myqtt_conn_sock_connect_common (MyQttCtx            * ctx,
 }
 
 /* now we have to send greetings and process them */
-axl_bool __myqtt_conn_send_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * opts) {
+axl_bool __myqtt_conn_send_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * opts, axl_bool clean_session) {
 	unsigned char * msg;
 	int             size;
+	unsigned char   flags = 0;
 
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Sending CONNECT package to %s:%s (conn-id=%d)", conn->host, conn->port, conn->id);
+	/* set clean session */
+	if (clean_session)
+		myqtt_set_bit (&flags, 1);
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Sending CONNECT package to %s:%s (conn-id=%d, flags=%x)", conn->host, conn->port, conn->id, flags);
 	
 	size = 0;
 	msg  = myqtt_msg_build  (ctx, MYQTT_CONNECT, axl_false, 0, axl_false, &size,  /* 2 bytes */
 				 MYQTT_PARAM_UTF8_STRING, 4, "MQTT", /* 6 bytes */
 				 MYQTT_PARAM_8BIT_INT, 4, /* 1 byte */
 				 /* connect flags */
-				 MYQTT_PARAM_8BIT_INT, 0, /* 1 byte */
+				 MYQTT_PARAM_8BIT_INT, flags, /* 1 byte */
 				 /* keep alive value, for now nothing */
 				 MYQTT_PARAM_16BIT_INT, 0, /* 2 bytes */
 				 /* client identifier */
@@ -1112,8 +1124,11 @@ axl_bool __myqtt_conn_parse_greetings (MyQttCtx * ctx, MyQttConn * connection, M
 	if (msg->payload[1] != MYQTT_CONNACK_ACCEPTED) 
 		myqtt_log (MYQTT_LEVEL_WARNING, "Connection denied by remote peer, conn ack value received is: %d", msg->payload[1]);
 
+	/* record reported code */
+	connection->last_err     = msg->payload[1];
+
 	/* check the payload */
-	return msg->payload[1] == MYQTT_CONNACK_ACCEPTED;
+	return connection->last_err == MYQTT_CONNACK_ACCEPTED;
 }
 
 axl_bool      myqtt_conn_parse_greetings_and_enable (MyQttConn * connection, 
@@ -1161,6 +1176,7 @@ axl_bool      myqtt_conn_parse_greetings_and_enable (MyQttConn * connection,
 axl_bool __myqtt_conn_do_greetings_exchange (MyQttCtx      * ctx, 
 					     MyQttConn     * connection, 
 					     MyQttConnOpts * opts,
+					     axl_bool        clean_session,
 					     int             timeout)
 {
 	MyQttMsg            * msg;
@@ -1169,8 +1185,9 @@ axl_bool __myqtt_conn_do_greetings_exchange (MyQttCtx      * ctx,
 	v_return_val_if_fail (myqtt_conn_is_ok (connection, axl_false), axl_false);
 
 	/* now we have to send greetings and process them */
-	if (! __myqtt_conn_send_connect (ctx, connection, opts)) {
+	if (! __myqtt_conn_send_connect (ctx, connection, opts, clean_session)) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send CONNECT package to broker (conn-id=%d)", connection->id);
+		connection->last_err     = MYQTT_CONNACK_REFUSED;
 		return axl_false;
 	}
 	
@@ -1209,6 +1226,7 @@ axl_bool __myqtt_conn_do_greetings_exchange (MyQttCtx      * ctx,
 				shutdown (connection->session, SHUT_RDWR);
 				myqtt_close_socket (connection->session);
 				connection->session      = -1;
+				connection->last_err     = MYQTT_CONNACK_CONNECT_TIMEOUT;
 
 				/* error found, stop greetings process */
 				return axl_false;
@@ -1227,8 +1245,9 @@ axl_bool __myqtt_conn_do_greetings_exchange (MyQttCtx      * ctx,
 			shutdown (connection->session, SHUT_RDWR);
 			myqtt_close_socket (connection->session);
 			connection->session      = -1;
-
 			connection->is_connected = axl_false;
+			connection->last_err     = MYQTT_CONNACK_REFUSED;
+
 			return axl_false;
 		} /* end if */
 		
@@ -1264,28 +1283,29 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 	struct sockaddr_storage   sin;
 #if defined(AXL_OS_WIN32)
 	/* windows flavors */
-	int                    sin_size     = sizeof (sin);
+	int                    sin_size       = sizeof (sin);
 #else
 	/* unix flavors */
-	socklen_t              sin_size     = sizeof (sin);
+	socklen_t              sin_size       = sizeof (sin);
 #endif
 	/* get current context */
-	MyQttConn            * connection   = data->connection;
-	MyQttConnOpts        * opts         = data->opts;
-	MyQttCtx             * ctx          = connection->ctx;
-	axlError             * error        = NULL;
-	int                    d_timeout    = 0;
-	axl_bool               threaded     = data->threaded;
-	MyQttConnNew           on_connected = data->on_connected;
-	axlPointer             user_data    = data->user_data;
-	MyQttNetTransport      transport    = data->transport;
+	MyQttConn            * connection     = data->connection;
+	MyQttConnOpts        * opts           = data->opts;
+	MyQttCtx             * ctx            = connection->ctx;
+	axlError             * error          = NULL;
+	int                    d_timeout      = 0;
+	axl_bool               threaded       = data->threaded;
+	axl_bool               clean_session  = data->clean_session;
+	MyQttConnNew           on_connected   = data->on_connected;
+	axlPointer             user_data      = data->user_data;
+	MyQttNetTransport      transport      = data->transport;
 	char                   host_name[NI_MAXHOST];
 	char                   srv_name[NI_MAXSERV]; 
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "executing connection new in %s mode to %s:%s id=%d",
-	       (data->threaded == axl_true) ? "thread" : "blocking", 
-	       connection->host, connection->port,
-	       connection->id);
+		   (data->threaded == axl_true) ? "thread" : "blocking", 
+		   connection->host, connection->port,
+		   connection->id);
 
 	/* release data */
 	axl_free (data);
@@ -1293,6 +1313,8 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 	/* configure the socket created */
 	connection->session = myqtt_conn_sock_connect_common (ctx, connection->host, connection->port, &d_timeout, transport, &error);
 	if (connection->session == -1) {
+		/* configure error */
+		connection->last_err           = MYQTT_CONNACK_UNABLE_TO_CONNECT;
 
 		/* get error message and error status */
 		axl_error_free (error);
@@ -1316,6 +1338,7 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 		if (getsockname (connection->session, (struct sockaddr *) &sin, &sin_size) < 0) {
 			myqtt_log (MYQTT_LEVEL_DEBUG, "unable to get local hostname and port to resolve local address");
 			connection->is_connected = axl_false;
+			connection->last_err     = MYQTT_CONNACK_UNABLE_TO_CONNECT;
 			goto report_connection;
 
 		} /* end if */
@@ -1326,6 +1349,7 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 		if (getnameinfo ((struct sockaddr *) &sin, sin_size, host_name, NI_MAXHOST, srv_name, NI_MAXSERV, NI_NUMERICSERV | NI_NUMERICHOST) != 0) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "getnameinfo () call failed, error was errno=%d", errno);
 			connection->is_connected = axl_false;
+			connection->last_err     = MYQTT_CONNACK_UNABLE_TO_CONNECT;
 			goto report_connection;
 		}
 	
@@ -1334,7 +1358,7 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 		connection->local_port = axl_strdup (srv_name);
 
 		/* block thread until received remote greetings */
-		if (! __myqtt_conn_do_greetings_exchange (ctx, connection, opts, d_timeout)) { 
+		if (! __myqtt_conn_do_greetings_exchange (ctx, connection, opts, clean_session, d_timeout)) { 
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "MQTT greetings exchange failed (conn-id=%d) with MQTT broker, error was errno=%d", 
 				   connection->id, errno);
 			connection->is_connected = axl_false;
@@ -1343,6 +1367,7 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 
 		/* connection ok */
 		myqtt_log (MYQTT_LEVEL_DEBUG, "MQTT connection OK (conn-id=%d)", connection->id);
+		connection->last_err           = MYQTT_CONNACK_ACCEPTED;
 	} /* end if */
 
  report_connection:
@@ -1386,6 +1411,10 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 	
 	data->connection                      = axl_new (MyQttConn, 1);
 	data->opts                            = opts;
+	/* for now, set default connection error */
+	data->connection->last_err            = MYQTT_CONNACK_UNKNOWN_ERR;
+	data->clean_session                   = clean_session;
+
 	/* check allocated connection */
 	if (data->connection == NULL) {
 		axl_free (data);
@@ -1650,6 +1679,21 @@ axl_bool            myqtt_conn_reconnect              (MyQttConn * connection,
 
 }
 
+/** 
+ * @brief After a \ref myqtt_conn_new you can call this function to get the last error reported.
+ *
+ * @param conn The connection where the last error is being queried.
+ *
+ * @return The error code (see \ref MyQttConnAckTypes for more
+ * information) or \ref MYQTT_CONNACK_ACCEPTED if the connection went
+ * ok.
+ */
+MyQttConnAckTypes   myqtt_conn_get_last_err    (MyQttConn * conn)
+{
+	if (conn == NULL)
+		return MYQTT_CONNACK_UNKNOWN_ERR;
+	return conn->last_err;
+}
 
 /** 
  * @internal Get the next package id available over the provided
