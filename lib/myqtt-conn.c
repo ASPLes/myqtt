@@ -3906,10 +3906,10 @@ MyQttCtx         * myqtt_conn_get_ctx                (MyQttConn * connection)
  * 
  * @return Returns the previous send handler defined or NULL if fails.
  */
-MyQttSendHandler      myqtt_conn_set_send_handler    (MyQttConn * connection,
-							      MyQttSendHandler  send_handler)
+MyQttSend      myqtt_conn_set_send_handler    (MyQttConn * connection,
+							      MyQttSend  send_handler)
 {
-	MyQttSendHandler previous_handler;
+	MyQttSend previous_handler;
 
 	/* check parameters received */
 	if (connection == NULL || send_handler == NULL)
@@ -3936,10 +3936,10 @@ MyQttSendHandler      myqtt_conn_set_send_handler    (MyQttConn * connection,
  * 
  * @return Returns current receive handler set or NULL if it fails.
  */
-MyQttReceiveHandler   myqtt_conn_set_receive_handler (MyQttConn     * connection,
-							      MyQttReceiveHandler   receive_handler)
+MyQttReceive   myqtt_conn_set_receive_handler (MyQttConn     * connection,
+							      MyQttReceive   receive_handler)
 {
-	MyQttReceiveHandler previous_handler;
+	MyQttReceive previous_handler;
 
 	/* check parameters received */
 	if (connection == NULL || receive_handler == NULL)
@@ -4018,11 +4018,103 @@ void                   myqtt_conn_set_on_msg         (MyQttConn          * conn,
 		return;
 
 	/* configure handler */
+	myqtt_mutex_lock (&conn->op_mutex);
 	conn->on_msg_data = on_msg_data;
 	conn->on_msg      = on_msg;
+	myqtt_mutex_unlock (&conn->op_mutex);
 
 	return;
 }
+
+void __myqtt_conn_get_next_on_close (MyQttConn * conn, axlPointer data)
+{
+	MyQttAsyncQueue * queue = data;
+
+	/* notify connection close */
+	myqtt_async_queue_push (queue, INT_TO_PTR (-1));
+
+	return;
+}
+
+void __myqtt_conn_queue_msgs (MyQttConn * conn, MyQttMsg * msg, axlPointer data)
+{
+	MyQttAsyncQueue * queue = data;
+
+	/* notify message received */
+	myqtt_msg_ref (msg);
+	myqtt_async_queue_push (queue, msg);
+
+	return;
+}
+
+/** 
+ * @brief Allows to implement a simple sincronouns wait for the next
+ * message (PUBLISH) received on the provided connection limiting that
+ * wait to the provided timeout (in milliseconds).
+ *
+ * @param conn The connection where the wait operation for the next (\ref MYQTT_PUBLISH) message will take place.
+ *
+ * @param timeout The timeout to limit the operation. If it is set to 0 it will wait for ever. This value is provided in milliseconds (1000 ms = 1sec)
+ *
+ * @return A reference to the message received or NULL if it fails or
+ * timeout was reached. The function also returns NULL when the
+ * connection is closed during the wait operation. In the case the
+ * function returns a \ref MyQttMsg reference you must call to \ref
+ * myqtt_msg_unref after finishing with it.
+ *
+ * NOTE: the function will replace the \ref MyQttOnMsgReceived handler
+ * that was previously configured by \ref myqtt_conn_set_on_msg but it
+ * will be restored once the function finishes.
+ */
+MyQttMsg *             myqtt_conn_get_next (MyQttConn * conn, long timeout)
+{
+	MyQttOnMsgReceived    old_handler;
+	axlPointer            old_data;
+	MyQttAsyncQueue     * queue;
+	MyQttMsg            * msg;
+
+	if (! myqtt_conn_is_ok (conn, axl_false))
+		return NULL;
+
+	/* have a reference to previous handlers */
+	old_handler = conn->on_msg;
+	old_data    = conn->on_msg_data;
+
+	/* install connection close */
+	queue             = myqtt_async_queue_new ();
+	myqtt_conn_set_on_close (conn, axl_false, __myqtt_conn_get_next_on_close, queue);
+
+	/* now install new handlers */
+	myqtt_mutex_lock (&conn->op_mutex);
+	conn->on_msg_data = queue;
+	conn->on_msg      = __myqtt_conn_queue_msgs;
+	myqtt_mutex_unlock (&conn->op_mutex);
+
+	/* now wait */
+	if (timeout > 0)
+		msg = myqtt_async_queue_timedpop (queue, timeout * 1000);
+	else
+		msg = myqtt_async_queue_pop (queue);
+
+	/* remove on close handler */
+	myqtt_conn_remove_on_close (conn, __myqtt_conn_get_next_on_close, queue);
+
+	/* detect values reported by connection close */
+	if (PTR_TO_INT (msg) == -1)
+		msg = NULL;
+
+	/* restore handlers */
+	myqtt_mutex_lock (&conn->op_mutex);
+	conn->on_msg_data = old_data;
+	conn->on_msg      = old_handler;
+	myqtt_mutex_unlock (&conn->op_mutex);
+
+	/* release queue */
+	myqtt_async_queue_unref (queue);
+
+	return msg;
+}
+
 
 /** 
  * @brief Allows to set a new on close handler to be executed only
@@ -4232,7 +4324,7 @@ axl_bool   myqtt_conn_remove_on_close (MyQttConn          * connection,
 
 /** 
  * @internal
- * @brief Allows to invoke current receive handler defined by \ref MyQttReceiveHandler.
+ * @brief Allows to invoke current receive handler defined by \ref MyQttReceive.
  * 
  * This function is actually no useful for MyQtt Library consumer. It
  * is used by the library to actually perform the invocation in a
@@ -4259,7 +4351,7 @@ int                 myqtt_conn_invoke_receive         (MyQttConn        * connec
 
 /** 
  * @internal
- * @brief Allows to invoke current send handler defined by \ref MyQttSendHandler.
+ * @brief Allows to invoke current send handler defined by \ref MyQttSend.
  * 
  * This function is actually not useful for MyQtt Library
  * consumers. It is used by the library to perform the invocation of the send handler.

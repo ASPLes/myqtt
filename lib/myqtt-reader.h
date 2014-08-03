@@ -60,10 +60,6 @@ int  myqtt_reader_notify_change_io_api        (MyQttCtx * ctx);
 
 void myqtt_reader_notify_change_done_io_api   (MyQttCtx * ctx);
 
-axl_bool  myqtt_reader_invoke_msg_received    (MyQttCtx  * ctx,
-					       MyQttConn * connection,
-					       MyQttMsg  * msg);
-
 void        __myqtt_reader_prepare_wait_reply (MyQttConn * conn, int packet_id);
 
 MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, int timeout);

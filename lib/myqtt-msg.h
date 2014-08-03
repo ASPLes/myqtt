@@ -88,6 +88,8 @@ const axlPointer  myqtt_msg_get_payload           (MyQttMsg * msg);
 
 int           myqtt_msg_get_app_msg_size      (MyQttMsg * msg);
 
+const char *      myqtt_msg_get_topic    (MyQttMsg * msg);
+
 const axlPointer  myqtt_msg_get_app_msg  (MyQttMsg * msg);
 
 

@@ -247,11 +247,11 @@ MyQttConn         * myqtt_conn_get_listener           (MyQttConn * conn);
 
 MyQttCtx          * myqtt_conn_get_ctx                (MyQttConn * conn);
 
-MyQttSendHandler      myqtt_conn_set_send_handler    (MyQttConn * conn,
-						      MyQttSendHandler  send_handler);
+MyQttSend              myqtt_conn_set_send_handler    (MyQttConn * conn,
+						       MyQttSend  send_handler);
 
-MyQttReceiveHandler   myqtt_conn_set_receive_handler (MyQttConn * conn,
-						      MyQttReceiveHandler receive_handler);
+MyQttReceive           myqtt_conn_set_receive_handler (MyQttConn * conn,
+						       MyQttReceive receive_handler);
 
 void                   myqtt_conn_set_default_io_handler (MyQttConn * conn);
 
@@ -263,6 +263,8 @@ void                   myqtt_conn_set_on_close       (MyQttConn         * conn,
 						      axl_bool            insert_last,
 						      MyQttConnOnClose    on_close_handler,
 						      axlPointer          data);
+
+MyQttMsg *             myqtt_conn_get_next (MyQttConn * conn, long timeout);
 
 axl_bool            myqtt_conn_remove_on_close       (MyQttConn              * conn, 
 						      MyQttConnOnClose         on_close_handler,

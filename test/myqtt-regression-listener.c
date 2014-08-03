@@ -109,6 +109,22 @@ MyQttCtx * init_ctx (void)
 	return ctx;
 }
 
+MyQttPublishCodes on_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+{
+	const char * client_id;
+	if (axl_cmp ("myqtt/admin/get-client-identifier", myqtt_msg_get_topic (msg))) {
+
+		/* found administrative request, report this information and block publication */
+		client_id = myqtt_conn_get_client_id (conn);
+		if (! myqtt_conn_pub (conn, "myqtt/admin/get-client-identifier", (axlPointer) client_id, strlen (client_id), MYQTT_QOS_0, axl_false, 0)) 
+			printf ("ERROR: failed to publish get-client-identifier..\n");
+		return MYQTT_PUBLISH_DISCARD;
+	}
+
+	/* by default allow all publish operations */
+	return MYQTT_PUBLISH_OK;
+}
+
 /** 
  * @brief General regression test to check all features inside myqtt
  */
@@ -147,6 +163,9 @@ int main (int argc, char ** argv)
 		printf ("ERROR: failed to start listener at: %s:%s..\n", listener_host, listener_port);
 		exit (-1);
 	} /* end if */
+
+	/* install on publish handler */
+	myqtt_ctx_set_on_publish (ctx, on_publish, NULL);
 
 	/* wait for listeners */
 	printf ("Ready and accepting connections..OK\n");
