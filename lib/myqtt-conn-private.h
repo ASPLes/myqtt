@@ -223,12 +223,12 @@ struct _MyQttConn {
 	/** 
 	 * @brief Writer function used by the MyQtt Library to actually send data.
 	 */
-	MyQttSendHandler    send;
+	MyQttSend    send;
 
 	/** 
 	 * @brief Writer function used by the MyQtt Library to actually received data
 	 */
-	MyQttReceiveHandler receive;
+	MyQttReceive receive;
 
 	/** 
 	 * @brief On close handler, extended version.

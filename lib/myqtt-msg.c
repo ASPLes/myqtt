@@ -1160,6 +1160,24 @@ int           myqtt_msg_get_app_msg_size      (MyQttMsg * msg)
 }
 
 /** 
+ * @brief Allows to get topic message from the message (only supported
+ * for PUBLISH messages).
+ *
+ * @param The message where the operation takes place.
+ *
+ * @return Returns a reference to the the topic name on the PUBLISH
+ * message or NULL if it fails.
+ */
+const char *      myqtt_msg_get_topic    (MyQttMsg * msg)
+{
+	if (msg == NULL || msg->type != MYQTT_PUBLISH)
+		return NULL;
+
+	/* report topic name */
+	return msg->topic_name;
+}
+
+/** 
  * @brief Allows to get application message inside the provided
  * message (only for \ref MYQTT_PUBLISH type).
  *

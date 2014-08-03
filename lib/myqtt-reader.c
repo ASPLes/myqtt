@@ -825,6 +825,7 @@ axlPointer __myqtt_reader_handle_publish (axlPointer _data)
 	axlHash                * conn_hash;
 	int                      desp = 0;
 	axlHashCursor          * cursor;
+	MyQttPublishCodes        pub_codes;
 
 	/* release reader data */
 	axl_free (data);
@@ -869,6 +870,29 @@ axlPointer __myqtt_reader_handle_publish (axlPointer _data)
 		/* release reference acquired */
 		myqtt_msg_unref (msg);
 		return NULL;
+	} /* end if */
+
+	if (ctx->on_publish) {
+		/* call to on publish */
+		pub_codes = ctx->on_publish (ctx, conn, msg, ctx->on_publish_data);
+		switch (pub_codes) {
+		case MYQTT_PUBLISH_OK:
+			/* just break, do nothing */
+			break;
+		case MYQTT_PUBLISH_DISCARD:
+			/* releaes message and return */
+			myqtt_log (MYQTT_LEVEL_WARNING, "On publish handler reported to discard msg-id=%d from conn-id=%d from %s:%s", 
+				   msg->id, conn->id, conn->host, conn->port);
+			myqtt_msg_unref (msg);
+			return NULL;
+		case MYQTT_PUBLISH_CONN_CLOSE:
+			/* connection close */
+			myqtt_log (MYQTT_LEVEL_WARNING, "On publish handler reported to close connection for msg-id=%d from conn-id=%d from %s:%s, closing connection..", 
+				   msg->id, conn->id, conn->host, conn->port);
+			myqtt_msg_unref (msg);
+			myqtt_conn_shutdown (conn);
+			return NULL;
+		} /* end if */
 	} /* end if */
 
 	/**** SERVER HANDLING ****/
@@ -1233,40 +1257,6 @@ void myqtt_reader_foreach_impl (MyQttCtx        * ctx,
 	myqtt_async_queue_push (data->notify, INT_TO_PTR (1));
 
 	return;
-}
-
-/**
- * @internal Function that checks if there are a global msg received
- * handler configured on the context provided and, in the case it is
- * defined, the msg is delivered to that handler.
- *
- * @param ctx The context to check for a global msg received.
- *
- * @param connection The connection where the msg was received.
- *
- * @param channel The channel where the msg was received.
- *
- * @param msg The msg that was received.
- *
- * @return axl_true in the case the global msg received handler is
- * defined and the msg was delivered on it.
- */
-axl_bool  myqtt_reader_invoke_msg_received       (MyQttCtx    * ctx,
-						  MyQttConn   * connection,
-						  MyQttMsg    * msg)
-{
-	/* check the reference and the handler */
-	if (ctx == NULL || ctx->global_msg_received == NULL)
-		return axl_false;
-	
-	/* no thread activation */
-	ctx->global_msg_received (connection, msg, ctx->global_msg_received_data);
-	
-	/* unref the msg here */
-	myqtt_msg_unref (msg);
-
-	/* return delivered */
-	return axl_true;
 }
 
 /** 

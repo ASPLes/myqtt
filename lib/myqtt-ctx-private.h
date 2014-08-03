@@ -103,11 +103,6 @@ struct _MyQttCtx {
 	MyQttOnFinishHandler             finish_handler;
 	axlPointer                       finish_handler_data;
 
-	/* @internal Handler used to implement global msg received.
-	 */
-	MyQttOnMsgReceived             global_msg_received;
-	axlPointer                       global_msg_received_data;
-
 	/* @internal Handler used to implement global idle
 	   notification */
 	MyQttIdleHandler                 global_idle_handler;
@@ -233,6 +228,10 @@ struct _MyQttCtx {
 	/** references to the on subscribe handler */
 	MyQttOnSubscribeHandler     on_subscribe;
 	axlPointer                  on_subscribe_data;
+
+	/** on publish message */
+	MyQttOnPublish              on_publish;
+	axlPointer                  on_publish_data;
 
 	/*** hash of subscriptions ***/
 	/* subs is a hash where key is the topic filter and it points

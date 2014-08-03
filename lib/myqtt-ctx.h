@@ -59,9 +59,9 @@ axlPointer  myqtt_ctx_get_data                  (MyQttCtx       * ctx,
 						  const char      * key);
 
 /*** global event notificaitons ***/
-void        myqtt_ctx_set_frame_received        (MyQttCtx             * ctx,
-						 MyQttOnMsgReceived     received,
-						 axlPointer             received_user_data);
+void        myqtt_ctx_set_on_publish            (MyQttCtx                       * ctx,
+						 MyQttOnPublish                   on_publish,
+						 axlPointer                       user_data);
 
 void        myqtt_ctx_set_idle_handler          (MyQttCtx                       * ctx,
 						 MyQttIdleHandler                 idle_handler,
@@ -101,8 +101,6 @@ void        myqtt_ctx_set_on_finish        (MyQttCtx              * ctx,
 					     axlPointer               user_data);
 
 void        myqtt_ctx_check_on_finish      (MyQttCtx * ctx);
-
-void        myqtt_ctx_reinit (MyQttCtx * ctx);
 
 void        __myqtt_ctx_set_cleanup (MyQttCtx * ctx);
 

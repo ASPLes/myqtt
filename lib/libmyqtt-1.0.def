@@ -54,6 +54,7 @@ myqtt_conn_get_listener
 myqtt_conn_get_local_addr
 myqtt_conn_get_local_port
 myqtt_conn_get_mss
+myqtt_conn_get_next
 myqtt_conn_get_password
 myqtt_conn_get_pending_msgs
 myqtt_conn_get_port
@@ -124,14 +125,13 @@ myqtt_ctx_notify_idle
 myqtt_ctx_ref
 myqtt_ctx_ref2
 myqtt_ctx_ref_count
-myqtt_ctx_reinit
 myqtt_ctx_remove_cleanup
 myqtt_ctx_set_connect_handler
 myqtt_ctx_set_data
 myqtt_ctx_set_data_full
-myqtt_ctx_set_frame_received
 myqtt_ctx_set_idle_handler
 myqtt_ctx_set_on_finish
+myqtt_ctx_set_on_publish
 myqtt_ctx_unref
 myqtt_ctx_unref2
 myqtt_errno_get_error
@@ -229,6 +229,7 @@ myqtt_msg_get_id
 myqtt_msg_get_next
 myqtt_msg_get_payload
 myqtt_msg_get_payload_size
+myqtt_msg_get_topic
 myqtt_msg_get_type
 myqtt_msg_get_type_str
 myqtt_msg_receive_raw
@@ -244,7 +245,6 @@ myqtt_reader_connections_watched
 myqtt_reader_foreach
 myqtt_reader_foreach_impl
 myqtt_reader_foreach_offline
-myqtt_reader_invoke_msg_received
 myqtt_reader_notify_change_done_io_api
 myqtt_reader_notify_change_io_api
 myqtt_reader_read_pending

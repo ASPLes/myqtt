@@ -697,6 +697,56 @@ axl_bool test_05 (void) {
 	printf ("Test 05: releasing context..\n");
 	myqtt_exit_ctx (ctx, axl_true);
 
+	return axl_true;
+}
+
+axl_bool test_06 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	MyQttMsg        * msg;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 06: creating connection..\n");
+
+	/* now connect to the listener:
+	   client_identifier -> test_05
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	conn = myqtt_conn_new (ctx, "test_06.identifier", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* call to get client identifier */
+	if (! myqtt_conn_pub (conn, "myqtt/admin/get-client-identifier", "", 0, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message to get client identifier..\n");
+		return axl_false;
+	} /* end if */
+
+	/* push a message to ask for clientid identifier */
+	msg   = myqtt_conn_get_next (conn, 10000);
+
+	printf ("Test 06: message reference is: %p (%s)\n", msg, (const char *) myqtt_msg_get_app_msg (msg));
+	if (! axl_cmp ("test_06.identifier", (const char *) myqtt_msg_get_app_msg (msg))) {
+		printf ("ERROR: expected client identifier test_06.identifier, but found: %s\n", (const char *) myqtt_msg_get_app_msg (msg));
+		return axl_false;
+	} /* end if */
+
+	/* call to release message */
+	myqtt_msg_unref (msg);
+
+	/* close connection */
+	printf ("Test 06: closing connection..\n");
+	myqtt_conn_close (conn);
+
+	/* release context */
+	printf ("Test 06: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
 
 
 	return axl_true;

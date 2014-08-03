@@ -803,8 +803,32 @@ typedef enum {
 	MYQTT_PARAM_8BIT_INT       = 4,
 } MyQttParamType;
 
+/** 
+ * @brief Return codes used for \ref MyQttOnPublish handler. 
+ */
+typedef enum {
+	/** 
+	 * @brief Reports to the engine that the publish operation can continue.
+	 */
+	MYQTT_PUBLISH_OK = 1,
+	/** 
+	 * @brief Reports to the engine that the message must be
+	 * discarded and to skip any publish/relay. Note MQTT protocol
+	 * does not have any support to notify a PUBLISH denial. In
+	 * this case, the engine will just unref the message without
+	 * taking any further action (including publishing it to
+	 * subscribers).
+	 */
+	MYQTT_PUBLISH_DISCARD = 2,
+	/** 
+	 * @brief Close publisher's connection.
+	 */
+	MYQTT_PUBLISH_CONN_CLOSE = 3,
+} MyQttPublishCodes;
 
-/**
+/***** INTERNAL TYPES: don't use them because they may change at any time without change API notification ****/
+
+/** 
  * @internal
  */
 typedef struct _MyQttSequencerData {

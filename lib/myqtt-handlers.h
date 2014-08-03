@@ -126,7 +126,7 @@ typedef void (*MyQttConnNew) (MyQttConn * connection, axlPointer user_data);
  * 
  * @return     How many data was actually sent.
  */
-typedef int      (*MyQttSendHandler)         (MyQttConn           * connection,
+typedef int      (*MyQttSend)                (MyQttConn           * connection,
 					      const unsigned char * buffer,
 					      int                   buffer_len);
 
@@ -143,7 +143,7 @@ typedef int      (*MyQttSendHandler)         (MyQttConn           * connection,
  * 
  * @return How many data was actually received.
  */
-typedef int      (*MyQttReceiveHandler)         (MyQttConn          * connection,
+typedef int      (*MyQttReceive)                (MyQttConn          * connection,
 						 unsigned char      * buffer,
 						 int                  buffer_len);
 
@@ -586,6 +586,33 @@ typedef MyQttConnAckTypes (*MyQttOnConnectHandler) (MyQttCtx * ctx, MyQttConn * 
  * 
  */
 typedef MyQttQos          (*MyQttOnSubscribeHandler) (MyQttCtx * ctx, MyQttConn * conn, const char * topic_filter, MyQttQos qos, axlPointer user_data);
+
+/** 
+ * @brief Async notification handler that gets called once a PUBLISH
+ * message is received on a listener connection. This handler allows
+ * to control message publication to currently registered connection
+ * with general options and/or to implement especific actions upon
+ * message reception.
+ *
+ * It's important to note that this handler is called before any
+ * publish/relay operation takes place. 
+ *
+ * This handler is used by:
+ *
+ * - \ref myqtt_ctx_set_on_publish
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param conn The connection where the PUBLISH message was received.
+ *
+ * @param msg The message received. The handler must not release message received. It can acquire references to it. 
+ *
+ * @param user_data User defined pointer passed in into the function once it gets called.
+ * 
+ * @return The function must report the publish code to the engine so it can act upon it.
+ *
+ */
+typedef MyQttPublishCodes (*MyQttOnPublish) (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data);
 				      
 #endif
 

@@ -121,17 +121,32 @@ MyQttCtx * myqtt_ctx_new (void)
 	return ctx;
 }
 
-/** 
- * @internal Function used to reinit the MyQttCtx. This function is
- * highly unix dependant.
- */
-void      myqtt_ctx_reinit (MyQttCtx * ctx)
-{
-	myqtt_mutex_create (&ctx->log_mutex);
-	myqtt_mutex_create (&ctx->ref_mutex);
 
-	/* the rest of mutexes are initialized by myqtt_init_ctx. */
-	ctx->ref_count = 1;
+/** 
+ * @brief Allows to install a \ref MyQttOnPublish handler on the
+ * provided context. This is a server side handler (broker). Clients
+ * publishing messages does not get this handler called.
+ *
+ * See \ref MyQttOnPublish for more information.
+ *
+ * @param ctx The context where the operation will take place.
+ *
+ * @param on_publish The handler to be configured.
+ *
+ * @param user_data User defined pointer to be passed in into the
+ * handler every time it gets called.
+ *
+ */
+void        myqtt_ctx_set_on_publish            (MyQttCtx                       * ctx,
+						 MyQttOnPublish                   on_publish,
+						 axlPointer                       user_data)
+{
+	if (ctx == NULL)
+		return;
+
+	/* configure handlers */
+	ctx->on_publish_data = user_data;
+	ctx->on_publish = on_publish;
 
 	return;
 }
@@ -263,36 +278,6 @@ axlPointer  myqtt_ctx_get_data (MyQttCtx       * ctx,
 
 	/* lookup */
 	return myqtt_hash_lookup (ctx->data, (axlPointer) key);
-}
-
-/** 
- * @brief Allows to configure a global frame received handler where
- * all frames are delivered, overriding first and second level
- * handlers. The frame handler is executed using the thread created
- * for the myqtt reader process, that is, without activing a new
- * thread from the pool. This means that the function must not block
- * the caller because no frame will be received until the handler
- * configured on this function finish.
- *
- * @param ctx The context to configure.
- *
- * @param received The handler to configure.
- *
- * @param received_user_data User defined data to be configured
- * associated to the handler. This data will be provided to the frame
- * received handler each time it is activated.
- */
-void      myqtt_ctx_set_frame_received          (MyQttCtx             * ctx,
-						  MyQttOnMsgReceived    received,
-						  axlPointer            received_user_data)
-{
-	v_return_if_fail (ctx);
-	
-	/* configure handler and data even if they are null */
-	ctx->global_msg_received      = received;
-	ctx->global_msg_received_data = received_user_data;
-
-	return;
 }
 
 /** 
