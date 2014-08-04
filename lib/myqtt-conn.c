@@ -1069,6 +1069,14 @@ axl_bool __myqtt_conn_send_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 	if (clean_session)
 		myqtt_set_bit (&flags, 1);
 
+	/* set opts */
+	if (opts && opts->use_auth) {
+		if (opts->username)
+			myqtt_set_bit (&flags, 7);
+		if (opts->password)
+			myqtt_set_bit (&flags, 6);
+	} /* end if */
+
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Sending CONNECT package to %s:%s (conn-id=%d, flags=%x)", conn->host, conn->port, conn->id, flags);
 	
 	size = 0;
@@ -1084,8 +1092,18 @@ axl_bool __myqtt_conn_send_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 				 /* will topic */
 				 /* will message */
 				 /* user */
+				 (opts && opts->use_auth && opts->username) ? MYQTT_PARAM_UTF8_STRING : MYQTT_PARAM_SKIP, opts && opts->username ? strlen (opts->username) : 0, opts ? opts->username : NULL,
 				 /* password */
+				 (opts && opts->use_auth && opts->password) ? MYQTT_PARAM_UTF8_STRING : MYQTT_PARAM_SKIP, opts && opts->password ? strlen (opts->password) : 0, opts ? opts->password : NULL,
 				 MYQTT_PARAM_END);
+
+	/* in any case, remove this password from memory if defined */
+	if (opts && opts->password) {
+		axl_free (opts->password);
+		opts->password = NULL;
+	} /* end if */
+
+	/* now check myqtt_msg_build () result */
 	if (msg == NULL || size == 0) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create CONNECT message, empty/NULL value reported by myqtt_msg_build()");
 		return axl_false;
@@ -1098,7 +1116,7 @@ axl_bool __myqtt_conn_send_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 		/* call to release */
 		myqtt_msg_free_build (ctx, msg, size);
 		return axl_false;
-	}
+	} /* end if */
 	
 	/* report message sent */
 	myqtt_log (MYQTT_LEVEL_DEBUG, "CONNECT message of %d bytes sent", size);
@@ -1371,6 +1389,10 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 	} /* end if */
 
  report_connection:
+	/* release conn opts if defined and reuse is not set */
+	if (opts && ! opts->reuse)
+		myqtt_conn_opts_free (opts);
+
 	/* call to report connection */
 
 	/* notify on callback or simply return */
@@ -2374,13 +2396,14 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
  * - \ref myqtt_conn_opts_set_will
  *
  * @return The function returns a newly created and empty connection
- * options object or NULL if it fails. You don't have to release it by
- * default because this is done automatically by the connecting
- * function (for example \ref myqtt_conn_new). In the case you want to
- * reuse this connection options object across several calls, please
- * call \ref myqtt_conn_opts_set_reuse. After you are done with those
- * connection options, you can release it by calling to \ref
- * myqtt_conn_opts_free.
+ * options object or NULL if it fails. 
+ *
+ * IMPORTANT NOTE: You don't have to release it by default because
+ * this is automatically done by the connecting function (for example
+ * \ref myqtt_conn_new). In the case you want to reuse this connection
+ * options object across several calls, please call \ref
+ * myqtt_conn_opts_set_reuse. After you are done with those connection
+ * options, you can release it by calling to \ref myqtt_conn_opts_free.
  */
 MyQttConnOpts     * myqtt_conn_opts_new (void) {
 	/* create an empty connection option object */
@@ -2419,10 +2442,14 @@ void                myqtt_conn_opts_set_auth (MyQttConnOpts * opts,
 	} /* end if */
 
 	/* copy values from user space */
-	if (username && password) {
+	if (username) {
 		opts->username = axl_strdup (username);
-		opts->password = axl_strdup (password);
+		/* only use name enables use_auth: that way we support
+		   user password scheme and just user  */
+		opts->use_auth = axl_true;
 	} /* end if */
+	if (password) 
+		opts->password = axl_strdup (password);
 
 	return;
 }
@@ -3288,9 +3315,16 @@ const char *        myqtt_conn_get_username           (MyQttConn * conn)
  * @param conn The connection where the operation takes place.
  *
  * @return The password used or NULL if the CONNECT phase didn't
- * provide a password. For security reasons, the function won't return
+ * provide a password. 
+ *
+ * <b>SECURITY NOTE</b>: For security reasons, the function won't return
  * the password (if any) after the CONNECT method completes. The
- * function also reports NULL when conn reference received is NULL.
+ * function also reports NULL when conn reference received is NULL. 
+ *
+ * <b>IMPORTANT NOTE</b>: In the case the function returns a value, it
+ * shouldn't be used after \ref MyQttOnConnectHandler is called (if
+ * defined that handler) and/or after the connection is completely
+ * accepted.
  */
 const char *        myqtt_conn_get_password           (MyQttConn * conn)
 {
@@ -4109,6 +4143,7 @@ void __myqtt_conn_queue_msgs (MyQttConn * conn, MyQttMsg * msg, axlPointer data)
  * NOTE: the function will replace the \ref MyQttOnMsgReceived handler
  * that was previously configured by \ref myqtt_conn_set_on_msg but it
  * will be restored once the function finishes.
+ *
  */
 MyQttMsg *             myqtt_conn_get_next (MyQttConn * conn, long timeout)
 {

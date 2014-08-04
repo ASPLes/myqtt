@@ -346,6 +346,11 @@ unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 			} /* end if */
 
 			break;
+		case MYQTT_PARAM_SKIP:
+			/* remove next parameters that aren't going to be used */
+			va_arg (args, int);
+			va_arg (args, const char * );
+			break;
 		default:
 			break;
 		}
@@ -483,6 +488,10 @@ unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 			memcpy (result + 1 + iterator, ref, ref_size);
 			iterator += ref_size;
 
+			break;
+		case MYQTT_PARAM_SKIP:
+			va_arg (args, int);
+			va_arg (args, const char *);
 			break;
 		default:
 			break;

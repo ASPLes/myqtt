@@ -70,7 +70,13 @@ typedef struct _MyQttReaderData {
 	/* queue used to notify that the foreach operation was
 	 * finished: currently only used for type == FOREACH */
 	MyQttAsyncQueue   * notify;
-}MyQttReaderData;
+} MyQttReaderData;
+
+/**  
+ * @internal handler definition for all myqtt reader handlers that
+ * manages incoming MQTT packets.
+ */
+typedef void (*MyQttReaderHandler) (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data);
 
 /** 
  * @internal Internal function that allows to get the utf-8 string
@@ -116,33 +122,72 @@ char * __myqtt_reader_get_utf8_string (MyQttCtx * ctx, const unsigned char * pay
 
 typedef struct _MyQttReaderAsyncData {
 
-	MyQttMsg  * msg;
-	MyQttConn * conn;
+	MyQttMsg            * msg;
+	MyQttConn           * conn;
+	MyQttReaderHandler    func;
 
 } MyQttReaderAsyncData;
+
+axlPointer __myqtt_reader_async_run_proxy (axlPointer _data)
+{
+	MyQttReaderAsyncData * data = _data;
+	MyQttCtx             * ctx  = data->conn->ctx;
+	
+	/* call function */
+	data->func (ctx, data->conn, data->msg, NULL);
+
+	/* release references during the operation */
+	myqtt_msg_unref (data->msg);
+	myqtt_conn_unref (data->conn, "async-run-proxy");
+	myqtt_ctx_unref (&ctx);
+
+	/* release data */
+	axl_free (data);
+
+	/* return value expected by threaded handler */
+	return NULL;
+}
 
 /** 
  * @internal Function used to create MyQttReaderData that is to convey
  * (conn, msg) into the threaded function and then call if everything
  * went ok during memory allocation.
  */
-void __myqtt_reader_async_run (MyQttConn * conn, MyQttMsg * msg, MyQttThreadFunc func) 
+void __myqtt_reader_async_run (MyQttConn * conn, MyQttMsg * msg, MyQttReaderHandler func) 
 {
 	MyQttReaderAsyncData * data;
 	MyQttCtx             * ctx = conn->ctx;
 
-	/* acquire a reference to the message */
-	if (! myqtt_msg_ref (msg)) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create reader data to handle incoming request");
+	if (! myqtt_ctx_ref (ctx)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to grab reference to the context for async handler activation, unable to handle incoming request");
 		return;
 	} /* end if */
 
+	/* acquire a reference to the message */
+	if (! myqtt_msg_ref (msg)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create reader data to handle incoming request");
+
+		myqtt_ctx_unref (&ctx);
+		return;
+	} /* end if */
+
+	if (! myqtt_conn_ref (conn, "async-run-proxy")) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to handle incoming request, failed to acquire connection refere");
+
+		myqtt_msg_unref (msg);
+		myqtt_ctx_unref (&ctx);
+		return;
+	} /* end if */
+
+	/* create data to pass it into the thread pool */
 	data = axl_new (MyQttReaderAsyncData, 1);
 	if (data == NULL) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create reader data to handle incoming request");
 
 		/* reduce message reference previously acquired */
 		myqtt_msg_unref (msg);
+		myqtt_ctx_unref (&ctx);
+		myqtt_conn_unref (conn, "async-run-proxy");
 
 		return;
 	} /* end if */
@@ -150,9 +195,10 @@ void __myqtt_reader_async_run (MyQttConn * conn, MyQttMsg * msg, MyQttThreadFunc
 	/* pack all data and call function */
 	data->conn = conn;
 	data->msg  = msg;
+	data->func = func;
 
 	/* run task */
-	myqtt_thread_pool_new_task (ctx, func, data);
+	myqtt_thread_pool_new_task (ctx, __myqtt_reader_async_run_proxy, data);
 
 	return;
 }
@@ -206,14 +252,8 @@ axl_bool __myqtt_reader_check_client_id (MyQttCtx * ctx, MyQttConn * conn, MyQtt
 	return axl_true; /* no problem found */
 }
 
-axlPointer __myqtt_reader_handle_connect (axlPointer _data) 
+void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data) 
 {
-	/* common parameters */
-	MyQttReaderAsyncData   * data = _data;
-	MyQttMsg               * msg  = data->msg;
-	MyQttConn              * conn = data->conn;
-	MyQttCtx               * ctx  = msg->ctx;
-
 	/** 
 	 * By default all connections are accepted. User application
 	 * can set their own handler to control this.
@@ -223,8 +263,6 @@ axlPointer __myqtt_reader_handle_connect (axlPointer _data)
 	unsigned char     * reply;
 	int                 size;
 
-	axl_free (data);
-
 	/* const char * username = NULL;
 	   const char * password = NULL; */
 
@@ -232,8 +270,7 @@ axlPointer __myqtt_reader_handle_connect (axlPointer _data)
 	if (conn->connect_received) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received second CONNECT request, protocol violation, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
-		myqtt_msg_unref (msg);
-		return NULL;
+		return;
 	} /* end if */
 
 	/* flag that CONNECT message was received over this connection */
@@ -243,8 +280,7 @@ axlPointer __myqtt_reader_handle_connect (axlPointer _data)
 	if (! axl_memcmp ((const char * ) msg->payload + 2, "MQTT", 4)) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to receive MQTT indication, but found something different, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
-		myqtt_msg_unref (msg);
-		return NULL;
+		return;
 	} /* end if */
 
 	/* check protocol level */
@@ -263,16 +299,18 @@ axlPointer __myqtt_reader_handle_connect (axlPointer _data)
 	if (! conn->client_identifier) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined client identifier, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
-		myqtt_msg_unref (msg);
-		return NULL;
+		return;
+	} /* end if */
+
+	/* only update desp if client_identifier is defined */
+	if (conn->client_identifier) {
+		/* update desp */
+		desp += (strlen (conn->client_identifier) + 2);
 	} /* end if */
 
 	/* check client identifier */
 	if (! __myqtt_reader_check_client_id (ctx, conn, msg, &response)) 
 		goto connect_send_reply;
-
-	/* update desp */
-	desp += (strlen (conn->client_identifier) + 2);
 
 	/* now get the will topic if indicated */
 	if (myqtt_get_bit (msg->payload[7], 2)) {
@@ -281,8 +319,7 @@ axlPointer __myqtt_reader_handle_connect (axlPointer _data)
 		if (! conn->will_topic) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined will topic, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 			myqtt_conn_shutdown (conn);
-			myqtt_msg_unref (msg);
-			return NULL;
+			return;
 		} /* end if */
 
 		/* update desp */
@@ -293,8 +330,7 @@ axlPointer __myqtt_reader_handle_connect (axlPointer _data)
 		if (! conn->will_msg) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined will msg, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 			myqtt_conn_shutdown (conn);
-			myqtt_msg_unref (msg);
-			return NULL;
+			return;
 		} /* end if */
 
 		/* update desp */
@@ -308,8 +344,7 @@ axlPointer __myqtt_reader_handle_connect (axlPointer _data)
 		if (! conn->username) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined username, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 			myqtt_conn_shutdown (conn);
-			myqtt_msg_unref (msg);
-			return NULL;
+			return;
 		} /* end if */
 
 		/* update desp */
@@ -323,8 +358,7 @@ axlPointer __myqtt_reader_handle_connect (axlPointer _data)
 		if (! conn->password) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined username, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 			myqtt_conn_shutdown (conn);
-			myqtt_msg_unref (msg);
-			return NULL;
+			return;
 		} /* end if */
 
 		/* update desp */
@@ -355,8 +389,7 @@ axlPointer __myqtt_reader_handle_connect (axlPointer _data)
 	/* handle deferred responses */
 	if (response == MYQTT_CONNACK_DEFERRED) {
 		myqtt_log (MYQTT_LEVEL_DEBUG, "CONNECT decision deferred");
-		myqtt_msg_unref (msg);
-		return NULL;
+		return;
 	} /* end if */
 
 connect_send_reply:
@@ -382,19 +415,11 @@ connect_send_reply:
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Connection conn-id=%d accepted from %s:%s", conn->id, conn->host, conn->port);
 	} /* end if */
 
-	/* release message */
-	myqtt_msg_unref (msg);
 
-	return NULL;
+	return;
 }
 
-axlPointer __myqtt_reader_handle_subscribe (axlPointer _data) {
-
-	/* common parameters */
-	MyQttReaderAsyncData   * data = _data;
-	MyQttMsg               * msg  = data->msg;
-	MyQttConn              * conn = data->conn;
-	MyQttCtx               * ctx  = msg->ctx;
+void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _data) {
 
 	/* local parameters */
 	int                      packet_id;
@@ -408,19 +433,13 @@ axlPointer __myqtt_reader_handle_subscribe (axlPointer _data) {
 	axlHash                * hash;
 	axlHash                * conn_hash;
 
-	/* release reader data */
-	axl_free (data);
-
 	/* check if this is a listener */
 	if (conn->role != MyQttRoleListener) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received SUBSCRIBE request over a connection that is not a listener from conn-id=%d from %s:%s, closing connection..", 
 			   conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
 
-		/* release message */
-		myqtt_msg_unref (msg);
-
-		return NULL;
+		return;
 	} /* end if */
 
 	/* get packet id */
@@ -437,10 +456,7 @@ axlPointer __myqtt_reader_handle_subscribe (axlPointer _data) {
 			myqtt_conn_shutdown (conn);
 			axl_free (replies_mem);
 
-			/* release message */
-			myqtt_msg_unref (msg);
-
-			return NULL;
+			return;
 		} /* end if */
 
 		/* increase desp */
@@ -452,13 +468,10 @@ axlPointer __myqtt_reader_handle_subscribe (axlPointer _data) {
 			myqtt_conn_shutdown (conn);
 			axl_free (replies_mem);
 
-			/* release message */
-			myqtt_msg_unref (msg);
-
 			/* release topic filter */
 			axl_free (topic_filter);
 
-			return NULL;
+			return;
 		}
 
 		/* get qos */
@@ -546,10 +559,7 @@ axlPointer __myqtt_reader_handle_subscribe (axlPointer _data) {
 		myqtt_conn_shutdown (conn);
 		axl_free (replies_mem);
 
-		/* release message */
-		myqtt_msg_unref (msg);
-
-		return NULL;
+		return;
 
 	} /* end if */
 	
@@ -580,10 +590,7 @@ axlPointer __myqtt_reader_handle_subscribe (axlPointer _data) {
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Sent SUBACK reply to conn-id=%d at %s:%s..", conn->id, conn->host, conn->port);
 
-	/* release message */
-	myqtt_msg_unref (msg);
-
-	return NULL;
+	return;
 }
 
 void __myqtt_reader_handle_disconnect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * conn)
@@ -596,16 +603,9 @@ void __myqtt_reader_handle_disconnect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn
 	return;
 }
 
-axlPointer __myqtt_reader_handle_wait_reply (axlPointer _data)
+void __myqtt_reader_handle_wait_reply (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _data)
 {
 	MyQttAsyncQueue        * queue;
-	MyQttReaderAsyncData   * data = _data;
-	MyQttMsg               * msg  = data->msg;
-	MyQttConn              * conn = data->conn;
-	MyQttCtx               * ctx  = msg->ctx;
-
-	/* release reader data */
-	axl_free (data);
 
  	/* check if this is a listener */
 	if (conn->role != MyQttRoleInitiator) {
@@ -616,10 +616,7 @@ axlPointer __myqtt_reader_handle_wait_reply (axlPointer _data)
 		else if (msg->type == MYQTT_PINGRESP)
 			myqtt_conn_report_and_close (conn, "Received PINGRESP request over a connection that is not an initiator");
 
-		/* release message */
-		myqtt_msg_unref (msg);
-
-		return NULL;
+		return;
 	} /* end if */
 
 	if ((msg->type == MYQTT_SUBACK && msg->size < 3) || (msg->type == MYQTT_UNSUBACK && msg->size < 2) || (msg->type == MYQTT_PINGRESP && msg->size != 0) ) {
@@ -632,10 +629,7 @@ axlPointer __myqtt_reader_handle_wait_reply (axlPointer _data)
 		else if (msg->type == MYQTT_PINGRESP)
 			myqtt_conn_report_and_close (conn, "Received poorly formed PINGRESP request that contains unexpected content");
 
-		/* release message */
-		myqtt_msg_unref (msg);
-
-		return NULL;
+		return;
 	} /* end if */
 
 	/* get packet id */
@@ -665,28 +659,20 @@ axlPointer __myqtt_reader_handle_wait_reply (axlPointer _data)
 				   myqtt_msg_get_type_str (msg), msg->packet_id);
 		} /* end if */
 
-		/* release message */
-		myqtt_msg_unref (msg);
-
-		return NULL;
+		return;
 	} /* end if */
 
 	/* acquire reference and push content */
+	myqtt_msg_ref (msg);
 	myqtt_async_queue_push (queue, msg);
 
 	/* NOTE: do not call to release myqtt_msg_unref because we are "delegating" this reference to the queue waiter */
 
-	return NULL;
+	return;
 }
 
-axlPointer __myqtt_reader_handle_unsubscribe (axlPointer _data)
+void __myqtt_reader_handle_unsubscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _data)
 {
-	/* common variables */
-	MyQttReaderAsyncData   * data = _data;
-	MyQttMsg               * msg  = data->msg;
-	MyQttCtx               * ctx  = msg->ctx;
-	MyQttConn              * conn = data->conn;
-
 	/* local parameters */
 	int                      packet_id;
 	char                   * topic_filter;
@@ -695,19 +681,13 @@ axlPointer __myqtt_reader_handle_unsubscribe (axlPointer _data)
 	unsigned char          * reply;
 	int                      size;
 
-	/* release reader data */
-	axl_free (data);	
-
 	/* check if this is a listener */
 	if (conn->role != MyQttRoleListener) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received UNSUBSCRIBE request over a connection that is not a listener from conn-id=%d from %s:%s, closing connection..", 
 			   conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
 
-		/* release message */
-		myqtt_msg_unref (msg);
-
-		return NULL;
+		return;
 	} /* end if */
 
 	if (msg->size < 3) {
@@ -715,10 +695,7 @@ axlPointer __myqtt_reader_handle_unsubscribe (axlPointer _data)
 			   conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
 
-		/* release message */
-		myqtt_msg_unref (msg);
-
-		return NULL;
+		return;
 	} /* end if */
 
 	/* get packet id */
@@ -733,9 +710,7 @@ axlPointer __myqtt_reader_handle_unsubscribe (axlPointer _data)
 				   conn->id, conn->host, conn->port);
 			myqtt_conn_shutdown (conn);
 			
-			/* release message */
-			myqtt_msg_unref (msg);
-			return NULL;
+			return;
 		} /* end if */
 
 		/* increase desp */
@@ -788,9 +763,7 @@ axlPointer __myqtt_reader_handle_unsubscribe (axlPointer _data)
 			   conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
 			
-		/* release message */
-		myqtt_msg_unref (msg);
-		return NULL;
+		return;
 	} /* end if */
 
 	/* send message */
@@ -799,37 +772,26 @@ axlPointer __myqtt_reader_handle_unsubscribe (axlPointer _data)
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Sent UNSUBACK reply to conn-id=%d at %s:%s..", conn->id, conn->host, conn->port);
 
-	/* release message */
-	myqtt_msg_unref (msg);
-
 	/* free reply */
 	/* myqtt_msg_free_build (ctx, reply, size); */
 
-	return NULL;
+	return;
 }
 
 
 /** 
  * @internal PUBLISH handling..
  */
-axlPointer __myqtt_reader_handle_publish (axlPointer _data)
+void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _data)
 {
 
-	/* common variables */
-	MyQttReaderAsyncData   * data = _data;
-	MyQttMsg               * msg  = data->msg;
-	MyQttCtx               * ctx  = msg->ctx;
-	MyQttConn              * conn = data->conn;
-	MyQttQos                 qos;
 
 	/* local variables */
+	MyQttQos                 qos;
 	axlHash                * conn_hash;
 	int                      desp = 0;
 	axlHashCursor          * cursor;
 	MyQttPublishCodes        pub_codes;
-
-	/* release reader data */
-	axl_free (data);
 
 	/* parse content received inside message */
 	msg->topic_name = __myqtt_reader_get_utf8_string (ctx, msg->payload, msg->size);
@@ -837,10 +799,7 @@ axlPointer __myqtt_reader_handle_publish (axlPointer _data)
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received PUBLISH message without topic name closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
 
-		/* release reference acquired */
-		myqtt_msg_unref (msg);
-
-		return NULL;
+		return;
 	} /* end if */
 
 	/* increase desp */
@@ -867,10 +826,8 @@ axlPointer __myqtt_reader_handle_publish (axlPointer _data)
 		/* call to notify message */
 		if (conn->on_msg)
 			conn->on_msg (conn, msg, conn->on_msg_data);
-		
-		/* release reference acquired */
-		myqtt_msg_unref (msg);
-		return NULL;
+
+		return;
 	} /* end if */
 
 	if (ctx->on_publish) {
@@ -884,15 +841,13 @@ axlPointer __myqtt_reader_handle_publish (axlPointer _data)
 			/* releaes message and return */
 			myqtt_log (MYQTT_LEVEL_WARNING, "On publish handler reported to discard msg-id=%d from conn-id=%d from %s:%s", 
 				   msg->id, conn->id, conn->host, conn->port);
-			myqtt_msg_unref (msg);
-			return NULL;
+			return;
 		case MYQTT_PUBLISH_CONN_CLOSE:
 			/* connection close */
 			myqtt_log (MYQTT_LEVEL_WARNING, "On publish handler reported to close connection for msg-id=%d from conn-id=%d from %s:%s, closing connection..", 
 				   msg->id, conn->id, conn->host, conn->port);
-			myqtt_msg_unref (msg);
 			myqtt_conn_shutdown (conn);
-			return NULL;
+			return;
 		} /* end if */
 	} /* end if */
 
@@ -944,36 +899,21 @@ axlPointer __myqtt_reader_handle_publish (axlPointer _data)
 	ctx->publish_ops--;
 	myqtt_mutex_unlock (&ctx->subs_m);
 
-	/* release reference acquired */
-	myqtt_msg_unref (msg);
-	
-	return NULL;
+	return;
 }
 
-axlPointer __myqtt_reader_handle_pingreq (axlPointer _data)
+void __myqtt_reader_handle_pingreq (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _data)
 {
-	/* common parameters */
-	MyQttReaderAsyncData   * data = _data;
-	MyQttMsg               * msg  = data->msg;
-	MyQttConn              * conn = data->conn;
-	MyQttCtx               * ctx  = msg->ctx;
-
 	/* local variables */
 	unsigned char          * reply;
 	int                      size;
-
-	/* release reader data */
-	axl_free (data);
-
-	/* release message */
-	myqtt_msg_unref (msg);
 
 	/* check if this is a listener */
 	if (conn->role != MyQttRoleListener) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received PINGREQ request over a connection that is not a listener from conn-id=%d from %s:%s, closing connection..", 
 			   conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
-		return NULL;
+		return;
 	} /* end if */
 
 	/* myqtt_msg_free_build (ctx, reply, size); */
@@ -983,7 +923,7 @@ axlPointer __myqtt_reader_handle_pingreq (axlPointer _data)
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to allocate memory required for PINGRESP reply for conn-id=%d from %s:%s, closing connection..", 
 			   conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
-		return NULL;
+		return;
 	} /* end if */
 
 	/* send message */
@@ -995,44 +935,14 @@ axlPointer __myqtt_reader_handle_pingreq (axlPointer _data)
 	/* free reply */
 	/* myqtt_msg_free_build (ctx, reply, size); */
 
-	return NULL;
+	return;
 }
 
 
 /** 
  * @internal
- * 
- * The main purpose of this function is to dispatch received msgs
- * into the appropriate channel. It also makes all checks to ensure the
- * msg receive have all indicators (seqno, channel, message number,
- * payload size correctness,..) to ensure the channel receive correct
- * msgs and filter those ones which have something wrong.
- *
- * This function also manage msg fragment joining. There are two
- * levels of msg fragment managed by the myqtt reader.
- * 
- * We call the first level of fragment, the one described at RFC3080,
- * as the complete msg which belongs to a group of msgs which
- * conform a message which was splitted due to channel window size
- * restrictions.
- *
- * The second level of fragment happens when the myqtt reader receive
- * a msg header which describes a msg size payload to receive but
- * not all payload was actually received. This can happen because
- * myqtt uses non-blocking socket configuration so it can avoid DOS
- * attack. But this behavior introduce the asynchronous problem of
- * reading at the moment where the whole msg was not received.  We
- * call to this internal msg fragmentation. It is also supported
- * without blocking to myqtt reader.
- *
- * While reading this function, you have to think about it as a
- * function which is executed for only one msg, received inside only
- * one channel for the given connection.
- *
- * @param connection the connection which have something to be read
- * 
  **/
-void __myqtt_reader_process_socket (MyQttCtx        * ctx, 
+void __myqtt_reader_process_socket (MyQttCtx  * ctx, 
 				    MyQttConn * conn)
 {
 
@@ -2213,10 +2123,6 @@ axl_bool __myqtt_reader_configure_conn (axlPointer ptr, axlPointer data)
 
 /** 
  * @internal
- * 
- * Creates the reader thread process. It will be waiting for any
- * connection that have changed to read its connect and send it
- * appropriate channel reader.
  * 
  * @return The function returns axl_true if the myqtt reader was started
  * properly, otherwise axl_false is returned.

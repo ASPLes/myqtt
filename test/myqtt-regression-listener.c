@@ -109,21 +109,69 @@ MyQttCtx * init_ctx (void)
 	return ctx;
 }
 
+void __listener_sleep (long microseconds)
+{
+	MyQttAsyncQueue * queue;	
+	queue = myqtt_async_queue_new ();
+	myqtt_async_queue_timedpop (queue, microseconds);
+	myqtt_async_queue_unref (queue);
+	return;
+}
+
 MyQttPublishCodes on_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 {
-	const char * client_id;
+	const char      * client_id;
+
+
+	/* get current client identifier */
 	if (axl_cmp ("myqtt/admin/get-client-identifier", myqtt_msg_get_topic (msg))) {
+		/* implement a wait so the caller can catch with myqtt_conn_get_nex () */
+		__listener_sleep (1000000); /* 1 second */
 
 		/* found administrative request, report this information and block publication */
 		client_id = myqtt_conn_get_client_id (conn);
 		if (! myqtt_conn_pub (conn, "myqtt/admin/get-client-identifier", (axlPointer) client_id, strlen (client_id), MYQTT_QOS_0, axl_false, 0)) 
 			printf ("ERROR: failed to publish get-client-identifier..\n");
-		return MYQTT_PUBLISH_DISCARD;
-	}
+		return MYQTT_PUBLISH_DISCARD; /* report received PUBLISH should be discarded */
+	} /* end if */
+
+	/* get current user con */
+	if (axl_cmp ("myqtt/admin/get-conn-user", myqtt_msg_get_topic (msg))) {
+		/* implement a wait so the caller can catch with myqtt_conn_get_nex () */
+		__listener_sleep (1000000); /* 1 second */
+
+		if (! myqtt_conn_pub (conn, "myqtt/admin/get-conn-user", (axlPointer) myqtt_conn_get_username (conn), strlen (myqtt_conn_get_username (conn)), MYQTT_QOS_0, axl_false, 0))
+			printf ("ERROR: failed to publish get-conn-user..\n");
+		return MYQTT_PUBLISH_DISCARD; /* report received PUBLISH should be discarded */
+	} /* end if */
 
 	/* by default allow all publish operations */
 	return MYQTT_PUBLISH_OK;
 }
+
+/** 
+ * @brief On connect function used to check and accept/reject
+ * connections to this instance.
+ */
+MyQttConnAckTypes on_connect (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_data)
+{
+	/* check support for auth operations */
+	const char * username = myqtt_conn_get_username (conn);
+	const char * password = myqtt_conn_get_password (conn);
+
+	/* check for user and password (if provided).  */
+	if (username && password) {
+		if (! axl_cmp (username, "aspl") || !axl_cmp (password, "test")) {
+			/* user and/or password is wrong */
+			return MYQTT_CONNACK_BAD_USERNAME_OR_PASSWORD;
+		}
+	} /* end if */
+
+	/* report connection accepted */
+	return MYQTT_CONNACK_ACCEPTED;
+
+} /* end on_connect */
+
 
 /** 
  * @brief General regression test to check all features inside myqtt
@@ -166,6 +214,7 @@ int main (int argc, char ** argv)
 
 	/* install on publish handler */
 	myqtt_ctx_set_on_publish (ctx, on_publish, NULL);
+	myqtt_ctx_set_on_connect (ctx, on_connect, NULL);
 
 	/* wait for listeners */
 	printf ("Ready and accepting connections..OK\n");
