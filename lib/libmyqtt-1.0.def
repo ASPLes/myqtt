@@ -127,10 +127,10 @@ myqtt_ctx_ref
 myqtt_ctx_ref2
 myqtt_ctx_ref_count
 myqtt_ctx_remove_cleanup
-myqtt_ctx_set_connect_handler
 myqtt_ctx_set_data
 myqtt_ctx_set_data_full
 myqtt_ctx_set_idle_handler
+myqtt_ctx_set_on_connect
 myqtt_ctx_set_on_finish
 myqtt_ctx_set_on_publish
 myqtt_ctx_unref

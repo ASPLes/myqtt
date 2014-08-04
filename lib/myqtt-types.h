@@ -813,6 +813,11 @@ typedef enum {
 	 * values up to 255.
 	 */
 	MYQTT_PARAM_8BIT_INT       = 4,
+	/** 
+	 * @internal Special parameter to instruct myqtt_msg_build to
+	 * skip it if received.
+	 */
+	MYQTT_PARAM_SKIP           = 5
 } MyQttParamType;
 
 /** 

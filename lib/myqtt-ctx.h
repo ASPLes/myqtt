@@ -69,9 +69,9 @@ void        myqtt_ctx_set_idle_handler          (MyQttCtx                       
 						 axlPointer                        user_data,
 						 axlPointer                        user_data2);
 
-void        myqtt_ctx_set_connect_handler (MyQttCtx                * ctx, 
-					   MyQttOnConnectHandler     on_connect_handler, 
-					   axlPointer                user_data);
+void        myqtt_ctx_set_on_connect            (MyQttCtx                * ctx, 
+						 MyQttOnConnectHandler     on_connect, 
+						 axlPointer                user_data);
 
 void        myqtt_ctx_notify_idle               (MyQttCtx     * ctx,
 						 MyQttConn    * conn);
@@ -82,9 +82,9 @@ void        myqtt_ctx_install_cleanup           (MyQttCtx * ctx,
 void        myqtt_ctx_remove_cleanup            (MyQttCtx * ctx,
 						  axlDestroyFunc cleanup);
 
-void        myqtt_ctx_ref                       (MyQttCtx  * ctx);
+axl_bool    myqtt_ctx_ref                       (MyQttCtx  * ctx);
 
-void        myqtt_ctx_ref2                      (MyQttCtx  * ctx, const char * who);
+axl_bool    myqtt_ctx_ref2                      (MyQttCtx  * ctx, const char * who);
 
 void        myqtt_ctx_unref                     (MyQttCtx ** ctx);
 

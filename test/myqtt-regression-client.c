@@ -732,7 +732,7 @@ axl_bool test_06 (void) {
 	/* push a message to ask for clientid identifier */
 	msg   = myqtt_conn_get_next (conn, 10000);
 
-	printf ("Test 06: message reference is: %p (%s)\n", msg, (const char *) myqtt_msg_get_app_msg (msg));
+	printf ("Test 06: message reference is: %p (%s) (expecting client identifier)\n", msg, (const char *) myqtt_msg_get_app_msg (msg));
 	if (! axl_cmp ("test_06.identifier", (const char *) myqtt_msg_get_app_msg (msg))) {
 		printf ("ERROR: expected client identifier test_06.identifier, but found: %s\n", (const char *) myqtt_msg_get_app_msg (msg));
 		return axl_false;
@@ -790,6 +790,75 @@ axl_bool test_06 (void) {
 
 	/* release context */
 	printf ("Test 06: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+
+axl_bool test_07 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	MyQttMsg        * msg;
+	MyQttConnOpts   * opts;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 07: creating connection..\n");
+	
+	/* now connect to the listener:
+	   client_identifier -> NULL
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_set_auth (opts, "aspl", "wrong-password");
+	conn = myqtt_conn_new (ctx, NULL, axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected wrong LOGIN but found OK operation to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+
+	printf ("Test 07: login failed, this is expected, so OK\n");
+
+	/* try again login with the right password */
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_set_auth (opts, "aspl", "test");
+	conn = myqtt_conn_new (ctx, NULL, axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: OK LOGIN but found ERROR operation to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 07: login OK, now get auth user..\n");
+
+	/* call to get client identifier */
+	if (! myqtt_conn_pub (conn, "myqtt/admin/get-conn-user", "", 0, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message to get client identifier..\n");
+		return axl_false;
+	} /* end if */
+
+	/* push a message to ask for clientid identifier */
+	msg   = myqtt_conn_get_next (conn, 10000);
+
+	printf ("Test 07: auth user reported is: %p (%s)\n", msg, (const char *) myqtt_msg_get_app_msg (msg));
+	if (! axl_cmp ("aspl", (const char *) myqtt_msg_get_app_msg (msg))) {
+		printf ("ERROR: expected client identifier test_06.identifier, but found: %s\n", (const char *) myqtt_msg_get_app_msg (msg));
+		return axl_false;
+	} /* end if */
+
+	/* call to release message */
+	myqtt_msg_unref (msg);
+
+	printf ("Test 07: checking server reports the connection is authenticated..\n");
+
+	/* close connection */
+	printf ("Test 07: closing connection..\n");
+	myqtt_conn_close (conn);
+
+	/* release context */
+	printf ("Test 07: releasing context..\n");
 	myqtt_exit_ctx (ctx, axl_true);
 
 	return axl_true;
@@ -878,6 +947,13 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_06")
 	run_test (test_06, "Test 06: check client identifier function");
+
+	CHECK_TEST("test_07")
+	run_test (test_07, "Test 07: check client auth (CONNECT simple auth)");
+
+	/* test will support */
+
+	/* test will support with autentication */
 
 	/* test close connection after subscribing... */
 

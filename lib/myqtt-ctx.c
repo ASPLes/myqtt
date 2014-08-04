@@ -331,10 +331,19 @@ void        myqtt_ctx_set_idle_handler          (MyQttCtx                       
  * @param user_data User defined pointer that will be passed in into
  * the handler when called.
  */
-void                myqtt_ctx_set_connect_handler (MyQttCtx               * ctx, 
-						   MyQttOnConnectHandler    on_connect_handler, 
-						   axlPointer               user_data)
+void                myqtt_ctx_set_on_connect (MyQttCtx               * ctx, 
+					      MyQttOnConnectHandler    on_connect, 
+					      axlPointer               user_data)
 {
+	if (ctx == NULL)
+		return;
+
+	/* set data in a consistent manner */
+	myqtt_mutex_lock (&ctx->ref_mutex);
+	ctx->on_connect_data = user_data;
+	ctx->on_connect      = on_connect;
+	myqtt_mutex_unlock (&ctx->ref_mutex);
+
 	return;
 }
 
@@ -455,11 +464,13 @@ void        myqtt_ctx_remove_cleanup            (MyQttCtx * ctx,
  * instance.
  *
  * @param ctx The reference to update its reference count.
+ *
+ * @return axl_true in the case a reference to the context was
+ * acquired, otherwise axl_false is returned.
  */
-void        myqtt_ctx_ref                       (MyQttCtx  * ctx)
+axl_bool        myqtt_ctx_ref                       (MyQttCtx  * ctx)
 {
-	myqtt_ctx_ref2 (ctx, "begin ref");
-	return;
+	return myqtt_ctx_ref2 (ctx, "begin ref");
 }
 
 /** 
@@ -470,21 +481,29 @@ void        myqtt_ctx_ref                       (MyQttCtx  * ctx)
  *
  * @param who An string that identifies this ref. Useful for debuging.
  */
-void        myqtt_ctx_ref2                       (MyQttCtx  * ctx, const char * who)
+axl_bool        myqtt_ctx_ref2                       (MyQttCtx  * ctx, const char * who)
 {
+	int refs;
+
 	/* do nothing */
 	if (ctx == NULL)
-		return;
+		return axl_false;
 
 	/* acquire the mutex */
 	myqtt_mutex_lock (&ctx->ref_mutex);
+	if (ctx->ref_count <= 0) {
+		/* estrange case */
+		myqtt_mutex_unlock (&ctx->ref_mutex);
+		return axl_false;
+	} /* end if */
+
 	ctx->ref_count++;
-
-	myqtt_log (MYQTT_LEVEL_DEBUG, "%s: increased references to MyQttCtx %p (refs: %d)", who, ctx, ctx->ref_count);
-
+	refs = ctx->ref_count;
 	myqtt_mutex_unlock (&ctx->ref_mutex);
 
-	return;
+	myqtt_log (MYQTT_LEVEL_DEBUG, "%s: increased references to MyQttCtx %p (refs: %d)", who, ctx, refs);
+
+	return axl_true;
 }
 
 /** 
