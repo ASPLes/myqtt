@@ -1,0 +1,15 @@
+Differences between MQTT v3.1 and v3.1.1
+
+1) Protocol name has changed
+2) Protocol level has changed
+3) Client IDs MAY contain more than 23 encoded bytes.
+4) Client IDs MAY be empty
+5) Client ID is now restricted to only alphanumeric characters 
+
+6) Check Appendix B for a full list of conformance statements.
+
+7) There is also the "session present" flag in a CONNACK, the concept of
+a failed subscription in a SUBACK, the requirement to validate that
+topics are correct UTF-8 and others I'm sure. All unused flags must be
+set as well.
+
