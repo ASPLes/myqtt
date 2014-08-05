@@ -234,7 +234,7 @@ axl_bool __myqtt_reader_check_client_id (MyQttCtx * ctx, MyQttConn * conn, MyQtt
 
 	/* check if client id is already registered */
 	myqtt_mutex_lock (&ctx->client_ids_m);
-	if (axl_hash_get (ctx->client_ids, conn->client_identifier)) {
+	if (axl_hash_get (ctx->client_ids, conn->client_identifier) || ! myqtt_support_is_utf8 (conn->client_identifier, strlen (conn->client_identifier))) {
 		/* client id found, reject it */
 		(*response) = MYQTT_CONNACK_IDENTIFIER_REJECTED;
 
