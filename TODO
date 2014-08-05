@@ -1,3 +1,6 @@
+* After publishing first or second release, make the way to have myqtt
+  listed under: http://mqtt.org/wiki/doku.php/server_support
+
 * Limit utf-8 strings to avoid memory consumption. It makes no sense
   to have a username or password with 64K long (or the client
   identifier).
