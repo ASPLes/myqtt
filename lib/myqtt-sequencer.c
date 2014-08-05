@@ -176,6 +176,12 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 			conn    = data->conn;
 			rm_conn = axl_false;
 
+			/* check connection is working */
+			if (! myqtt_conn_is_ok (conn, axl_false)) {
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send MQTT message, connection is not working, closing");
+				goto release_message;
+			} /* end if */
+
 			/* write step */
 			if ((data->message_size - data->step) > 4096)
 				size = 4096;
@@ -185,15 +191,16 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 			if (! myqtt_msg_send_raw (conn, data->message + data->step, size)) {
 				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send MQTT message (type: %d, size: %d (total: %d), step: %d) error was errno=%d",  
 					   data->type, size, data->message_size, data->step, myqtt_errno_get_last_error ()); 
-				rm_conn = axl_true;
+				goto release_message;
 			} /* end if */
 			
 			/* increase step */
 			data->step += size;
 
 			/* check if we have finished with this data to be sent */
-			if (data->step == data->message_size || rm_conn) {
+			if (data->step == data->message_size) {
 
+			release_message:
 				/* release connection */
 				myqtt_conn_unref (conn, "sequencer");
 
