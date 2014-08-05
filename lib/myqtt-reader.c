@@ -459,6 +459,16 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg
 			return;
 		} /* end if */
 
+		if (! myqtt_support_is_utf8 (topic_filter, strlen (topic_filter))) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Received SUBSCRIBE message wrong UTF-8 encoding on topic filter closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
+			myqtt_conn_shutdown (conn);
+
+			/* release memory */
+			axl_free (replies_mem);
+			axl_free (topic_filter);
+			return;
+		} /* end if */
+
 		/* increase desp */
 		desp += (strlen (topic_filter) + 2);
 
@@ -784,8 +794,6 @@ void __myqtt_reader_handle_unsubscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttM
  */
 void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _data)
 {
-
-
 	/* local variables */
 	MyQttQos                 qos;
 	axlHash                * conn_hash;
@@ -799,6 +807,12 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received PUBLISH message without topic name closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
 
+		return;
+	} /* end if */
+
+	if (! myqtt_support_is_utf8 (msg->topic_name, strlen (msg->topic_name))) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received PUBLISH message wrong UTF-8 encoding on topic name closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
+		myqtt_conn_shutdown (conn);
 		return;
 	} /* end if */
 

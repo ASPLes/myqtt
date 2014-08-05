@@ -393,6 +393,159 @@ axl_bool  test_00_a (void) {
 	return axl_true;
 }
 
+void test_00_b_check_and_exit (const char * test, axl_bool should_work)
+{
+	if (! myqtt_support_is_utf8 (test, strlen (test))) {
+		if (! should_work) {
+			printf ("Test 00-b: ok, detected as wrong (%s)..\n", test);
+			return;
+		}
+		printf ("ERROR: expected to find utf8 for %s but found it is not UTF-8 as reported by myqtt_support_is_utf8\n", test);
+		exit (-1);
+	}
+	printf ("Test 00-b: %s OK\n", test);
+	return;
+}
+
+axl_bool  test_00_b (void) {
+
+	test_00_b_check_and_exit ("aspl", axl_true);
+
+	test_00_b_check_and_exit ("CamiÃ³n", axl_true);
+
+	test_00_b_check_and_exit ("Ð—Ð´Ñ€Ð°Ð²Ð¾", axl_true);
+
+	test_00_b_check_and_exit ("HÃ¦ Ã¾aÃ°", axl_true);
+	
+	test_00_b_check_and_exit ("€", axl_false);
+
+	test_00_b_check_and_exit ("¿", axl_false);
+
+	test_00_b_check_and_exit ("€¿", axl_false);
+
+	test_00_b_check_and_exit ("€¿€", axl_false);
+
+	test_00_b_check_and_exit ("€¿€¿", axl_false);
+
+	test_00_b_check_and_exit ("€¿€¿€", axl_false);
+
+	test_00_b_check_and_exit ("€¿€¿€¿", axl_false);
+
+	test_00_b_check_and_exit ("€¿€¿€¿€", axl_false);
+
+	test_00_b_check_and_exit ("€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿", axl_false);
+
+	test_00_b_check_and_exit ("À Á Â Ã Ä Å Æ Ç È É Ê Ë Ì Í Î Ï Ð Ñ Ò Ó Ô Õ Ö × Ø Ù Ú Û Ü Ý Þ ß ", axl_false);
+
+	test_00_b_check_and_exit ("à á â ã ä å æ ç è é ê ë ì í î ï ", axl_false);
+
+	test_00_b_check_and_exit ("ð ñ ò ó ô õ ö ÷ ", axl_false);
+
+	test_00_b_check_and_exit ("ø ù ú û ", axl_false);
+
+	test_00_b_check_and_exit ("ü ý ", axl_false);
+
+	test_00_b_check_and_exit ("À", axl_false);
+
+	test_00_b_check_and_exit ("à€", axl_false);
+
+	test_00_b_check_and_exit ("ð€€", axl_false);
+
+	test_00_b_check_and_exit ("ø€€€", axl_false);
+
+	test_00_b_check_and_exit ("ü€€€€", axl_false);
+
+	test_00_b_check_and_exit ("ß", axl_false);
+
+	test_00_b_check_and_exit ("ï¿", axl_false);
+
+	test_00_b_check_and_exit ("÷¿¿", axl_false);
+
+	test_00_b_check_and_exit ("û¿¿¿", axl_false);
+
+	test_00_b_check_and_exit ("ý¿¿¿¿", axl_false);
+
+	test_00_b_check_and_exit ("Àà€ð€€ø€€€ü€€€€ßï¿÷¿¿û¿¿¿ý¿¿¿¿", axl_false);
+
+	test_00_b_check_and_exit ("þ", axl_false);
+
+	test_00_b_check_and_exit ("ÿ", axl_false);
+
+	test_00_b_check_and_exit ("þþÿÿ", axl_false);
+
+	test_00_b_check_and_exit ("À¯", axl_false);
+
+	test_00_b_check_and_exit ("à€¯", axl_false);
+
+	test_00_b_check_and_exit ("ð€€¯", axl_false);
+
+	test_00_b_check_and_exit ("ø€€€¯", axl_false);
+
+	test_00_b_check_and_exit ("ü€€€€¯", axl_false);
+
+	test_00_b_check_and_exit ("Á¿", axl_false);
+
+	test_00_b_check_and_exit ("àŸ¿", axl_false);
+
+	test_00_b_check_and_exit ("ð¿¿", axl_false);
+
+	test_00_b_check_and_exit ("ø‡¿¿¿", axl_false);
+
+	test_00_b_check_and_exit ("üƒ¿¿¿¿", axl_false);
+	
+	test_00_b_check_and_exit ("The following five sequences should also be rejected like malformed           |\
+UTF-8 sequences and should not be treated like the ASCII NUL                  |\
+character.                                                                    |", axl_true);
+
+	test_00_b_check_and_exit ("À€", axl_false);
+
+	test_00_b_check_and_exit ("à€€", axl_false);
+
+	test_00_b_check_and_exit ("ð€€€", axl_false);
+
+	test_00_b_check_and_exit ("ø€€€€", axl_false);
+
+	test_00_b_check_and_exit ("ü€€€€€", axl_false);
+
+	test_00_b_check_and_exit ("í €", axl_false);
+
+	test_00_b_check_and_exit ("í­¿", axl_false);
+
+	test_00_b_check_and_exit ("í®€", axl_false);
+
+	test_00_b_check_and_exit ("í¯¿", axl_false);
+
+	test_00_b_check_and_exit ("í°€", axl_false);
+
+	test_00_b_check_and_exit ("í¾€", axl_false);
+
+	test_00_b_check_and_exit ("í¿¿", axl_false);
+
+	test_00_b_check_and_exit ("í €í°€", axl_false);
+
+	test_00_b_check_and_exit ("í €í¿¿", axl_false);
+
+	test_00_b_check_and_exit ("í­¿í°€", axl_false);
+
+	test_00_b_check_and_exit ("í­¿í¿¿", axl_false);
+
+	test_00_b_check_and_exit ("í®€í°€", axl_false);
+
+	test_00_b_check_and_exit ("í®€í¿¿", axl_false);
+
+	test_00_b_check_and_exit ("í¯¿í°€", axl_false);
+
+	test_00_b_check_and_exit ("í¯¿í¿¿", axl_false);
+
+	test_00_b_check_and_exit ("ï¿¾", axl_false);
+
+	test_00_b_check_and_exit ("ï¿¿", axl_false);
+
+	test_00_b_check_and_exit ("Esto es una prueba para detectar que todo es correcto!", axl_true);
+
+	return axl_true;
+}
+
 axl_bool test_01 (void) {
 
 	MyQttCtx  * ctx = init_ctx ();
@@ -903,7 +1056,7 @@ int main (int argc, char ** argv)
 	printf ("** To gather information about memory consumed (and leaks) use:\n**\n");
 	printf ("**     >> libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes --error-limit=no ./test_01 [--debug]\n**\n");
 	printf ("** Providing --run-test=NAME will run only the provided regression test.\n");
-	printf ("** Available tests: test_00, test_00_a, test_01, test_02, test_03, test_04, test_05\n");
+	printf ("** Available tests: test_00, test_00_a, test_00_b, test_01, test_02, test_03, test_04, test_05\n");
 	printf ("**\n");
 	printf ("** Report bugs to:\n**\n");
 	printf ("**     <myqtt@lists.aspl.es> MyQtt Mailing list\n**\n");
@@ -926,9 +1079,11 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_00")
 	run_test (test_00, "Test 00: generic API function checks");
 
-	/* run tests */
 	CHECK_TEST("test_00_a")
 	run_test (test_00_a, "Test 00-a: test remaining length generation");
+
+	CHECK_TEST("test_00_b")
+	run_test (test_00_b, "Test 00-b: test utf-8 check support");
 
 	CHECK_TEST("test_01")
 	run_test (test_01, "Test 01: basic listener startup and client connection");

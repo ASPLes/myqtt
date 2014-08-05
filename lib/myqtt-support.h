@@ -130,6 +130,9 @@ char   * myqtt_support_inet_ntoa                  (MyQttCtx          * ctx,
 
 int      myqtt_support_pipe                       (MyQttCtx * ctx, int descf[2]);
 
+axl_bool myqtt_support_is_utf8                    (const char * utf8_string, 
+						   int utf8_len);
+
 #define copy_if_not_null(arg) (arg != NULL) ? axl_strdup (arg) : NULL;
 
 /* @} */
