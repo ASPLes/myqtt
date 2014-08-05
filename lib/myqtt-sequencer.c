@@ -55,6 +55,13 @@ axl_bool myqtt_sequencer_queue_data (MyQttCtx * ctx, MyQttSequencerData * data)
 		return axl_false;
 	}
 
+	/* acquire reference to the connection */
+	if (! myqtt_conn_ref (data->conn, "sequencer")) {
+		axl_free (data->message);
+		axl_free (data);
+		return axl_false;
+	} /* end if */
+
 	/* lock connection and queue message */
 	myqtt_mutex_lock (&ctx->pending_messages_m);
 
@@ -186,6 +193,10 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 
 			/* check if we have finished with this data to be sent */
 			if (data->step == data->message_size || rm_conn) {
+
+				/* release connection */
+				myqtt_conn_unref (conn, "sequencer");
+
 				/* release message */
 				axl_free (data->message);
 				data->message = NULL;

@@ -280,6 +280,7 @@ myqtt_support_getenv
 myqtt_support_getenv_int
 myqtt_support_inet_ntoa
 myqtt_support_init
+myqtt_support_is_utf8
 myqtt_support_itoa
 myqtt_support_pipe
 myqtt_support_setenv

@@ -1146,4 +1146,93 @@ axl_bool    myqtt_support_file_test (const char * path, MyQttFileTest test)
 	return result;
 }
 
+axl_bool myqtt_support_is_utf8                    (const char * utf8_string, 
+						   int utf8_len)
+{
+	const unsigned char * bytes = (const unsigned char *) utf8_string;
+	int   iter;
+
+	if (! utf8_string || utf8_len < 0)
+		return axl_false;
+
+
+	iter = 0;
+	while (iter < utf8_len && bytes[iter]) {
+		/* ASCII
+		 * use bytes[0] <= 0x7F to allow ASCII control characters 
+		 */
+		if( (bytes[iter] == 0x09 || bytes[iter] == 0x0A || bytes[iter] == 0x0D || (0x20 <= bytes[iter] && bytes[iter] <= 0x7E))) {
+			iter += 1;
+			continue;
+		} /* end if */
+
+		/* non-overlong 2-byte */
+		if( ((0xC2 <= bytes[iter] && bytes[iter] <= 0xDF) && 
+		     ((iter + 1) < utf8_len) &&
+		     (0x80 <= bytes[iter+1] && bytes[iter+1] <= 0xBF))) {
+			iter += 2;
+			continue;
+		} /* end if */
+
+		
+		if( /* excluding overlongs */
+		    (bytes[iter] == 0xE0 && 
+		     (iter + 1) < utf8_len &&
+		     (0xA0 <= bytes[iter+1] && bytes[iter+1] <= 0xBF) && 
+		     ((iter + 2) < utf8_len) &&
+		     (0x80 <= bytes[iter+2] && bytes[iter+2] <= 0xBF) ) ||
+		    /* straight 3-byte */  
+		    (((0xE1 <= bytes[iter] && bytes[iter] <= 0xEC) || bytes[iter] == 0xEE || bytes[iter] == 0xEF) && 
+		     ((iter + 1) < utf8_len) &&
+		     (0x80 <= bytes[iter+1] && bytes[iter+1] <= 0xBF) && 
+		     ((iter + 2) < utf8_len) &&
+		     (0x80 <= bytes[iter+2] && bytes[iter+2] <= 0xBF)) || 
+		    /* excluding surrogates */
+		    (bytes[iter] == 0xED && 
+		     ((iter + 1) < utf8_len) &&
+		     (0x80 <= bytes[iter+1] && bytes[iter+1] <= 0x9F) && 
+		     ((iter + 2) < utf8_len) &&
+		     (0x80 <= bytes[iter+2] && bytes[iter+2] <= 0xBF))
+			) {
+			iter += 3;
+			continue;
+		} /* end if */
+
+		/* planes 1-3 */
+		if( ( bytes[iter] == 0xF0 && 
+		      ((iter + 1) < utf8_len) &&
+		      (0x90 <= bytes[iter+1] && bytes[iter+1] <= 0xBF) && 
+		      ((iter + 2) < utf8_len) &&
+		      (0x80 <= bytes[iter+2] && bytes[iter+2] <= 0xBF) && 
+		      ((iter + 3) < utf8_len) &&
+		      (0x80 <= bytes[iter+3] && bytes[iter+3] <= 0xBF)) ||
+		    /* planes 4-15 */
+		    ((0xF1 <= bytes[iter] && bytes[iter] <= 0xF3) &&
+		     ((iter + 1) < utf8_len) &&
+		     (0x80 <= bytes[iter+1] && bytes[iter+1] <= 0xBF) &&
+		     ((iter + 2) < utf8_len) &&
+		     (0x80 <= bytes[iter+2] && bytes[iter+2] <= 0xBF) &&
+		     ((iter + 3) < utf8_len) &&
+		     (0x80 <= bytes[iter+3] && bytes[iter+3] <= 0xBF)) ||
+		     /* plane 16 */
+		    (bytes[iter] == 0xF4 &&
+		     ((iter + 1) < utf8_len) &&
+		     (0x80 <= bytes[iter+1] && bytes[iter+1] <= 0x8F) &&
+		     ((iter + 2) < utf8_len) &&
+		     (0x80 <= bytes[iter+2] && bytes[iter+2] <= 0xBF) &&
+		     ((iter + 3) < utf8_len) &&
+		     (0x80 <= bytes[iter+3] && bytes[iter+3] <= 0xBF))
+			) {
+			iter += 4;
+			continue;
+		}
+
+		return axl_false;
+	}
+
+	/* correct utf8 */
+	return axl_true;
+
+}
+
 /* @} */
