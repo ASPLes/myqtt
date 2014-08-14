@@ -1,3 +1,6 @@
+* Make client library to try to connect with 3.1.1 and if it fails, with 
+  3.1.
+
 * After publishing first or second release, make the way to have myqtt
   listed under: http://mqtt.org/wiki/doku.php/server_support
 
