@@ -616,6 +616,18 @@ void __myqtt_reader_handle_disconnect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Received DISCONNECT notification for conn-id=%d from %s:%s, closing connection..", conn->id, conn->host, conn->port);
 	myqtt_conn_shutdown (conn);
 
+	/* skip will publication */
+	if (conn->will_topic) {
+		axl_free (conn->will_topic);
+		conn->will_topic = NULL;
+	} /* end if */
+	if (conn->will_msg) {
+		axl_free (conn->will_msg);
+		conn->will_msg = NULL;
+	} /* end if */
+
+	/* notify disconnect */
+
 	/* unregister connection for all subscriptions */
 
 	return;
@@ -1459,9 +1471,13 @@ void __myqtt_reader_check_and_trigger_will (MyQttCtx * ctx, MyQttConn * conn)
 
 	/* do not trigger will if it is not defined if it is a
 	 * initiator */
+	if (ctx->myqtt_exit)
+		return;
 	if (conn->role == MyQttRoleInitiator)
 		return;
 	if (conn->will_topic == NULL)
+		return;
+	if (! myqtt_conn_is_ok (conn, axl_false))
 		return;
 
 	/* prepare message */
@@ -1566,6 +1582,13 @@ void __myqtt_reader_remove_conn_refs (MyQttConn * conn)
 	myqtt_mutex_lock (&ctx->client_ids_m);
 	axl_hash_delete (ctx->client_ids, conn->client_identifier); 
 	myqtt_mutex_unlock (&ctx->client_ids_m);
+
+	/* skip any operation if we are about to finish */
+	if (ctx->myqtt_exit) {
+		/* connection isn't ok, unref it */
+		myqtt_conn_unref (conn, "myqtt reader (build set)");
+		return;
+	} /* end if */
 
 	/* call to run next task */
 	if (! myqtt_thread_pool_new_task (conn->ctx, __myqtt_reader_remove_conn_refs_aux, conn)) {

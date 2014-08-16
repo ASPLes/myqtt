@@ -1127,6 +1127,79 @@ axl_bool test_08 (void) {
 	return axl_true;
 }
 
+axl_bool test_09 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn, * conn2;
+	MyQttMsg        * msg; 
+	MyQttConnOpts   * opts;
+	int               sub_result;
+	MyQttAsyncQueue * queue;
+	
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 09: creating connections..\n");
+	
+	/* set will message */
+	opts = myqtt_conn_opts_new ();
+	
+	/* set will */
+	myqtt_conn_opts_set_will (opts, MYQTT_QOS_2, "I lost connection", "Hey I lost connection, this is my status:....", axl_false);
+
+	/* now connect to the listener:
+	   client_identifier -> NULL
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	conn = myqtt_conn_new (ctx, NULL, axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected LOGIN but found FAILURE operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* now create a new connection and subscribe to the will */
+	conn2 = myqtt_conn_new (ctx, NULL, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected LOGIN but found FAILURE operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	}
+
+	if (! myqtt_conn_sub (conn2, 10, "I lost connection", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* set on publish handler */	
+	queue  = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn2, test_08_should_not_receive, queue);
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
+	/* wait for message */
+	printf ("Test 09: we shouldn't receive a will message... (3 seconds at most)\n");
+	msg = myqtt_async_queue_timedpop (queue, 3000000);
+	if (msg != NULL) {
+		printf ("ERROR: expected to NOT receive msg reference but found reference value..\n");
+		return axl_false;
+	} /* end if */
+
+	/* release message and queue */
+	myqtt_async_queue_unref (queue);
+
+	/* close connection */
+	printf ("Test 09: closing connections..\n");
+	myqtt_conn_close (conn2);
+
+
+	/* release context */
+	printf ("Test 09: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -1218,6 +1291,9 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_08")
 	run_test (test_08, "Test 08: test will support (without auth)");
+
+	CHECK_TEST("test_09")
+	run_test (test_09, "Test 09: test will is not published with disconnect (without auth)");
 
 	/* test will support with autentication */
 
