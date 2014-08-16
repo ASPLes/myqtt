@@ -70,9 +70,9 @@ void myqtt_thread_pool_exit                (MyQttCtx * ctx);
 
 void myqtt_thread_pool_being_closed        (MyQttCtx * ctx);
 
-void myqtt_thread_pool_new_task            (MyQttCtx        * ctx,
-					    MyQttThreadFunc   func, 
-					    axlPointer         data);
+axl_bool myqtt_thread_pool_new_task            (MyQttCtx        * ctx,
+						MyQttThreadFunc   func, 
+						axlPointer         data);
 
 int  myqtt_thread_pool_new_event           (MyQttCtx              * ctx,
 					    long                     microseconds,

@@ -129,8 +129,6 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 	MyQttConn            * conn;
 	int                    size;
 
-	axl_bool               rm_conn;
-
 	/* get a cursor */
 	cursor = axl_list_cursor_new (ctx->pending_messages);
 
@@ -174,7 +172,6 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 			/* get data */
 			data    = axl_list_cursor_get (cursor);
 			conn    = data->conn;
-			rm_conn = axl_false;
 
 			/* check connection is working */
 			if (! myqtt_conn_is_ok (conn, axl_false)) {

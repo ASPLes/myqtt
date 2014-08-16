@@ -903,29 +903,32 @@ void myqtt_thread_pool_being_closed        (MyQttCtx * ctx)
  * @param data the data to be passed in to the function.
  *
  * 
+ * @return axl_true in the case the task was queued. Otherwise
+ * axl_false is reported. The function returns axl_false the the
+ * thread pool is being stopped and or memory allocation failure.
  **/
-void myqtt_thread_pool_new_task (MyQttCtx * ctx, MyQttThreadFunc func, axlPointer data)
+axl_bool myqtt_thread_pool_new_task (MyQttCtx * ctx, MyQttThreadFunc func, axlPointer data)
 {
 	/* get current context */
 	MyQttThreadPoolTask * task;
 
 	/* check parameters */
 	if (func == NULL || ctx == NULL || ctx->thread_pool == NULL || ctx->thread_pool_being_stopped)
-		return;
+		return axl_false;
 
 	/* create the task data */
 	task       = malloc (sizeof (MyQttThreadPoolTask));
 
 	/* check allocated result */
 	if (task == NULL)
-		return;
+		return axl_false;
 	task->func = func;
 	task->data = data;
 
 	/* queue the task for the next available thread */
 	myqtt_async_queue_push (ctx->thread_pool->queue, task);
 
-	return;
+	return axl_true; /* report it was queued */
 }
 
 /** 

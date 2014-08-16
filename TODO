@@ -8,8 +8,12 @@
   to have a username or password with 64K long (or the client
   identifier).
 
+* Add support for will message storage (through external handler).
+
 * Ensure support for:
   http://jpmens.net/2013/02/25/lots-of-messages-mqtt-pub-sub-and-the-mosquitto-broker/
+
+
 
 * Check references to VortexFrame and frame_received handlers to
   change them to MyQttMsg and msg_received

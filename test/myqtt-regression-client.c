@@ -570,7 +570,7 @@ axl_bool test_01 (void) {
 	/* do some checkings */
 
 	/* close connection */
-	printf ("Test 01: closing connection..\n");
+	printf ("Test 01: closing connection (refs: %d)..\n", myqtt_conn_ref_count (conn));
 	myqtt_conn_close (conn);
 
 	/* release context */
@@ -1017,6 +1017,116 @@ axl_bool test_07 (void) {
 	return axl_true;
 }
 
+void test_08_should_not_receive (MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+{
+	printf ("ERROR: received a message on a handler that shouldn't have been called\n");
+	return;
+}
+
+void test_08_should_receive (MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+{
+
+	printf ("Test 08: received will..\n");
+	myqtt_msg_ref (msg);
+	myqtt_async_queue_push (user_data, msg);
+	return;
+}
+
+
+axl_bool test_08 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn, * conn2, * conn3;
+	MyQttMsg        * msg; 
+	MyQttConnOpts   * opts;
+	int               sub_result;
+	MyQttAsyncQueue * queue;
+	
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 08: creating connection..\n");
+	
+	/* set will message */
+	opts = myqtt_conn_opts_new ();
+	
+	/* set will */
+	myqtt_conn_opts_set_will (opts, MYQTT_QOS_2, "I lost connection", "Hey I lost connection, this is my status:....", axl_false);
+
+	/* now connect to the listener:
+	   client_identifier -> NULL
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	conn = myqtt_conn_new (ctx, NULL, axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected LOGIN but found FAILURE operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* now create a new connection and subscribe to the will */
+	conn2 = myqtt_conn_new (ctx, NULL, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected LOGIN but found FAILURE operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	}
+
+	if (! myqtt_conn_sub (conn2, 10, "I lost connection", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* now create a third connection but without subscription */
+	conn3 = myqtt_conn_new (ctx, NULL, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable connect to MQTT server..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 08: 3 links connected, now close connection with will\n");
+	/* set on publish handler */	
+	queue  = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn2, test_08_should_receive, queue);
+	myqtt_conn_set_on_msg (conn3, test_08_should_not_receive, NULL);
+
+	/* shutdown connection */
+	myqtt_conn_shutdown (conn);
+
+	/* wait for message */
+	printf ("Test 08: waiting for will... (3 seconds at most)\n");
+	msg = myqtt_async_queue_timedpop (queue, 3000000);
+	if (msg == NULL) {
+		printf ("ERROR: expected to receive msg reference but found NULL value..\n");
+		return axl_false;
+	} /* end if */
+
+	if (! axl_cmp (myqtt_msg_get_topic (msg), "I lost connection")) {
+		printf ("ERROR: expected to find topic name 'I lost connection' but found: '%s'\n", myqtt_msg_get_topic (msg));
+		return axl_false;
+	} /* end if */
+
+	if (! axl_cmp (myqtt_msg_get_app_msg (msg), "Hey I lost connection, this is my status:....")) {
+		printf ("ERROR: expected to find topic name 'Hey I lost connection, this is my status:....' but found: '%s'\n", (const char *) myqtt_msg_get_app_msg (msg));
+		return axl_false;
+	} /* end if */
+
+	/* release message and queue */
+	myqtt_async_queue_unref (queue);
+	myqtt_msg_unref (msg);
+
+	/* close connection */
+	printf ("Test 08: closing connections..\n");
+	myqtt_conn_close (conn);
+	myqtt_conn_close (conn2);
+	myqtt_conn_close (conn3);
+
+	/* release context */
+	printf ("Test 08: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -1106,9 +1216,12 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_07")
 	run_test (test_07, "Test 07: check client auth (CONNECT simple auth)");
 
-	/* test will support */
+	CHECK_TEST("test_08")
+	run_test (test_08, "Test 08: test will support (without auth)");
 
 	/* test will support with autentication */
+
+	/* publish empty mesasage */
 
 	/* test close connection after subscribing... */
 

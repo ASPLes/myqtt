@@ -117,8 +117,12 @@ struct _MyQttConn {
 	 * @brief MQTT client identifier.
 	 */
 	char * client_identifier;
-	char * will_topic;
-	char * will_msg;
+
+	/* qos */
+	char      * will_topic;
+	char      * will_msg;
+	MyQttQos    will_qos;
+
 	char * username;
 	char * password;
 

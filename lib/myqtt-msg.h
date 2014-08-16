@@ -98,6 +98,8 @@ axl_bool myqtt_msg_encode_remaining_length (MyQttCtx * ctx, unsigned char * inpu
 
 int      myqtt_msg_decode_remaining_length (MyQttCtx * ctx, unsigned char * input, int * out_position);
 
+int      __myqtt_msg_get_next_id (MyQttCtx * ctx, char  * from);
+
 /* @} */
 
 #endif

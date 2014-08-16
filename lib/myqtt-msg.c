@@ -717,7 +717,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	msg->ref_count = 1;
 
 	/* associate the next msg id available */
-	msg-> id  = __myqtt_msg_get_next_id (ctx, "get-next");
+	msg->id   = __myqtt_msg_get_next_id (ctx, "get-next");
 	msg->ctx  = ctx;
 
 	if (msg->size == 0) {
