@@ -1069,13 +1069,29 @@ axl_bool __myqtt_conn_send_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 	if (clean_session)
 		myqtt_set_bit (&flags, 1);
 
-	/* set opts */
+	/* set opts: auth options */
 	if (opts && opts->use_auth) {
 		if (opts->username)
 			myqtt_set_bit (&flags, 7);
 		if (opts->password)
 			myqtt_set_bit (&flags, 6);
 	} /* end if */
+
+	/* set opts: will options */
+	if (opts && opts->will_message && opts->will_topic) {
+		myqtt_set_bit (&flags, 2);
+		switch (opts->will_qos) {
+		case MYQTT_QOS_1:
+			myqtt_set_bit (&flags, 3);
+			break;
+		case MYQTT_QOS_2:
+			myqtt_set_bit (&flags, 4);
+			break;
+		default:
+			break;
+		} /* end if */
+	} /* end if */
+
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Sending CONNECT package to %s:%s (conn-id=%d, flags=%x)", conn->host, conn->port, conn->id, flags);
 	
@@ -1090,11 +1106,13 @@ axl_bool __myqtt_conn_send_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 				 /* client identifier */
 				 MYQTT_PARAM_UTF8_STRING, strlen (conn->client_identifier), conn->client_identifier, /* 19 */
 				 /* will topic */
+				 (opts && opts->will_topic) ? MYQTT_PARAM_UTF8_STRING : MYQTT_PARAM_SKIP, (opts && opts->will_topic) ? strlen (opts->will_topic) : 0, opts ? opts->will_topic : NULL,
 				 /* will message */
+				 (opts && opts->will_message) ? MYQTT_PARAM_UTF8_STRING : MYQTT_PARAM_SKIP, (opts && opts->will_message) ? strlen (opts->will_message) : 0, opts ? opts->will_message : NULL,
 				 /* user */
-				 (opts && opts->use_auth && opts->username) ? MYQTT_PARAM_UTF8_STRING : MYQTT_PARAM_SKIP, opts && opts->username ? strlen (opts->username) : 0, opts ? opts->username : NULL,
+				 (opts && opts->use_auth && opts->username) ? MYQTT_PARAM_UTF8_STRING : MYQTT_PARAM_SKIP, (opts && opts->username) ? strlen (opts->username) : 0, opts ? opts->username : NULL,
 				 /* password */
-				 (opts && opts->use_auth && opts->password) ? MYQTT_PARAM_UTF8_STRING : MYQTT_PARAM_SKIP, opts && opts->password ? strlen (opts->password) : 0, opts ? opts->password : NULL,
+				 (opts && opts->use_auth && opts->password) ? MYQTT_PARAM_UTF8_STRING : MYQTT_PARAM_SKIP, (opts && opts->password) ? strlen (opts->password) : 0, opts ? opts->password : NULL,
 				 MYQTT_PARAM_END);
 
 	/* in any case, remove this password from memory if defined */
@@ -2479,9 +2497,11 @@ void                myqtt_conn_opts_set_reuse (MyQttConnOpts * opts,
  *
  * @param will_qos Qos to be configured in the Will.
  *
- * @param will_topic The Will topic where the will message will be posted on abnormal connection.
+ * @param will_topic The Will topic where the will message will be
+ * posted on abnormal connection. This value cannot be NULL or empty.
  *
- * @param will_message The Will message that will be posted.
+ * @param will_message The Will message that will be posted. This
+ * value cannot be NULL but can be empty.
  *
  * @param will_retain The Will retain flag configured.
  *
@@ -2492,10 +2512,23 @@ void                myqtt_conn_opts_set_will (MyQttConnOpts  * opts,
 					      const char     * will_message,
 					      axl_bool         will_retain)
 {
-	if (opts == NULL)
+	if (opts == NULL || will_topic == NULL || will_message == NULL)
 		return;
 
-	/* still nothing implemented */
+	/* setup will topic */
+	if (opts->will_topic)
+		axl_free (opts->will_topic);
+	opts->will_topic = axl_strdup (will_topic);
+
+	/* setup will message */
+	if (opts->will_message)
+		axl_free (opts->will_message);
+	opts->will_message = axl_strdup (will_message);
+
+	/* set retain flag and qos */
+	opts->will_retain  = will_retain;
+	opts->will_qos     = will_qos;
+
 	return;
 }
 
@@ -4077,7 +4110,9 @@ void                   myqtt_conn_set_default_io_handler (MyQttConn * connection
  * @brief Allows to configure the on message handler for the provided connection.
  *
  * This handler will be called each time a PUBLISH message is received
- * on the provided connection. 
+ * on the provided connection.  See \ref MyQttOnMsgReceived for more
+ * information about the handler and the signature you have to
+ * provide.
  *
  * @param conn The connection that is going to be configured with the
  * handler. Only one handler can be configured. Every call to this

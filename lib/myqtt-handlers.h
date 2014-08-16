@@ -84,7 +84,11 @@ typedef void (*MyQttListenerReady)           (char         * host,
  *
  * @param conn The connection where the application message was received.
  *
- * @param msg The message received.
+ * @param msg The message received. This reference is stable during
+ * the handler execution. If you need to have a permanent reference
+ * that survives to the handler execution grab a reference to it using
+ * \ref myqtt_msg_ref (and of course, release that reference with \ref
+ * myqtt_msg_unref when no longer needed anymore).
  *
  * @param user_data User pointer passed in into the function.
  */

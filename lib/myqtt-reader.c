@@ -333,6 +333,14 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 			return;
 		} /* end if */
 
+		/* get will qos */
+		if (myqtt_get_bit (msg->payload[7], 4))
+			conn->will_qos = MYQTT_QOS_2;
+		else if (myqtt_get_bit (msg->payload[7], 3))
+			conn->will_qos = MYQTT_QOS_1;
+		else
+			conn->will_qos = MYQTT_QOS_0; /* this statement is not neccessary but helps understanding the code */
+
 		/* update desp */
 		desp += (strlen (conn->will_msg) + 2);
 	} /* end if */
@@ -788,61 +796,16 @@ void __myqtt_reader_handle_unsubscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttM
 	return;
 }
 
-
 /** 
- * @internal PUBLISH handling..
+ * @internal Fucntion to implement global publishing. ctx, conn and
+ * msg must be defined.
  */
-void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _data)
+void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg)
 {
-	/* local variables */
-	MyQttQos                 qos;
-	axlHash                * conn_hash;
-	int                      desp = 0;
-	axlHashCursor          * cursor;
 	MyQttPublishCodes        pub_codes;
-
-	/* parse content received inside message */
-	msg->topic_name = __myqtt_reader_get_utf8_string (ctx, msg->payload, msg->size);
-	if (! msg->topic_name ) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received PUBLISH message without topic name closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
-		myqtt_conn_shutdown (conn);
-
-		return;
-	} /* end if */
-
-	if (! myqtt_support_is_utf8 (msg->topic_name, strlen (msg->topic_name))) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received PUBLISH message wrong UTF-8 encoding on topic name closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
-		myqtt_conn_shutdown (conn);
-		return;
-	} /* end if */
-
-	/* increase desp */
-	desp       += (strlen (msg->topic_name) + 2);
-
-	/* now, according to the qos, we have also a packet id */
-	if (msg->qos > MYQTT_QOS_0) {
-		/* get packet id */
-		msg->packet_id   = myqtt_get_16bit (msg->payload + desp); 
-		desp            += 2;
-	} /* end if */
-
-	/* get payload reference */
-	msg->app_message         = msg->payload + desp;
-	msg->app_message_size    = msg->size - desp;
-
-	/**** CLIENT HANDLING **** 
-	 * we have received a PUBLISH packet as client, we have to
-	 * notify it to the application level */
-	if (conn->role == MyQttRoleInitiator) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "ROLE TO HANDLE PUBLISH is %d (initiator is %d)",
-			   conn->role, MyQttRoleInitiator);
-
-		/* call to notify message */
-		if (conn->on_msg)
-			conn->on_msg (conn, msg, conn->on_msg_data);
-
-		return;
-	} /* end if */
+	axlHash                * conn_hash;
+	axlHashCursor          * cursor;
+	MyQttQos                 qos;
 
 	if (ctx->on_publish) {
 		/* call to on publish */
@@ -912,6 +875,65 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	myqtt_mutex_lock (&ctx->subs_m);
 	ctx->publish_ops--;
 	myqtt_mutex_unlock (&ctx->subs_m);
+
+	/* finish don */
+	return;
+}
+
+
+/** 
+ * @internal PUBLISH handling..
+ */
+void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _data)
+{
+	/* local variables */
+	int                      desp = 0;
+
+	/* parse content received inside message */
+	msg->topic_name = __myqtt_reader_get_utf8_string (ctx, msg->payload, msg->size);
+	if (! msg->topic_name ) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received PUBLISH message without topic name closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
+		myqtt_conn_shutdown (conn);
+
+		return;
+	} /* end if */
+
+	if (! myqtt_support_is_utf8 (msg->topic_name, strlen (msg->topic_name))) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received PUBLISH message wrong UTF-8 encoding on topic name closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
+		myqtt_conn_shutdown (conn);
+		return;
+	} /* end if */
+
+	/* increase desp */
+	desp       += (strlen (msg->topic_name) + 2);
+
+	/* now, according to the qos, we have also a packet id */
+	if (msg->qos > MYQTT_QOS_0) {
+		/* get packet id */
+		msg->packet_id   = myqtt_get_16bit (msg->payload + desp); 
+		desp            += 2;
+	} /* end if */
+
+	/* get payload reference */
+	msg->app_message         = msg->payload + desp;
+	msg->app_message_size    = msg->size - desp;
+
+	/**** CLIENT HANDLING **** 
+	 * we have received a PUBLISH packet as client, we have to
+	 * notify it to the application level */
+	if (conn->role == MyQttRoleInitiator) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "ROLE TO HANDLE PUBLISH is %d (initiator is %d)",
+			   conn->role, MyQttRoleInitiator);
+
+		/* call to notify message */
+		if (conn->on_msg)
+			conn->on_msg (conn, msg, conn->on_msg_data);
+
+		return;
+	} /* end if */
+
+	/* call to do publish */
+	__myqtt_reader_do_publish (ctx, conn, msg);
 
 	return;
 }
@@ -1430,6 +1452,51 @@ void       __myqtt_reader_remove_conn_from_hash (MyQttConn * conn, axlHashCursor
 	return;
 }
 
+/* publish will if defined */
+void __myqtt_reader_check_and_trigger_will (MyQttCtx * ctx, MyQttConn * conn)
+{
+	MyQttMsg * msg;
+
+	/* do not trigger will if it is not defined if it is a
+	 * initiator */
+	if (conn->role == MyQttRoleInitiator)
+		return;
+	if (conn->will_topic == NULL)
+		return;
+
+	/* prepare message */
+	msg = axl_new (MyQttMsg, 1);
+	if (msg == NULL)
+		return;
+	
+	/* configure message */
+	msg->type      = MYQTT_PUBLISH;
+	msg->qos       = conn->will_qos;
+	msg->ref_count = 1;
+	msg->id        = __myqtt_msg_get_next_id (ctx, "get-next");
+	msg->ctx       = ctx;
+
+	/* acquire a reference to the context */
+	myqtt_ctx_ref2 (ctx, "new msg");
+
+	/* setup app messages and topic */
+	msg->app_message      = (unsigned char *) axl_strdup (conn->will_msg);
+	msg->app_message_size = conn->will_msg ? strlen (conn->will_msg) : 0;
+	msg->size             = msg->app_message_size;
+	msg->payload          = msg->app_message;
+
+	/* configure topic */
+	msg->topic_name       = axl_strdup (conn->will_topic);
+
+	/* call to publish */
+	__myqtt_reader_do_publish (ctx, conn, msg);
+
+	/* release message */
+	myqtt_msg_unref (msg);	
+
+	return;
+}
+
 axlPointer __myqtt_reader_remove_conn_refs_aux (axlPointer _conn) 
 {
 	MyQttConn     * conn = _conn;
@@ -1481,6 +1548,9 @@ axlPointer __myqtt_reader_remove_conn_refs_aux (axlPointer _conn)
 		axl_hash_cursor_free (cursor);
 	} /* end if */
 
+	/* call to publish will if it applies */
+	__myqtt_reader_check_and_trigger_will (ctx, conn);
+
 	/* connection isn't ok, unref it */
 	myqtt_conn_unref (conn, "myqtt reader (build set)");
 
@@ -1497,15 +1567,11 @@ void __myqtt_reader_remove_conn_refs (MyQttConn * conn)
 	axl_hash_delete (ctx->client_ids, conn->client_identifier); 
 	myqtt_mutex_unlock (&ctx->client_ids_m);
 
-	/* if it has no subscription, just return */
-	if (axl_hash_items (conn->subs) == 0 && axl_hash_items (conn->wild_subs) == 0) {
-		/* connection isn't ok, unref it */
-		myqtt_conn_unref (conn, "myqtt reader");
-		return;
-	} /* end if */
-
 	/* call to run next task */
-	myqtt_thread_pool_new_task (conn->ctx, __myqtt_reader_remove_conn_refs_aux, conn);
+	if (! myqtt_thread_pool_new_task (conn->ctx, __myqtt_reader_remove_conn_refs_aux, conn)) {
+		/* unable to queue message into the thread pool, ok, run it directly */
+		__myqtt_reader_remove_conn_refs_aux (conn);
+	}
 
 	return;
 }
