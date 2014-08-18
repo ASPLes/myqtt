@@ -12,6 +12,10 @@
 
 * Add wildcard support
 
+* Big message support 
+
+* High load support 
+
 --== things that should be reviewed ==--
 
 * Limit subscription side some how. It could be a memory problem.
