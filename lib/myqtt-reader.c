@@ -417,6 +417,14 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 
 connect_send_reply:
 
+	/* session recovery: connection accepted, if it has session recover */
+	if (! conn->clean_session && response == MYQTT_CONNACK_ACCEPTED) {
+		if (! myqtt_storage_session_recover (ctx, conn)) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to recover session for the provided connection, unable to accept connection");
+			response = MYQTT_CONNACK_SERVER_UNAVAILABLE;
+		} /* end if */
+	} /* end if */
+
 	/* rest of cases, reply with the response */
 	reply = myqtt_msg_build (ctx, MYQTT_CONNACK, axl_false, 0, axl_false, &size, 
 				 /* variable header and payload */
@@ -601,6 +609,14 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg
 
 		/* store value */
 		replies_mem [replies - 1] = qos;
+
+		/* call to save on storage if there is session */
+		if (! conn->clean_session) {
+			if (! myqtt_storage_sub (ctx, conn, topic_filter, qos)) {
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send to storage subscription received"); 
+			} /* end if */
+			qos = MYQTT_QOS_DENIED;
+		} /* end if */
 		
 		if (qos == MYQTT_QOS_DENIED) {
 			/* release topic filter */
@@ -790,7 +806,12 @@ void __myqtt_reader_handle_unsubscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttM
 		/* increase desp */
 		desp += (strlen (topic_filter) + 2);
 
-		/* call to unsubscribe */
+		/* call to save on storage if there is session */
+		if (! conn->clean_session) {
+			if (! myqtt_storage_unsub (ctx, conn, topic_filter)) {
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send to storage unsubscribe received"); 
+			} /* end if */
+		} /* end if */
 
 		/* CONNECTION CONTEXT: remove subscription from the connection */
 		myqtt_mutex_lock (&conn->op_mutex);

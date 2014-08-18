@@ -40,6 +40,15 @@
 #include <myqtt.h>
 #include <stdlib.h>
 
+/** 
+ * IMPORTANT NOTE: do not include this header and any other header
+ * that includes "private". They are used for internal definitions and
+ * may change at any time without any notification. This header is
+ * included on this file with the sole purpose of testing. 
+ */
+#include <myqtt-conn-private.h>
+#include <myqtt-ctx-private.h>
+
 axl_bool test_common_enable_debug = axl_false;
 
 /* default listener location */
@@ -1207,20 +1216,21 @@ axl_bool test_10 (void) {
 	MyQttConn       * conn;
 	int               iterator;
 	char            * sub_str;
+	int               pos;
 	if (! ctx)
 		return axl_false;
 
 	printf ("Test 10: checking numbers from file names..\n");
-	if (__myqtt_storage_get_size_from_file_name (ctx, "14-16856208-1408293505-274202") != 14) {
-		printf ("ERROR: failed conversion: %d...\n", __myqtt_storage_get_size_from_file_name (ctx, "14-16856208-1408293505-274202"));
+	if (__myqtt_storage_get_size_from_file_name (ctx, "14-16856208-1408293505-274202", &pos) != 14 || pos != 2) {
+		printf ("ERROR: failed conversion: %d...\n", __myqtt_storage_get_size_from_file_name (ctx, "14-16856208-1408293505-274202", NULL));
 		return axl_false;
 	}
-	if (__myqtt_storage_get_size_from_file_name (ctx, "1-16856208-1408293505-274202") != 1) {
-		printf ("ERROR: failed conversion: %d...\n", __myqtt_storage_get_size_from_file_name (ctx, "1-16856208-1408293505-274202"));
+	if (__myqtt_storage_get_size_from_file_name (ctx, "1-16856208-1408293505-274202", &pos) != 1 || pos != 1) {
+		printf ("ERROR: failed conversion: %d...\n", __myqtt_storage_get_size_from_file_name (ctx, "1-16856208-1408293505-274202", NULL));
 		return axl_false;
 	}
-	if (__myqtt_storage_get_size_from_file_name (ctx, "1432969-16856208-1408293505-274202") != 1432969) {
-		printf ("ERROR: failed conversion: %d...\n", __myqtt_storage_get_size_from_file_name (ctx, "1432969-16856208-1408293505-274202"));
+	if (__myqtt_storage_get_size_from_file_name (ctx, "1432969-16856208-1408293505-274202", &pos) != 1432969 || pos != 7) {
+		printf ("ERROR: failed conversion: %d...\n", __myqtt_storage_get_size_from_file_name (ctx, "1432969-16856208-1408293505-274202", NULL));
 		return axl_false;
 	}
 
@@ -1317,14 +1327,41 @@ axl_bool test_10 (void) {
 		return axl_false;
 	} /* end if */
 
-	/* now test subscription recovery */
-		
-
 	/* close connection */
 	printf ("Test 10: closing connections..\n");
 	myqtt_conn_close (conn);
 
+	/* create connection to simulate storage on this side */
+	conn = myqtt_conn_new (ctx, "test10@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected FAILURE but found LOGIN operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
 	/* now open the connection and restore subscriptions */
+	printf ("Test 10: recovering connection..\n");
+	if (! myqtt_storage_session_recover (ctx, conn)) {
+		printf ("ERROR (10): expected to find proper session recovery but found a failure..\n");
+		return axl_false;
+	} /* end if */
+
+	/* check connection state */
+	printf ("Test 10: checking connection recovery..\n");
+	if (axl_hash_items (conn->subs) != 100) {
+		printf ("Test 10: expected to find 100 subscriptions on connection but found %d\n", axl_hash_items (conn->subs));
+		return axl_false;
+	}
+
+	/* check connection state */
+	printf ("Test 10: Checking context recovery..\n");
+	if (axl_hash_items (ctx->subs) != 100) {
+		printf ("Test 10: expected to find 100 subscriptions on context but found %d\n", axl_hash_items (ctx->subs));
+		return axl_false;
+	}
+	
+	/* close connection */
+	printf ("Test 10: closing connection after recovery..\n");
+	myqtt_conn_close (conn);
 
 	/* release context */
 	printf ("Test 10: releasing context..\n");
