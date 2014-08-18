@@ -64,7 +64,7 @@ void        __myqtt_reader_prepare_wait_reply (MyQttConn * conn, int packet_id);
 
 MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, int timeout);
 
-/* internal API */
+/**** internal API: do not use this, it may change at any time ****/
 typedef void (*MyQttForeachFunc) (MyQttConn * conn, axlPointer user_data);
 typedef void (*MyQttForeachFunc3) (MyQttConn * conn, 
 				    axlPointer         user_data, 
@@ -82,5 +82,10 @@ void               myqtt_reader_foreach_offline (MyQttCtx           * ctx,
 						  axlPointer            user_data3);
 
 void               myqtt_reader_restart (MyQttCtx * ctx);
+
+void               __myqtt_reader_subscribe (MyQttCtx   * ctx, 
+					     MyQttConn  * conn, 
+					     const char * topic_filter, 
+					     MyQttQos     qos);
 
 #endif

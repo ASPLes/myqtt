@@ -233,7 +233,7 @@ axl_bool myqtt_storage_init (MyQttCtx * ctx, MyQttConn * conn)
 	return axl_true;
 }
 
-int      __myqtt_storage_get_size_from_file_name (MyQttCtx * ctx, const char * file_name)
+int      __myqtt_storage_get_size_from_file_name (MyQttCtx * ctx, const char * file_name, int * position)
 {
 	int  iterator = 0;
 	char buffer[10];
@@ -241,8 +241,11 @@ int      __myqtt_storage_get_size_from_file_name (MyQttCtx * ctx, const char * f
 	/* clear buffer */
 	memset (buffer, 0, 10);
 	while (file_name[iterator] && iterator < 10) {
-		if (file_name[iterator] < 48 || file_name[iterator] > 57)
+		if (file_name[iterator] < 48 || file_name[iterator] > 57) {
+			if (position)
+				(*position) = iterator;
 			return myqtt_support_strtod (buffer, NULL);
+		}
 
 		buffer[iterator] = file_name[iterator];
 		iterator++;
@@ -282,7 +285,7 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx * ctx, const char * full_path, con
 		} /* end if */
 
 		/* get subscription size */
-		sub_size = __myqtt_storage_get_size_from_file_name (ctx, entry->d_name);
+		sub_size = __myqtt_storage_get_size_from_file_name (ctx, entry->d_name, NULL);
 
 		if (sub_size == topic_filter_len) {
 			/* ok, found a size match, try now to check content */
@@ -497,13 +500,52 @@ axl_bool myqtt_storage_sub_exists (MyQttCtx * ctx, MyQttConn * conn, const char 
 	return myqtt_storage_sub_exists_common (ctx, conn, topic_filter, 0, axl_false);
 }
 
-int __myqtt_storage_sub_count_aux (MyQttCtx * ctx, MyQttConn * conn, const char * aux_path)
+void __myqtt_storage_sub_conn_register (MyQttCtx * ctx, MyQttConn * conn, const char * file_name, const char * full_path)
+{
+	/* get qos from file name */
+	int        pos           = 0;
+	int        size          = __myqtt_storage_get_size_from_file_name (ctx, file_name, &pos);
+	MyQttQos   qos           = MYQTT_QOS_0;
+	char     * topic_filter;
+	FILE     * _file;
+
+	/* get qos */
+	if (pos >= (strlen (file_name) + 1))
+		return;
+
+	qos = __myqtt_storage_get_size_from_file_name (ctx, file_name + pos + 1, NULL);
+	topic_filter = axl_new (char, size + 1);
+	if (topic_filter == NULL)
+		return;
+
+	_file = fopen (full_path, "r");
+	if (_file == NULL) {
+		axl_free (topic_filter);
+		return;
+	} /* end if */
+
+	if (fread (topic_filter, 1, size, _file) != size) {
+		fclose (_file);
+		axl_free (topic_filter);
+		return;
+	} /* end if */
+	fclose (_file);
+
+	/* call to register */
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Recovering subs conn-id=%d qos=%d sub=%s", conn->id, qos, topic_filter);
+	__myqtt_reader_subscribe (ctx, conn, topic_filter, qos);
+
+	/* it is not required to release topic_filter here, that
+	 * reference is not owned by __myqtt_reader_subscribe */
+
+	return;
+}
+
+int __myqtt_storage_sub_count_aux (MyQttCtx * ctx, MyQttConn * conn, const char * aux_path, axl_bool __register)
 {
 	DIR           * files;
 	struct dirent * entry;
-#if !defined(_DIRENT_HAVE_D_TYPE)
 	char          * full_path;
-#endif
 	int             count = 0;
 
 	files = opendir (aux_path);
@@ -520,13 +562,27 @@ int __myqtt_storage_sub_count_aux (MyQttCtx * ctx, MyQttConn * conn, const char 
 #if defined(_DIRENT_HAVE_D_TYPE)
 		if ((entry->d_type & DT_REG) == DT_REG)
 			count ++;
+
+		if (__register) {
+			/* register subscription */
+			full_path = myqtt_support_build_filename (aux_path, entry->d_name, NULL);
+			__myqtt_storage_sub_conn_register (ctx, conn, entry->d_name, full_path);
+			axl_free (full_path);
+		} /* end if */
 #else 
 		full_path = myqtt_support_build_filename (aux_path, entry->d_name, NULL);
 		if (myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_REGULAR)) {
 			count ++;
 		} /* end if */
+
+		/* call to register */
+		if (__register)
+			__myqtt_storage_sub_conn_register (ctx, conn, entry->d_name, full_path);
+
 		axl_free (full_path);
 #endif
+
+
 
 		/* next file */
 		entry = readdir (files);
@@ -538,11 +594,14 @@ int __myqtt_storage_sub_count_aux (MyQttCtx * ctx, MyQttConn * conn, const char 
 }
 
 /** 
- * @brief Allows to get current number of subscriptions registered on
- * the storage for the provided connection.
+ * @internal Function to iterate over all subscriptions to restore
+ * connection state.
+ *
+ * @param ctx The context where the operation will take place
+ *
+ * @param conn The connection where the operation will be implemented.
  */
-int      myqtt_storage_sub_count (MyQttCtx * ctx, MyQttConn * conn)
-{
+int __myqtt_storage_iteration (MyQttCtx * ctx, MyQttConn * conn, axl_bool __register) {
 
 	char          * full_path;
 	char          * aux_path;
@@ -552,13 +611,13 @@ int      myqtt_storage_sub_count (MyQttCtx * ctx, MyQttConn * conn)
 
 	/* check input parameters */
 	if (! __myqtt_storage_check (ctx, conn, axl_false, NULL))
-		return axl_false;
+		return 0;
 
 	/* get full path to subscriptions */
 	full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, "subs", NULL);
 	if (full_path == NULL) 
 		return axl_false; /* allocation failure */
-	
+
 	sub_dir = opendir (full_path);
 	entry   = readdir (sub_dir);
 	while (sub_dir && entry) {
@@ -574,14 +633,14 @@ int      myqtt_storage_sub_count (MyQttCtx * ctx, MyQttConn * conn)
 		if ((entry->d_type & DT_DIR) == DT_DIR) {
 			/* count subscriptions */
 			aux_path  = myqtt_support_build_filename (full_path, entry->d_name, NULL);
-			total    += __myqtt_storage_sub_count_aux (ctx, conn, aux_path);
+			total    += __myqtt_storage_sub_count_aux (ctx, conn, aux_path, __register);
 			axl_free (aux_path);
 		}
 #else 
 		aux_path = myqtt_support_build_filename (full_path, entry->d_name, NULL);
 		if (myqtt_support_file_test (aux_path, FILE_EXISTS | FILE_IS_DIR)) {
 			/* count subscriptions */
-			total += __myqtt_storage_sub_count_aux (ctx, conn, aux_path);
+			total += __myqtt_storage_sub_count_aux (ctx, conn, aux_path, __register);
 		}
 		axl_free (aux_path);
 #endif
@@ -593,7 +652,20 @@ int      myqtt_storage_sub_count (MyQttCtx * ctx, MyQttConn * conn)
 	closedir (sub_dir);
 	axl_free (full_path);
 
+	if (__register)
+		return __register;
+
 	return total;
+}
+
+/** 
+ * @brief Allows to get current number of subscriptions registered on
+ * the storage for the provided connection.
+ */
+int      myqtt_storage_sub_count (MyQttCtx * ctx, MyQttConn * conn)
+{
+	/* call to iterate and count */
+	return __myqtt_storage_iteration (ctx, conn, axl_false);
 }
 
 /** 
@@ -613,6 +685,23 @@ axl_bool myqtt_storage_unsub (MyQttCtx * ctx, MyQttConn * conn, const char * top
 {
 	/* call to remove subscription */
 	return myqtt_storage_sub_exists_common (ctx, conn, topic_filter, 0, axl_true);
+}
+
+/** 
+ * @brief Allows to recover session stored by the server with current
+ * storage for the provided connection.
+ *
+ * @param ctx The context where the operation will take place.
+ *
+ * @param conn The connection that is requested to recover session. 
+ *
+ * @return axl_true if session was recovered, otherwise axl_false is
+ * returned.
+ */
+axl_bool myqtt_storage_session_recover (MyQttCtx * ctx, MyQttConn * conn)
+{
+	/* call to iterate and count */
+	return __myqtt_storage_iteration (ctx, conn, axl_true);
 }
 
 

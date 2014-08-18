@@ -216,6 +216,12 @@ int main (int argc, char ** argv)
 	myqtt_ctx_set_on_publish (ctx, on_publish, NULL);
 	myqtt_ctx_set_on_connect (ctx, on_connect, NULL);
 
+	/* configure storage */
+	printf ("Setting storage path on: .myqtt-listener\n");
+	if (system ("find .myqtt-listener -type f -exec rm {} \\;"))
+		printf ("WARNING: clean subscriptions failed (reported non-zero value)\n");
+	myqtt_storage_set_path (ctx, ".myqtt-listener", 4096);
+
 	/* wait for listeners */
 	printf ("Ready and accepting connections..OK\n");
 	myqtt_listener_wait (ctx);
