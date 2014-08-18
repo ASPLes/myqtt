@@ -152,6 +152,12 @@ struct _MyQttConn {
 	axl_bool     is_connected;
 
 	/** 
+	 * @brief Records if the provided connection has session
+	 * enabled (clean_session=axl_false).
+	 */
+	axl_bool     clean_session;
+
+	/** 
 	 * @internal Variable used to track if a
 	 * myqtt_connection_close process is already activated.
 	 */

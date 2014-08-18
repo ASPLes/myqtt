@@ -1,3 +1,19 @@
+--== roadmap ==--
+
+* Add retain flag support
+
+* Add QoS 1 operational support
+
+* Add QoS 2 operational support
+
+* Add support to tls
+
+* Add support to websocket
+
+* Add wildcard support
+
+--== things that should be reviewed ==--
+
 * Make client library to try to connect with 3.1.1 and if it fails, with 
   3.1.
 

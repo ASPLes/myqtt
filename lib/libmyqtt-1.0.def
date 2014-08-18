@@ -265,6 +265,13 @@ myqtt_set_16bit
 myqtt_set_32bit
 myqtt_set_bit
 myqtt_show_byte
+myqtt_storage_init
+myqtt_storage_set_path
+myqtt_storage_sub
+myqtt_storage_sub_count
+myqtt_storage_sub_exists
+myqtt_storage_sub_exists_common
+myqtt_storage_unsub
 myqtt_support_add_domain_search_path
 myqtt_support_add_domain_search_path_ref
 myqtt_support_add_search_path

@@ -207,9 +207,12 @@ axl_bool __myqtt_reader_check_client_id (MyQttCtx * ctx, MyQttConn * conn, MyQtt
 {
 	struct timeval stamp;
 
+	/* get clean session status */
+	conn->clean_session = myqtt_get_bit (msg->payload[7], 1);
+
 	if (strlen (conn->client_identifier) == 0) {
 		/* check MQTT-3.1.3-7 */
-		if (myqtt_get_bit (msg->payload[7], 1) == 0) {
+		if (conn->clean_session == 0) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Received CONNECT request with empty client id and clean session == 0 (MQTT-3.1.3-7), denying connect");
 			(*response) = MYQTT_CONNACK_IDENTIFIER_REJECTED;
 			return axl_false;
@@ -241,7 +244,19 @@ axl_bool __myqtt_reader_check_client_id (MyQttCtx * ctx, MyQttConn * conn, MyQtt
 		myqtt_mutex_unlock (&ctx->client_ids_m);
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Rejected CONNECT request because client id %s is already in use, denying connect", conn->client_identifier);
 		return axl_false; /* reject CONNECT */
-	}
+	} /* end if */
+
+	/* init storage if it has session */
+	if (! conn->clean_session) {
+		if (! myqtt_storage_init (ctx, conn)) {
+			/* client id found, reject it */
+			(*response) = MYQTT_CONNACK_SERVER_UNAVAILABLE;
+
+			myqtt_mutex_unlock (&ctx->client_ids_m);
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to init storage service for provided client identifier '%s', unable to accept connection", conn->client_identifier);
+			return axl_false; /* reject CONNECT */
+		} /* end if */
+	} /* end if */
 
 	/* register client identifier */
 	axl_hash_insert (ctx->client_ids, conn->client_identifier, conn);
@@ -427,6 +442,79 @@ connect_send_reply:
 	return;
 }
 
+/** 
+ * @internal Function used to subcribe the provided topic filter / qos
+ * for the provided connection into the in-memory maps used by MyQtt
+ * to route all traffic.
+ *
+ * @param ctx The context where the operation will take place
+ *
+ * @param conn The connection where the operaion will take place.
+ *
+ * @param topic_filter The topic filter that is going to be added to
+ * the system. IMPORTANT: this parameter must be allocated by the
+ * caller and yield to the function for its deallocation using
+ * axl_free.
+ *
+ * @param qos The qos that is going to configured.
+ *
+ */
+void __myqtt_reader_subscribe (MyQttCtx * ctx, MyQttConn * conn, const char * topic_filter, MyQttQos qos)
+{
+	axlHash * hash;
+	axlHash * conn_hash;
+
+	if (ctx == NULL || conn == NULL || topic_filter == NULL)
+		return;
+
+	/** CONNECTION REGISTRY **/
+	/* reached this point, subscription is accepted */
+	myqtt_mutex_lock (&conn->op_mutex);
+	if ((strstr (topic_filter, "#") != NULL) || (strstr (topic_filter, "+") != NULL))
+		axl_hash_insert_full (conn->wild_subs, (axlPointer) topic_filter, axl_free, INT_TO_PTR (qos), NULL);
+	else
+		axl_hash_insert_full (conn->subs, (axlPointer) topic_filter, axl_free, INT_TO_PTR (qos), NULL);
+	myqtt_mutex_unlock (&conn->op_mutex);
+	/* now reply */
+
+	/** CONTEXT REGISTRY **/
+	/* now, register this connection into the hash of subscribed
+	 * connections, if required */
+	myqtt_mutex_lock (&ctx->subs_m);
+	
+	/* check no publish operation is taking place now */
+	while (ctx->publish_ops > 0)
+		myqtt_cond_timedwait (&ctx->subs_c, &ctx->subs_m, 10000);
+	
+	/* check if topic filter is already registred, if not create base structure */
+	if ((strstr (topic_filter, "#") != NULL) || (strstr (topic_filter, "+") != NULL)) 
+		hash = ctx->wild_subs;
+	else
+		hash = ctx->subs;
+	
+	/* check if the hash hold connections interested in
+	 * this topic filter is already created, if not,
+	 * proceed */
+	conn_hash = axl_hash_get (hash, (axlPointer) topic_filter);
+	if (! conn_hash) {
+		/* create empty hash */
+		conn_hash = axl_hash_new (axl_hash_int, axl_hash_equal_int);
+		axl_hash_insert_full (hash, 
+				      /* key and destroy */
+				      axl_strdup (topic_filter), axl_free, 
+				      /* value and destroy */
+				      conn_hash, (axlDestroyFunc) axl_hash_free);
+	} /* end if */
+	
+	/* record this connection and requested qos */
+	axl_hash_insert (conn_hash, conn, INT_TO_PTR (qos));
+	
+	/* release lock */
+	myqtt_mutex_unlock (&ctx->subs_m);
+
+	return;
+}
+
 void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _data) {
 
 	/* local parameters */
@@ -438,8 +526,6 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg
 	int                      replies = 0;
 	unsigned char          * reply;
 	int                      iterator;
-	axlHash                * hash;
-	axlHash                * conn_hash;
 
 	/* check if this is a listener */
 	if (conn->role != MyQttRoleListener) {
@@ -523,49 +609,7 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg
 		} /* end if */
 
 		/** CONNECTION REGISTRY **/
-		/* reached this point, subscription is accepted */
-		myqtt_mutex_lock (&conn->op_mutex);
-		if ((strstr (topic_filter, "#") != NULL) || (strstr (topic_filter, "+") != NULL))
-			axl_hash_insert_full (conn->wild_subs, topic_filter, axl_free, INT_TO_PTR (qos), NULL);
-		else
-			axl_hash_insert_full (conn->subs, topic_filter, axl_free, INT_TO_PTR (qos), NULL);
-		myqtt_mutex_unlock (&conn->op_mutex);
-		/* now reply */
-
-		/** CONTEXT REGISTRY **/
-		/* now, register this connection into the hash of subscribed
-		 * connections, if required */
-		myqtt_mutex_lock (&ctx->subs_m);
-
-		/* check no publish operation is taking place now */
-		while (ctx->publish_ops > 0)
-			myqtt_cond_timedwait (&ctx->subs_c, &ctx->subs_m, 10000);
-		
-		/* check if topic filter is already registred, if not create base structure */
-		if ((strstr (topic_filter, "#") != NULL) || (strstr (topic_filter, "+") != NULL)) 
-			hash = ctx->wild_subs;
-		else
-			hash = ctx->subs;
-		
-		/* check if the hash hold connections interested in
-		 * this topic filter is already created, if not,
-		 * proceed */
-		conn_hash = axl_hash_get (hash, topic_filter);
-		if (! conn_hash) {
-			/* create empty hash */
-			conn_hash = axl_hash_new (axl_hash_int, axl_hash_equal_int);
-			axl_hash_insert_full (hash, 
-					      /* key and destroy */
-					      axl_strdup (topic_filter), axl_free, 
-					      /* value and destroy */
-					      conn_hash, (axlDestroyFunc) axl_hash_free);
-		} /* end if */
-
-		/* record this connection and requested qos */
-		axl_hash_insert (conn_hash, conn, INT_TO_PTR (qos));
-
-		/* release lock */
-		myqtt_mutex_unlock (&ctx->subs_m);
+		__myqtt_reader_subscribe (ctx, conn, topic_filter, qos);
 		
 	} /* end while */
 
@@ -1015,7 +1059,7 @@ void __myqtt_reader_process_socket (MyQttCtx  * ctx,
 	switch (msg->type) {
 	case MYQTT_CONNECT:
 		/* handle CONNECT packet */
-		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_connect);
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_connect); 
 		break;
 	case MYQTT_DISCONNECT:
 		/* handle DISCONNECT packet */
@@ -1477,8 +1521,6 @@ void __myqtt_reader_check_and_trigger_will (MyQttCtx * ctx, MyQttConn * conn)
 		return;
 	if (conn->will_topic == NULL)
 		return;
-	if (! myqtt_conn_is_ok (conn, axl_false))
-		return;
 
 	/* prepare message */
 	msg = axl_new (MyQttMsg, 1);
@@ -1591,10 +1633,10 @@ void __myqtt_reader_remove_conn_refs (MyQttConn * conn)
 	} /* end if */
 
 	/* call to run next task */
-	if (! myqtt_thread_pool_new_task (conn->ctx, __myqtt_reader_remove_conn_refs_aux, conn)) {
-		/* unable to queue message into the thread pool, ok, run it directly */
-		__myqtt_reader_remove_conn_refs_aux (conn);
-	}
+	/* if (! myqtt_thread_pool_new_task (conn->ctx, __myqtt_reader_remove_conn_refs_aux, conn)) { */
+		/* unable to queue message into the thread pool, ok, run it directly */ 
+	__myqtt_reader_remove_conn_refs_aux (conn);
+	/* } */
 
 	return;
 }

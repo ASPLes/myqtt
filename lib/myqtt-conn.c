@@ -1535,9 +1535,13 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
  * @param The context where the operation will take place.
  *
  * @param client_identifier The client identifier that uniquely
- * identifies this MQTT client from others. 
+ * identifies this MQTT client from others.  It can be NULL to let
+ * MQTT 3.1.1 servers to assign a default client identifier BUT
+ * clean_session must be set to axl_true.
  *
- * @param clean_session Flag to clean client session or to reuse the existing one.
+ * @param clean_session Flag to clean client session or to reuse the
+ * existing one. If set to axl_false, you must provide a valid
+ * client_identifier (otherwise the function will fail).
  *
  * @param keep_alive Keep alive configuration in seconds after which
  * the server/broker will close the connection if it doesn't detect
@@ -1560,7 +1564,7 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
  * @return A reference to the newli created connection or NULL if
  * on_connected handler is provided. In both cases, the reference
  * returned (or received at the on_connected handler) must be checked
- * with \ref myqtt_conn_is_ok.
+ * with \ref myqtt_conn_is_ok. 
  */
 MyQttConn  * myqtt_conn_new                    (MyQttCtx       * ctx,
 						const char     * client_identifier,

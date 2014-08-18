@@ -20,7 +20,7 @@ if DEFAULT_POLL
 INCLUDE_DEFAULT_POLL=-DDEFAULT_POLL 
 endif
 
-INCLUDES = $(compiler_options) $(ansi_option) -I$(top_srcdir) -D__COMPILING_MYQTT__ -D__axl_disable_broken_bool_def__  \
+INCLUDES = $(compiler_options) $(ansi_option) -I$(top_srcdir) -D__COMPILING_MYQTT__ -D_BSD_SOURCE -D__axl_disable_broken_bool_def__  \
 	$(AXL_CFLAGS) $(INCLUDE_MYQTT_LOG) $(PTHREAD_CFLAGS) \
 	-DVERSION=\""$(MYQTT_VERSION)"\" \
 	-DPACKAGE_DTD_DIR=\""$(datadir)"\" \
@@ -44,7 +44,8 @@ libmyqtt_1_0_la_SOURCES =	\
 	myqtt-errno.c \
 	myqtt-hash.c \
 	myqtt-sequencer.c \
-	myqtt-io.c
+	myqtt-io.c \
+	myqtt-storage.c
 
 libmyqtt_1_0_include_HEADERS = myqtt.h \
 	myqtt-ctx.h \
@@ -63,7 +64,8 @@ libmyqtt_1_0_include_HEADERS = myqtt.h \
 	myqtt-errno.h \
 	myqtt-hash.h \
 	myqtt-sequencer.h \
-	myqtt-io.h
+	myqtt-io.h \
+	myqtt-storage.h
 
 libmyqtt_1_0_la_LIBADD = \
 	$(AXL_LIBS) $(PTHREAD_LIBS) $(ADDITIONAL_LIBS)

@@ -38,6 +38,7 @@
  */
 
 #include <myqtt.h>
+#include <stdlib.h>
 
 axl_bool test_common_enable_debug = axl_false;
 
@@ -1200,6 +1201,234 @@ axl_bool test_09 (void) {
 	return axl_true;
 }
 
+axl_bool test_10 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	int               iterator;
+	char            * sub_str;
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 10: checking numbers from file names..\n");
+	if (__myqtt_storage_get_size_from_file_name (ctx, "14-16856208-1408293505-274202") != 14) {
+		printf ("ERROR: failed conversion: %d...\n", __myqtt_storage_get_size_from_file_name (ctx, "14-16856208-1408293505-274202"));
+		return axl_false;
+	}
+	if (__myqtt_storage_get_size_from_file_name (ctx, "1-16856208-1408293505-274202") != 1) {
+		printf ("ERROR: failed conversion: %d...\n", __myqtt_storage_get_size_from_file_name (ctx, "1-16856208-1408293505-274202"));
+		return axl_false;
+	}
+	if (__myqtt_storage_get_size_from_file_name (ctx, "1432969-16856208-1408293505-274202") != 1432969) {
+		printf ("ERROR: failed conversion: %d...\n", __myqtt_storage_get_size_from_file_name (ctx, "1432969-16856208-1408293505-274202"));
+		return axl_false;
+	}
+
+	printf ("Test 10: creating connection to simulate storage on this side\n");
+
+	/* create connection to simulate storage on this side */
+	conn = myqtt_conn_new (ctx, "test10@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected FAILURE but found LOGIN operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* configure storage */
+	myqtt_storage_set_path (ctx, ".myqtt-test-10", 4096);
+
+	/* init storage for this user */
+	if (! myqtt_storage_init (ctx, conn)) {
+		printf ("ERROR: unable to initialize storage for the provided connection..\n");
+		return axl_false;
+	} /* end if */
+
+	if (system ("find .myqtt-test-10 -type f -exec rm {} \\;"))
+		printf ("WARNING: clean subscriptions failed (reported non-zero value)\n");
+
+	/* check if the subscription exists */
+	if (myqtt_storage_sub_exists (ctx, conn, "this/is/a/test")) {
+		printf ("ERROR (1): expected to not find subscription but it was..\n");
+		return axl_false;
+	}
+
+	/* check subscription */
+	if (! myqtt_storage_sub (ctx, conn, "this/is/a/test", MYQTT_QOS_2)) {
+		printf ("ERROR (2): expected to be able to register subscription, but error was found\n");
+		return axl_false;
+	} /* end if */
+
+	/* check if the subscription exists */
+	printf ("Test 10: checking if test/is/a/test is present in storage...\n");
+	if (! myqtt_storage_sub_exists (ctx, conn, "this/is/a/test")) {
+		printf ("ERROR (3): expected to find subscription but it wasn't..\n");
+		return axl_false;
+	}
+
+	/* check subscription */
+	if (! myqtt_storage_sub (ctx, conn, "this/is/a/test", MYQTT_QOS_1)) {
+		printf ("ERROR (4): expected to be able to register subscription, but error was found\n");
+		return axl_false;
+	} /* end if */
+
+	/* call to unsubscribe */
+	if (! myqtt_storage_unsub (ctx, conn, "this/is/a/test")) {
+		printf ("ERROR (5): expected to be able to register subscription, but error was found\n");
+		return axl_false;
+	} /* end if */
+
+	/* check if the subscription exists */
+	if (myqtt_storage_sub_exists (ctx, conn, "this/is/a/test")) {
+		printf ("ERROR (6): expected to NOT find subscription but it was....\n");
+		return axl_false;
+	} /* end if */
+
+	/* get the number of subscriptions */
+	if (myqtt_storage_sub_count (ctx, conn) != 0) {
+		printf ("ERROR (7): expected to receive sub count 0 but found: %d\n", myqtt_storage_sub_count (ctx, conn));
+		return axl_false;
+	} /* end if */
+
+	/* do several subscriptions */
+	iterator = 0;
+	while (iterator < 100) {
+		sub_str = axl_strdup_printf ("this/is/a/test/%d", iterator);
+		myqtt_storage_sub (ctx, conn, sub_str, MYQTT_QOS_1);
+		axl_free (sub_str);
+		iterator++;
+	} /* end while */
+
+	/* get the number of subscriptions */
+	if (myqtt_storage_sub_count (ctx, conn) != 100) {
+		printf ("ERROR (8): expected to receive sub count 100 but found: %d\n", myqtt_storage_sub_count (ctx, conn));
+		return axl_false;
+	} /* end if */
+
+	/* check if the subscription exists */
+	if (! myqtt_storage_sub_exists (ctx, conn, "this/is/a/test/49")) {
+		printf ("ERROR (9): expected to find subscription but it wasn't FOUND....\n");
+		return axl_false;
+	} /* end if */
+	if (! myqtt_storage_sub_exists (ctx, conn, "this/is/a/test/99")) {
+		printf ("ERROR (9): expected to find subscription but it wasn't FOUND....\n");
+		return axl_false;
+	} /* end if */
+	if (myqtt_storage_sub_exists (ctx, conn, "this/is/a/test/149")) {
+		printf ("ERROR (9): expected NOT to find subscription but it was FOUND....\n");
+		return axl_false;
+	} /* end if */
+
+	/* now test subscription recovery */
+		
+
+	/* close connection */
+	printf ("Test 10: closing connections..\n");
+	myqtt_conn_close (conn);
+
+	/* now open the connection and restore subscriptions */
+
+	/* release context */
+	printf ("Test 10: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+
+axl_bool test_11 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	MyQttMsg        * msg; 
+	int               sub_result;
+	MyQttAsyncQueue * queue;
+	
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 11: creating connections..\n");
+	
+	/* now connect to the listener:
+	   client_identifier -> NULL
+	   clean_session -> axl_false ... so we want session
+	   keep_alive -> 30 */
+	conn = myqtt_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected FAILURE but found LOGIN operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+
+	/* now try again connecting with session but providing a client identifier */
+	/* client_identifier -> "test11@identifier.com", clean_session -> axl_false */
+	conn = myqtt_conn_new (ctx, "test11@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected FAILURE but found LOGIN operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	if (! myqtt_conn_sub (conn, 10, "a/subs/1", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	if (! myqtt_conn_sub (conn, 10, "a/subs/2", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	if (! myqtt_conn_sub (conn, 10, "a/subs/3", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* now close and reconnect and check if we have those subscriptions */
+	myqtt_conn_close (conn);
+
+	/* now try again connecting with session but providing a client identifier */
+	/* client_identifier -> "test11@identifier.com", clean_session -> axl_false */
+	conn = myqtt_conn_new (ctx, "test11@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected FAILURE but found LOGIN operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* set on publish handler */	
+	queue  = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+
+	/* send message to get subscriptions */
+	if (! myqtt_conn_pub (conn, "myqtt/admin/get-conn-subs", "", 0, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message to get client subscriptions..\n");
+		return axl_false;
+	} /* end if */
+
+	/* wait for message */
+	printf ("Test 11: we have to receive subscriptions...\n");
+	msg = myqtt_async_queue_timedpop (queue, 3000000);
+	if (msg != NULL) {
+		printf ("ERROR: expected to NOT receive msg reference but found reference value..\n");
+		return axl_false;
+	} /* end if */
+
+	/* release message and queue */
+	myqtt_async_queue_unref (queue);
+
+	/* check subscriptions here */
+
+	/* release message */
+	myqtt_msg_unref (msg);
+
+	/* close connection */
+	printf ("Test 11: closing connections..\n");
+	myqtt_conn_close (conn);
+
+	/* release context */
+	printf ("Test 11: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -1294,6 +1523,12 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_09")
 	run_test (test_09, "Test 09: test will is not published with disconnect (without auth)");
+
+	CHECK_TEST("test_10")
+	run_test (test_10, "Test 10: test myqtt default storage API");
+
+	CHECK_TEST("test_11")
+	run_test (test_11, "Test 11: test sessions maintained by the server");
 
 	/* test will support with autentication */
 
