@@ -42,6 +42,15 @@
 #include <signal.h>
 #endif
 
+/** 
+ * IMPORTANT NOTE: do not include this header and any other header
+ * that includes "private". They are used for internal definitions and
+ * may change at any time without any notification. This header is
+ * included on this file with the sole purpose of testing. 
+ */
+#include <myqtt-conn-private.h>
+#include <myqtt-ctx-private.h>
+
 /** global context used by the regression test */
 MyQttCtx  * ctx;
 
@@ -121,6 +130,9 @@ void __listener_sleep (long microseconds)
 MyQttPublishCodes on_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 {
 	const char      * client_id;
+	char            * reply_msg = NULL;
+	char            * aux;
+	axlHashCursor   * cursor;        
 
 
 	/* get current client identifier */
@@ -142,6 +154,37 @@ MyQttPublishCodes on_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, 
 
 		if (! myqtt_conn_pub (conn, "myqtt/admin/get-conn-user", (axlPointer) myqtt_conn_get_username (conn), strlen (myqtt_conn_get_username (conn)), MYQTT_QOS_0, axl_false, 0))
 			printf ("ERROR: failed to publish get-conn-user..\n");
+		return MYQTT_PUBLISH_DISCARD; /* report received PUBLISH should be discarded */
+	} /* end if */
+
+	/* get current user con */
+	if (axl_cmp ("myqtt/admin/get-conn-subs", myqtt_msg_get_topic (msg))) {
+		/* implement a wait so the caller can catch with myqtt_conn_get_next () */
+		__listener_sleep (1000000); /* 1 second */
+		
+		cursor = axl_hash_cursor_new (conn->subs);
+		while (axl_hash_cursor_has_item (cursor)) {
+			/* build message */
+			if (reply_msg == NULL)
+				reply_msg = axl_strdup_printf ("%d: %s\n", axl_hash_cursor_get_value (cursor), axl_hash_cursor_get_key (cursor));
+			else {
+				aux       = reply_msg;
+				reply_msg = axl_strdup_printf ("%s%d: %s\n", reply_msg, axl_hash_cursor_get_value (cursor), axl_hash_cursor_get_key (cursor));
+				axl_free (aux);
+			}
+				
+			/* next position */
+			axl_hash_cursor_next (cursor);
+		} /* end while */
+
+		axl_hash_cursor_free (cursor);
+
+		printf ("replying: %s\n", reply_msg);
+
+		if (! myqtt_conn_pub (conn, "myqtt/admin/get-conn-subs", reply_msg, strlen (reply_msg), MYQTT_QOS_0, axl_false, 0))
+			printf ("ERROR: failed to publish get-conn-user..\n");
+		axl_free (reply_msg);
+		
 		return MYQTT_PUBLISH_DISCARD; /* report received PUBLISH should be discarded */
 	} /* end if */
 

@@ -1390,7 +1390,7 @@ axl_bool test_11 (void) {
 	   keep_alive -> 30 */
 	conn = myqtt_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
 	if (myqtt_conn_is_ok (conn, axl_false)) {
-		printf ("ERROR: expected FAILURE but found LOGIN operation from %s:%s..\n", listener_host, listener_port);
+		printf ("ERROR: expected FAILURE but found LOGIN operation from %s:%s..it shouldn't have worked because we are requesting session and providing NULL identifier...\n", listener_host, listener_port);
 		return axl_false;
 	} /* end if */
 	myqtt_conn_close (conn);
@@ -1442,7 +1442,7 @@ axl_bool test_11 (void) {
 	/* wait for message */
 	printf ("Test 11: we have to receive subscriptions...\n");
 	msg = myqtt_async_queue_timedpop (queue, 3000000);
-	if (msg != NULL) {
+	if (msg == NULL) {
 		printf ("ERROR: expected to NOT receive msg reference but found reference value..\n");
 		return axl_false;
 	} /* end if */
@@ -1451,6 +1451,10 @@ axl_bool test_11 (void) {
 	myqtt_async_queue_unref (queue);
 
 	/* check subscriptions here */
+	if (! axl_cmp (myqtt_msg_get_app_msg (msg), "0: a/subs/1\n0: a/subs/2\n0: a/subs/3\n")) {
+		printf ("ERROR: expected to find a set of subscriptions that weren't found..\n");
+		return axl_false;
+	} /* end if */
 
 	/* release message */
 	myqtt_msg_unref (msg);
@@ -1566,6 +1570,9 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_11")
 	run_test (test_11, "Test 11: test sessions maintained by the server");
+
+	/* test reception of messages when you are disconnected (with sessions) */
+	
 
 	/* test will support with autentication */
 
