@@ -656,6 +656,9 @@ void        myqtt_ctx_free2 (MyQttCtx * ctx, const char * who)
 	myqtt_mutex_destroy (&ctx->client_ids_m);
 	axl_hash_free (ctx->client_ids);
 
+	/* release path */
+	axl_free (ctx->storage_path);
+
 	myqtt_log (MYQTT_LEVEL_DEBUG, "about.to.free MyQttCtx %p", ctx);
 
 	/* free the context */

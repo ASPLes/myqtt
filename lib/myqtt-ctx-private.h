@@ -250,6 +250,12 @@ struct _MyQttCtx {
 
 	axlHash                   * client_ids;
 	MyQttMutex                  client_ids_m;
+
+	/** 
+	 * @internal Storage path as defined by the user.
+	 */
+	char                      * storage_path;
+	int                         storage_path_hash_size;
 };
 
 #endif /* __MYQTT_CTX_PRIVATE_H__ */

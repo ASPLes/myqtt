@@ -250,6 +250,7 @@ BEGIN_C_DECLS
 #include <myqtt-errno.h>
 #include <myqtt-sequencer.h>
 #include <myqtt-msg.h>
+#include <myqtt-storage.h>
 
 END_C_DECLS
 
