@@ -1377,7 +1377,7 @@ axl_bool test_11 (void) {
 	MyQttMsg        * msg; 
 	int               sub_result;
 	MyQttAsyncQueue * queue;
-	
+	int               iterator;
 
 	if (! ctx)
 		return axl_false;
@@ -1447,9 +1447,6 @@ axl_bool test_11 (void) {
 		return axl_false;
 	} /* end if */
 
-	/* release message and queue */
-	myqtt_async_queue_unref (queue);
-
 	/* check subscriptions here */
 	if (! axl_cmp (myqtt_msg_get_app_msg (msg), "0: a/subs/1\n0: a/subs/2\n0: a/subs/3\n")) {
 		printf ("ERROR: expected to find a set of subscriptions that weren't found..\n");
@@ -1462,6 +1459,79 @@ axl_bool test_11 (void) {
 	/* close connection */
 	printf ("Test 11: closing connections..\n");
 	myqtt_conn_close (conn);
+
+	printf ("Test 11: connect again and check subscriptions are recovered\n");
+	conn = myqtt_conn_new (ctx, "test11@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected FAILURE but found LOGIN operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+
+	printf ("Test 11: publishing messages on recovered subscriptions..\n");
+
+	/* publish messages */
+	if (! myqtt_conn_pub (conn, "a/subs/1", "this is a test on sub1", 22, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message to get client subscriptions..\n");
+		return axl_false;
+	} /* end if */
+
+	/* publish messages */
+	if (! myqtt_conn_pub (conn, "a/subs/2", "this is a test on sub2", 22, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message to get client subscriptions..\n");
+		return axl_false;
+	} /* end if */
+
+	/* publish messages */
+	if (! myqtt_conn_pub (conn, "a/subs/3", "this is a test on sub3", 22, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message to get client subscriptions..\n");
+		return axl_false;
+	} /* end if */
+
+	iterator = 0;
+	while (iterator < 3) {
+		/* get message */
+		msg = myqtt_async_queue_timedpop (queue, 3000000);
+
+		printf ("Test 11: message received: %s (id: %d), topic: %s\n", myqtt_msg_get_type_str (msg), myqtt_msg_get_id (msg), myqtt_msg_get_topic (msg));
+
+		/* check for msg 1 */
+		if (axl_cmp (myqtt_msg_get_topic (msg), "a/subs/1")) {
+			printf ("Test 11: received message 1..checking\n");
+			if (! axl_cmp (myqtt_msg_get_app_msg (msg), "this is a test on sub1")) {
+				printf ("ERROR: expected message 1..but found: %s\n", (char *) myqtt_msg_get_app_msg (msg));
+				return axl_false;
+			}
+		} /* end if */
+
+		/* check for msg 2 */
+		if (axl_cmp (myqtt_msg_get_topic (msg), "a/subs/2")) {
+			printf ("Test 11: received message 2..checking\n");
+			if (! axl_cmp (myqtt_msg_get_app_msg (msg), "this is a test on sub2")) {
+				printf ("ERROR: expected message 2..but found: %s\n", (char *) myqtt_msg_get_app_msg (msg));
+				return axl_false;
+			}
+		} /* end if */
+
+		/* check for msg 3 */
+		if (axl_cmp (myqtt_msg_get_topic (msg), "a/subs/3")) {
+			printf ("Test 11: received message 3..checking\n");
+			if (! axl_cmp (myqtt_msg_get_app_msg (msg), "this is a test on sub3")) {
+				printf ("ERROR: expected message 3..but found: %s\n", (char *) myqtt_msg_get_app_msg (msg));
+				return axl_false;
+			}
+		} /* end if */
+
+		myqtt_msg_unref (msg);
+		iterator++;
+	}
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
+	/* release message and queue */
+	myqtt_async_queue_unref (queue);
 
 	/* release context */
 	printf ("Test 11: releasing context..\n");

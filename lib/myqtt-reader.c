@@ -933,7 +933,8 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 			qos  = PTR_TO_INT (axl_hash_cursor_get_value (cursor));
 
 			/* publish message */
-			myqtt_log (MYQTT_LEVEL_DEBUG, "Publishing topic name '%s' on conn %p", msg->topic_name, conn);
+			myqtt_log (MYQTT_LEVEL_DEBUG, "Publishing topic name '%s' (app msg size: %d) on conn %p", 
+				   msg->topic_name, msg->app_message_size, conn);
 			if (! myqtt_conn_pub (conn, msg->topic_name, (axlPointer) msg->app_message, msg->app_message_size, qos, axl_false, 0))
 				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send SUBACK message, errno=%d", errno); 
 			
@@ -994,6 +995,9 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	/* get payload reference */
 	msg->app_message         = msg->payload + desp;
 	msg->app_message_size    = msg->size - desp;
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "PUBLISH: received request to publish (app msg size: %d, msg size: %d)",
+		   msg->app_message_size, msg->size);
 
 	/**** CLIENT HANDLING **** 
 	 * we have received a PUBLISH packet as client, we have to
