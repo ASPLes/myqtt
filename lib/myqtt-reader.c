@@ -248,7 +248,7 @@ axl_bool __myqtt_reader_check_client_id (MyQttCtx * ctx, MyQttConn * conn, MyQtt
 
 	/* init storage if it has session */
 	if (! conn->clean_session) {
-		if (! myqtt_storage_init (ctx, conn)) {
+		if (! myqtt_storage_init (ctx, conn, MYQTT_STORAGE_ALL)) {
 			/* client id found, reject it */
 			(*response) = MYQTT_CONNACK_SERVER_UNAVAILABLE;
 
@@ -489,7 +489,7 @@ void __myqtt_reader_subscribe (MyQttCtx * ctx, MyQttConn * conn, const char * to
 	/* now, register this connection into the hash of subscribed
 	 * connections, if required */
 	myqtt_mutex_lock (&ctx->subs_m);
-	
+
 	/* check no publish operation is taking place now */
 	while (ctx->publish_ops > 0)
 		myqtt_cond_timedwait (&ctx->subs_c, &ctx->subs_m, 10000);
@@ -504,6 +504,7 @@ void __myqtt_reader_subscribe (MyQttCtx * ctx, MyQttConn * conn, const char * to
 	 * this topic filter is already created, if not,
 	 * proceed */
 	conn_hash = axl_hash_get (hash, (axlPointer) topic_filter);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Connection hash for topic_filter='%s' is %p", topic_filter, conn);
 	if (! conn_hash) {
 		/* create empty hash */
 		conn_hash = axl_hash_new (axl_hash_int, axl_hash_equal_int);
@@ -512,9 +513,11 @@ void __myqtt_reader_subscribe (MyQttCtx * ctx, MyQttConn * conn, const char * to
 				      axl_strdup (topic_filter), axl_free, 
 				      /* value and destroy */
 				      conn_hash, (axlDestroyFunc) axl_hash_free);
+		myqtt_log (MYQTT_LEVEL_DEBUG, "  ..created hash for topic_filter='%s' is %p", topic_filter, conn);
 	} /* end if */
 	
 	/* record this connection and requested qos */
+	myqtt_log (MYQTT_LEVEL_DEBUG, "   ..storing connection %p with qos %d on conn hash %p for topic_filter='%s'", conn, qos, conn_hash, topic_filter);
 	axl_hash_insert (conn_hash, conn, INT_TO_PTR (qos));
 	
 	/* release lock */
@@ -607,17 +610,18 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg
 		/* increase replies */
 		replies ++;
 
-		/* store value */
-		replies_mem [replies - 1] = qos;
-
 		/* call to save on storage if there is session */
 		if (! conn->clean_session) {
 			if (! myqtt_storage_sub (ctx, conn, topic_filter, qos)) {
-				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send to storage subscription received"); 
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send subscription received to storage, denying subscription"); 
+				qos = MYQTT_QOS_DENIED;
 			} /* end if */
-			qos = MYQTT_QOS_DENIED;
+
 		} /* end if */
-		
+
+		/* store value */
+		replies_mem [replies - 1] = qos;
+
 		if (qos == MYQTT_QOS_DENIED) {
 			/* release topic filter */
 			axl_free (topic_filter);
@@ -649,15 +653,23 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg
 	myqtt_msg_encode_remaining_length (ctx, reply + 1, replies + 2, &desp);
 
 	/* set packet id in reply */
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Saving packet id on desp=%d", desp + 1);
+	/* myqtt_log (MYQTT_LEVEL_DEBUG, "Saving packet id %d on desp=%d", packet_id, desp + 1); */
 	myqtt_set_16bit (packet_id, reply + desp + 1);
+	desp   += 2;
 	
 	/* configure all subscription replies */
 	iterator = 0;
 	while (iterator < replies) {
 		reply[desp + iterator + 1] = replies_mem[iterator];
+		/* myqtt_log (MYQTT_LEVEL_DEBUG, "Saving sub reply %d on byte %d", replies_mem[iterator], desp+ iterator); */
 		iterator++;
 	} /* end if */
+
+	/* myqtt_show_byte (ctx, reply[0], "header");
+	   myqtt_show_byte (ctx, reply[1], "re.len");
+	   myqtt_show_byte (ctx, reply[2], "msb pk");
+	   myqtt_show_byte (ctx, reply[3], "lsb pk");
+	   myqtt_show_byte (ctx, reply[4], "r code"); */
 
 	/* release memory */
 	axl_free (replies_mem);
@@ -709,7 +721,10 @@ void __myqtt_reader_handle_wait_reply (MyQttCtx * ctx, MyQttConn * conn, MyQttMs
 		return;
 	} /* end if */
 
-	if ((msg->type == MYQTT_SUBACK && msg->size < 3) || (msg->type == MYQTT_UNSUBACK && msg->size < 2) || (msg->type == MYQTT_PINGRESP && msg->size != 0) ) {
+	if ((msg->type == MYQTT_PUBACK && msg->size != 2) || 
+	    (msg->type == MYQTT_SUBACK && msg->size < 3) || 
+	    (msg->type == MYQTT_UNSUBACK && msg->size < 2) || 
+	    (msg->type == MYQTT_PINGRESP && msg->size != 0) ) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "%s message size=%d without header and remaining length is insufficient", myqtt_msg_get_type_str (msg), msg->size);
 
 		if (msg->type == MYQTT_SUBACK)
@@ -718,6 +733,8 @@ void __myqtt_reader_handle_wait_reply (MyQttCtx * ctx, MyQttConn * conn, MyQttMs
 			myqtt_conn_report_and_close (conn, "Received poorly formed UNSUBACK request that do not contains bare minimum bytes");
 		else if (msg->type == MYQTT_PINGRESP)
 			myqtt_conn_report_and_close (conn, "Received poorly formed PINGRESP request that contains unexpected content");
+		else if (msg->type == MYQTT_PUBACK)
+			myqtt_conn_report_and_close (conn, "Received poorly formed PUBACK request that contains unexpected content");
 
 		return;
 	} /* end if */
@@ -930,11 +947,17 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 				continue;
 			} /* end if */
 
-			qos  = PTR_TO_INT (axl_hash_cursor_get_value (cursor));
+			/* get qos to publish */
+			qos  = msg->qos;
+
+			/* check to downgrade publication qos to the
+			 * value of the subscription */
+			if (qos > PTR_TO_INT (axl_hash_cursor_get_value (cursor)))
+				qos = PTR_TO_INT (axl_hash_cursor_get_value (cursor));
 
 			/* publish message */
-			myqtt_log (MYQTT_LEVEL_DEBUG, "Publishing topic name '%s' (app msg size: %d) on conn %p", 
-				   msg->topic_name, msg->app_message_size, conn);
+			myqtt_log (MYQTT_LEVEL_DEBUG, "Publishing topic name '%s', qos: %d (app msg size: %d) on conn %p", 
+				   msg->topic_name, qos, msg->app_message_size, conn);
 			if (! myqtt_conn_pub (conn, msg->topic_name, (axlPointer) msg->app_message, msg->app_message_size, qos, axl_false, 0))
 				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send SUBACK message, errno=%d", errno); 
 			
@@ -966,6 +989,7 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 {
 	/* local variables */
 	int                      desp = 0;
+	unsigned char          * reply;
 
 	/* parse content received inside message */
 	msg->topic_name = __myqtt_reader_get_utf8_string (ctx, msg->payload, msg->size);
@@ -996,16 +1020,13 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	msg->app_message         = msg->payload + desp;
 	msg->app_message_size    = msg->size - desp;
 
-	myqtt_log (MYQTT_LEVEL_DEBUG, "PUBLISH: received request to publish (app msg size: %d, msg size: %d)",
-		   msg->app_message_size, msg->size);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "PUBLISH: received request to publish (qos: %d, topic name: %s, packet id: %d, app msg size: %d, msg size: %d)",
+		   msg->qos, msg->topic_name, msg->packet_id, msg->app_message_size, msg->size);
 
 	/**** CLIENT HANDLING **** 
 	 * we have received a PUBLISH packet as client, we have to
 	 * notify it to the application level */
 	if (conn->role == MyQttRoleInitiator) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "ROLE TO HANDLE PUBLISH is %d (initiator is %d)",
-			   conn->role, MyQttRoleInitiator);
-
 		/* call to notify message */
 		if (conn->on_msg)
 			conn->on_msg (conn, msg, conn->on_msg_data);
@@ -1016,6 +1037,27 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	/* call to do publish */
 	__myqtt_reader_do_publish (ctx, conn, msg);
 
+	/* now, for QoS1 we have to reply with a puback */
+	if (msg->qos == MYQTT_QOS_1) {
+		/* configure header */
+		reply    = axl_new (unsigned char, 4);
+		if (reply == NULL)
+			return;
+
+		reply[0] = (( 0x00000f & MYQTT_PUBACK) << 4);
+
+		/* configure remaining length */
+		reply[1] = 2;
+
+		/* set packet id in reply */
+		/* myqtt_log (MYQTT_LEVEL_DEBUG, "Saving packet id %d on desp=%d", packet_id, desp + 1); */
+		myqtt_set_16bit (msg->packet_id, reply + 2);
+
+		/* send message */
+		if (! myqtt_sequencer_send (conn, MYQTT_SUBACK, reply, 4))
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send PUBACK message, errno=%d", errno);
+	} /* end if */
+	
 	return;
 }
 
@@ -1109,6 +1151,10 @@ void __myqtt_reader_process_socket (MyQttCtx  * ctx,
 	case MYQTT_PUBLISH:
 		/* handle PUBLISH packet */
 		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_publish);
+		break;
+	case MYQTT_PUBACK:
+		/* handle PUBACK packet */
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_wait_reply);
 		break;
 	case MYQTT_PINGREQ:
 		/* handle ping request */

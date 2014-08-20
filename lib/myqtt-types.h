@@ -632,6 +632,15 @@ typedef enum {
 	MYQTT_QOS_DENIED = 128,
 
 	/** 
+	 * @brief Combinable flag for \ref myqtt_conn_pub to control
+	 * storage for publications that may require them by default
+	 * (for example \ref MQTT_QOS_1 and \ref MYQTT_QOS_2) but
+	 * still requires that quality of service to be present in the
+	 * header. Combine them by doing \ref MYQTT_QOS_1 | \ref MYQTT_QOS_SKIP_STORAGE.
+	 */
+	MYQTT_QOS_SKIP_STORAGE = 127,
+
+	/** 
 	 * @brief This is Qos 0. The message is delivered according to
 	 * the capabilities of the underlying network. No response is
 	 * sent by the receiver and no retry is performed by the
@@ -842,6 +851,32 @@ typedef enum {
 	 */
 	MYQTT_PUBLISH_CONN_CLOSE = 3,
 } MyQttPublishCodes;
+
+/** 
+ * @internal While using \ref myqtt_storage "MyQttStorage module" it is
+ * possible to tell the module to initialize the entire storage or
+ * part of it. This is used in conjuntion with \ref myqtt_storage_init.
+ */
+typedef enum {
+	/** 
+	 * @internal Allows to only initialize the storage related to
+	 * packet ids.
+	 */
+	MYQTT_STORAGE_PKGIDS = 1 << 0,
+
+	/** 
+	 * @internal Allows to only initialize the storage related to
+	 * packet ids.
+	 */
+	MYQTT_STORAGE_MSGS   = 1 << 1,
+
+	/** 
+	 * @internal Allows to initialize the entire storage for the provided
+	 * connection. This is mostly used by the server. 
+	 */
+	MYQTT_STORAGE_ALL    = 7,
+	
+} MyQttStorage;
 
 /***** INTERNAL TYPES: don't use them because they may change at any time without change API notification ****/
 

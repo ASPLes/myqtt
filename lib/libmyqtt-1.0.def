@@ -226,10 +226,12 @@ myqtt_msg_free_build
 myqtt_msg_get_app_msg
 myqtt_msg_get_app_msg_size
 myqtt_msg_get_ctx
+myqtt_msg_get_dup_flag
 myqtt_msg_get_id
 myqtt_msg_get_next
 myqtt_msg_get_payload
 myqtt_msg_get_payload_size
+myqtt_msg_get_qos
 myqtt_msg_get_topic
 myqtt_msg_get_type
 myqtt_msg_get_type_str
@@ -266,8 +268,12 @@ myqtt_set_32bit
 myqtt_set_bit
 myqtt_show_byte
 myqtt_storage_init
+myqtt_storage_lock_pkgid
+myqtt_storage_release_msg
+myqtt_storage_release_pkgid
 myqtt_storage_session_recover
 myqtt_storage_set_path
+myqtt_storage_store_msg
 myqtt_storage_sub
 myqtt_storage_sub_count
 myqtt_storage_sub_exists

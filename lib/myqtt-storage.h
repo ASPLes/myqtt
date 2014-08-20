@@ -41,7 +41,7 @@
 
 #include <myqtt.h>
 
-axl_bool myqtt_storage_init (MyQttCtx * ctx, MyQttConn * conn);
+axl_bool myqtt_storage_init (MyQttCtx * ctx, MyQttConn * conn, MyQttStorage storage);
 
 axl_bool myqtt_storage_sub (MyQttCtx * ctx, MyQttConn * conn, const char * topic_filter, MyQttQos requested_qos);
 
@@ -50,6 +50,14 @@ axl_bool myqtt_storage_sub_exists (MyQttCtx * ctx, MyQttConn * conn, const char 
 int      myqtt_storage_sub_count (MyQttCtx * ctx, MyQttConn * conn);
 
 axl_bool myqtt_storage_unsub (MyQttCtx * ctx, MyQttConn * conn, const char * topic_filter);
+
+axlPointer myqtt_storage_store_msg    (MyQttCtx * ctx, MyQttConn * conn, int packet_id, MyQttQos qos, unsigned char * app_msg, int app_msg_size);
+
+axl_bool myqtt_storage_release_msg  (MyQttCtx * ctx, MyQttConn * conn, axlPointer handle);
+
+axl_bool myqtt_storage_lock_pkgid (MyQttCtx * ctx, MyQttConn * conn, int pkg_id);
+
+void     myqtt_storage_release_pkgid (MyQttCtx * ctx, MyQttConn * conn, int pkg_id);
 
 axl_bool myqtt_storage_session_recover (MyQttCtx * ctx, MyQttConn * conn);
 

@@ -41,6 +41,8 @@
 #include <myqtt-ctx-private.h>
 #include <dirent.h>
 
+#define __myqtt_storage_wasnt_initialized(value) (((storage & value) == value) && ((conn->myqtt_storage_init & value) == 0))
+
 int __myqtt_storage_check (MyQttCtx * ctx, MyQttConn * conn, axl_bool check_tp, const char * topic_filter)
 {
 	int topic_filter_len = 0;
@@ -93,14 +95,19 @@ int __myqtt_storage_check (MyQttCtx * ctx, MyQttConn * conn, axl_bool check_tp, 
  * also returns axl_false in the case client_id is NULL or empty or
  * the context is NULL too.
  */
-axl_bool myqtt_storage_init (MyQttCtx * ctx, MyQttConn * conn)
+axl_bool myqtt_storage_init (MyQttCtx * ctx, MyQttConn * conn, MyQttStorage storage)
 {
 	char       * full_path;
 	mode_t       umask_mode;
+	char       * env;
 
 	/* check input parameters */
-	if (ctx == NULL || conn->client_identifier == NULL || strlen (conn->client_identifier) == 0)
+	if (ctx == NULL || conn == NULL || conn->client_identifier == NULL || strlen (conn->client_identifier) == 0)
 		return axl_false;
+
+	/* record storage was initilized */
+	if ((storage & conn->myqtt_storage_init) == storage)
+		return axl_true;
 
 	/* get previous umask and set a secure one by default during operations */
 	umask_mode = umask (0077);
@@ -109,8 +116,10 @@ axl_bool myqtt_storage_init (MyQttCtx * ctx, MyQttConn * conn)
 	if (! ctx->storage_path) {
 		myqtt_mutex_lock (&ctx->ref_mutex);
 		if (! ctx->storage_path) {
-			if (myqtt_support_getenv ("HOME")) {
-				ctx->storage_path = myqtt_support_build_filename (myqtt_support_getenv ("HOME"), ".myqtt-storage", NULL);
+			env = myqtt_support_getenv ("HOME");
+			if (env) {
+				ctx->storage_path = myqtt_support_build_filename (env, ".myqtt-storage", NULL);
+				axl_free (env);
 			} else {
 				ctx->storage_path = axl_strdup (".myqtt-storage");
 			}
@@ -129,12 +138,12 @@ axl_bool myqtt_storage_init (MyQttCtx * ctx, MyQttConn * conn)
 		/* create base storage path directory */
 		if (! myqtt_support_file_test (ctx->storage_path, FILE_EXISTS | FILE_IS_DIR)) {
 			if (mkdir (ctx->storage_path, 0700)) {
+				/* restore umask */
+				umask (umask_mode);
+
 				/* release */
 				myqtt_mutex_unlock (&ctx->ref_mutex);
 
-				/* restore umask */
-				umask (umask_mode);
-				
 				myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s, error was: %s", ctx->storage_path, myqtt_errno_get_error (errno));
 				return axl_false;
 			} /* end if */
@@ -145,13 +154,27 @@ axl_bool myqtt_storage_init (MyQttCtx * ctx, MyQttConn * conn)
 
 	/* create base storage path directory */
 	myqtt_mutex_lock (&conn->op_mutex);
+
+	/* check again initialization */
+	if ((storage & conn->myqtt_storage_init) == storage) {
+
+		/* restore umask */
+		umask (umask_mode);
+
+		/* already initialized */
+		/* create base storage path directory */
+		myqtt_mutex_unlock (&conn->op_mutex);
+
+		return axl_true;
+	} /* end if */
+
 	if (! myqtt_support_file_test (ctx->storage_path, FILE_EXISTS | FILE_IS_DIR)) {
 		if (mkdir (ctx->storage_path, 0700)) {
-			myqtt_mutex_unlock (&conn->op_mutex);
-
 			/* restore umask */
 			umask (umask_mode);
-			
+
+			myqtt_mutex_unlock (&conn->op_mutex);
+
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s, error was: %s", ctx->storage_path, myqtt_errno_get_error (errno));
 			return axl_false;
 		} /* end if */
@@ -161,11 +184,11 @@ axl_bool myqtt_storage_init (MyQttCtx * ctx, MyQttConn * conn)
 	full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, NULL);
 	if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
 		if (mkdir (full_path, 0700)) {
-			/* release */
-			myqtt_mutex_unlock (&conn->op_mutex);
-
 			/* restore umask */
 			umask (umask_mode);
+
+			/* release */
+			myqtt_mutex_unlock (&conn->op_mutex);
 
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s, error was: %s", full_path, myqtt_errno_get_error (errno));
 			axl_free (full_path);
@@ -177,55 +200,86 @@ axl_bool myqtt_storage_init (MyQttCtx * ctx, MyQttConn * conn)
 	axl_free (full_path);
 
 	/* now create message directory, subs and will */
-	full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, "msgs", NULL);
-	if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
-		if (mkdir (full_path, 0700)) {
-			/* release */
-			myqtt_mutex_unlock (&conn->op_mutex);
-
-			/* restore umask */
-			umask (umask_mode);
-
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s for messages, error was: %s", full_path, myqtt_errno_get_error (errno));
-			axl_free (full_path);
-			return axl_false;
+	if (__myqtt_storage_wasnt_initialized (MYQTT_STORAGE_MSGS)) {
+		full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, "msgs", NULL);
+		if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
+			if (mkdir (full_path, 0700)) {
+				/* restore umask */
+				umask (umask_mode);
+				
+				/* release */
+				myqtt_mutex_unlock (&conn->op_mutex);
+				
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s for messages, error was: %s", full_path, myqtt_errno_get_error (errno));
+				axl_free (full_path);
+				return axl_false;
+			} /* end if */
 		} /* end if */
+		axl_free (full_path);
 	} /* end if */
-	axl_free (full_path);
 
 	/* subs */
-	full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, "subs", NULL);
-	if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
-		if (mkdir (full_path, 0700)) {
-			/* release */
-			myqtt_mutex_unlock (&conn->op_mutex);
-
-			/* restore umask */
-			umask (umask_mode);
-
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s for messages, error was: %s", full_path, myqtt_errno_get_error (errno));
-			axl_free (full_path);
-			return axl_false;
+	if (__myqtt_storage_wasnt_initialized (MYQTT_STORAGE_ALL)) {
+		full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, "subs", NULL);
+		if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
+			if (mkdir (full_path, 0700)) {
+				/* restore umask */
+				umask (umask_mode);
+				
+				/* release */
+				myqtt_mutex_unlock (&conn->op_mutex);
+				
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s for messages, error was: %s", full_path, myqtt_errno_get_error (errno));
+				axl_free (full_path);
+				return axl_false;
+			} /* end if */
 		} /* end if */
+		axl_free (full_path);
 	} /* end if */
-	axl_free (full_path);
 
 	/* will */
-	full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, "will", NULL);
-	if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
-		if (mkdir (full_path, 0700)) {
-			/* release */
-			myqtt_mutex_unlock (&conn->op_mutex);
-
-			/* restore umask */
-			umask (umask_mode);
-
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s for messages, error was: %s", full_path, myqtt_errno_get_error (errno));
-			axl_free (full_path);
-			return axl_false;
+	if (__myqtt_storage_wasnt_initialized (MYQTT_STORAGE_ALL)) {
+		full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, "will", NULL);
+		if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
+			if (mkdir (full_path, 0700)) {
+				/* restore umask */
+				umask (umask_mode);
+				
+				/* release */
+				myqtt_mutex_unlock (&conn->op_mutex);
+				
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s for messages, error was: %s", full_path, myqtt_errno_get_error (errno));
+				axl_free (full_path);
+				return axl_false;
+			} /* end if */
 		} /* end if */
+		axl_free (full_path);
 	} /* end if */
-	axl_free (full_path);
+
+	/* pkgids */
+	if (__myqtt_storage_wasnt_initialized (MYQTT_STORAGE_PKGIDS)) {
+		full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, "pkgids", NULL);
+		if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
+			if (mkdir (full_path, 0700)) {
+				/* restore umask */
+				umask (umask_mode);
+				
+				/* release */
+				myqtt_mutex_unlock (&conn->op_mutex);
+				
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s for messages, error was: %s", full_path, myqtt_errno_get_error (errno));
+				axl_free (full_path);
+				return axl_false;
+			} /* end if */
+		} /* end if */
+		axl_free (full_path);
+	} /* end if */
+
+	/* record storage was initilized */
+	conn->myqtt_storage_init |= storage;
+
+	/* restore umask */
+	umask (umask_mode);
 
 	/* release */
 	myqtt_mutex_unlock (&conn->op_mutex);
@@ -685,6 +739,183 @@ axl_bool myqtt_storage_unsub (MyQttCtx * ctx, MyQttConn * conn, const char * top
 {
 	/* call to remove subscription */
 	return myqtt_storage_sub_exists_common (ctx, conn, topic_filter, 0, axl_true);
+}
+
+/** 
+ * @brief Allows to storage the provided message on the local session
+ * storage associated to the provided connection.
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param conn The connection to select local session storage.
+ *
+ * @param packet_id The packet id associated to the message.
+ *
+ * @param app_msg The application message to store.
+ *
+ * @param app_msg_size The size of the application message to store.
+ *
+ * @return The function return NULL on failure and a handler that
+ * points to the message stored.
+ */
+axlPointer myqtt_storage_store_msg   (MyQttCtx * ctx, MyQttConn * conn, int packet_id, MyQttQos qos, unsigned char * app_msg, int app_msg_size)
+{
+	char            * full_path;
+	char            * ref;
+	struct timeval    stamp;
+	FILE            * handle;
+
+	/* check input values */
+	if (ctx == NULL || conn == NULL || packet_id < 0 || packet_id > 65535 || app_msg_size <= 0 || app_msg == NULL)
+		return NULL;
+
+	/* call to init message store */
+	if (! myqtt_storage_init (ctx, conn, MYQTT_STORAGE_MSGS))
+		return NULL;
+
+	/* build path */
+	gettimeofday (&stamp, NULL);
+	ref       = axl_strdup_printf ("%d-%d-%d-%d-%d", packet_id, app_msg_size, qos, stamp.tv_sec, stamp.tv_usec);
+	if (! ref)
+		return NULL;
+	full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, "msgs", ref, NULL);
+	axl_free (ref);
+	if (! full_path) 
+		return NULL;
+
+	/* save file */
+	handle = fopen (full_path, "w");
+	if (! handle) {
+		/* report failure */
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to store message at %s, error was: %s", full_path, myqtt_errno_get_error (errno));
+		axl_free (full_path);
+		return NULL;
+	} /* end if */
+	
+	if (fwrite (app_msg, 1, app_msg_size, handle) != app_msg_size) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to storage message at %s, error was: %s", full_path, myqtt_errno_get_error (errno));
+		fclose (handle);
+		axl_free (full_path);
+		return NULL;
+	} /* end if */
+
+	/* message saved */
+
+	fclose (handle);
+	return full_path;
+}
+
+/** 
+ * @brief Allows to release the provided message on the local session
+ * storage associated to the provided connection.
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param conn The connection to select local session storage.
+ *
+ * @param handle Reference to the message as returned by \ref myqtt_storage_store_msg
+ *
+ * @return axl_true if the message was successfully stored, otherwise
+ * axl_false is returned.
+ */
+axl_bool myqtt_storage_release_msg   (MyQttCtx * ctx, MyQttConn * conn, axlPointer handle)
+{
+	/* check input values */
+	if (ctx == NULL || conn == NULL)
+		return axl_false;
+
+	/* call to init message store */
+	if (! myqtt_storage_init (ctx, conn, MYQTT_STORAGE_MSGS))
+		return axl_false;
+
+	/* release the message */
+	if (handle) {
+		unlink ((const char *) handle);
+		axl_free ((char *) handle);
+	} /* end if */
+
+	return axl_true;
+}
+
+/** 
+ * @brief Allows to lock the provided id or fail if it is already in
+ * use.
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param conn The connection where the operation operation takes place, using its session.
+ *
+ * @param pkg_id The packet id to lock. 
+ *
+ * @return axl_true if the pkgid was locked, otherwise axl_false is returned. 
+ */
+axl_bool myqtt_storage_lock_pkgid (MyQttCtx * ctx, MyQttConn * conn, int pkg_id)
+{
+	int    handle;
+	char * full_path;
+	char * ref;
+
+	if (ctx == NULL || conn == NULL || pkg_id < 1 || pkg_id > 65535)
+		return axl_false;
+
+	/* create full path to lock pkgid */
+	ref       = axl_strdup_printf ("%d", pkg_id);
+	if (ref == NULL)
+		return axl_false;
+
+	/* build path */
+	full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, "pkgids", ref, NULL);
+	axl_free (ref);
+	if (full_path == NULL) 
+		return axl_false;
+
+	/* open directory handle */
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Attempting to lock pkgid file at: %s", full_path);
+	handle = open (full_path, O_CREAT | O_EXCL, 0600);
+	axl_free (full_path);
+	if (handle < 0)
+		return axl_false;
+	close (handle);
+
+	return axl_true;
+}
+
+/** 
+ * @brief Allows to release the provided id from the current session
+ * associated to the provided connection.
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param conn The connection where the operation operation takes place, using its session.
+ *
+ * @param pkg_id The packet id to release. 
+ *
+ * @return axl_true if the pkgid was releaseed, otherwise axl_false is returned. 
+ */
+void     myqtt_storage_release_pkgid (MyQttCtx * ctx, MyQttConn * conn, int pkg_id)
+{
+	char * full_path;
+	char * ref;
+
+	if (ctx == NULL || conn == NULL || pkg_id < 1 || pkg_id > 65535)
+		return;
+
+	/* create full path to lock pkgid */
+	ref       = axl_strdup_printf ("%d", pkg_id);
+	if (ref == NULL)
+		return;
+
+	/* build path */
+	full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, "pkgids", ref, NULL);
+	axl_free (ref);
+	if (full_path == NULL) 
+		return;
+
+	/* open directory handle */
+	unlink (full_path);
+	axl_free (full_path);
+
+	return;
 }
 
 /** 

@@ -73,7 +73,9 @@ MyQttCtx * init_ctx (void)
 		myqtt_color_log_enable (ctx, axl_true);
 		myqtt_log2_enable (ctx, axl_true);
 	} /* end if */
-		
+
+	/* configure default storage location */
+	myqtt_storage_set_path (ctx, ".myqtt-regression-client", 4096);
 
 	return ctx;
 }
@@ -1247,7 +1249,7 @@ axl_bool test_10 (void) {
 	myqtt_storage_set_path (ctx, ".myqtt-test-10", 4096);
 
 	/* init storage for this user */
-	if (! myqtt_storage_init (ctx, conn)) {
+	if (! myqtt_storage_init (ctx, conn, MYQTT_STORAGE_ALL)) {
 		printf ("ERROR: unable to initialize storage for the provided connection..\n");
 		return axl_false;
 	} /* end if */
@@ -1389,8 +1391,8 @@ axl_bool test_11 (void) {
 	   clean_session -> axl_false ... so we want session
 	   keep_alive -> 30 */
 	conn = myqtt_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
-	if (myqtt_conn_is_ok (conn, axl_false)) {
-		printf ("ERROR: expected FAILURE but found LOGIN operation from %s:%s..it shouldn't have worked because we are requesting session and providing NULL identifier...\n", listener_host, listener_port);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected LOGIN but found FAILURE operation from %s:%s..it shouldn't have worked because we are requesting session and providing NULL identifier...\n", listener_host, listener_port);
 		return axl_false;
 	} /* end if */
 	myqtt_conn_close (conn);
@@ -1540,6 +1542,91 @@ axl_bool test_11 (void) {
 	return axl_true;
 }
 
+axl_bool test_12 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	MyQttMsg        * msg; 
+	int               sub_result;
+	MyQttAsyncQueue * queue;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 12: creating connections..\n");
+	
+	/* now try again connecting with session but providing a client identifier */
+	/* client_identifier -> "test12@identifier.com", clean_session -> axl_false */
+	conn = myqtt_conn_new (ctx, "test12@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected FAILURE but found LOGIN operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	if (! myqtt_conn_sub (conn, 10, "a/subs/1", MYQTT_QOS_2, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* set on publish handler */	
+	queue  = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+
+	/* publish QoS 1 messages */
+	if (! myqtt_conn_pub (conn, "a/subs/1", "This is a test message", 22, MYQTT_QOS_1, axl_false, 10)) {
+		printf ("ERROR: pub message failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* get message */
+	printf ("Test 12: get QoS 1 message from server (limit wait to 3 seconds)\n");
+	msg = myqtt_async_queue_timedpop (queue, 3000000);
+
+	if (msg == NULL) {
+		printf ("ERROR: expected to receive a message but NULL reference was found\n");
+		return axl_false;
+	} /* end if */
+
+	if (! axl_cmp (myqtt_msg_get_app_msg (msg), "This is a test message")) {
+		printf ("ERROR: expected to receive different message content but found: '%s'\n", (char *) myqtt_msg_get_app_msg (msg));
+		return axl_false;
+	} /* end if */
+
+	/* check message quality of service */
+	if (myqtt_msg_get_qos (msg) != MYQTT_QOS_1) {
+		printf ("ERROR: expected to receive quality of service 1 but found: %d\n", myqtt_msg_get_qos (msg));
+		return axl_false;
+	} /* end if */
+
+	/* check dup flag */
+	if (myqtt_msg_get_dup_flag (msg) != axl_false) {
+		printf ("ERROR: expected to find no dup flag fount it was found: %d\n", myqtt_msg_get_dup_flag (msg));
+		return axl_false;
+	} /* end if */
+
+	/* release message */
+	myqtt_msg_unref (msg);
+
+	/* check pkgids on this connection */
+	printf ("Test 12: checking local sending packet ids: %d..\n", axl_list_length (conn->sent_pkgids));
+	if (axl_list_length (conn->sent_pkgids) != 0) {
+		printf ("ERROR: expected to find sent pkgid ids list 0 but found pending %d\n", axl_list_length (conn->sent_pkgids));
+		return axl_false;
+	} /* end if */
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
+	/* release message and queue */
+	myqtt_async_queue_unref (queue);
+
+	/* release context */
+	printf ("Test 12: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -1641,8 +1728,10 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_11")
 	run_test (test_11, "Test 11: test sessions maintained by the server");
 
+	CHECK_TEST("test_12")
+	run_test (test_12, "Test 12: test QoS 1 messages");
+
 	/* test reception of messages when you are disconnected (with sessions) */
-	
 
 	/* test will support with autentication */
 

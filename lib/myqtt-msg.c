@@ -410,8 +410,6 @@ unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 	if (retain)
 		myqtt_set_bit (result, 0);
 	switch (qos) {
-	case MYQTT_QOS_DENIED:
-		break; /* never reached */
 	case MYQTT_QOS_AT_MOST_ONCE:
 		/* nothing requried */
 		break;
@@ -422,6 +420,9 @@ unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 	case MYQTT_QOS_EXACTLY_ONCE_DELIVERY:
 		/* set the bit required */
 		myqtt_set_bit (result, 2);
+		break;
+	default:
+		/* never reach */
 		break;
 	} /* end if */
 
@@ -698,6 +699,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	/* report the message type and qos */
 	msg->type = (header[0] & 0xf0) >> 4;
 	msg->qos  = (header[0] & 0x06) >> 1;
+	msg->dup  = myqtt_get_bit (header[0], 3);
 	myqtt_log (MYQTT_LEVEL_DEBUG, "New packet received: %s (QoS %d), header size indication is: %d (iterator=%d)", myqtt_msg_get_type_str (msg), msg->qos, remaining, iterator);
 
 	/* check qos value here */
@@ -1201,6 +1203,37 @@ const axlPointer  myqtt_msg_get_app_msg           (MyQttMsg * msg)
 		return NULL;
 
 	return (const axlPointer) msg->app_message;
+}
+
+/** 
+ * @brief Allows to get quality of service of the message received.
+ *
+ * @param msg The message to get the quality of service configuration from.
+ *
+ * @return The quality of service ( as defined by \ref MyQttQos) or -1
+ * if it fails.
+ *
+ */
+MyQttQos          myqtt_msg_get_qos (MyQttMsg * msg)
+{
+	if (msg == NULL)
+		return -1;
+
+	return msg->qos;
+}
+
+/** 
+ * @brief Allows to get dup flag from the provided message.
+ *
+ * @param The message to get dup flag from.
+ *
+ * @return The dup flag status.
+ */
+axl_bool          myqtt_msg_get_dup_flag (MyQttMsg * msg)
+{
+	if (msg == NULL)
+		return axl_false;
+	return msg->dup;
 }
 
 /** 
