@@ -1894,6 +1894,8 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 	axlPointer            handle = NULL;
 	axl_bool              result = axl_true;
 	MyQttMsg            * reply;
+	/* skip storage if requested by the caller. */
+	axl_bool              skip_storage = (qos & MYQTT_QOS_SKIP_STORAGE) == MYQTT_QOS_SKIP_STORAGE;
 
 	if (conn == NULL || conn->ctx == NULL)
 		return axl_false;
@@ -1944,17 +1946,19 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 			return axl_false;
 		} /* end if */
 
-		/* store message before attempting to deliver it */
-		handle = myqtt_storage_store_msg (ctx, conn, packet_id, (qos & MYQTT_QOS_1) == 1 ? 1 : 2, msg, size);
-		if (! handle) {
-			/* release packet id */
-			__myqtt_conn_release_pkgid (ctx, conn, packet_id);
-
-			/* free build */
-			myqtt_msg_free_build (ctx, msg, size);
-
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to storage message for publication, unable to continue");
-			return axl_false;
+		if (! skip_storage) {
+			/* store message before attempting to deliver it */
+			handle = myqtt_storage_store_msg (ctx, conn, packet_id, (qos & MYQTT_QOS_1) == 1 ? 1 : 2, msg, size);
+			if (! handle) {
+				/* release packet id */
+				__myqtt_conn_release_pkgid (ctx, conn, packet_id);
+				
+				/* free build */
+				myqtt_msg_free_build (ctx, msg, size);
+				
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to storage message for publication, unable to continue");
+				return axl_false;
+			} /* end if */
 		} /* end if */
 
 	} else {
@@ -1978,8 +1982,11 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 		/* release packet id */
 		__myqtt_conn_release_pkgid (ctx, conn, packet_id);
 
-		/* release message */
-		myqtt_storage_release_msg (ctx, conn, handle);
+		/* only release message if it was stored */
+		if (! skip_storage) {
+			/* release message */
+			myqtt_storage_release_msg (ctx, conn, handle);
+		} /* end if */
 
 		/* free build */
 		myqtt_msg_free_build (ctx, msg, size);
@@ -2002,8 +2009,10 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 	/* release packet id */
 	__myqtt_conn_release_pkgid (ctx, conn, packet_id);
 
-	/* release message */
-	myqtt_storage_release_msg (ctx, conn, handle);
+	if (! skip_storage) {
+		/* release message */
+		myqtt_storage_release_msg (ctx, conn, handle);
+	} /* end if */
 	
 	/* report final result */
 	return result;

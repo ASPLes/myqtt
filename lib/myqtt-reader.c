@@ -955,6 +955,10 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 			if (qos > PTR_TO_INT (axl_hash_cursor_get_value (cursor)))
 				qos = PTR_TO_INT (axl_hash_cursor_get_value (cursor));
 
+			/* skip storage for qos1 because it is already stored on the sender */
+			if (qos == MYQTT_QOS_1)
+				qos |= MYQTT_QOS_SKIP_STORAGE;
+
 			/* publish message */
 			myqtt_log (MYQTT_LEVEL_DEBUG, "Publishing topic name '%s', qos: %d (app msg size: %d) on conn %p", 
 				   msg->topic_name, qos, msg->app_message_size, conn);
