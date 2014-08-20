@@ -41,27 +41,70 @@
 
 #include <myqtt.h>
 
-axl_bool myqtt_storage_init (MyQttCtx * ctx, MyQttConn * conn, MyQttStorage storage);
+axl_bool myqtt_storage_init             (MyQttCtx      * ctx, 
+					 MyQttConn     * conn, 
+					 MyQttStorage    storage);
 
-axl_bool myqtt_storage_sub (MyQttCtx * ctx, MyQttConn * conn, const char * topic_filter, MyQttQos requested_qos);
+axl_bool myqtt_storage_init_offline     (MyQttCtx      * ctx, 
+					 const char    * client_identifier, 
+					 MyQttStorage    storage);
 
-axl_bool myqtt_storage_sub_exists (MyQttCtx * ctx, MyQttConn * conn, const char * topic_filter);
+axl_bool myqtt_storage_sub              (MyQttCtx      * ctx, 
+					 MyQttConn     * conn, 
+					 const char    * topic_filter, 
+					 MyQttQos        requested_qos);
 
-int      myqtt_storage_sub_count (MyQttCtx * ctx, MyQttConn * conn);
+axl_bool myqtt_storage_sub_exists       (MyQttCtx      * ctx, 
+					 MyQttConn     * conn, 
+					 const char    * topic_filter);
 
-axl_bool myqtt_storage_unsub (MyQttCtx * ctx, MyQttConn * conn, const char * topic_filter);
+int      myqtt_storage_sub_count        (MyQttCtx      * ctx, 
+					 MyQttConn     * conn);
 
-axlPointer myqtt_storage_store_msg    (MyQttCtx * ctx, MyQttConn * conn, int packet_id, MyQttQos qos, unsigned char * app_msg, int app_msg_size);
+axl_bool myqtt_storage_unsub            (MyQttCtx      * ctx, 
+					 MyQttConn     * conn, 
+					 const char    * topic_filter);
 
-axl_bool myqtt_storage_release_msg  (MyQttCtx * ctx, MyQttConn * conn, axlPointer handle);
+axlPointer myqtt_storage_store_msg      (MyQttCtx      * ctx, 
+					 MyQttConn     * conn, 
+					 int             packet_id, 
+					 MyQttQos        qos, 
+					 unsigned char * app_msg, 
+					 int             app_msg_size);
 
-axl_bool myqtt_storage_lock_pkgid (MyQttCtx * ctx, MyQttConn * conn, int pkg_id);
+axlPointer myqtt_storage_store_msg_offline (MyQttCtx      * ctx, 
+					    const char    * client_identifier,
+					    int             packet_id, 
+					    MyQttQos        qos, 
+					    unsigned char * app_msg, 
+					    int             app_msg_size);
 
-void     myqtt_storage_release_pkgid (MyQttCtx * ctx, MyQttConn * conn, int pkg_id);
+axl_bool myqtt_storage_release_msg      (MyQttCtx      * ctx, 
+					 MyQttConn     * conn, 
+					 axlPointer      handle);
 
-axl_bool myqtt_storage_session_recover (MyQttCtx * ctx, MyQttConn * conn);
+axl_bool myqtt_storage_lock_pkgid       (MyQttCtx      * ctx, 
+					 MyQttConn     * conn, 
+					 int             pkg_id);
 
-void     myqtt_storage_set_path (MyQttCtx * ctx, const char * storage_path, int hash_size);
+axl_bool myqtt_storage_lock_pkgid_offline (MyQttCtx      * ctx, 
+					   const char    * client_identifier,
+					   int             pkg_id);
+
+void     myqtt_storage_release_pkgid    (MyQttCtx      * ctx, 
+					 MyQttConn     * conn, 
+					 int             pkg_id);
+
+void     myqtt_storage_release_pkgid_offline    (MyQttCtx      * ctx, 
+						 const char    * client_identifier,
+						 int             pkg_id);
+
+axl_bool myqtt_storage_session_recover  (MyQttCtx      * ctx, 
+					 MyQttConn     * conn);
+
+void     myqtt_storage_set_path         (MyQttCtx      * ctx, 
+					 const char    * storage_path, 
+					 int             hash_size);
 
 /*** internal API: don't use it, it may change at any time ***/
 int      __myqtt_storage_get_size_from_file_name (MyQttCtx * ctx, const char * file_name, int * position);

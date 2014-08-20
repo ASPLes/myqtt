@@ -96,6 +96,14 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 						axl_bool              retain,
 						int                   wait_publish);
 
+axl_bool            myqtt_conn_offline_pub     (MyQttCtx            * ctx,
+						const char          * client_identifier,
+						const char          * topic_name,
+						const axlPointer      app_message,
+						int                   app_message_size,
+						MyQttQos              qos,
+						axl_bool              retain);
+
 axl_bool            myqtt_conn_sub             (MyQttConn           * conn,
 						int                   wait_sub,
 						const char          * topic_filter,

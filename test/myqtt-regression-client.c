@@ -1627,6 +1627,117 @@ axl_bool test_12 (void) {
 	return axl_true;
 }
 
+axl_bool test_13 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	MyQttMsg        * msg; 
+	int               sub_result;
+	MyQttAsyncQueue * queue;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 13: creating connections..\n");
+	
+	/* now try again connecting with session but providing a client identifier */
+	/* client_identifier -> "test13@identifier.com", clean_session -> axl_false */
+	conn = myqtt_conn_new (ctx, "test13@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected FAILURE but found LOGIN operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	if (! myqtt_conn_sub (conn, 10, "a/subs/1", MYQTT_QOS_2, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* set on publish handler */	
+	queue  = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+
+	/* publish QoS 1 messages */
+	if (! myqtt_conn_pub (conn, "a/subs/1", "This is a test message", 22, MYQTT_QOS_2, axl_false, 10)) {
+		printf ("ERROR: pub message failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* get message */
+	printf ("Test 13: get QoS 2 message from server (limit wait to 3 seconds)\n");
+	msg = myqtt_async_queue_timedpop (queue, 3000000);
+
+	if (msg == NULL) {
+		printf ("ERROR: expected to receive a message but NULL reference was found\n");
+		return axl_false;
+	} /* end if */
+
+	if (! axl_cmp (myqtt_msg_get_app_msg (msg), "This is a test message")) {
+		printf ("ERROR: expected to receive different message content but found: '%s'\n", (char *) myqtt_msg_get_app_msg (msg));
+		return axl_false;
+	} /* end if */
+
+	/* check message quality of service */
+	if (myqtt_msg_get_qos (msg) != MYQTT_QOS_2) {
+		printf ("ERROR: expected to receive quality of service 1 but found: %d\n", myqtt_msg_get_qos (msg));
+		return axl_false;
+	} /* end if */
+
+	/* check dup flag */
+	if (myqtt_msg_get_dup_flag (msg) != axl_false) {
+		printf ("ERROR: expected to find no dup flag fount it was found: %d\n", myqtt_msg_get_dup_flag (msg));
+		return axl_false;
+	} /* end if */
+
+	/* release message */
+	myqtt_msg_unref (msg);
+
+	/* check pkgids on this connection */
+	printf ("Test 13: checking local sending packet ids: %d..\n", axl_list_length (conn->sent_pkgids));
+	if (axl_list_length (conn->sent_pkgids) != 0) {
+		printf ("ERROR: expected to find sent pkgid ids list 0 but found pending %d\n", axl_list_length (conn->sent_pkgids));
+		return axl_false;
+	} /* end if */
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
+	/* release message and queue */
+	myqtt_async_queue_unref (queue);
+
+	/* release context */
+	printf ("Test 13: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+
+axl_bool test_14 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	MyQttMsg        * msg; 
+	int               sub_result;
+	MyQttAsyncQueue * queue;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 14: queueing 3 messages (offline PUB)..\n");
+
+	/* now connect with a different client id and subscribe to previous messages */
+
+	/* now connect with the client id with queued messages */
+
+	/* check we receive those messages that were queued */ 
+	
+	/* release context */
+	printf ("Test 13: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -1730,6 +1841,12 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_12")
 	run_test (test_12, "Test 12: test QoS 1 messages");
+
+	CHECK_TEST("test_13")
+	run_test (test_13, "Test 13: test QoS 2 messages");
+
+	CHECK_TEST("test_14")
+	run_test (test_14, "Test 14: offline PUB test messages queued to be sent on next connection (client)"); 
 
 	/* test reception of messages when you are disconnected (with sessions) */
 
