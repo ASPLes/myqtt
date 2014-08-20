@@ -92,6 +92,9 @@ const char *      myqtt_msg_get_topic    (MyQttMsg * msg);
 
 const axlPointer  myqtt_msg_get_app_msg  (MyQttMsg * msg);
 
+MyQttQos          myqtt_msg_get_qos (MyQttMsg * msg);
+
+axl_bool          myqtt_msg_get_dup_flag (MyQttMsg * msg);
 
 /*** INTERNAL API: don't use it, it may change ***/
 axl_bool myqtt_msg_encode_remaining_length (MyQttCtx * ctx, unsigned char * input, int value, int * out_position);

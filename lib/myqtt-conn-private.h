@@ -156,6 +156,10 @@ struct _MyQttConn {
 	 * enabled (clean_session=axl_false).
 	 */
 	axl_bool     clean_session;
+	/** 
+	 * @brief Keeps track about storage initilization.
+	 */
+	int          myqtt_storage_init;
 
 	/** 
 	 * @internal Variable used to track if a

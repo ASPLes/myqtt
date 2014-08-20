@@ -77,6 +77,9 @@ struct _MyQttMsg {
 	/* message qos */
 	MyQttQos             qos;
 
+	/* dup flag */
+	axl_bool             dup;
+
 	/* packet id if defined */
 	int                  packet_id;
 
