@@ -2,8 +2,6 @@
 
 * Add retain flag support
 
-* Add QoS 1 operational support
-
 * Add QoS 2 operational support
 
 * Add support to tls
