@@ -75,6 +75,7 @@ myqtt_conn_new6
 myqtt_conn_new_empty
 myqtt_conn_new_empty_from_conn
 myqtt_conn_new_full_common
+myqtt_conn_offline_pub
 myqtt_conn_opts_free
 myqtt_conn_opts_new
 myqtt_conn_opts_set_auth
@@ -268,12 +269,16 @@ myqtt_set_32bit
 myqtt_set_bit
 myqtt_show_byte
 myqtt_storage_init
+myqtt_storage_init_offline
 myqtt_storage_lock_pkgid
+myqtt_storage_lock_pkgid_offline
 myqtt_storage_release_msg
 myqtt_storage_release_pkgid
+myqtt_storage_release_pkgid_offline
 myqtt_storage_session_recover
 myqtt_storage_set_path
 myqtt_storage_store_msg
+myqtt_storage_store_msg_offline
 myqtt_storage_sub
 myqtt_storage_sub_count
 myqtt_storage_sub_exists

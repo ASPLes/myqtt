@@ -717,12 +717,18 @@ void __myqtt_reader_handle_wait_reply (MyQttCtx * ctx, MyQttConn * conn, MyQttMs
 			myqtt_conn_report_and_close (conn, "Received UNSUBACK request over a connection that is not an initiator");
 		else if (msg->type == MYQTT_PINGRESP)
 			myqtt_conn_report_and_close (conn, "Received PINGRESP request over a connection that is not an initiator");
+		else if (msg->type == MYQTT_PUBREC)
+			myqtt_conn_report_and_close (conn, "Received PUBREC request over a connection that is not an initiator");
+		else if (msg->type == MYQTT_PUBCOMP)
+			myqtt_conn_report_and_close (conn, "Received PUBCOMP request over a connection that is not an initiator");
 
 		return;
 	} /* end if */
 
-	if ((msg->type == MYQTT_PUBACK && msg->size != 2) || 
-	    (msg->type == MYQTT_SUBACK && msg->size < 3) || 
+	if ((msg->type == MYQTT_PUBACK   && msg->size != 2) || 
+	    (msg->type == MYQTT_PUBREC   && msg->size != 2) || 
+	    (msg->type == MYQTT_PUBCOMP  && msg->size != 2) || 
+	    (msg->type == MYQTT_SUBACK   && msg->size < 3) || 
 	    (msg->type == MYQTT_UNSUBACK && msg->size < 2) || 
 	    (msg->type == MYQTT_PINGRESP && msg->size != 0) ) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "%s message size=%d without header and remaining length is insufficient", myqtt_msg_get_type_str (msg), msg->size);
@@ -735,6 +741,10 @@ void __myqtt_reader_handle_wait_reply (MyQttCtx * ctx, MyQttConn * conn, MyQttMs
 			myqtt_conn_report_and_close (conn, "Received poorly formed PINGRESP request that contains unexpected content");
 		else if (msg->type == MYQTT_PUBACK)
 			myqtt_conn_report_and_close (conn, "Received poorly formed PUBACK request that contains unexpected content");
+		else if (msg->type == MYQTT_PUBREC)
+			myqtt_conn_report_and_close (conn, "Received poorly formed PUBREC request that contains unexpected content");
+		else if (msg->type == MYQTT_PUBCOMP)
+			myqtt_conn_report_and_close (conn, "Received poorly formed PUBCOMP request that contains unexpected content");
 
 		return;
 	} /* end if */
@@ -995,6 +1005,17 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	int                      desp = 0;
 	unsigned char          * reply;
 
+	if (msg->type == MYQTT_PUBREL) {
+		/* request to release message and acknoledge message
+		 * publication. Currently we have no mean to notify if
+		 * we finished but that's is a minor problem because
+		 * we have stored all messages to be sent so they will
+		 * be delivered because devices are connected or
+		 * because the message is queued to be sent on next
+		 * connection */
+		
+	}
+
 	/* parse content received inside message */
 	msg->topic_name = __myqtt_reader_get_utf8_string (ctx, msg->payload, msg->size);
 	if (! msg->topic_name ) {
@@ -1042,13 +1063,16 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	__myqtt_reader_do_publish (ctx, conn, msg);
 
 	/* now, for QoS1 we have to reply with a puback */
-	if (msg->qos == MYQTT_QOS_1) {
+	if (msg->qos == MYQTT_QOS_1 || msg->qos == MYQTT_QOS_2) {
 		/* configure header */
 		reply    = axl_new (unsigned char, 4);
 		if (reply == NULL)
 			return;
 
-		reply[0] = (( 0x00000f & MYQTT_PUBACK) << 4);
+		if (msg->qos == MYQTT_QOS_1)
+			reply[0] = (( 0x00000f & MYQTT_PUBACK) << 4);
+		else
+			reply[0] = (( 0x00000f & MYQTT_PUBREC) << 4);
 
 		/* configure remaining length */
 		reply[1] = 2;
@@ -1058,10 +1082,57 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 		myqtt_set_16bit (msg->packet_id, reply + 2);
 
 		/* send message */
-		if (! myqtt_sequencer_send (conn, MYQTT_SUBACK, reply, 4))
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send PUBACK message, errno=%d", errno);
+		if (! myqtt_sequencer_send (conn, (msg->qos == MYQTT_QOS_1) ? MYQTT_PUBACK : MYQTT_PUBREC, reply, 4))
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send %s message, errno=%d", (msg->qos == MYQTT_QOS_1) ? "PUBACK" : "PUBREC", errno);
 	} /* end if */
-	
+
+	return;
+}
+
+/** 
+ * @internal PUBREL handling..
+ */
+void __myqtt_reader_handle_pubrel (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _data)
+{
+	/* local variables */
+	int                      desp = 0;
+	unsigned char          * reply;
+
+	/* request to release message and acknoledge message
+	 * publication. Currently we have no mean to notify if we
+	 * finished but that's is a minor problem because we have
+	 * stored all messages to be sent so they will be delivered
+	 * because devices are connected or because the message is
+	 * queued to be sent on next connection */
+		
+	/**** CLIENT HANDLING ****/
+	if (conn->role == MyQttRoleInitiator) {
+		/* do nothing */
+
+		return;
+	} /* end if */
+
+	/* get packet id */
+	msg->packet_id   = myqtt_get_16bit (msg->payload + desp); 
+
+	/* configure header */
+	reply    = axl_new (unsigned char, 4);
+	if (reply == NULL)
+		return;
+
+	reply[0] = (( 0x00000f & MYQTT_PUBCOMP) << 4);
+
+	/* configure remaining length */
+	reply[1] = 2;
+
+	/* set packet id in reply */
+	/* myqtt_log (MYQTT_LEVEL_DEBUG, "Saving packet id %d on desp=%d", packet_id, desp + 1); */
+	myqtt_set_16bit (msg->packet_id, reply + 2);
+
+	/* send message */
+	if (! myqtt_sequencer_send (conn, MYQTT_PUBCOMP, reply, 4))
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send PUBCOMP message, errno=%d", errno);
+
 	return;
 }
 
@@ -1158,6 +1229,18 @@ void __myqtt_reader_process_socket (MyQttCtx  * ctx,
 		break;
 	case MYQTT_PUBACK:
 		/* handle PUBACK packet */
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_wait_reply);
+		break;
+	case MYQTT_PUBREC:
+		/* handle PUBREC packet */
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_wait_reply);
+		break;
+	case MYQTT_PUBREL:
+		/* handle PUBREC packet */
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_pubrel);
+		break;
+	case MYQTT_PUBCOMP:
+		/* handle PUBCOMP packet */
 		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_wait_reply);
 		break;
 	case MYQTT_PINGREQ:
