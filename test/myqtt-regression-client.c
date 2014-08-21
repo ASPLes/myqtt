@@ -1716,23 +1716,138 @@ axl_bool test_14 (void) {
 
 	MyQttCtx        * ctx = init_ctx ();
 	MyQttConn       * conn;
+	MyQttConn       * conn2;
 	MyQttMsg        * msg; 
+	int               iterator;
 	int               sub_result;
-	MyQttAsyncQueue * queue;
+	MyQttAsyncQueue * queue; 
 
 	if (! ctx)
 		return axl_false;
 
 	printf ("Test 14: queueing 3 messages (offline PUB)..\n");
+	if (system ("find .myqtt-regression-client/test14@identifier.com/msgs/ -type f -exec rm {} \\;") != 0)
+		printf ("WARNING: failed to clean messages from local storage..\n");
+
+	if (! myqtt_conn_offline_pub (ctx, "test14@identifier.com", "test/message/1", "This is a test message 1 for offline publication..", 50, MYQTT_QOS_0, axl_false)) {
+		printf ("ERROR: failed to publish offline message..\n");
+		return axl_false;
+	} /* end if */
+
+	if (! myqtt_conn_offline_pub (ctx, "test14@identifier.com", "test/message/2", "This is a test message 2 for offline publication..", 50, MYQTT_QOS_0, axl_false)) {
+		printf ("ERROR: failed to publish offline message..\n");
+		return axl_false;
+	} /* end if */
+
+	if (! myqtt_conn_offline_pub (ctx, "test14@identifier.com", "test/message/3", "This is a test message 3 for offline publication..", 50, MYQTT_QOS_0, axl_false)) {
+		printf ("ERROR: failed to publish offline message..\n");
+		return axl_false;
+	} /* end if */
+
+	/* get number of queued messages */
+	if (myqtt_storage_queued_messages_offline (ctx, "test14@identifier.com") != 3) {
+		printf ("ERROR: expected to find 3 queued messages (waiting to be sent on next connection..) but found: %d..\n", 
+			myqtt_storage_queued_messages_offline (ctx, "test14@identifier.com"));
+		return axl_false;
+	}
 
 	/* now connect with a different client id and subscribe to previous messages */
+	/* client_identifier -> "test13@identifier.com", clean_session -> axl_false */
+	printf ("Test 14: now connect with a second connection that expects to receive those queued messages for the other identifier..\n");
+	conn = myqtt_conn_new (ctx, "test14-2@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected LOGIN  but found LOGIN FAILURE operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* subscribe to the topics referenced before */
+	printf ("Test 14: subscribing to the topics..\n");
+	if (! myqtt_conn_sub (conn, 10, "test/message/1", MYQTT_QOS_2, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	if (! myqtt_conn_sub (conn, 10, "test/message/2", MYQTT_QOS_2, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	if (! myqtt_conn_sub (conn, 10, "test/message/3", MYQTT_QOS_2, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* set on publish handler */	
+	queue  = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
 
 	/* now connect with the client id with queued messages */
+	printf ("Test 14: now connect with the initial connection that has queued messages..\n");
+	conn2 = myqtt_conn_new (ctx, "test14@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn2, axl_false)) {
+		printf ("ERROR: expected LOGIN  but found LOGIN FAILURE operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
 
 	/* check we receive those messages that were queued */ 
+	iterator = 0;
+	while (iterator < 3) {
+		/* next message on queue */
+		printf ("Test 14: waiting for messages to arrive (at most 3 seconds waiting before failing..\n");
+		msg = myqtt_async_queue_timedpop (queue, 3000000);
+		if (msg == NULL || myqtt_msg_get_type (msg) != MYQTT_PUBLISH) {
+			printf ("ERROR: received NULL message or wrong type..\n");
+			return axl_false;
+		} /* end if */
+
+		/* more checks here */
+		if (axl_cmp (myqtt_msg_get_topic (msg), "test/message/1")) {
+			if (! axl_cmp (myqtt_msg_get_app_msg (msg), "This is a test message 1 for offline publication..")) {
+				printf ("ERROR: expected different test but found: %s\n", (char *) myqtt_msg_get_app_msg (msg));
+				return axl_false;
+			} /* end if */
+		} else if (axl_cmp (myqtt_msg_get_topic (msg), "test/message/2")) {
+			if (! axl_cmp (myqtt_msg_get_app_msg (msg), "This is a test message 2 for offline publication..")) {
+				printf ("ERROR: expected different test but found: %s\n", (char *) myqtt_msg_get_app_msg (msg));
+				return axl_false;
+			} /* end if */
+		} else if (axl_cmp (myqtt_msg_get_topic (msg), "test/message/3")) {
+			if (! axl_cmp (myqtt_msg_get_app_msg (msg), "This is a test message 3 for offline publication..")) {
+				printf ("ERROR: expected different test but found: %s\n", (char *) myqtt_msg_get_app_msg (msg));
+				return axl_false;
+			} /* end if */
+		} else {
+			printf ("ERROR: expected different content at the topic but found: %s\n", myqtt_msg_get_topic (msg));
+			return axl_false;
+		} /* end if */
+
+		if (myqtt_msg_get_app_msg_size (msg) != 50) {
+			printf ("ERROR: expected different content size but found: %d\n", myqtt_msg_get_app_msg_size (msg));
+			return axl_false;
+		} /* end if */
+
+		/* release message */
+		myqtt_msg_unref (msg);
+
+		/* next iterator */
+		iterator++;
+	} /* end while */
+
+	/* now check pending messages for test14@identifier.com */
+	if (myqtt_storage_queued_messages (ctx, conn) != 0) {
+		printf ("ERROR: expected to not find any queued message but found: %d\n", myqtt_storage_queued_messages (ctx, conn));
+		return axl_false;
+	} /* end if */
+
+	/* close both connections */
+	myqtt_conn_close (conn2);
+	myqtt_conn_close (conn);
+
+	/* release queue */
+	myqtt_async_queue_unref (queue);
 	
 	/* release context */
-	printf ("Test 13: releasing context..\n");
+	printf ("Test 14: releasing context..\n");
 	myqtt_exit_ctx (ctx, axl_true);
 
 	return axl_true;
@@ -1846,7 +1961,10 @@ int main (int argc, char ** argv)
 	run_test (test_13, "Test 13: test QoS 2 messages");
 
 	CHECK_TEST("test_14")
-	run_test (test_14, "Test 14: offline PUB test messages queued to be sent on next connection (client)"); 
+	run_test (test_14, "Test 14: offline PUB test messages queued to be sent on next connection (client)");  
+
+	/* automatically store/queue qos 1/2 messages when sequencer
+	 * fails to send the message */
 
 	/* test reception of messages when you are disconnected (with sessions) */
 
