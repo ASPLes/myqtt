@@ -162,6 +162,11 @@ struct _MyQttConn {
 	int          myqtt_storage_init;
 
 	/** 
+	 * @brief Internal variable to track if there is already a thread flushing 
+	 */
+	axl_bool     flushing;
+
+	/** 
 	 * @internal Variable used to track if a
 	 * myqtt_connection_close process is already activated.
 	 */

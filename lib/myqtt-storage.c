@@ -885,6 +885,233 @@ axl_bool myqtt_storage_release_msg   (MyQttCtx * ctx, MyQttConn * conn, axlPoint
 }
 
 /** 
+ * @brief Allows to get current queued messages pending to be
+ * redelivered on next connection (offline version).
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param client_identifier The client identifier to select the right
+ * local session according to its client identifier.
+ */
+int      myqtt_storage_queued_messages_offline (MyQttCtx   * ctx, 
+						const char * client_identifier)
+{
+	char            * full_path;
+	DIR             * sub_dir;
+	int               count;
+	struct dirent   * entry;
+#if !defined(_DIRENT_HAVE_D_TYPE)
+	char            * aux_path;
+#endif
+
+	/* check input values:
+	 *
+	 * don't check here for (pkg_id > 65536) because we use values
+	 * over that to store QoS0 messages that do not need a valid
+	 * pkg_id but we need a different value to store them */
+	if (ctx == NULL || client_identifier == NULL || strlen (client_identifier) == 0)
+		return 0;
+
+	/* build path */
+	full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, "msgs", NULL);
+	if (! full_path) 
+		return 0;
+
+	/* open directory */
+	sub_dir = opendir (full_path);
+	if (sub_dir == NULL)  {
+		axl_free (full_path);
+		return 0;
+	} /* end if */
+	
+	/* count files inside messages directory */
+	count = 0;
+	entry = readdir (sub_dir);
+	while (entry) {
+
+#if defined(_DIRENT_HAVE_D_TYPE)
+		if ((entry->d_type & DT_REG) == DT_REG) 
+			count++;
+#else 
+		aux_path = myqtt_support_build_filename (full_path, entry->d_name, NULL);
+		if (myqtt_support_file_test (aux_path, FILE_EXISTS | FILE_IS_REGULAR)) {
+			/* count subscriptions */
+			count++;
+		}
+		axl_free (aux_path);
+#endif
+
+		/* get next entry */
+		entry = readdir (sub_dir);
+	}
+	axl_free (full_path);
+
+	closedir (sub_dir);
+
+	return count;
+}
+
+/** 
+ * @brief Allows to get current queued messages pending to be
+ * redelivered on next connection.
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param conn Connection reference to select the right local session
+ * according to its client identifier.
+ */
+int      myqtt_storage_queued_messages         (MyQttCtx   * ctx, 
+						MyQttConn  * conn)
+{
+	if (conn == NULL)
+		return -1;
+
+	return myqtt_storage_queued_messages_offline (ctx, conn->client_identifier);
+}
+
+void myqtt_storage_queued_flush_work (MyQttCtx * ctx, MyQttConn * conn)
+{
+	/* local parameters */
+	char            * full_path;
+	DIR             * sub_dir;
+	int               count;
+	struct dirent   * entry;
+	char            * aux_path;
+
+	int               pos;
+	int               desp;
+	MyQttQos          qos;
+	int               packet_id;
+	unsigned char   * msg;
+	int               size;
+
+	FILE            * _fcontent;
+
+	/* check input values:
+	 *
+	 * don't check here for (pkg_id > 65536) because we use values
+	 * over that to store QoS0 messages that do not need a valid
+	 * pkg_id but we need a different value to store them */
+	if (ctx == NULL || conn == NULL || conn->client_identifier == NULL || strlen (conn->client_identifier) == 0)
+		return;
+
+	/* build path */
+	full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, "msgs", NULL);
+	if (! full_path) 
+		return;
+
+	/* open directory */
+	sub_dir = opendir (full_path);
+	if (sub_dir == NULL)  {
+		axl_free (full_path);
+		return;
+	} /* end if */
+	
+	/* count files inside messages directory */
+	count = 0;
+	entry = readdir (sub_dir);
+	while (entry) {
+
+		aux_path = myqtt_support_build_filename (full_path, entry->d_name, NULL);
+		if (myqtt_support_file_test (aux_path, FILE_EXISTS | FILE_IS_REGULAR)) {
+			/* ok, now parse each message to get */
+
+			/* get packet_id */
+			pos       = 0;
+			packet_id = __myqtt_storage_get_size_from_file_name (ctx, entry->d_name, &pos);
+			desp      = pos;
+
+			/* get size */
+			size      = __myqtt_storage_get_size_from_file_name (ctx, entry->d_name + desp + 1, &pos);
+			desp      += pos;
+
+			/* get qos */
+			qos        = __myqtt_storage_get_size_from_file_name (ctx, entry->d_name + desp + 1, &pos);
+			desp      += pos;
+
+			/* open message into memory */
+			msg        = axl_new (unsigned char, size + 1);
+			_fcontent  = fopen (aux_path, "r");
+			if (fread (msg, 1, size, _fcontent) != size) 
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to read %d from file but found different size read, error was: %s",
+					   size, myqtt_errno_get_error (errno));
+			fclose (_fcontent);
+
+			/* call to resend */
+			if (! __myqtt_conn_pub_send_and_handle_reply (ctx, conn, packet_id, qos, aux_path, 60, msg, size)) 
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "failed to resend queued message, __myqtt_conn_pub_send_and_handle_reply() failed");
+			
+			/* nullify to avoid double-free on next call */
+			aux_path = NULL;
+
+			/* no need to release msg, or aux_paht
+			 * here...this is already done by
+			 * __myqtt_conn_pub_send_and_handle_reply() */
+
+			/* count subscriptions */
+			count++;
+		}
+		axl_free (aux_path);
+
+		/* get next entry */
+		entry = readdir (sub_dir);
+	}
+	axl_free (full_path);
+
+	closedir (sub_dir);
+
+	return;
+}
+
+axlPointer __myqtt_storage_queued_flush_proxy (axlPointer _conn)
+{
+	MyQttConn * conn = _conn;
+	MyQttCtx  * ctx  = conn->ctx;
+
+	/* call local function */
+	myqtt_storage_queued_flush_work (ctx, conn);
+
+	/* signal we have finished flushing */
+	conn->flushing = axl_false;
+	return NULL;
+}
+
+/** 
+ * @brief Allows to redeliver all queued messages associated to the
+ * connected session provided.
+ *
+ * @param conn The connection that may have pending messages to be redeliver...
+ *
+ * @return Number of flushed messages, or -1 if it fails.
+ */
+void      myqtt_storage_queued_flush            (MyQttCtx   * ctx, 
+						 MyQttConn  * conn)
+{
+	if (ctx == NULL || conn == NULL)
+		return;
+
+	/* skip if there is another process flushing */
+	if (conn->flushing)
+		return;
+
+	/* ensure only one process is flushing */
+	myqtt_mutex_lock (&conn->op_mutex);
+	if (conn->flushing) {
+		myqtt_mutex_unlock (&conn->op_mutex);
+		return;
+	} /* end if */
+
+	/* flag we are flushing */
+	conn->flushing = axl_true;
+	myqtt_mutex_unlock (&conn->op_mutex);
+
+	/* call to flush */
+	myqtt_thread_pool_new_task (ctx, __myqtt_storage_queued_flush_proxy, conn);
+
+	return;
+}
+
+/** 
  * @brief Allows to lock the provided id or fail if it is already in
  * use.
  *

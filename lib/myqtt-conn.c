@@ -1409,6 +1409,17 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 	if (opts && ! opts->reuse)
 		myqtt_conn_opts_free (opts);
 
+	/* check if the connection has pending messages to be sent to process them now  */
+	if (connection->last_err == MYQTT_CONNACK_ACCEPTED && ! connection->clean_session) {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "RESENDING: checking for pending messages: %d", myqtt_storage_queued_messages (ctx, connection));
+		/* check for pending messages */
+		if (myqtt_storage_queued_messages (ctx, connection) > 0) {
+			myqtt_log (MYQTT_LEVEL_DEBUG, "RESENDING: calling to resend messages: %d", myqtt_storage_queued_messages (ctx, connection));
+			/* we have pending messages, order to deliver them */
+			myqtt_storage_queued_flush (ctx, connection);
+		} /* end if */
+	}
+
 	/* call to report connection */
 
 	/* notify on callback or simply return */
@@ -1573,6 +1584,19 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
  * on_connected handler is provided. In both cases, the reference
  * returned (or received at the on_connected handler) must be checked
  * with \ref myqtt_conn_is_ok. 
+ *
+ * <b>About pending messages / queued messages </b>
+ *
+ * After successful connection with clean_session set to axl_false and
+ * defined client identifier, the library will resend any queued or in
+ * flight QoS1/QoS2 messages (as well as QoS0 if they were
+ * stored). This is done in background without intefering the caller.
+ *
+ * If you need to get the number of queued messages that are going to
+ * be sent use \ref myqtt_storage_queued_messages_offline. In the case
+ * you need the number remaining during the process use \ref
+ * myqtt_storage_queued_messages.
+ *
  */
 MyQttConn  * myqtt_conn_new                    (MyQttCtx       * ctx,
 						const char     * client_identifier,
@@ -1837,135 +1861,24 @@ void __myqtt_conn_release_pkgid (MyQttCtx * ctx, MyQttConn * conn, int pkg_id)
 }
 
 /** 
- * @brief Allows to publish a new application message with the
- * provided topic name on the provided connection.
- *
- * The function will publish the application message provided with the QOS indicated. 
- *
- * Optionally, the function allows to wait for publish operation to
- * fully complete blocking the caller until that is done. For \ref
- * MYQTT_QOS_AT_MOST_ONCE (Qos 1) this has no effect. But for \ref
- * MYQTT_QOS_AT_LEAST_ONCE_DELIVERY (QoS 1) it implies waiting for
- * PUBACK control packet to be received. The same applies to \ref
- * MYQTT_QOS_EXACTLY_ONCE_DELIVERY (QoS 2) which implies waiting until
- * PUBCOMP is received.
- *
- * @param conn The connection where the publish operation will take place.
- *
- * @param topic_name The name of the topic for the application message published.
- *
- * @param app_message The application message to publish. From MyQtt's
- * perspective, this is binary data that has a format that is only
- * meaningful to the application on top using MQTT.
- *
- * @param app_message_size The size of the application message. 
- *
- * @param qos The quality of service under which the message will be
- * published. See \ref MyQttQos
- *
- * @param retain Enable message retention for this published
- * message. This way new subscribers will be able to get last
- * published retained message.
- *
- * @param wait_publish Wait for full publication of the message
- * blocking the caller until that happens. If 0 is provided no wait is
- * performed. If some value is provided that will be the max amount of
- * time, in seconds, to wait for complete publication. For \ref
- * MYQTT_QOS_0 this value is ignored.
- *
- * @return The function returns axl_true in the case the message was
- * published, otherwise axl_false is returned. The function returns
- * axl_false when the connection received is broken or topic name is
- * NULL or it is bigger than 65535 bytes.
- * 
+ * @internal Function used to send message and handle reply handle for
+ * PUBLISH (qos 0, 1 and 2). It also handles local storage.
  */
-axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
-						const char          * topic_name,
-						const axlPointer      app_message,
-						int                   app_message_size,
-						MyQttQos              qos,
-						axl_bool              retain,
-						int                   wait_publish)
+axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx, 
+						 MyQttConn     * conn, 
+						 int             packet_id, 
+						 MyQttQos        qos, 
+						 axlPointer      handle, 
+						 int             wait_publish, 
+						 unsigned char * msg, 
+						 int             size)
 {
-	unsigned char       * msg;
-	int                   size;
-	MyQttCtx            * ctx;
-	int                   packet_id = -1;
-	axlPointer            handle = NULL;
-	axl_bool              result = axl_true;
-	MyQttMsg            * reply;
+
+	MyQttMsg   * reply;
+	axl_bool     result = axl_true;
+
 	/* skip storage if requested by the caller. */
-	axl_bool              skip_storage = (qos & MYQTT_QOS_SKIP_STORAGE) == MYQTT_QOS_SKIP_STORAGE;
-
-	if (conn == NULL || conn->ctx == NULL)
-		return axl_false;
-
-	/* get reference to the context */
-	ctx = conn->ctx;
-
-	if (! myqtt_conn_is_ok (conn, axl_false)) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to publish, connection received is not working");
-		return axl_false;
-	} /* end if */
-
-	if (! topic_name || strlen (topic_name) > 65535) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Topic name is bigger than 65535 and this is not allowed by MQTT");
-		return axl_false;
-	} /* end if */
-
-	/* create message */
-	size = 0;
-
-	if (qos == 0) {
-		/* build QOS=0 message */
-		/* dup = axl_false, qos = 0, retain = <as described by parameter> */
-		msg  = myqtt_msg_build  (ctx, MYQTT_PUBLISH, axl_false, 0, retain, &size,  /* 2 bytes */
-					 /* topic name */
-					 MYQTT_PARAM_UTF8_STRING, strlen (topic_name), topic_name,
-					 /* message */
-					 MYQTT_PARAM_BINARY_PAYLOAD, app_message_size, app_message,
-					 MYQTT_PARAM_END);
-	} else if ((qos & MYQTT_QOS_1) == 1 || (qos & MYQTT_QOS_2) == 2) {
-
-		/* get free packet id */
-		packet_id = __myqtt_conn_get_next_pkgid (ctx, conn, (qos & MYQTT_QOS_1) == 1 ? 1 : 2);
-
-		/* build QOS=1/2 message */
-		/* dup = axl_false, qos = 0, retain = <as described by parameter> */
-		msg       = myqtt_msg_build  (ctx, MYQTT_PUBLISH, axl_false, (qos & MYQTT_QOS_1) == 1 ? 1 : 2, retain, &size,  /* 2 bytes */
-					      /* topic name */
-					      MYQTT_PARAM_UTF8_STRING, strlen (topic_name), topic_name,
-					      /* packet id */
-					      MYQTT_PARAM_16BIT_INT, packet_id,
-					      /* message */
-					      MYQTT_PARAM_BINARY_PAYLOAD, app_message_size, app_message,
-					      MYQTT_PARAM_END);
-
-		if (msg == NULL || size == 0) {
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create PUBLISH message, empty/NULL value reported by myqtt_msg_build()");
-			return axl_false;
-		} /* end if */
-
-		if (! skip_storage) {
-			/* store message before attempting to deliver it */
-			handle = myqtt_storage_store_msg (ctx, conn, packet_id, (qos & MYQTT_QOS_1) == 1 ? 1 : 2, msg, size);
-			if (! handle) {
-				/* release packet id */
-				__myqtt_conn_release_pkgid (ctx, conn, packet_id);
-				
-				/* free build */
-				myqtt_msg_free_build (ctx, msg, size);
-				
-				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to storage message for publication, unable to continue");
-				return axl_false;
-			} /* end if */
-		} /* end if */
-
-	} else {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Wrong QoS value received=%d, unable to publish message", qos);
-		return axl_false;
-	} /* end if */
-
+	axl_bool     skip_storage = (qos & MYQTT_QOS_SKIP_STORAGE) == MYQTT_QOS_SKIP_STORAGE;
 
 	if (msg == NULL || size == 0) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create PUBLISH message, empty/NULL value reported by myqtt_msg_build()");
@@ -1986,6 +1899,8 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 		if (! skip_storage) {
 			/* release message */
 			myqtt_storage_release_msg (ctx, conn, handle);
+			handle = NULL; /* nullify handle now we have
+					* released message stored */
 		} /* end if */
 
 		/* free build */
@@ -2089,6 +2004,139 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 }
 
 /** 
+ * @brief Allows to publish a new application message with the
+ * provided topic name on the provided connection.
+ *
+ * The function will publish the application message provided with the QOS indicated. 
+ *
+ * Optionally, the function allows to wait for publish operation to
+ * fully complete blocking the caller until that is done. For \ref
+ * MYQTT_QOS_AT_MOST_ONCE (Qos 1) this has no effect. But for \ref
+ * MYQTT_QOS_AT_LEAST_ONCE_DELIVERY (QoS 1) it implies waiting for
+ * PUBACK control packet to be received. The same applies to \ref
+ * MYQTT_QOS_EXACTLY_ONCE_DELIVERY (QoS 2) which implies waiting until
+ * PUBCOMP is received.
+ *
+ * @param conn The connection where the publish operation will take place.
+ *
+ * @param topic_name The name of the topic for the application message published.
+ *
+ * @param app_message The application message to publish. From MyQtt's
+ * perspective, this is binary data that has a format that is only
+ * meaningful to the application on top using MQTT.
+ *
+ * @param app_message_size The size of the application message. 
+ *
+ * @param qos The quality of service under which the message will be
+ * published. See \ref MyQttQos
+ *
+ * @param retain Enable message retention for this published
+ * message. This way new subscribers will be able to get last
+ * published retained message.
+ *
+ * @param wait_publish Wait for full publication of the message
+ * blocking the caller until that happens. If 0 is provided no wait is
+ * performed. If some value is provided that will be the max amount of
+ * time, in seconds, to wait for complete publication. For \ref
+ * MYQTT_QOS_0 this value is ignored.
+ *
+ * @return The function returns axl_true in the case the message was
+ * published, otherwise axl_false is returned. The function returns
+ * axl_false when the connection received is broken or topic name is
+ * NULL or it is bigger than 65535 bytes.
+ * 
+ */
+axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
+						const char          * topic_name,
+						const axlPointer      app_message,
+						int                   app_message_size,
+						MyQttQos              qos,
+						axl_bool              retain,
+						int                   wait_publish)
+{
+	unsigned char       * msg;
+	int                   size;
+	MyQttCtx            * ctx;
+	int                   packet_id = -1;
+	axlPointer            handle = NULL;
+
+	/* skip storage if requested by the caller. */
+	axl_bool              skip_storage = (qos & MYQTT_QOS_SKIP_STORAGE) == MYQTT_QOS_SKIP_STORAGE;
+
+	if (conn == NULL || conn->ctx == NULL)
+		return axl_false;
+
+	/* get reference to the context */
+	ctx = conn->ctx;
+
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to publish, connection received is not working");
+		return axl_false;
+	} /* end if */
+
+	if (! topic_name || strlen (topic_name) > 65535) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Topic name is bigger than 65535 and this is not allowed by MQTT");
+		return axl_false;
+	} /* end if */
+
+	/* create message */
+	size = 0;
+
+	if (qos == 0) {
+		/* build QOS=0 message */
+		/* dup = axl_false, qos = 0, retain = <as described by parameter> */
+		msg  = myqtt_msg_build  (ctx, MYQTT_PUBLISH, axl_false, 0, retain, &size,  /* 2 bytes */
+					 /* topic name */
+					 MYQTT_PARAM_UTF8_STRING, strlen (topic_name), topic_name,
+					 /* message */
+					 MYQTT_PARAM_BINARY_PAYLOAD, app_message_size, app_message,
+					 MYQTT_PARAM_END);
+	} else if ((qos & MYQTT_QOS_1) == 1 || (qos & MYQTT_QOS_2) == 2) {
+
+		/* get free packet id */
+		packet_id = __myqtt_conn_get_next_pkgid (ctx, conn, (qos & MYQTT_QOS_1) == 1 ? 1 : 2);
+
+		/* build QOS=1/2 message */
+		/* dup = axl_false, qos = 0, retain = <as described by parameter> */
+		msg       = myqtt_msg_build  (ctx, MYQTT_PUBLISH, axl_false, (qos & MYQTT_QOS_1) == 1 ? 1 : 2, retain, &size,  /* 2 bytes */
+					      /* topic name */
+					      MYQTT_PARAM_UTF8_STRING, strlen (topic_name), topic_name,
+					      /* packet id */
+					      MYQTT_PARAM_16BIT_INT, packet_id,
+					      /* message */
+					      MYQTT_PARAM_BINARY_PAYLOAD, app_message_size, app_message,
+					      MYQTT_PARAM_END);
+
+		if (msg == NULL || size == 0) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create PUBLISH message, empty/NULL value reported by myqtt_msg_build()");
+			return axl_false;
+		} /* end if */
+
+		if (! skip_storage) {
+			/* store message before attempting to deliver it */
+			handle = myqtt_storage_store_msg (ctx, conn, packet_id, (qos & MYQTT_QOS_1) == 1 ? 1 : 2, msg, size);
+			if (! handle) {
+				/* release packet id */
+				__myqtt_conn_release_pkgid (ctx, conn, packet_id);
+				
+				/* free build */
+				myqtt_msg_free_build (ctx, msg, size);
+				
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to storage message for publication, unable to continue");
+				return axl_false;
+			} /* end if */
+		} /* end if */
+
+	} else {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Wrong QoS value received=%d, unable to publish message", qos);
+		return axl_false;
+	} /* end if */
+
+	/* call to send message and handle reply */
+	return __myqtt_conn_pub_send_and_handle_reply (ctx, conn, packet_id, qos, handle, wait_publish, msg, size);
+}
+
+/** 
  * @brief Allows to queue PUBLISH messages on local storage,
  * associated to the provided client identifier, that will be sent
  * once the connection is created after this operation.
@@ -2139,6 +2187,7 @@ axl_bool            myqtt_conn_offline_pub     (MyQttCtx            * ctx,
 	int             pkg_id = 1;
 	unsigned char * msg;
 	int             size;
+	axlPointer      handle;
 
 
 	if (client_identifier == NULL || strlen (client_identifier) == 0)
@@ -2221,7 +2270,8 @@ axl_bool            myqtt_conn_offline_pub     (MyQttCtx            * ctx,
 	} /* end if */
 
 	/* now queue message */
-	if (! myqtt_storage_store_msg_offline (ctx, client_identifier, pkg_id, qos, msg, size)) {
+	handle = myqtt_storage_store_msg_offline (ctx, client_identifier, pkg_id, qos, msg, size);
+	if (! handle) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to storage message offline, myqtt_storage_store_msg_offline() failed");
 
 		/* release pkgid now it is not going to be used */
@@ -2230,11 +2280,17 @@ axl_bool            myqtt_conn_offline_pub     (MyQttCtx            * ctx,
 		/* free message now it is stored */
 		myqtt_msg_free_build (ctx, msg, size);
 
+		/* release handle */
+		axl_free (handle);
+
 		return axl_false;
 	} /* end if */
 
 	/* free message now it is stored */
 	myqtt_msg_free_build (ctx, msg, size);
+
+	/* release handle */
+	axl_free (handle);
 
 	/* message queued */
 	return axl_true;
