@@ -90,7 +90,7 @@ MyQttCtx * myqtt_ctx_new (void)
 	ctx->data     = myqtt_hash_new (axl_hash_string, axl_hash_equal_string);
 	MYQTT_CHECK_REF2 (ctx->data, NULL, ctx, axl_free);
 
-	/**** myqtt_frame_factory.c: init module ****/
+	/**** myqtt-msg.c: init module ****/
 	ctx->msg_id = 1;
 
 	/* init mutex for the log */
@@ -109,8 +109,6 @@ MyQttCtx * myqtt_ctx_new (void)
 	myqtt_cond_create (&ctx->pending_messages_c);
 
 	/* subscription list */
-	ctx->subs      = axl_hash_new (axl_hash_string, axl_hash_equal_string);
-	ctx->wild_subs = axl_hash_new (axl_hash_string, axl_hash_equal_string);
 	myqtt_mutex_create (&ctx->subs_m);
 	myqtt_cond_create (&ctx->subs_c);
 
@@ -145,8 +143,42 @@ void        myqtt_ctx_set_on_publish            (MyQttCtx                       
 		return;
 
 	/* configure handlers */
+	myqtt_mutex_lock (&ctx->ref_mutex);
 	ctx->on_publish_data = user_data;
-	ctx->on_publish = on_publish;
+	ctx->on_publish      = on_publish;
+	myqtt_mutex_unlock (&ctx->ref_mutex);
+
+	return;
+}
+
+/** 
+ * @brief Allows to configure the on message handler at context level.
+ *
+ * The handler configured here affects to all client connections
+ * receiving messages on this context that do not have a particular on
+ * message \ref myqtt_conn_set_on_msg
+ *
+ * Note that the handler configured at \ref myqtt_conn_set_on_msg is called first, and if defined, makes the handler configured on this function (\ref myqtt_ctx_set_on_msg) to be not called).
+ *
+ * @param ctx The context where the handler will be configured.
+ *
+ * @param on_msg The handler to be configured.
+ *
+ * @param on_msg_data User defined pointer to be passed in into the
+ * on_msg when called.
+ */
+void        myqtt_ctx_set_on_msg               (MyQttCtx             * ctx,
+						MyQttOnMsgReceived     on_msg,
+						axlPointer             on_msg_data)
+{
+	if (ctx == NULL)
+		return;
+
+	/* configure handlers */
+	myqtt_mutex_lock (&ctx->ref_mutex);
+	ctx->on_msg_data = on_msg_data;
+	ctx->on_msg      = on_msg;
+	myqtt_mutex_unlock (&ctx->ref_mutex);
 
 	return;
 }
@@ -649,6 +681,10 @@ void        myqtt_ctx_free2 (MyQttCtx * ctx, const char * who)
 	/* release connections subscribed */
 	axl_hash_free (ctx->subs);
 	axl_hash_free (ctx->wild_subs);
+
+	axl_hash_free (ctx->offline_subs);
+	axl_hash_free (ctx->offline_wild_subs);
+
 	myqtt_mutex_destroy (&ctx->subs_m);
 	myqtt_cond_destroy (&ctx->subs_c);
 

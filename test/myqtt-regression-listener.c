@@ -188,6 +188,19 @@ MyQttPublishCodes on_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, 
 		return MYQTT_PUBLISH_DISCARD; /* report received PUBLISH should be discarded */
 	} /* end if */
 
+	/* get current user con */
+	if (axl_cmp ("myqtt/admin/get-queued-msgs", myqtt_msg_get_topic (msg))) {
+		/* implement a wait so the caller can catch with myqtt_conn_get_nex () */
+		__listener_sleep (1000000); /* 1 second */
+
+		aux = axl_strdup_printf ("%d", myqtt_storage_queued_messages_offline (ctx, myqtt_msg_get_app_msg (msg)));
+		printf ("Sending queued messages for %s: %s\n", (const char *) myqtt_msg_get_app_msg (msg), aux);
+		if (! myqtt_conn_pub (conn, "myqtt/admin/get-queued-msgs", aux, strlen (aux), MYQTT_QOS_0, axl_false, 0))
+			printf ("ERROR: failed to publish get-queued-messages..\n");
+		axl_free (aux);
+		return MYQTT_PUBLISH_DISCARD; /* report received PUBLISH should be discarded */
+	} /* end if */
+
 	/* by default allow all publish operations */
 	return MYQTT_PUBLISH_OK;
 }
@@ -248,6 +261,12 @@ int main (int argc, char ** argv)
 	/* call to init the base library and close it */
 	ctx = init_ctx ();
 
+	/* configure storage */
+	printf ("Setting storage path on: .myqtt-listener\n");
+	if (system ("find .myqtt-listener -type f -exec rm {} \\;"))
+		printf ("WARNING: clean subscriptions failed (reported non-zero value)\n");
+	myqtt_storage_set_path (ctx, ".myqtt-listener", 4096);
+
 	/* start a listener */
 	listener = myqtt_listener_new (ctx, listener_host, listener_port, NULL, NULL);
 	if (! myqtt_conn_is_ok (listener, axl_false)) {
@@ -258,12 +277,6 @@ int main (int argc, char ** argv)
 	/* install on publish handler */
 	myqtt_ctx_set_on_publish (ctx, on_publish, NULL);
 	myqtt_ctx_set_on_connect (ctx, on_connect, NULL);
-
-	/* configure storage */
-	printf ("Setting storage path on: .myqtt-listener\n");
-	if (system ("find .myqtt-listener -type f -exec rm {} \\;"))
-		printf ("WARNING: clean subscriptions failed (reported non-zero value)\n");
-	myqtt_storage_set_path (ctx, ".myqtt-listener", 4096);
 
 	/* wait for listeners */
 	printf ("Ready and accepting connections..OK\n");

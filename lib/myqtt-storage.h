@@ -54,12 +54,20 @@ axl_bool myqtt_storage_sub              (MyQttCtx      * ctx,
 					 const char    * topic_filter, 
 					 MyQttQos        requested_qos);
 
+axl_bool myqtt_storage_sub_offline      (MyQttCtx      * ctx, 
+					 const char    * client_identifier,
+					 const char    * topic_filter, 
+					 MyQttQos        requested_qos);
+
 axl_bool myqtt_storage_sub_exists       (MyQttCtx      * ctx, 
 					 MyQttConn     * conn, 
 					 const char    * topic_filter);
 
 int      myqtt_storage_sub_count        (MyQttCtx      * ctx, 
 					 MyQttConn     * conn);
+
+int      myqtt_storage_sub_count_offline (MyQttCtx      * ctx, 
+					  const char    * client_identifier);
 
 axl_bool myqtt_storage_unsub            (MyQttCtx      * ctx, 
 					 MyQttConn     * conn, 
@@ -110,6 +118,8 @@ void     myqtt_storage_release_pkgid_offline    (MyQttCtx      * ctx,
 
 axl_bool myqtt_storage_session_recover  (MyQttCtx      * ctx, 
 					 MyQttConn     * conn);
+
+int      myqtt_storage_load             (MyQttCtx      * ctx);
 
 void     myqtt_storage_set_path         (MyQttCtx      * ctx, 
 					 const char    * storage_path, 

@@ -267,6 +267,59 @@ axl_bool __myqtt_reader_check_client_id (MyQttCtx * ctx, MyQttConn * conn, MyQtt
 	return axl_true; /* no problem found */
 }
 
+void __myqtt_reader_move_offline_to_online_aux (MyQttCtx * ctx, MyQttConn * conn, axlHash * hash, axlHash * offline_hash)
+{
+	axlHashCursor * cursor;
+	const char    * topic_filter;
+	axlHash       * sub_hash;
+
+	/* CONTEXT: lock subscribtions to remove connection subscription */
+	myqtt_mutex_lock (&ctx->subs_m);
+
+	/* check no publish operation is taking place now */
+	while (ctx->publish_ops > 0)
+		myqtt_cond_timedwait (&ctx->subs_c, &ctx->subs_m, 10000);
+
+	/* move online subscriptions to offline subs */
+	cursor = axl_hash_cursor_new (hash);
+	while (axl_hash_cursor_has_item (cursor)) {
+		/* get values to go offline */
+		topic_filter = (const char *) axl_hash_cursor_get_key (cursor);
+
+		/* now get subhash */
+		sub_hash     = axl_hash_get (offline_hash, (axlPointer) topic_filter);
+		if (sub_hash) {
+			/* and remove client id from here */
+			axl_hash_remove (sub_hash, conn->client_identifier);
+		} /* end if */
+
+		/* go for the next registry */
+		axl_hash_cursor_next (cursor);
+	} /* end if */
+
+	/* release lock */
+	myqtt_mutex_unlock (&ctx->subs_m);
+
+	axl_hash_cursor_free (cursor);
+
+	return;
+}
+
+void __myqtt_reader_move_offline_to_online (MyQttCtx * ctx, MyQttConn * conn)
+{
+	/* nothing to unsubscribe from offline because there is
+	 * nothing online */
+	if (axl_hash_items (conn->subs) == 0 && axl_hash_items (conn->wild_subs) == 0)
+		return;
+
+	/* move offline subscriptions to online subs */
+	__myqtt_reader_move_offline_to_online_aux (ctx, conn, conn->subs, ctx->offline_subs);
+
+	/* move offline subscriptions to online subs */
+	__myqtt_reader_move_offline_to_online_aux (ctx, conn, conn->wild_subs, ctx->offline_wild_subs);
+	return;
+}
+
 void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data) 
 {
 	/** 
@@ -419,10 +472,18 @@ connect_send_reply:
 
 	/* session recovery: connection accepted, if it has session recover */
 	if (! conn->clean_session && response == MYQTT_CONNACK_ACCEPTED) {
+		/* move subscriptions from offline to online */
 		if (! myqtt_storage_session_recover (ctx, conn)) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to recover session for the provided connection, unable to accept connection");
 			response = MYQTT_CONNACK_SERVER_UNAVAILABLE;
+		} else {
+			
+			/* session recovered, now remove offline subscriptions */
+			__myqtt_reader_move_offline_to_online (ctx, conn);
+
 		} /* end if */
+
+
 	} /* end if */
 
 	/* rest of cases, reply with the response */
@@ -444,6 +505,13 @@ connect_send_reply:
 		myqtt_log (MYQTT_LEVEL_WARNING, "Connection conn-id=%d denied from %s:%s", conn->id, conn->host, conn->port);
 	} else {
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Connection conn-id=%d accepted from %s:%s", conn->id, conn->host, conn->port);
+
+		/* resend messages queued */
+		if (myqtt_storage_queued_messages (ctx, conn) > 0) {
+			/* we have pending messages, order to deliver them */
+			myqtt_storage_queued_flush (ctx, conn);
+		} /* end if */
+
 	} /* end if */
 
 
@@ -467,58 +535,82 @@ connect_send_reply:
  * @param qos The qos that is going to configured.
  *
  */
-void __myqtt_reader_subscribe (MyQttCtx * ctx, MyQttConn * conn, const char * topic_filter, MyQttQos qos)
+void __myqtt_reader_subscribe (MyQttCtx * ctx, const char * client_identifier, MyQttConn * conn,  char * topic_filter, MyQttQos qos, axl_bool __is_offline)
 {
-	axlHash * hash;
-	axlHash * conn_hash;
+	axlHash   * hash;
+	axlHash   * sub_hash;
+	axl_bool    should_release = axl_true;
 
-	if (ctx == NULL || conn == NULL || topic_filter == NULL)
+	if (ctx == NULL || topic_filter == NULL)
 		return;
 
-	/** CONNECTION REGISTRY **/
-	/* reached this point, subscription is accepted */
-	myqtt_mutex_lock (&conn->op_mutex);
-	if ((strstr (topic_filter, "#") != NULL) || (strstr (topic_filter, "+") != NULL))
-		axl_hash_insert_full (conn->wild_subs, (axlPointer) topic_filter, axl_free, INT_TO_PTR (qos), NULL);
-	else
-		axl_hash_insert_full (conn->subs, (axlPointer) topic_filter, axl_free, INT_TO_PTR (qos), NULL);
-	myqtt_mutex_unlock (&conn->op_mutex);
-	/* now reply */
+	/* if it is not an offline operation, check conn reference */
+	if (! __is_offline && conn == NULL)
+		return;
+
+	if (! __is_offline) {
+		/** CONNECTION REGISTRY **/
+		/* reached this point, subscription is accepted */
+		myqtt_mutex_lock (&conn->op_mutex);
+		if ((strstr (topic_filter, "#") != NULL) || (strstr (topic_filter, "+") != NULL))
+			axl_hash_insert_full (conn->wild_subs, (axlPointer) topic_filter, axl_free, INT_TO_PTR (qos), NULL);
+		else
+			axl_hash_insert_full (conn->subs, (axlPointer) topic_filter, axl_free, INT_TO_PTR (qos), NULL);
+		myqtt_mutex_unlock (&conn->op_mutex);
+	} /* end if */
 
 	/** CONTEXT REGISTRY **/
 	/* now, register this connection into the hash of subscribed
 	 * connections, if required */
 	myqtt_mutex_lock (&ctx->subs_m);
 
-	/* check no publish operation is taking place now */
+	/* check no publish operation is taking place now. 
+	 * See __myqtt_reader_do_publish for more information */
 	while (ctx->publish_ops > 0)
 		myqtt_cond_timedwait (&ctx->subs_c, &ctx->subs_m, 10000);
 	
 	/* check if topic filter is already registred, if not create base structure */
 	if ((strstr (topic_filter, "#") != NULL) || (strstr (topic_filter, "+") != NULL)) 
-		hash = ctx->wild_subs;
+		hash = __is_offline ? ctx->offline_wild_subs : ctx->wild_subs;
 	else
-		hash = ctx->subs;
+		hash = __is_offline ? ctx->offline_subs : ctx->subs;
 	
 	/* check if the hash hold connections interested in
 	 * this topic filter is already created, if not,
 	 * proceed */
-	conn_hash = axl_hash_get (hash, (axlPointer) topic_filter);
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Connection hash for topic_filter='%s' is %p", topic_filter, conn);
-	if (! conn_hash) {
-		/* create empty hash */
-		conn_hash = axl_hash_new (axl_hash_int, axl_hash_equal_int);
+	sub_hash = axl_hash_get (hash, (axlPointer) topic_filter);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Sub hash for hash %p (items: %d) holding topic_filter='%s' is %p (offline=%d)", hash, axl_hash_items (hash), topic_filter, sub_hash, __is_offline);
+	if (! sub_hash) {
+		/* create empty hash: when offline the hash contains
+		 * client ids, when on-line, it contains reference to
+		 * connections to do the delivery directly */
+		if (__is_offline) { /* offline */
+			sub_hash       = axl_hash_new (axl_hash_string, axl_hash_equal_string);
+			should_release = axl_false;
+		} else {  /* online*/
+			sub_hash       = axl_hash_new (axl_hash_int, axl_hash_equal_int);
+		}
 		axl_hash_insert_full (hash, 
 				      /* key and destroy */
-				      axl_strdup (topic_filter), axl_free, 
+				      __is_offline ? topic_filter : axl_strdup (topic_filter), axl_free, 
 				      /* value and destroy */
-				      conn_hash, (axlDestroyFunc) axl_hash_free);
-		myqtt_log (MYQTT_LEVEL_DEBUG, "  ..created hash for topic_filter='%s' is %p", topic_filter, conn);
+				      sub_hash, (axlDestroyFunc) axl_hash_free);
+		myqtt_log (MYQTT_LEVEL_DEBUG, "  ..created hash for topic_filter='%s' is %p", topic_filter, sub_hash);
 	} /* end if */
 	
 	/* record this connection and requested qos */
-	myqtt_log (MYQTT_LEVEL_DEBUG, "   ..storing connection %p with qos %d on conn hash %p for topic_filter='%s'", conn, qos, conn_hash, topic_filter);
-	axl_hash_insert (conn_hash, conn, INT_TO_PTR (qos));
+	if (__is_offline) {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "   ..storing client id %s with qos %d client id hash %p for topic_filter='%s'", client_identifier, qos, sub_hash, topic_filter);
+		axl_hash_insert_full (sub_hash, strdup (client_identifier), axl_free, INT_TO_PTR (qos), NULL);
+	} else {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "   ..storing connection %p with qos %d on conn hash %p for topic_filter='%s'", conn, qos, sub_hash, topic_filter);
+		axl_hash_insert (sub_hash, conn, INT_TO_PTR (qos));
+	} /* end if */
+
+	if (__is_offline && should_release) {
+		/* if offline and the hash was created, this reference then must be released */
+		axl_free (topic_filter);
+	} /* end if */
 	
 	/* release lock */
 	myqtt_mutex_unlock (&ctx->subs_m);
@@ -629,7 +721,7 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg
 		} /* end if */
 
 		/** CONNECTION REGISTRY **/
-		__myqtt_reader_subscribe (ctx, conn, topic_filter, qos);
+		__myqtt_reader_subscribe (ctx, conn->client_identifier, conn, topic_filter, qos, /* offline */ axl_false);
 		
 	} /* end while */
 
@@ -683,6 +775,45 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg
 	return;
 }
 
+void __myqtt_reader_move_online_to_offline_aux (MyQttCtx * ctx, MyQttConn * conn, axlHash * hash)
+{
+	axlHashCursor * cursor;
+	const char    * topic_filter;
+	MyQttQos        qos;
+
+	/* move online subscriptions to offline subs */
+	cursor = axl_hash_cursor_new (hash);
+	while (axl_hash_cursor_has_item (cursor)) {
+		/* get values to go offline */
+		topic_filter = (const char *) axl_hash_cursor_get_key (cursor);
+		qos          = PTR_TO_INT (axl_hash_cursor_get_value (cursor));
+
+		/* register and create a new reference to topic_filter */
+		__myqtt_reader_subscribe (ctx, conn->client_identifier, NULL, axl_strdup (topic_filter), qos, axl_true /* offline */);
+
+		/* go for the next registry */
+		axl_hash_cursor_next (cursor);
+	} /* end if */
+
+	axl_hash_cursor_free (cursor);
+	return;
+}
+
+void __myqtt_reader_move_online_to_offline (MyQttCtx * ctx, MyQttConn * conn)
+{
+	/* skip step if no subscription is found */
+	if (axl_hash_items (conn->subs) == 0 && axl_hash_items (conn->wild_subs) == 0)
+		return;
+
+	/* move online subscriptions to offline subs */
+	__myqtt_reader_move_online_to_offline_aux (ctx, conn, conn->subs);
+
+	/* move online subscriptions to offline subs */
+	__myqtt_reader_move_online_to_offline_aux (ctx, conn, conn->wild_subs);
+
+	return;
+}
+
 void __myqtt_reader_handle_disconnect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * conn)
 {
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Received DISCONNECT notification for conn-id=%d from %s:%s, closing connection..", conn->id, conn->host, conn->port);
@@ -698,9 +829,10 @@ void __myqtt_reader_handle_disconnect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn
 		conn->will_msg = NULL;
 	} /* end if */
 
-	/* notify disconnect */
-
-	/* unregister connection for all subscriptions */
+	if (! conn->clean_session) {
+		/* move current sessions to offline sessions */
+		__myqtt_reader_move_online_to_offline (ctx, conn);
+	} /* end if */
 
 	return;
 }
@@ -794,7 +926,7 @@ void __myqtt_reader_handle_unsubscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttM
 	int                      packet_id;
 	char                   * topic_filter;
 	int                      desp = 0;
-	axlHash                * conn_hash;
+	axlHash                * sub_hash;
 	unsigned char          * reply;
 	int                      size;
 
@@ -856,8 +988,8 @@ void __myqtt_reader_handle_unsubscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttM
 			myqtt_cond_timedwait (&ctx->subs_c, &ctx->subs_m, 10000);
 		
 		/* now get connection hash handling that topic */
-		conn_hash = axl_hash_get (ctx->subs, (axlPointer) topic_filter);
-		if (! conn_hash) {
+		sub_hash = axl_hash_get (ctx->subs, (axlPointer) topic_filter);
+		if (! sub_hash) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to find connection hash under the topic %s but found NULL reference [internal engine error]..", 
 				   topic_filter);
 			/* release lock */
@@ -866,7 +998,7 @@ void __myqtt_reader_handle_unsubscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttM
 		} /* end if */
 
 		/* remove the connection from that connection hash */
-		axl_hash_remove (conn_hash, conn);
+		axl_hash_remove (sub_hash, conn);
 
 		/* release lock */
 		myqtt_mutex_unlock (&ctx->subs_m);
@@ -900,6 +1032,47 @@ void __myqtt_reader_handle_unsubscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttM
 	return;
 }
 
+void __myqtt_reader_queue_offline (MyQttCtx * ctx, MyQttMsg * msg, axlHash * sub_hash)
+{
+	axlHashCursor * cursor;
+	const char    * client_identifier;
+	MyQttQos        qos;
+
+	if (! sub_hash)
+		return;
+
+	/* found topic registered, now iterate over all
+	 * registered connections to send the message */
+	cursor = axl_hash_cursor_new (sub_hash);
+	axl_hash_cursor_first (cursor);
+	while (axl_hash_cursor_has_item (cursor)) {
+
+		/* get client identifier */
+		client_identifier = axl_hash_cursor_get_key (cursor);
+		
+		/* get qos to publish */
+		qos  = msg->qos;
+		
+		/* check to downgrade publication qos to the
+		 * value of the subscription */
+		if (qos > PTR_TO_INT (axl_hash_cursor_get_value (cursor)))
+			qos = PTR_TO_INT (axl_hash_cursor_get_value (cursor));
+		
+		/* publish message */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Publishing offline topic name '%s', qos: %d (app msg size: %d) on client id session %p", 
+			   msg->topic_name, qos, msg->app_message_size, client_identifier);
+		if (! myqtt_conn_offline_pub (ctx, client_identifier, msg->topic_name, (axlPointer) msg->app_message, msg->app_message_size, qos, axl_false))
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send PUBLISH message, errno=%d", errno); 
+		
+		/* next item */
+		axl_hash_cursor_next (cursor);
+	} /* end if */
+
+	/* release cursor */
+	axl_hash_cursor_free (cursor);
+	return;
+}
+
 /** 
  * @internal Fucntion to implement global publishing. ctx, conn and
  * msg must be defined.
@@ -907,7 +1080,7 @@ void __myqtt_reader_handle_unsubscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttM
 void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg)
 {
 	MyQttPublishCodes        pub_codes;
-	axlHash                * conn_hash;
+	axlHash                * sub_hash;
 	axlHashCursor          * cursor;
 	MyQttQos                 qos;
 
@@ -932,18 +1105,28 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 		} /* end if */
 	} /* end if */
 
-	/**** SERVER HANDLING ****/
+	/**** SERVER HANDLING ****
+	 *
+	 * NOTES: the following try to "signal" how many operations are taking place right now. 
+	 *
+	 * Then this value is sed by subscription code (that modifies these hashes) to ensure
+	 * nobody is touching the hashes... this we this code can work in thread safe mode without 
+	 * having to lock the mutex during the publish operation. 
+	 *
+	 * In short, the code ensures these hashes are static structures.
+	 */
+	
 	/* notify we are publishing */
 	myqtt_mutex_lock (&ctx->subs_m);
 	ctx->publish_ops++;
 	myqtt_mutex_unlock (&ctx->subs_m);
 
 	/* get the hash */
-	conn_hash = axl_hash_get (ctx->subs, (axlPointer) msg->topic_name);
-	if (conn_hash) {
+	sub_hash = axl_hash_get (ctx->subs, (axlPointer) msg->topic_name);
+	if (sub_hash) {
 		/* found topic registered, now iterate over all
 		 * registered connections to send the message */
-		cursor = axl_hash_cursor_new (conn_hash);
+		cursor = axl_hash_cursor_new (sub_hash);
 		axl_hash_cursor_first (cursor);
 		while (axl_hash_cursor_has_item (cursor)) {
 
@@ -973,7 +1156,7 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 			myqtt_log (MYQTT_LEVEL_DEBUG, "Publishing topic name '%s', qos: %d (app msg size: %d) on conn %p", 
 				   msg->topic_name, qos, msg->app_message_size, conn);
 			if (! myqtt_conn_pub (conn, msg->topic_name, (axlPointer) msg->app_message, msg->app_message_size, qos, axl_false, 0))
-				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send SUBACK message, errno=%d", errno); 
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to publish message message, errno=%d", errno); 
 			
 			/* next item */
 			axl_hash_cursor_next (cursor);
@@ -985,6 +1168,14 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 		/* no one interested in this, no one subscribed to received this */
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Published topic name '%s' but no one was subscribed to it", msg->topic_name);
 	}
+
+	/* publish on wild subs */
+
+	/* publish on offline subs */
+	sub_hash = axl_hash_get (ctx->offline_subs, (axlPointer) msg->topic_name);
+	__myqtt_reader_queue_offline (ctx, msg, sub_hash);
+
+	/* publish on offline wild subs */
 
 	/* notify we have finished publishing */
 	myqtt_mutex_lock (&ctx->subs_m);
@@ -1004,17 +1195,6 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	/* local variables */
 	int                      desp = 0;
 	unsigned char          * reply;
-
-	if (msg->type == MYQTT_PUBREL) {
-		/* request to release message and acknoledge message
-		 * publication. Currently we have no mean to notify if
-		 * we finished but that's is a minor problem because
-		 * we have stored all messages to be sent so they will
-		 * be delivered because devices are connected or
-		 * because the message is queued to be sent on next
-		 * connection */
-		
-	}
 
 	/* parse content received inside message */
 	msg->topic_name = __myqtt_reader_get_utf8_string (ctx, msg->payload, msg->size);
@@ -1055,7 +1235,8 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 		/* call to notify message */
 		if (conn->on_msg)
 			conn->on_msg (conn, msg, conn->on_msg_data);
-
+		else if (ctx->on_msg)
+			ctx->on_msg (conn, msg, ctx->on_msg_data);
 		return;
 	} /* end if */
 
@@ -1630,7 +1811,7 @@ axl_bool      myqtt_reader_read_pending (MyQttCtx  * ctx,
 
 void       __myqtt_reader_remove_conn_from_hash (MyQttConn * conn, axlHashCursor * cursor)
 {
-	axlHash       * conn_hash;
+	axlHash       * sub_hash;
 	const char    * topic_filter;
 	MyQttCtx      * ctx = conn->ctx;
 
@@ -1647,15 +1828,15 @@ void       __myqtt_reader_remove_conn_from_hash (MyQttConn * conn, axlHashCursor
 		} /* end if */
 		
 		/* now get connection hash handling that topic */
-		conn_hash    = axl_hash_get (ctx->subs, (axlPointer) topic_filter);
-		if (! conn_hash) {
+		sub_hash    = axl_hash_get (ctx->subs, (axlPointer) topic_filter);
+		if (! sub_hash) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to find connection hash under the topic %s but found NULL reference [internal engine error]..", 
 				   topic_filter);
 			continue;
 		} /* end if */
 
 		/* remove the connection from that connection hash */
-		axl_hash_remove (conn_hash, conn);
+		axl_hash_remove (sub_hash, conn);
 
 		/* get next */
 		axl_hash_cursor_next (cursor);

@@ -41,19 +41,19 @@
 #include <myqtt-ctx-private.h>
 #include <dirent.h>
 
-int __myqtt_storage_check (MyQttCtx * ctx, MyQttConn * conn, axl_bool check_tp, const char * topic_filter)
+int __myqtt_storage_check (MyQttCtx * ctx, const char * client_identifier, axl_bool check_tp, const char * topic_filter)
 {
 	int topic_filter_len = 0;
 
 	/* check 1 */
-	if (ctx == NULL || conn == NULL || (check_tp && topic_filter == NULL)) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Wrong parameters received, some of them are null (ctx: %p, conn: %p, topic_filter: %p",
-			   ctx, conn, topic_filter);
+	if (ctx == NULL || (check_tp && topic_filter == NULL)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Wrong parameters received, some of them are null (ctx: %p, client_identifier: %p, topic_filter: %p",
+			   ctx, client_identifier, topic_filter);
 		return axl_false;
 	}
 
 	/* check 2 */
-	if (conn->clean_session || conn->client_identifier == NULL || strlen (conn->client_identifier) == 0) {
+	if (client_identifier == NULL || strlen (client_identifier) == 0) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Clean session is enabled or client identifier is not defined or it is empty");
 		return axl_false;
 	}
@@ -404,7 +404,8 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx * ctx, const char * full_path, con
 }
 
 /** 
- * @brief Function to record subscription for the provided client. 
+ * @brief Function to record subscription for the provided client at
+ * the current storage.
  *
  * @param ctx The context where the storage operation takes place.
  *
@@ -419,6 +420,33 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx * ctx, const char * full_path, con
  */
 axl_bool myqtt_storage_sub (MyQttCtx * ctx, MyQttConn * conn, const char * topic_filter, MyQttQos requested_qos)
 {
+	if (conn == NULL)
+		return axl_false;
+
+	/* call offline function */
+	return myqtt_storage_sub_offline (ctx, conn->client_identifier, topic_filter, requested_qos);
+}
+
+/** 
+ * @brief Offline function to record subscription for the provided
+ * client identifer at the current storage.
+ *
+ * @param ctx The context where the storage operation takes place.
+ *
+ * @param client_identifier The client identifier where the store the subscription.
+ *
+ * @param topic_filter The subscription's topic filter
+ *
+ * @param requested_qos The QoS requested by the application level.
+ *
+ * @return axl_true in the case the operation was completed otherwise
+ * axl_false is returned.
+ */
+axl_bool myqtt_storage_sub_offline      (MyQttCtx      * ctx, 
+					 const char    * client_identifier,
+					 const char    * topic_filter, 
+					 MyQttQos        requested_qos)
+{
 	char             * full_path;
 	char             * hash_value;
 	char             * path_item;
@@ -428,7 +456,7 @@ axl_bool myqtt_storage_sub (MyQttCtx * ctx, MyQttConn * conn, const char * topic
 	FILE             * sub_file;
 
 	/* check input parameters */
-	topic_filter_len = __myqtt_storage_check (ctx, conn, axl_true, topic_filter);
+	topic_filter_len = __myqtt_storage_check (ctx, client_identifier, axl_true, topic_filter);
 	if (! topic_filter_len)
 		return axl_false;
 
@@ -438,7 +466,7 @@ axl_bool myqtt_storage_sub (MyQttCtx * ctx, MyQttConn * conn, const char * topic
 		return axl_false;
 
 	/* now create message directory */
-	full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, "subs", hash_value, NULL);
+	full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, "subs", hash_value, NULL);
 	if (full_path == NULL) {
 		axl_free (hash_value);
 		return axl_false;
@@ -476,7 +504,7 @@ axl_bool myqtt_storage_sub (MyQttCtx * ctx, MyQttConn * conn, const char * topic
 	} /* end if */
 
 	/* build full path */
-	full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, "subs", hash_value, path_item, NULL);
+	full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, "subs", hash_value, path_item, NULL);
 	axl_free (path_item);
 	axl_free (hash_value);
 
@@ -523,7 +551,7 @@ axl_bool myqtt_storage_sub_exists_common (MyQttCtx * ctx, MyQttConn * conn, cons
 	char * hash_value;
 
 	/* check input parameters */
-	topic_filter_len = __myqtt_storage_check (ctx, conn, axl_true, topic_filter);
+	topic_filter_len = __myqtt_storage_check (ctx, conn->client_identifier, axl_true, topic_filter);
 	if (! topic_filter_len)
 		return axl_false;
 
@@ -566,7 +594,7 @@ axl_bool myqtt_storage_sub_exists (MyQttCtx * ctx, MyQttConn * conn, const char 
 	return myqtt_storage_sub_exists_common (ctx, conn, topic_filter, 0, axl_false);
 }
 
-void __myqtt_storage_sub_conn_register (MyQttCtx * ctx, MyQttConn * conn, const char * file_name, const char * full_path)
+void __myqtt_storage_sub_conn_register (MyQttCtx * ctx, const char * client_identifier, MyQttConn * conn, const char * file_name, const char * full_path, axl_bool __is_offline)
 {
 	/* get qos from file name */
 	int        pos           = 0;
@@ -598,8 +626,8 @@ void __myqtt_storage_sub_conn_register (MyQttCtx * ctx, MyQttConn * conn, const 
 	fclose (_file);
 
 	/* call to register */
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Recovering subs conn-id=%d qos=%d sub=%s", conn->id, qos, topic_filter);
-	__myqtt_reader_subscribe (ctx, conn, topic_filter, qos);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Recovering subs for %s qos=%d sub=%s", client_identifier, qos, topic_filter);
+	__myqtt_reader_subscribe (ctx, client_identifier, conn, topic_filter, qos, __is_offline);
 
 	/* it is not required to release topic_filter here, that
 	 * reference is not owned by __myqtt_reader_subscribe */
@@ -607,7 +635,7 @@ void __myqtt_storage_sub_conn_register (MyQttCtx * ctx, MyQttConn * conn, const 
 	return;
 }
 
-int __myqtt_storage_sub_count_aux (MyQttCtx * ctx, MyQttConn * conn, const char * aux_path, axl_bool __register)
+int __myqtt_storage_sub_count_aux (MyQttCtx * ctx, const char * client_identifier, MyQttConn * conn, const char * aux_path, axl_bool __register, axl_bool __is_offline)
 {
 	DIR           * files;
 	struct dirent * entry;
@@ -632,7 +660,7 @@ int __myqtt_storage_sub_count_aux (MyQttCtx * ctx, MyQttConn * conn, const char 
 		if (__register) {
 			/* register subscription */
 			full_path = myqtt_support_build_filename (aux_path, entry->d_name, NULL);
-			__myqtt_storage_sub_conn_register (ctx, conn, entry->d_name, full_path);
+			__myqtt_storage_sub_conn_register (ctx, client_identifier, conn, entry->d_name, full_path, __is_offline);
 			axl_free (full_path);
 		} /* end if */
 #else 
@@ -643,7 +671,7 @@ int __myqtt_storage_sub_count_aux (MyQttCtx * ctx, MyQttConn * conn, const char 
 
 		/* call to register */
 		if (__register)
-			__myqtt_storage_sub_conn_register (ctx, conn, entry->d_name, full_path);
+			__myqtt_storage_sub_conn_register (ctx, conn, entry->d_name, full_path, __is_offline);
 
 		axl_free (full_path);
 #endif
@@ -667,7 +695,7 @@ int __myqtt_storage_sub_count_aux (MyQttCtx * ctx, MyQttConn * conn, const char 
  *
  * @param conn The connection where the operation will be implemented.
  */
-int __myqtt_storage_iteration (MyQttCtx * ctx, MyQttConn * conn, axl_bool __register) {
+int __myqtt_storage_iteration (MyQttCtx * ctx, const char * client_identifier, MyQttConn * conn, axl_bool __register, axl_bool __is_offline) {
 
 	char          * full_path;
 	char          * aux_path;
@@ -676,15 +704,26 @@ int __myqtt_storage_iteration (MyQttCtx * ctx, MyQttConn * conn, axl_bool __regi
 	int             total = 0;
 
 	/* check input parameters */
-	if (! __myqtt_storage_check (ctx, conn, axl_false, NULL))
+	if (! __myqtt_storage_check (ctx, client_identifier, axl_false, NULL))
 		return 0;
 
 	/* get full path to subscriptions */
-	full_path = myqtt_support_build_filename (ctx->storage_path, conn->client_identifier, "subs", NULL);
+	full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, "subs", NULL);
 	if (full_path == NULL) 
 		return axl_false; /* allocation failure */
 
+	if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
+		axl_free (full_path);
+		return axl_false; /* directory do not exists */
+	} /* end if */
+
+	/* try to open path */
 	sub_dir = opendir (full_path);
+	if (sub_dir == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to open %s, error was: %s", full_path, myqtt_errno_get_error (errno));
+		axl_free (full_path);
+		return axl_false;
+	} /* end if */
 	entry   = readdir (sub_dir);
 	while (sub_dir && entry) {
 
@@ -699,14 +738,14 @@ int __myqtt_storage_iteration (MyQttCtx * ctx, MyQttConn * conn, axl_bool __regi
 		if ((entry->d_type & DT_DIR) == DT_DIR) {
 			/* count subscriptions */
 			aux_path  = myqtt_support_build_filename (full_path, entry->d_name, NULL);
-			total    += __myqtt_storage_sub_count_aux (ctx, conn, aux_path, __register);
+			total    += __myqtt_storage_sub_count_aux (ctx, client_identifier, conn, aux_path, __register, __is_offline);
 			axl_free (aux_path);
 		}
 #else 
 		aux_path = myqtt_support_build_filename (full_path, entry->d_name, NULL);
 		if (myqtt_support_file_test (aux_path, FILE_EXISTS | FILE_IS_DIR)) {
 			/* count subscriptions */
-			total += __myqtt_storage_sub_count_aux (ctx, conn, aux_path, __register);
+			total += __myqtt_storage_sub_count_aux (ctx, conn, aux_path, __register, __is_offline);
 		}
 		axl_free (aux_path);
 #endif
@@ -719,19 +758,44 @@ int __myqtt_storage_iteration (MyQttCtx * ctx, MyQttConn * conn, axl_bool __regi
 	axl_free (full_path);
 
 	if (__register)
-		return __register;
+		return total > 0 ? total : __register;
 
 	return total;
 }
 
 /** 
  * @brief Allows to get current number of subscriptions registered on
+ * the storage for the provided client identifier.
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param client_identifier The client identifier to get subscription count from.
+ *
+ * @return Number of subscriptions.
+ */
+int      myqtt_storage_sub_count_offline (MyQttCtx      * ctx, 
+					  const char    * client_identifier)
+{
+	return __myqtt_storage_iteration (ctx, client_identifier, NULL, /* register */ axl_false, /* offline */ axl_true);
+}
+
+/** 
+ * @brief Allows to get current number of subscriptions registered on
  * the storage for the provided connection.
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param conn Connection to get subscription count from.
+ *
+ * @return Number of subscriptions.
  */
 int      myqtt_storage_sub_count (MyQttCtx * ctx, MyQttConn * conn)
 {
+	if (conn == NULL)
+		return 0;
+
 	/* call to iterate and count */
-	return __myqtt_storage_iteration (ctx, conn, axl_false);
+	return __myqtt_storage_iteration (ctx, conn->client_identifier, NULL, /* register */ axl_false, /* offline */ axl_false);
 }
 
 /** 
@@ -1257,8 +1321,96 @@ void     myqtt_storage_release_pkgid (MyQttCtx * ctx, MyQttConn * conn, int pkg_
  */
 axl_bool myqtt_storage_session_recover (MyQttCtx * ctx, MyQttConn * conn)
 {
+	
+
 	/* call to iterate and count */
-	return __myqtt_storage_iteration (ctx, conn, axl_true);
+	return __myqtt_storage_iteration (ctx, conn->client_identifier, conn, /* register */ axl_true, /* offline */ axl_false);
+}
+
+/** 
+ * @internal Function that allows to client identifiers and
+ * subscriptions from load local storage. This function is only useful
+ * for server side and it is not meant to be used directly by API
+ * consumers.
+ *
+ * @return Return the number of subscription that were loaded.
+ */
+int     myqtt_storage_load             (MyQttCtx      * ctx)
+{
+	DIR           * sub_dir;
+	struct dirent * entry;
+	int             entries = 0;
+
+	if (ctx == NULL || ! ctx->storage_path) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to load local storage becaues context (%p) is not defined or storage path is empty: %s",
+			   ctx, ctx->storage_path ? ctx->storage_path : "<not defined>");
+		return 0;
+	} /* end if */
+
+	/* skip local storage loading if already done previously */
+	if (ctx->local_storage)
+		return 0;
+
+	myqtt_mutex_lock (&ctx->ref_mutex);
+	if (ctx->local_storage) {
+		myqtt_mutex_unlock (&ctx->ref_mutex);
+		return 0;
+	} /* end if */
+
+	/* init server side hashs to handle subscriptions */
+	/*** on-line subscriptions ***/
+	ctx->subs              = axl_hash_new (axl_hash_string, axl_hash_equal_string);
+	ctx->wild_subs         = axl_hash_new (axl_hash_string, axl_hash_equal_string);
+
+	/*** off-line subscriptiosn ***/
+	ctx->offline_subs      = axl_hash_new (axl_hash_string, axl_hash_equal_string);
+	ctx->offline_wild_subs = axl_hash_new (axl_hash_string, axl_hash_equal_string);
+
+	/* now find all local identifiers that have at least one
+	 * subscription */
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Loading storage from: %s", ctx->storage_path ? ctx->storage_path : "<null>");
+	sub_dir = opendir (ctx->storage_path);
+	if (sub_dir == NULL)
+		goto finish;
+
+	/* get next entry */
+	entry = readdir (sub_dir);
+	while (entry) {
+		/* skip default directories */
+		if (axl_cmp (entry->d_name, ".") || axl_cmp (entry->d_name, ".."))
+			goto next_entry;
+
+#if defined(_DIRENT_HAVE_D_TYPE)
+		if ((entry->d_type & DT_DIR) != DT_DIR) 
+			goto next_entry;
+#else
+		aux_path = myqtt_support_build_filename (full_path, entry->d_name, NULL);
+		if (myqtt_support_file_test (aux_path, FILE_EXISTS | FILE_IS_DIR)) {
+			axl_free (aux_path);
+			goto next_entry;
+		} /* end if */
+		axl_free (aux_path);
+#endif
+
+		/* found directory (a session identifier) */
+		if (myqtt_storage_sub_count_offline (ctx, entry->d_name) > 0)  {
+			/* found entry with subscriptions */
+			myqtt_log (MYQTT_LEVEL_DEBUG, "Checking subscriptions for %s (%d)", entry->d_name, myqtt_storage_sub_count_offline (ctx, entry->d_name)); 
+			entries += __myqtt_storage_iteration (ctx, entry->d_name, NULL, /* register */ axl_true, /* offline */ axl_true);
+		} /* end if */
+
+	next_entry:
+		/* next entry */
+		entry = readdir (sub_dir);
+	} /* end while */
+
+finish:
+	/* notify it is already loaded */
+	ctx->local_storage = axl_true;
+	myqtt_mutex_unlock (&ctx->ref_mutex);
+	closedir (sub_dir);
+
+	return entries;
 }
 
 

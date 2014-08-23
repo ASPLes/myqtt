@@ -36,6 +36,3 @@
 * Check references to VortexFrame and frame_received handlers to
   change them to MyQttMsg and msg_received
 
-* Check BEEP references
-
-* Check frame references to change them into msg
