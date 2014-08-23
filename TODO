@@ -14,7 +14,7 @@
 
 --== things that should be reviewed ==--
 
-* Limit subscription side some how. It could be a memory problem.
+* Limit subscription size somehow. It could be a memory problem.
 
 * Make client library to try to connect with 3.1.1 and if it fails, with 
   3.1.
