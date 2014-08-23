@@ -2121,6 +2121,24 @@ axl_bool test_15 (void) {
 	/* close connection */
 	myqtt_conn_close (conn);
 
+	/* client_identifier -> "test15@identifier.com", clean_session -> axl_false */
+	conn = myqtt_conn_new (ctx, "test15@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected LOGIN  but found LOGIN FAILURE operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* ensure we don't get more messages because we didn't publish anything new */
+	printf ("Test 15: checking no more messages are published (3 seconds)..\n");
+	msg = myqtt_async_queue_timedpop (queue, 3000000);
+	if (msg != NULL) {
+		printf ("ERROR: we shouldn't have received any message but we did!\n");
+		return axl_false;
+	} /* end if */
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
 	/* release queue */
 	myqtt_async_queue_unref (queue);
 	

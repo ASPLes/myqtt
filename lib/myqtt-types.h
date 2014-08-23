@@ -905,7 +905,7 @@ typedef struct _MyQttSequencerData {
 	 *
 	 * In this context the myqtt sequencer queue the message to
 	 * be pending and flags on steps how many bytes remains to be
-	 * sent *for the given message.
+	 * sent for the given message.
 	 */
 	unsigned int         step;
 
