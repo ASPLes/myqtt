@@ -52,6 +52,7 @@ axl_bool myqtt_sequencer_queue_data (MyQttCtx * ctx, MyQttSequencerData * data)
 	if (ctx->myqtt_exit) {
 		axl_free (data->message);
 		axl_free (data);
+		myqtt_log (MYQTT_LEVEL_WARNING, "Not queueing data because this myqtt instance is finishing..");
 		return axl_false;
 	}
 
@@ -59,6 +60,8 @@ axl_bool myqtt_sequencer_queue_data (MyQttCtx * ctx, MyQttSequencerData * data)
 	if (! myqtt_conn_ref (data->conn, "sequencer")) {
 		axl_free (data->message);
 		axl_free (data);
+		myqtt_log (MYQTT_LEVEL_WARNING, "Not queueing data because connection reference conn-id=%d (%p) isn't working, myqtt_conn_ref() failed..",
+			   data->conn->id, data->conn);
 		return axl_false;
 	} /* end if */
 
@@ -109,7 +112,7 @@ axl_bool myqtt_sequencer_send                     (MyQttConn            * conn,
 	data->type         = type;
 
 	if (! myqtt_sequencer_queue_data (ctx, data)) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to queue data for delivery, failed to send message");
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to queue data for delivery, failed to send message, myqtt_sequencer_queue_data() failed");
 		return axl_false;
 	} /* end if */
 
@@ -165,7 +168,7 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 			return NULL;
 		} /* end if */
 
-		/* process all ready administrative channels (channel 0) */
+		/* process all ready connections */
 		axl_list_cursor_first (cursor);
 		while (axl_list_cursor_has_item (cursor)) {
 
@@ -187,7 +190,7 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 
 			if (! myqtt_msg_send_raw (conn, data->message + data->step, size)) {
 				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send MQTT message (type: %d, size: %d (total: %d), step: %d) error was errno=%d",  
-					   data->type, size, data->message_size, data->step, myqtt_errno_get_last_error ()); 
+					   data->type, size, data->message_size, data->step, errno); 
 				goto release_message;
 			} /* end if */
 			

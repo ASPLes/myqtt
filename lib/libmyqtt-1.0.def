@@ -57,7 +57,6 @@ myqtt_conn_get_local_port
 myqtt_conn_get_mss
 myqtt_conn_get_next
 myqtt_conn_get_password
-myqtt_conn_get_pending_msgs
 myqtt_conn_get_port
 myqtt_conn_get_receive_stamp
 myqtt_conn_get_role
@@ -133,6 +132,7 @@ myqtt_ctx_set_data_full
 myqtt_ctx_set_idle_handler
 myqtt_ctx_set_on_connect
 myqtt_ctx_set_on_finish
+myqtt_ctx_set_on_msg
 myqtt_ctx_set_on_publish
 myqtt_ctx_unref
 myqtt_ctx_unref2
@@ -270,6 +270,7 @@ myqtt_set_bit
 myqtt_show_byte
 myqtt_storage_init
 myqtt_storage_init_offline
+myqtt_storage_load
 myqtt_storage_lock_pkgid
 myqtt_storage_lock_pkgid_offline
 myqtt_storage_queued_flush
@@ -285,8 +286,10 @@ myqtt_storage_store_msg
 myqtt_storage_store_msg_offline
 myqtt_storage_sub
 myqtt_storage_sub_count
+myqtt_storage_sub_count_offline
 myqtt_storage_sub_exists
 myqtt_storage_sub_exists_common
+myqtt_storage_sub_offline
 myqtt_storage_unsub
 myqtt_support_add_domain_search_path
 myqtt_support_add_domain_search_path_ref

@@ -172,21 +172,11 @@ typedef void (*DeallocFunction) (axlPointer data);
  * same time. 
  * 
  * This function is mainly by MyQtt Library but it could be useful
- * for MyQtt Library API consumers. Here is an example:
- * \code
- * // perform a massive dealloc operation
- * myqtt_support_free (3,  // three memory disposal operations
- *                      // the first one
- *                      profile, axl_free, 
- *                      // the second one
- *                      channel, myqtt_channel_unref
- *                      // the last one.
- *                      serverName, axl_free);
- * \endcode
+ * for MyQtt Library API consumers. 
  * 
- * As you may observed, you have to provide the reference to be
+ * As you can observe, you have to provide the reference to be
  * deallocated an a destroy function which accept the reference to be
- * unreferenced. 
+ * unreferenced.
  * 
  * Any mistake produce calling to this function without providing the
  * right parameters will cause unexpected behaviors and lot of fun
@@ -479,7 +469,7 @@ void     myqtt_support_add_domain_search_path_ref (MyQttCtx * ctx,
  *
  * Once configured search paths, application level calls to this
  * function to locate files using basenames such as
- * <b>myCertificate.cert</b>, <b>channel.dtd</b>, etc. This avoid full
+ * <b>myCertificate.cert</b>, <b>configuration.xml</b>, etc. This avoid full
  * paths file names that are a problem while moving around the source
  * code not only across different platforms but also on the same.
  *

@@ -58,7 +58,7 @@ int  __myqtt_listener_get_port (const char  * port)
 }
 
 /** 
- * \defgroup myqtt_listener MyQtt Listener: Set of functions to create BEEP Listeners (server applications that accept incoming requests)
+ * \defgroup myqtt_listener MyQtt Listener: Set of functions to create MQTT Listeners (server applications that accept incoming requests)
  */
 
 /** 
@@ -222,7 +222,7 @@ void __myqtt_listener_release_master_ref (axlPointer ptr)
  * The reason to accept connections following this procedure is due to
  * MyQtt Library way of reading data from all connections. 
  * 
- * Reading data from remote BEEP peers is done inside the myqtt
+ * Reading data from remote MQTT peers is done inside the myqtt
  * reader which, basicly, is a loop executing a "select" call. 
  *
  * While reading data from those sockets accepted by the "select" call
@@ -234,8 +234,8 @@ void __myqtt_listener_release_master_ref (axlPointer ptr)
  * During the previous negotiation a malicious client can make
  * negotiation to be stopped, or sending data in an slow manner,
  * making the select loop to be blocked, even stopped. As a
- * consequence this malicious client have thrown down the reception
- * for all channels inside all connections.
+ * consequence this malicious client could throw down the reception
+ * for all connections.
  *
  * However, the myqtt reader loop is prepared to avoid this problem
  * with already accepted connections because it doesn't pay attention
@@ -645,20 +645,23 @@ axlPointer __myqtt_listener_new (MyQttListenerData * data)
 	char               * str_port      = axl_strdup_printf ("%d", data->port);
 	axlPointer           user_data     = data->user_data;
 	const char         * message       = NULL;
-	MyQttConn   * listener      = NULL;
-	MyQttCtx          * ctx           = data->ctx;
-	MyQttStatus         status        = MyQttOk;
+	MyQttConn          * listener      = NULL;
+	MyQttCtx           * ctx           = data->ctx;
+	MyQttStatus          status        = MyQttOk;
 	char               * host_used;
 	axlError           * error         = NULL;
-	MYQTT_SOCKET        fd;
+	MYQTT_SOCKET         fd;
 	struct sockaddr_in   sin;
-	MyQttNetTransport   transport     = data->transport;
+	MyQttNetTransport    transport     = data->transport;
 
 	/* handlers received (may be both null) */
-	MyQttListenerReady      on_ready       = data->on_ready;
+	MyQttListenerReady   on_ready       = data->on_ready;
 	
 	/* free data */
 	axl_free (data);
+
+	/* call to load local storage first (before an incoming connection) */
+	myqtt_storage_load (ctx);
 
 	/* allocate listener, try to guess IPv6 support */
 	if (strstr (host, ":") || transport == MYQTT_IPv6) {
@@ -678,8 +681,7 @@ axlPointer __myqtt_listener_new (MyQttListenerData * data)
 	}
 	
 	/* listener ok */
-	/* seems listener to be created, now create the BEEP
-	 * connection around it */
+	/* seems listener to be created, now create the MQTT connection around it */
 	listener = myqtt_conn_new_empty (ctx, fd, MyQttRoleMasterListener);
 	if (listener) {
 		myqtt_log (MYQTT_LEVEL_DEBUG, "listener reference created (%p, id: %d, socket: %d)", listener, 
@@ -738,7 +740,7 @@ axlPointer __myqtt_listener_new (MyQttListenerData * data)
 	if (threaded) {
 		/* notify error found to handlers */
 		if (on_ready != NULL) 
-			on_ready      (NULL, 0, status, (char*) message, NULL, user_data);
+			on_ready (NULL, 0, status, (char*) message, NULL, user_data);
 	} else {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "unable to start myqtt server, error was: %s, unblocking myqtt_listener_wait",
 		       message);
@@ -800,6 +802,32 @@ MyQttConn * __myqtt_listener_new_common  (MyQttCtx                * ctx,
 }
 
 
+/** 
+ * @brief Allows to start a MQTT server on the provided local host
+ * address and port.
+ *
+ * <b>Important note:</b> you must call to \ref myqtt_storage_set_path
+ * to define the path first before creating any listener. This is
+ * because creating a listener activates all server side code which
+ * among other things includes the storage loading (client
+ * subscriptions, offline publishing, etc). In the case direction,
+ * once the storage path is loaded it cannot be changed after
+ * restarting the particular context used in this operation (\ref MyQttCtx).
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param host The local host address to list for incoming connections. 
+ *
+ * @param port The local port to listen on.
+ *
+ * @param on_ready Optional on ready notification handler that gets
+ * called when the listener is created or a failure was
+ * found. Providing this handler makes this function to not block the
+ * caller.
+ *
+ * @param user_data Optional user defined pointer that is passed into
+ * the on_ready function (in the case the former is defined too).
+ */
 MyQttConn * myqtt_listener_new (MyQttCtx             * ctx,
 				const char           * host, 
 				const char           * port, 
@@ -817,6 +845,14 @@ MyQttConn * myqtt_listener_new (MyQttCtx             * ctx,
  * Take a look to \ref myqtt_listener_new for additional
  * information. This functions provides same features plus IPv6
  * support.
+ *
+ * <b>Important note:</b> you must call to \ref myqtt_storage_set_path
+ * to define the path first before creating any listener. This is
+ * because creating a listener activates all server side code which
+ * among other things includes the storage loading (client
+ * subscriptions, offline publishing, etc). In the case direction,
+ * once the storage path is loaded it cannot be changed after
+ * restarting the particular context used in this operation (\ref MyQttCtx).
  *
  * @param ctx The context where the operation will be performed.
  *
@@ -852,6 +888,14 @@ MyQttConn * myqtt_listener_new6 (MyQttCtx            * ctx,
  * configuration as an integer value.
  *
  * See \ref myqtt_listener_new for more information. 
+ *
+ * <b>Important note:</b> you must call to \ref myqtt_storage_set_path
+ * to define the path first before creating any listener. This is
+ * because creating a listener activates all server side code which
+ * among other things includes the storage loading (client
+ * subscriptions, offline publishing, etc). In the case direction,
+ * once the storage path is loaded it cannot be changed after
+ * restarting the particular context used in this operation (\ref MyQttCtx).
  *
  * @param ctx The context where the operation will be performed.
  * 
@@ -1077,9 +1121,9 @@ void myqtt_listener_cleanup (MyQttCtx * ctx)
  * reference to the \ref MyQttConn to be accepted/denied, it is only
  * provided to allow storing or reconfiguring the connection. 
  * 
- * In other words, when the handler is called, the BEEP session is
+ * In other words, when the handler is called, the MQTT session is
  * still not established. If you need to execute custom operations
- * once the connection is fully registered with the BEEP session
+ * once the connection is fully registered with the MQTT session
  * established, see \ref myqtt_conn_set_connection_actions with
  * \ref CONNECTION_STAGE_POST_CREATED.
  *
@@ -1159,7 +1203,7 @@ void __myqtt_listener_release_port_share_data (axlPointer _ptr)
 /** 
  * @brief Allows to install a port share handler that will be called
  * to detect and activate alternative transports that must be enabled
- * before activating normal BEEP session.
+ * before activating normal MQTT session.
  *
  * @param ctx The context the operation will take place. Handlers
  * installed on this context will not affect to other running contexts
@@ -1265,7 +1309,7 @@ void __myqtt_listener_shutdown_foreach (MyQttConn * conn,
  * @brief Allows to shutdown the listener provided and all connections
  * that were created due to its function.
  *
- * The function perform a shutdown (no BEEP close session phase) on
+ * The function perform a shutdown (no MQTT close session phase) on
  * the listener and connections created.
  * 
  * @param listener The listener to shutdown.
@@ -1273,7 +1317,7 @@ void __myqtt_listener_shutdown_foreach (MyQttConn * conn,
  * @param also_created_conns axl_true to shutdown all connections 
  */
 void          myqtt_listener_shutdown (MyQttConn * listener,
-					axl_bool           also_created_conns)
+					axl_bool   also_created_conns)
 {
 	MyQttCtx        * ctx;
 	MyQttAsyncQueue * notify = NULL;
@@ -1362,7 +1406,7 @@ axl_bool __myqtt_listener_check_port_sharing (MyQttCtx * ctx, MyQttConn * connec
 		    myqtt_conn_get_id (connection),
 		    buffer[0], buffer[1], buffer[2], buffer[3]);
 	if (axl_memcmp (buffer, "RPY", 3)) {
-		/* detected BEEP transport, finishing detection here */
+		/* detected MQTT transport, finishing detection here */
 		connection->transport_detected = axl_true;
 		return axl_true;
 	} /* end if */

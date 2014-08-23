@@ -1014,20 +1014,12 @@ axl_bool myqtt_init_check (MyQttCtx * ctx)
  * context.
  *
  * Stops all internal myqtt process and all allocated resources
- * associated to the context. It also close all channels for all
- * connection that where not closed until call this function.
+ * associated to the context. It also close all connection that where
+ * not closed until call this function.
  *
  * This function is reentrant, allowing several threads to call \ref
  * myqtt_exit_ctx function at the same time. Only one thread will
  * actually release resources allocated.
- *
- * NOTE: Although it isn't explicitly stated, this function shouldn't
- * be called from inside a handler notification: \ref
- * MyQttOnMsgReceived "Msg Receive", \ref MyQttOnCloseChannel
- * "Channel close", etc. This is because those handlers works inside
- * the context of the myqtt library execution. Making a call to this
- * function in the middle of that context, will produce undefined
- * behaviors.
  *
  * NOTE2: This function isn't designed to dealloc all resources
  * associated to the context and used by the myqtt engine
@@ -1042,14 +1034,6 @@ axl_bool myqtt_init_check (MyQttCtx * ctx)
  * @param free_ctx Allows to signal the function if the context
  * provided must be deallocated (by calling to \ref myqtt_ctx_free).
  *
- * <b>Notes about calling to terminate myqtt from inside its handlers:</b>
- *
- * Currently this is allowed and supported only in the following handlers:
- *
- * - \ref MyQttOnMsgReceived (\ref myqtt_channel_set_received_handler)
- * - \ref MyQttConnectionOnCloseFull (\ref myqtt_connection_set_on_close_full)
- *
- * The rest of handlers has being not tested.
  */
 void myqtt_exit_ctx (MyQttCtx * ctx, axl_bool  free_ctx)
 {

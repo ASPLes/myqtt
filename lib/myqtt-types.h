@@ -890,7 +890,7 @@ typedef struct _MyQttSequencerData {
 	MyQttConn          * conn;
 
 	/** 
-	 * @brief The content to be sequenced into frames.
+	 * @brief The content to be sequenced into msgs.
 	 */
 	unsigned char      * message;
 
@@ -900,16 +900,10 @@ typedef struct _MyQttSequencerData {
         int                  message_size;
 
 	/** 
-	 * @brief This is a tricky value and it is used to allow
-	 * myqtt sequencer to keep track about byte stream to be used
-	 * while sending remaining data.
+	 * @brief Used to allow myqtt sequencer to keep track about
+	 * byte stream to be used while sending remaining data.
 	 *
-	 * Because it could happened that a message to be sent doesn't
-	 * hold into the buffer that the remote peer holds for the
-	 * channel, the sequencer could find that the entire message
-	 * could not be send because the channel is stale. 
-	 * 
-	 * On this context the myqtt sequencer queue the message to
+	 * In this context the myqtt sequencer queue the message to
 	 * be pending and flags on steps how many bytes remains to be
 	 * sent *for the given message.
 	 */

@@ -333,8 +333,7 @@ MyQttConn * myqtt_conn_new_empty_from_conn (MyQttCtx        * ctx,
 	 * connection is closed */
 	connection->close_session      = axl_true;
 
-	/* establish the connection role and its initial next channel
-	 * number available. */
+	/* establish the connection role  */
 	connection->role               = role;
 
 	/* set socket provided (do not allow stdin(0), stdout(1), stderr(2) */
@@ -1414,7 +1413,6 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 		myqtt_log (MYQTT_LEVEL_DEBUG, "RESENDING: checking for pending messages: %d", myqtt_storage_queued_messages (ctx, connection));
 		/* check for pending messages */
 		if (myqtt_storage_queued_messages (ctx, connection) > 0) {
-			myqtt_log (MYQTT_LEVEL_DEBUG, "RESENDING: calling to resend messages: %d", myqtt_storage_queued_messages (ctx, connection));
 			/* we have pending messages, order to deliver them */
 			myqtt_storage_queued_flush (ctx, connection);
 		} /* end if */
@@ -1503,8 +1501,7 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 	data->connection->data                = myqtt_hash_new_full (axl_hash_string, axl_hash_equal_string,
 								      NULL,
 								      NULL);
-	/* establish the connection role and initial next channel
-	 * available. */
+	/* establish the connection role */
 	data->connection->role                = MyQttRoleInitiator;
 
 	/* set default send and receive handlers */
@@ -2752,7 +2749,7 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
 	connection->close_called = axl_true;
 	myqtt_mutex_unlock (&connection->op_mutex);
 
-	/* close all channel on this connection */
+	/* close this connection */
 	if (myqtt_conn_is_ok (connection, axl_false) && connection->role == MyQttRoleInitiator) {
 		myqtt_log (MYQTT_LEVEL_DEBUG, "closing a connection id=%d", connection->id);
 
@@ -3400,8 +3397,7 @@ axl_bool                myqtt_conn_is_ok (MyQttConn * connection,
  * 
  * Free all resources allocated by the myqtt connection. You have to
  * keep in mind if <i>connection</i> is already connected,
- * myqtt_conn_free will close all channels running on this and
- * also close the connection.
+ * myqtt_conn_free will close the connection.
  *
  * Generally is not a good a idea to call this function. This is
  * because every connection created using the myqtt API is registered
@@ -3427,13 +3423,6 @@ void               myqtt_conn_free (MyQttConn * connection)
 #endif
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "freeing connection id=%d (%p)", connection->id, connection);
-
-	/*
-	 * NOTE: The order in which the channels and the channel pools
-	 * are closed must be this way: first channels and the channel
-	 * pools. Doing it other way will produce funny dead-locks.
-	 */
-	myqtt_log (MYQTT_LEVEL_DEBUG, "freeing connection id=%d channels", connection->id);
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "freeing connection custom data holder id=%d", connection->id);
 	/* free connection data hash */
@@ -4353,30 +4342,6 @@ MyQttHash        * myqtt_conn_get_data_hash          (MyQttConn * connection)
 }
 
 
-
-/** 
- * @brief Allows to get current msgs waiting to be sent on the given connection.
- *
- * This function will iterate over all channels the connection have
- * checking if there are msgs pending to be sent. The cumulative
- * result for this iteration will be returned as the pending message
- * to be sent over this connection or session.
- *
- * This function is actually used by the myqtt writer to be able to
- * normalize its pending task to be processed situation while
- * unreferring connections.
- * 
- * @param connection a connection to know how many message are pending
- * to be sent.
- * 
- * @return the number or message pending to be sent.
- */
-int                 myqtt_conn_get_pending_msgs       (MyQttConn * connection)
-{
-	int  messages = 0;
-
-	return messages;
-}
 
 /** 
  * @brief Allows to get current connection role.

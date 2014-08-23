@@ -105,8 +105,7 @@ typedef void (*MyQttOnMsgReceived) (MyQttConn * conn,
  * 
  * Optional handler defined to report the final status for a \ref
  * myqtt_conn_new process. This handler allows to create a new
- * connection to a myqtt server (BEEP enabled peer) in a non-blocking
- * way.
+ * connection to a myqtt server in a non-blocking way.
  * 
  * Once the connection creation process have finished, no matter which
  * is the final result, the handler is invoked.

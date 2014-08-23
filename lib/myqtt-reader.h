@@ -84,8 +84,10 @@ void               myqtt_reader_foreach_offline (MyQttCtx           * ctx,
 void               myqtt_reader_restart (MyQttCtx * ctx);
 
 void               __myqtt_reader_subscribe (MyQttCtx   * ctx, 
+					     const char * client_identifier,
 					     MyQttConn  * conn, 
-					     const char * topic_filter, 
-					     MyQttQos     qos);
+					     char       * topic_filter, 
+					     MyQttQos     qos,
+					     axl_bool     __is_offline);
 
 #endif

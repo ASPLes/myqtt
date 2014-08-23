@@ -631,7 +631,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	connection->no_data_opers = 0;
 
 	if (bytes_read == 0) {
-		/* check if channel is expected to be closed */
+		/* check if is expected to be closed */
 		if (myqtt_conn_get_data (connection, "being_closed")) {
 			__myqtt_conn_shutdown_and_record_error (
 				connection, MyQttOk, 
@@ -775,7 +775,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 
 process_buffer:
 
-	/* point to the content received and nullify trailing BEEP msg */
+	/* point to the content received and nullify trailing MQTT msg */
 	msg->payload   = buffer;
 	((char*)msg->payload) [msg->size] = 0;
 
@@ -1126,8 +1126,7 @@ void          myqtt_msg_free (MyQttMsg * msg)
  * msg.
  *
  * Inside MyQtt Library, every msg created is flagged with an
- * unique msg identifier which is not part of the BEEP protocol,
- * transmitted or received from the remote side.
+ * unique msg identifier which is not part of the MQTT protocol.
  *
  * This unique identifiers was created for the internal MyQtt Library
  * support but, it has become a useful mechanism to have msgs

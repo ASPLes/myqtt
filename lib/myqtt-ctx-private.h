@@ -233,6 +233,10 @@ struct _MyQttCtx {
 	MyQttOnPublish              on_publish;
 	axlPointer                  on_publish_data;
 
+	/** on msg */
+	MyQttOnMsgReceived          on_msg;
+	axlPointer                  on_msg_data;
+
 	/*** hash of subscriptions ***/
 	/* subs is a hash where key is the topic filter and it points
 	 * to a hash that contains the connection = > qos:
@@ -244,6 +248,10 @@ struct _MyQttCtx {
 	 * filters.
 	 */
 	axlHash                   * wild_subs;
+
+	axlHash                   * offline_subs;
+	axlHash                   * offline_wild_subs;
+
 	MyQttMutex                  subs_m;
 	MyQttCond                   subs_c;
 	int                         publish_ops;
@@ -256,6 +264,7 @@ struct _MyQttCtx {
 	 */
 	char                      * storage_path;
 	int                         storage_path_hash_size;
+	axl_bool                    local_storage;
 };
 
 #endif /* __MYQTT_CTX_PRIVATE_H__ */

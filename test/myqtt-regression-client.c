@@ -1340,6 +1340,9 @@ axl_bool test_10 (void) {
 		return axl_false;
 	} /* end if */
 
+	/* call to load local storage first (before an incoming connection) */
+	myqtt_storage_load (ctx);
+
 	/* now open the connection and restore subscriptions */
 	printf ("Test 10: recovering connection..\n");
 	if (! myqtt_storage_session_recover (ctx, conn)) {
@@ -1853,6 +1856,281 @@ axl_bool test_14 (void) {
 	return axl_true;
 }
 
+axl_bool test_14a_subs (MyQttCtx * ctx, const char * client_id)
+{
+	/* store some subscriptions */
+	if (! myqtt_storage_sub_offline (ctx, client_id, "test/sub/1", MYQTT_QOS_0))
+		return axl_false;
+	if (! myqtt_storage_sub_offline (ctx, client_id, "test/sub/2", MYQTT_QOS_1))
+		return axl_false;
+	if (! myqtt_storage_sub_offline (ctx, client_id, "test/sub/3", MYQTT_QOS_2))
+		return axl_false;
+
+	return axl_true; /* return ok */
+}
+
+axl_bool test_14a (void) {
+	MyQttCtx        * ctx = init_ctx ();
+	int               entries;
+	axlHashCursor   * cursor;
+
+	/* configure path */
+	myqtt_storage_set_path (ctx, ".myqtt-listener-test14a", 4096);
+
+	/* init storage for 5 clients */
+	myqtt_storage_init_offline (ctx, "test14aclient1", MYQTT_STORAGE_ALL);
+	myqtt_storage_init_offline (ctx, "test14aclient2", MYQTT_STORAGE_ALL);
+	myqtt_storage_init_offline (ctx, "test14aclient3", MYQTT_STORAGE_ALL);
+	myqtt_storage_init_offline (ctx, "test14aclient4", MYQTT_STORAGE_ALL);
+	myqtt_storage_init_offline (ctx, "test14aclient5", MYQTT_STORAGE_ALL);
+
+	if (! test_14a_subs (ctx, "test14aclient1"))
+		return axl_false;
+	if (! test_14a_subs (ctx, "test14aclient2"))
+		return axl_false;
+	if (! test_14a_subs (ctx, "test14aclient3"))
+		return axl_false;
+	if (! test_14a_subs (ctx, "test14aclient4"))
+		return axl_false;
+	if (! test_14a_subs (ctx, "test14aclient5"))
+		return axl_false;
+
+	/* load storage */
+	entries = myqtt_storage_load (ctx);
+	printf ("Test 14a: loaded %d subscriptions..\n", entries);
+	if (entries != 15) {
+		printf ("ERROR: expected to find 15 subscriptions but found %d\n", entries);
+		return axl_false;
+	} /* end if */
+
+	if (axl_hash_items (ctx->offline_subs) != 3) {
+		printf ("ERROR: expected to find 3 subscriptions inside offline subs..\n");
+		return axl_false;
+	}
+
+	if (axl_hash_items (ctx->subs) != 0) {
+		printf ("ERROR: expected to find 0 subscriptions inside online subs..\n");
+		return axl_false;
+	}
+
+	/* iterarate hashes */
+	cursor = axl_hash_cursor_new (ctx->offline_subs);
+	while (axl_hash_cursor_has_item (cursor)) {
+
+		if (axl_cmp (axl_hash_cursor_get_key (cursor), "test/sub/1")) {
+			if (axl_hash_items (axl_hash_cursor_get_value (cursor)) != 5) {
+				printf ("Expected to find 5 items inside hash directed by subscription: %s but found (%d)\n", 
+					(char *) axl_hash_cursor_get_key (cursor), axl_hash_items (axl_hash_cursor_get_value (cursor)));
+				return axl_false;
+			}
+		} else if (axl_cmp (axl_hash_cursor_get_key (cursor), "test/sub/2")) {
+			if (axl_hash_items (axl_hash_cursor_get_value (cursor)) != 5) {
+				printf ("Expected to find 5 items inside hash directed by subscription: %s but found (%d)\n", 
+					(char *) axl_hash_cursor_get_key (cursor), axl_hash_items (axl_hash_cursor_get_value (cursor)));
+				return axl_false;
+			}
+			
+		} else if (axl_cmp (axl_hash_cursor_get_key (cursor), "test/sub/3")) {
+			if (axl_hash_items (axl_hash_cursor_get_value (cursor)) != 5) {
+				printf ("Expected to find 5 items inside hash directed by subscription: %s but found (%d)\n", 
+					(char *) axl_hash_cursor_get_key (cursor), axl_hash_items (axl_hash_cursor_get_value (cursor)));
+				return axl_false;
+			}
+			
+		} else {
+			printf ("ERROR: unexpected subscription found: %s\n", (char *) axl_hash_cursor_get_key (cursor));
+			return axl_false;
+		}
+
+
+		/* next hash cursor */
+		axl_hash_cursor_next (cursor);
+	} /* end if */
+	axl_hash_cursor_free (cursor);
+
+	/* release context */
+	printf ("Test 14a: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+	
+	return axl_true;
+}
+axl_bool __test_15_check (MyQttMsg * msg)
+{
+	if (msg == NULL || myqtt_msg_get_type (msg) != MYQTT_PUBLISH) {
+		printf ("ERROR: empty reference received or wrong type..\n");
+		return axl_false;
+	}
+
+	/* more checks here */
+	printf ("Test 15: received msg with topic: %s\n", myqtt_msg_get_topic (msg));
+
+	/* release message */
+	myqtt_msg_unref (msg);
+	return axl_true;
+}
+
+
+axl_bool test_15 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	MyQttMsg        * msg; 
+	int               iterator;
+	int               sub_result;
+	MyQttAsyncQueue * queue; 
+	char            * ref;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 15: connecting with session, subscribe and disconnect..\n");
+
+	/* client_identifier -> "test15@identifier.com", clean_session -> axl_false */
+	conn = myqtt_conn_new (ctx, "test15@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected LOGIN  but found LOGIN FAILURE operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* subscribe to the topics referenced before */
+	printf ("Test 15: subscribing to the topics..\n");
+	if (! myqtt_conn_sub (conn, 10, "test/message/1", MYQTT_QOS_2, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	if (! myqtt_conn_sub (conn, 10, "test/message/2", MYQTT_QOS_2, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	if (! myqtt_conn_sub (conn, 10, "test/message/3", MYQTT_QOS_2, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 15: close connection..\n");
+	myqtt_conn_close (conn);
+
+	printf ("Test 15: connect again..\n");
+
+	/* now connect with a different connection and send messages
+	 * to previous topics */
+	conn = myqtt_conn_new (ctx, NULL, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected LOGIN but found LOGIN FAILURE operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 15: publishing messages..\n");
+	/* publish messages */
+	iterator = 0;
+	while (iterator < 10) {
+
+		/* next message on queue */
+		ref = axl_strdup_printf ("This is a test message: %d..", iterator);
+		if (! myqtt_conn_pub (conn, "test/message/1", ref, strlen (ref), MYQTT_QOS_0, axl_false, 0)) {
+			printf ("ERROR: unable to publish messages on qos 0..\n");
+			return axl_false;
+		} /* end if */
+		axl_free (ref);
+
+		ref = axl_strdup_printf ("This is a test message: %d..", iterator);
+		if (! myqtt_conn_pub (conn, "test/message/2", ref, strlen (ref), MYQTT_QOS_1, axl_false, 0)) {
+			printf ("ERROR: unable to publish messages on qos 0..\n");
+			return axl_false;
+		} /* end if */
+		axl_free (ref);
+
+		ref = axl_strdup_printf ("This is a test message: %d..", iterator);
+		if (! myqtt_conn_pub (conn, "test/message/3", ref, strlen (ref), MYQTT_QOS_2, axl_false, 0)) {
+			printf ("ERROR: unable to publish messages on qos 0..\n");
+			return axl_false;
+		} /* end if */
+		axl_free (ref);
+
+		/* next iterator */
+		iterator++;
+	} /* end while */
+
+	/* set on publish handler */	
+	printf ("Test 15: getting queued messages..\n");
+	queue  = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+
+	/* send message to get subscriptions */
+	if (! myqtt_conn_pub (conn, "myqtt/admin/get-queued-msgs", "test15@identifier.com", 21, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message to get client subscriptions..\n");
+		return axl_false;
+	} /* end if */
+
+	/* get message */
+	msg = myqtt_async_queue_timedpop (queue, 3000000);
+	if (msg == NULL || myqtt_msg_get_type (msg) != MYQTT_PUBLISH) {
+		printf ("ERROR: expected publish message but found null or wrong type..\n");
+		return axl_false;
+	}
+
+	printf ("Test 15: stored messages for test15@identifier.com are: %s\n", (const char *) myqtt_msg_get_app_msg (msg));
+	if (! axl_cmp ("30", (const char *) myqtt_msg_get_app_msg (msg))) {
+		printf ("ERROR: expected to find 30 messages waiting but found: %s\n", (const char *) myqtt_msg_get_app_msg (msg));
+		return axl_false;
+	} /* end if */
+
+	myqtt_msg_unref (msg);
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
+	printf ("Test 15: reconnecting again with initial connection (2 seconds simulated wait)..\n");
+	myqtt_async_queue_timedpop (queue, 2000000);
+
+	/* now seting on message received */
+	/* set on publish handler */	
+	myqtt_ctx_set_on_msg (ctx, test_03_on_message, queue);
+
+	/* now connect again with the initial client identifier */
+	/* client_identifier -> "test15@identifier.com", clean_session -> axl_false */
+	conn = myqtt_conn_new (ctx, "test15@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected LOGIN  but found LOGIN FAILURE operation from %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	iterator = 0;
+	while (iterator < 10) {
+		/* get first message */
+		msg = myqtt_async_queue_timedpop (queue, 3000000);
+		if (! __test_15_check (msg))
+			return axl_false;
+
+		/* get first message */
+		msg = myqtt_async_queue_timedpop (queue, 3000000);
+		if (! __test_15_check (msg))
+			return axl_false;
+
+		/* get first message */
+		msg = myqtt_async_queue_timedpop (queue, 3000000);
+		if (! __test_15_check (msg))
+			return axl_false;
+
+		/* next position */
+		iterator++;
+	} /* end if */
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
+	/* release queue */
+	myqtt_async_queue_unref (queue);
+	
+	/* release context */
+	printf ("Test 15: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -1963,10 +2241,11 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_14")
 	run_test (test_14, "Test 14: offline PUB test messages queued to be sent on next connection (client)");  
 
-	/* automatically store/queue qos 1/2 messages when sequencer
-	 * fails to send the message */
+	CHECK_TEST("test_14a")
+	run_test (test_14a, "Test 14a: checking server side subscription loading on startup");  
 
-	/* test reception of messages when you are disconnected (with sessions) */
+	CHECK_TEST("test_15")
+	run_test (test_15, "Test 15: test reception of messages when you are disconnected (with sessions)"); 
 
 	/* test will support with autentication */
 
