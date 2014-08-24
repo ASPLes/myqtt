@@ -13,3 +13,4 @@ a failed subscription in a SUBACK, the requirement to validate that
 topics are correct UTF-8 and others I'm sure. All unused flags must be
 set as well.
 
+https://github.com/mqtt/mqtt.github.io/wiki/Differences-between-3.1.0-and-3.1.1
