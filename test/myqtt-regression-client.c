@@ -2149,6 +2149,45 @@ axl_bool test_15 (void) {
 	return axl_true;
 }
 
+axl_bool test_16 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 16: checking message retention\n");
+
+	/* set context path */
+	myqtt_storage_set_path (ctx, "myqtt-test-16", 128);
+
+	/* init storage */
+	myqtt_storage_init_offline (ctx, "test16@myqtt", MYQTT_STORAGE_ALL);
+
+	/* store a message but several times to ensure it remains the last */
+	if (! myqtt_storage_retain_msg_set (ctx, "this/is/a/test", MYQTT_QOS_2, (axlPointer) "This is a application message test that will act as retained message..", 70)) {
+		printf ("ERROR: failed to queue retained message..\n");
+		return axl_false;
+	}
+		
+
+	if (! myqtt_storage_retain_msg_set (ctx, "this/is/a/test", MYQTT_QOS_1, (axlPointer) "This is a application message test that will act as retained message (2)..", 74)) {
+		printf ("ERROR: failed to queue retained message..\n");
+		return axl_false;
+	}
+
+	if (! myqtt_storage_retain_msg_set (ctx, "this/is/a/test", MYQTT_QOS_2, (axlPointer) "This is a application message test that will act as retained message (3)..", 74)) {
+		printf ("ERROR: failed to queue retained message..\n");
+		return axl_false;
+	}
+
+	
+	/* release context */
+	printf ("Test 16: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -2264,6 +2303,9 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_15")
 	run_test (test_15, "Test 15: test reception of messages when you are disconnected (with sessions)"); 
+	
+	CHECK_TEST("test_16")
+	run_test (test_16, "Test 16: check message retention"); 
 
 	/* test will support with autentication */
 

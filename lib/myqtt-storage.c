@@ -382,14 +382,16 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx   * ctx,
 		if (sub_size == topic_filter_len) {
 			/* ok, found a size match, try now to check content */
 			aux_path  = myqtt_support_build_filename (full_path, entry->d_name, NULL);
-			myqtt_log (MYQTT_LEVEL_DEBUG, "Found topic filter size match at %s", aux_path);
 
 			/* open the file */
 			handle    = fopen (aux_path, "r");
 			if (handle == NULL) {
-				myqtt_log (MYQTT_LEVEL_CRITICAL, "Uanble to open directory %s, error was: %s", aux_path, myqtt_errno_get_error (errno));
+				/* myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to open directory %s, error was: %s", aux_path, myqtt_errno_get_error (errno));*/
+
 				axl_free (aux_path);
-				break;
+				/* get next entry */
+				entry = readdir (sub_dir);
+				continue;
 			} /* end if */
 
 			desp    = 0;
@@ -397,12 +399,12 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx   * ctx,
 			while (desp < topic_filter_len) {
 
 				/* read content from file into the buffer to do a partial check */
-				bytes_read = fread (buffer, 4096, 1, handle);
+				bytes_read = fread (buffer, 1, 4096, handle);
 
 				/* do a partial check */
 				if (! axl_memcmp (buffer, topic_filter + desp, bytes_read)) {
 					/* mismatch found, this is not the file */
-					matches = axl_true;
+					matches = axl_false;
 					break;
 				} /* end if */
 				
@@ -415,9 +417,6 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx   * ctx,
 			/* if it matched, apply final actions */
 			if (matches) {
 
-				/* close file handle and close dir */
-				closedir (sub_dir);
-				
 				/* remove subscription */
 				if (remove_if_found) 
 					unlink (aux_path);
@@ -431,8 +430,6 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx   * ctx,
 
 				/* reached this point, we have found the file */
 				axl_free (aux_path);
-				
-				return axl_true;
 			} /* end if */
 		} /* end if */
 
@@ -1011,11 +1008,11 @@ axl_bool myqtt_storage_release_msg   (MyQttCtx * ctx, MyQttConn * conn, axlPoint
  * @param app_msg_size Application message size.
  *
  */
-void       myqtt_storage_retain_msg_set (MyQttCtx      * ctx,
-					 const char    * topic_name,
-					 MyQttQos        qos,
-					 unsigned char * app_msg,
-					 int             app_msg_size)
+axl_bool       myqtt_storage_retain_msg_set (MyQttCtx      * ctx,
+					     const char    * topic_name,
+					     MyQttQos        qos,
+					     unsigned char * app_msg,
+					     int             app_msg_size)
 {
 	char            * hash_value;
 	int               topic_filter_len;
@@ -1026,27 +1023,40 @@ void       myqtt_storage_retain_msg_set (MyQttCtx      * ctx,
 	FILE            * handle;
 
 	if (ctx == NULL || topic_name == NULL || app_msg_size < 0)
-		return;
+		return axl_false;
 
 	/* get topic filter len */
 	topic_filter_len = strlen (topic_name);
 	if (topic_filter_len == 0)
-		return;
-	
+		return axl_false;
+
 	/* hash topic filter */
 	hash_value = axl_strdup_printf ("%u", axl_hash_string ((axlPointer) topic_name) % ctx->storage_path_hash_size);
 	if (hash_value == NULL)
-		return;
+		return axl_false;
 
 	/* call to check subscription in the provided directory. If it exists, remove it */	
 	full_path = myqtt_support_build_filename (ctx->storage_path, "retained", hash_value, NULL);
 	if (full_path == NULL) {
 		axl_free (hash_value);
-		return;
-	}
+		return axl_false;
+	} /* end if */
 
-	/* remove subscription (well, in fact topic name) and message associated if it exists */
-	__myqtt_storage_sub_exists (ctx, full_path, topic_name, strlen (topic_name), axl_true, axl_true);
+	/* create file if it doesn't exists */
+	if (myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
+		/* directory exists, check to remove previous subscription */
+		__myqtt_storage_sub_exists (ctx, full_path, topic_name, strlen (topic_name), axl_true, axl_true);
+	} else {
+		/* directory is not present, try to create it */
+		if (mkdir (full_path, 0700)) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create directory %s, unable to storage retained message", full_path);
+			axl_free (hash_value);
+			axl_free (full_path);
+			return axl_false;
+		} /* end if */
+	} /* end if */
+
+	/* release base path */
 	axl_free (full_path);
 
 	/* now save retained message, first subscription topic and qos */
@@ -1054,33 +1064,58 @@ void       myqtt_storage_retain_msg_set (MyQttCtx      * ctx,
 	path_item = axl_strdup_printf ("%d-%d-%d-%d-%d", topic_filter_len, qos, hash_value, stamp.tv_sec, stamp.tv_usec);
 	full_path = myqtt_support_build_filename (ctx->storage_path, "retained", hash_value, path_item, NULL);
 
-	/* release values no longer needed */
-	axl_free (path_item);
-	axl_free (hash_value);
-
 	/* open handle */
-	handle = fopen (full_path, "r");
-	if (handle) {
-		/* write subscription */
-		fwrite (topic_name, 1, topic_filter_len, handle);
-		fclose (handle);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Saving retained message at %s", full_path);
+	handle = fopen (full_path, "w");
+	if (! handle) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to open file %s, error was: %s", full_path, myqtt_errno_get_error (errno));
+		axl_free (full_path);
+		/* release values no longer needed */
+		axl_free (hash_value);
+		return axl_false;
 	} /* end if */
 
+	/* write subscription */
+	if (fwrite (topic_name, 1, topic_filter_len, handle) != topic_filter_len) {
+		fclose (handle);
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to store topic filter value at %s, error was: %s", 
+			   full_path, myqtt_errno_get_error (errno));
+		axl_free (full_path);
+
+		/* release values no longer needed */
+		axl_free (path_item);
+		axl_free (hash_value);
+		return axl_false;
+	} /* end if */
+	
+	/* close this initial file */
+	fclose (handle);
+	
 	/* now write message content */
 	aux_path = axl_strdup_printf ("%s.msg", full_path);
 	axl_free (full_path);
 	
 	/* open handle */
-	handle = fopen (aux_path, "r");
-	if (handle) {
-		/* write subscription */
-		fwrite (app_msg, 1, app_msg_size, handle);
-		fclose (handle);
+	handle = fopen (aux_path, "w");
+	if (! handle) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to open file %s, error was: %s", aux_path, myqtt_errno_get_error (errno));
+		axl_free (full_path);
+		return axl_false;
 	} /* end if */
+
+	/* write subscription */
+	if (fwrite (app_msg, 1, app_msg_size, handle) != app_msg_size) {
+		fclose (handle);
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to store topic filter value at %s, error was: %s", 
+			   full_path, myqtt_errno_get_error (errno));
+		axl_free (full_path);
+		return axl_false;
+	}
+	fclose (handle);
 
 	axl_free (aux_path);
 	
-	return;
+	return axl_true;
 }
 
 /** 
