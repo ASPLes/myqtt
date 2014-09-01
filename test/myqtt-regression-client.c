@@ -39,6 +39,62 @@
 
 #include <myqtt.h>
 #include <stdlib.h>
+#include <stdio.h>
+
+typedef enum {
+	TEST_FILES = 1,
+	TEST_DIRS  = 2
+} RegTestMyQttCountTypes;
+
+int test_count_in_dir (const char * directory, RegTestMyQttCountTypes  count_type) {
+	char * command;
+	char   buffer[20];
+	FILE * handle;
+	int    iterator;
+
+	if (count_type == TEST_FILES)
+		command = axl_strdup_printf ("find %s -type f | wc -l > test_count_in_dir.res", directory);
+	else if (count_type == TEST_DIRS)
+		command = axl_strdup_printf ("find %s -type f | wc -l > test_count_in_dir.res", directory);
+	else {
+		printf ("ERROR: count type provided is wrong: %d\n", count_type);
+		exit (-1);
+	} /* end if */
+
+	/* run command */
+	if (system (command) != 0) {
+		printf ("ERROR: system(\"%s\") command filed\n", command);
+		exit (-1);
+	} /* end if */
+
+	/* release command */
+	axl_free (command);
+
+	/* open result */
+	memset (buffer, 0, 20);
+	
+	handle = fopen ("test_count_in_dir.res", "r");
+	if (handle == NULL) {
+		printf ("ERROR: failed to open test_count_in_dir.res...NULL pointer received...\n");
+		return axl_false;
+	} /* end if */
+
+	if (fread (buffer, 1, 20, handle) <= 0) {
+		printf ("ERROR: expected to receive content but found 0 or less bytes read..\n");
+		return axl_false;
+	} /* end if */
+
+	fclose (handle);
+	
+	iterator = 0;
+	while (buffer[iterator] != 0) {
+		if (buffer[iterator] == '\n')
+			buffer[iterator] = 0;
+		iterator++;
+	}
+
+	return myqtt_support_strtod (buffer, NULL);
+}
 
 /** 
  * IMPORTANT NOTE: do not include this header and any other header
@@ -2154,11 +2210,19 @@ axl_bool test_16 (void) {
 	MyQttCtx        * ctx = init_ctx ();
 	if (! ctx)
 		return axl_false;
+	MyQttQos          qos;
+	char            * topic_name;
+	char            * app_msg;
+	int               app_size;
 
 	printf ("Test 16: checking message retention\n");
 
 	/* set context path */
 	myqtt_storage_set_path (ctx, "myqtt-test-16", 128);
+	if (system ("find myqtt-test-16 -type f -exec rm {} \\;") != 0) {
+		printf ("ERROR: expected to cleanup myqtt-test-16 directory..but system() call failed..\n");
+		return axl_false;
+	} /* end if */
 
 	/* init storage */
 	myqtt_storage_init_offline (ctx, "test16@myqtt", MYQTT_STORAGE_ALL);
@@ -2167,20 +2231,88 @@ axl_bool test_16 (void) {
 	if (! myqtt_storage_retain_msg_set (ctx, "this/is/a/test", MYQTT_QOS_2, (axlPointer) "This is a application message test that will act as retained message..", 70)) {
 		printf ("ERROR: failed to queue retained message..\n");
 		return axl_false;
-	}
-		
+	} /* end if */
 
 	if (! myqtt_storage_retain_msg_set (ctx, "this/is/a/test", MYQTT_QOS_1, (axlPointer) "This is a application message test that will act as retained message (2)..", 74)) {
 		printf ("ERROR: failed to queue retained message..\n");
 		return axl_false;
-	}
+	} /* end if */
 
 	if (! myqtt_storage_retain_msg_set (ctx, "this/is/a/test", MYQTT_QOS_2, (axlPointer) "This is a application message test that will act as retained message (3)..", 74)) {
 		printf ("ERROR: failed to queue retained message..\n");
 		return axl_false;
-	}
+	} /* end if */
 
+	/* count number of files in test directory */
+	if (test_count_in_dir ("myqtt-test-16", TEST_FILES) != 2) {
+		printf ("ERROR: expected to find %d files but found: %d\n", 2, test_count_in_dir ("myqtt-test-16", TEST_FILES));
+		return axl_false;
+	} /* end if */
+
+	/* save a different message */
+	if (! myqtt_storage_retain_msg_set (ctx, "this/is/a/test/b", MYQTT_QOS_2, (axlPointer) "This is a application message test that will act as retained message (4)..", 74)) {
+		printf ("ERROR: failed to queue retained message..\n");
+		return axl_false;
+	} /* end if */
+
+	/* count number of files in test directory */
+	if (test_count_in_dir ("myqtt-test-16", TEST_FILES) != 4) {
+		printf ("ERROR: expected to find %d files but found: %d\n", 4, test_count_in_dir ("myqtt-test-16", TEST_FILES));
+		return axl_false;
+	} /* end if */
+
+	/* now release a retained message that is not found now */
+	myqtt_storage_retain_msg_release (ctx, "test/value/different");
+
+	/* count number of files in test directory */
+	if (test_count_in_dir ("myqtt-test-16", TEST_FILES) != 4) {
+		printf ("ERROR: expected to find %d files but found: %d\n", 4, test_count_in_dir ("myqtt-test-16", TEST_FILES));
+		return axl_false;
+	} /* end if */
+
+	/* now recover retained messages */
+	if (! myqtt_storage_retain_msg_recover (ctx, "this/is/a/test/b", &qos, &app_msg, &app_size)) {
+		printf ("ERROR: failed to recover message that should be there..\n");
+		return axl_false;
+ 	} /* end if */
 	
+	if (app_size != 74) {
+		printf ("ERROR: expected to find 74 as size...but found: %d\n", app_size);
+		return axl_false;
+	} /* end if */
+
+	if (! axl_cmp (app_msg, "This is a application message test that will act as retained message (4)..")) {
+		printf ("ERROR: expected different content but found: '%s'\n", app_msg);
+		return axl_false;
+	} /* end if */
+
+	if (qos != MYQTT_QOS_2) {
+		printf ("ERROR: expected to find qos 2 but found: %d\n", qos);
+		return axl_false;
+	} /* end if */
+
+	axl_free (app_msg);
+
+	printf ("Test 16: testing message release from storage..\n");
+	/* now release a retained message that is not found now */
+	myqtt_storage_retain_msg_release (ctx, "this/is/a/test/b");
+
+	/* count number of files in test directory */
+	if (test_count_in_dir ("myqtt-test-16", TEST_FILES) != 2) {
+		printf ("ERROR: expected to find %d files but found: %d\n", 2, test_count_in_dir ("myqtt-test-16", TEST_FILES));
+		return axl_false;
+	} /* end if */
+
+	/* now release a retained message that is not found now */
+	printf ("Test 16: testing message release from storage (2)..\n");
+	myqtt_storage_retain_msg_release (ctx, "this/is/a/test");
+
+	/* count number of files in test directory */
+	if (test_count_in_dir ("myqtt-test-16", TEST_FILES) != 0) {
+		printf ("ERROR: expected to find %d files but found: %d\n", 0, test_count_in_dir ("myqtt-test-16", TEST_FILES));
+		return axl_false;
+	} /* end if */
+
 	/* release context */
 	printf ("Test 16: releasing context..\n");
 	myqtt_exit_ctx (ctx, axl_true);

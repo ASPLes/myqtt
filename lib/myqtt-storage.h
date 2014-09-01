@@ -97,6 +97,12 @@ axl_bool      myqtt_storage_retain_msg_set (MyQttCtx      * ctx,
 					    unsigned char * app_msg,
 					    int             app_msg_size);
 
+axl_bool      myqtt_storage_retain_msg_recover (MyQttCtx       * ctx,
+						const char     * topic_name,
+						MyQttQos       * qos,
+						unsigned char ** app_msg,
+						int            * app_msg_size);
+
 void       myqtt_storage_retain_msg_release (MyQttCtx      * ctx,
 					     const char    * topic_name);
 					 
