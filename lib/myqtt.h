@@ -68,6 +68,11 @@
 #define FD_SETSIZE 1024
 #endif
 
+/** 
+ * @brief MQTT maximum message size.
+ */
+#define MYQTT_MAX_MSG_SIZE (268435455)
+
 /* External header includes */
 #include <string.h>
 #include <stdio.h>
