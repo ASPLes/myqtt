@@ -339,6 +339,36 @@ int      __myqtt_storage_get_size_from_file_name (MyQttCtx * ctx, const char * f
 	return -1;
 }
 
+void __myqtt_storage_read_content_into_reference (MyQttCtx * ctx, const char * file_path, unsigned char ** app_msg, int * app_msg_size)
+{
+	if (! app_msg)
+		return;
+	/* get size */
+	if (stat (aux_path2, &stat_ref) != 0) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to get stat(%s), errno was: %d", file_path, errno);
+		return;
+	} /* end if */
+
+	if (stat_ref.st_size > MYQTT_MAX_MSG_SIZE) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to read content from %s, it has more size (%d) than allowed (%d)",
+			   file_path, stat_ref.st_size);
+		return;
+	}
+	
+	/* report st size */
+	if (app_msg_size)
+		(*app_msg_size) = stat_ref.st_size;
+	
+	/* read app message into app_msg */
+	(*app_msg) = axl_new (unsigned char, stat_ref.st_size + 1);
+	if (*app_msg) {
+		fread (*app_msg, 1, stat_ref.st_size, 
+		       }
+	}
+
+	return;
+}
+
 axl_bool __myqtt_storage_sub_exists (MyQttCtx         * ctx, 
 				     const char       * full_path, 
 				     const char       * topic_filter, 
@@ -361,6 +391,7 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx         * ctx,
 	char          * aux_path, * aux_path2;
 	axl_bool        matches;
 	int             pos;
+	struct stat     stat_ref;
 
 	sub_dir = opendir (full_path);
 	if (sub_dir == NULL) {
@@ -415,7 +446,7 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx         * ctx,
 				} /* end if */
 				
 				desp += bytes_read;
-			}
+			} /* end while */
 
 			/* close file handle anyway */
 			fclose (handle);
@@ -431,10 +462,8 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx         * ctx,
 				if (remove_msg_if_found && app_msg) {
 					aux_path2 = axl_strdup_printf ("%s.msg", aux_path);
 
-					if (app_msg) {
-						/* read app message into app_msg */
-						
-					}
+					/* read content into reference */
+					__myqtt_storage_read_content_into_reference (aux_path2, app_msg, app_msg_size);
 
 					unlink (aux_path2);
 					axl_free (aux_path2);
@@ -538,7 +567,7 @@ axl_bool myqtt_storage_sub_offline      (MyQttCtx      * ctx,
 	} else {
 		/* directory exists, check if the subscription is
 		 * already on the disk */
-		if (__myqtt_storage_sub_exists (ctx, full_path, topic_filter, topic_filter_len, axl_false, axl_false)) {
+		if (__myqtt_storage_sub_exists (ctx, full_path, topic_filter, topic_filter_len, axl_false, axl_false, NULL, NULL, NULL)) {
 			axl_free (full_path);
 			axl_free (hash_value);
 			return axl_true;
@@ -621,7 +650,7 @@ axl_bool myqtt_storage_sub_exists_common (MyQttCtx * ctx, MyQttConn * conn, cons
 	} /* end if */
 
 	/* call to check subscription in the provided directory */
-	if (__myqtt_storage_sub_exists (ctx, full_path, topic_filter, topic_filter_len, remove_if_found, axl_false)) {
+	if (__myqtt_storage_sub_exists (ctx, full_path, topic_filter, topic_filter_len, remove_if_found, axl_false, NULL, NULL, NULL)) {
 		axl_free (full_path);
 		return axl_true;
 	} /* end if */
@@ -1058,7 +1087,7 @@ axl_bool       myqtt_storage_retain_msg_set (MyQttCtx      * ctx,
 	/* create file if it doesn't exists */
 	if (myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
 		/* directory exists, check to remove previous subscription */
-		__myqtt_storage_sub_exists (ctx, full_path, topic_name, strlen (topic_name), axl_true, axl_true);
+		__myqtt_storage_sub_exists (ctx, full_path, topic_name, strlen (topic_name), axl_true, axl_true, NULL, NULL, NULL);
 	} else {
 		/* directory is not present, try to create it */
 		if (mkdir (full_path, 0700)) {
@@ -1160,7 +1189,7 @@ void       myqtt_storage_retain_msg_release (MyQttCtx      * ctx,
 
 	/* remove subscription (well, in fact topic name) and message associated if it exists */
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Releasing retained message for subscription %s at %s", topic_name, full_path);
-	__myqtt_storage_sub_exists (ctx, full_path, topic_name, strlen (topic_name), axl_true, axl_true);
+	__myqtt_storage_sub_exists (ctx, full_path, topic_name, strlen (topic_name), axl_true, axl_true, NULL, NULL, NULL);
 	axl_free (full_path);
 
 	return;
@@ -1193,23 +1222,23 @@ axl_bool      myqtt_storage_retain_msg_recover (MyQttCtx       * ctx,
 	char            * full_path;
 
 	if (ctx == NULL || topic_name == NULL)
-		return;
+		return axl_false;
 
 	/* get topic filter len */
 	topic_filter_len = strlen (topic_name);
 	if (topic_filter_len == 0)
-		return;
+		return axl_false;
 	
 	/* hash topic filter */
 	hash_value = axl_strdup_printf ("%u", axl_hash_string ((axlPointer) topic_name) % ctx->storage_path_hash_size);
 	if (hash_value == NULL)
-		return;
+		return axl_false;
 
 	/* call to check subscription in the provided directory. If it exists, remove it */	
 	full_path = myqtt_support_build_filename (ctx->storage_path, "retained", hash_value, NULL);
 	axl_free (hash_value);
 	if (full_path == NULL) 
-		return;
+		return axl_false;
 
 	/* remove subscription (well, in fact topic name) and message associated if it exists */
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Releasing retained message for subscription %s at %s", topic_name, full_path);
