@@ -522,6 +522,10 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx         * ctx,
 					} /* end if */
 						
 				} /* end if */
+
+				axl_free (aux_path);
+				closedir (sub_dir);
+				return axl_true;
 			} /* end if */
 
 			/* reached this point, we have found the file */
