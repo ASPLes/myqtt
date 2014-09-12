@@ -263,8 +263,8 @@ int main (int argc, char ** argv)
 
 	/* configure storage */
 	printf ("Setting storage path on: .myqtt-listener\n");
-	if (system ("find .myqtt-listener -type f -exec rm {} \\;"))
-		printf ("WARNING: clean subscriptions failed (reported non-zero value)\n");
+	if (system ("find .myqtt-listener -type f -exec rm {} \\; > /dev/null 2>&1"))
+		printf ("WARNING: clean subscriptions failed (reported non-zero value) (this is usual for the first time)\n");
 	myqtt_storage_set_path (ctx, ".myqtt-listener", 4096);
 
 	/* start a listener */

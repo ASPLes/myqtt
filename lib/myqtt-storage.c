@@ -339,34 +339,61 @@ int      __myqtt_storage_get_size_from_file_name (MyQttCtx * ctx, const char * f
 	return -1;
 }
 
-void __myqtt_storage_read_content_into_reference (MyQttCtx * ctx, const char * file_path, unsigned char ** app_msg, int * app_msg_size)
+axl_bool __myqtt_storage_read_content_into_reference (MyQttCtx * ctx, const char * file_path, unsigned char ** app_msg, int * app_msg_size)
 {
+	FILE         * handle;
+	struct stat    stat_ref;
+
 	if (! app_msg)
-		return;
+		return axl_false;
+
+	/* clear received references */
+	*app_msg_size = -1;
+	*app_msg      = NULL;
+
 	/* get size */
-	if (stat (aux_path2, &stat_ref) != 0) {
+	if (stat (file_path, &stat_ref) != 0) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to get stat(%s), errno was: %d", file_path, errno);
-		return;
+		return axl_false;
 	} /* end if */
 
 	if (stat_ref.st_size > MYQTT_MAX_MSG_SIZE) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to read content from %s, it has more size (%d) than allowed (%d)",
 			   file_path, stat_ref.st_size);
-		return;
+		return axl_false;
 	}
 	
 	/* report st size */
 	if (app_msg_size)
 		(*app_msg_size) = stat_ref.st_size;
+
+	/* open file */
+	handle = fopen (file_path, "r");
+	if (! handle) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to open file at %s, error was: %s", file_path, myqtt_errno_get_error (errno));
+		return axl_false;
+	}
 	
 	/* read app message into app_msg */
 	(*app_msg) = axl_new (unsigned char, stat_ref.st_size + 1);
-	if (*app_msg) {
-		fread (*app_msg, 1, stat_ref.st_size, 
-		       }
-	}
+	if ((*app_msg) == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to allocate %d bytes to recover message", stat_ref.st_size);
+		fclose (handle);
+		return axl_false;
+	} /* end if */
 
-	return;
+	/* read entire content */
+	if (fread (*app_msg, 1, stat_ref.st_size, handle) != stat_ref.st_size) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "fread (%p, 1, %d, %s) operation failed, expected to read %d, error was: %s", 
+			   *app_msg, stat_ref.st_size, file_path, stat_ref.st_size, myqtt_errno_get_error (errno));
+
+		fclose (handle);
+		axl_free (*app_msg);
+		return axl_false;
+	} /* end if */
+
+	fclose (handle);
+	return axl_true;
 }
 
 axl_bool __myqtt_storage_sub_exists (MyQttCtx         * ctx, 
@@ -391,7 +418,7 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx         * ctx,
 	char          * aux_path, * aux_path2;
 	axl_bool        matches;
 	int             pos;
-	struct stat     stat_ref;
+	axl_bool        result = axl_false;
 
 	sub_dir = opendir (full_path);
 	if (sub_dir == NULL) {
@@ -406,6 +433,13 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx         * ctx,
 	while (entry) {
 		/* skip known directories we are not interested in */
 		if (axl_cmp (entry->d_name, ".") || axl_cmp (entry->d_name, "..")) {
+			/* get next entry */
+			entry = readdir (sub_dir);
+			continue;
+		} /* end if */
+
+		/* skip .msg files */
+		if (strstr (entry->d_name, ".msg")) {
 			/* get next entry */
 			entry = readdir (sub_dir);
 			continue;
@@ -431,6 +465,7 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx         * ctx,
 				continue;
 			} /* end if */
 
+
 			desp    = 0;
 			matches = axl_true;
 			while (desp < topic_filter_len) {
@@ -451,6 +486,8 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx         * ctx,
 			/* close file handle anyway */
 			fclose (handle);
 
+			myqtt_log (MYQTT_LEVEL_DEBUG, "Checking file %s, matches=%d", aux_path, matches);
+
 			/* if it matched, apply final actions */
 			if (matches) {
 
@@ -459,14 +496,31 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx         * ctx,
 					unlink (aux_path);
 
 				/* check to remove .msg if requested */
-				if (remove_msg_if_found && app_msg) {
+				if (remove_msg_if_found || app_msg) {
 					aux_path2 = axl_strdup_printf ("%s.msg", aux_path);
 
 					/* read content into reference */
-					__myqtt_storage_read_content_into_reference (aux_path2, app_msg, app_msg_size);
+					if (app_msg) {
+						/* myqtt_log (MYQTT_LEVEL_DEBUG, "Calling to recover message %s", aux_path2); */
+						result = __myqtt_storage_read_content_into_reference (ctx, aux_path2, app_msg, app_msg_size);
+						myqtt_log (MYQTT_LEVEL_DEBUG, "Calling to recover message %s, status: %d", aux_path2, result);
+					}
 
 					unlink (aux_path2);
 					axl_free (aux_path2);
+
+					if (app_msg) {
+						if (! result && app_msg) {
+							/* nullify app message references */
+							(*app_msg) = NULL;
+							(*app_msg_size) = 0;
+						} /* end if */
+
+						axl_free (aux_path);
+						closedir (sub_dir);
+						return result;
+					} /* end if */
+						
 				} /* end if */
 			} /* end if */
 
@@ -1084,7 +1138,7 @@ axl_bool       myqtt_storage_retain_msg_set (MyQttCtx      * ctx,
 		return axl_false;
 	} /* end if */
 
-	/* create file if it doesn't exists */
+	/* remove the retained message if it does exists */
 	if (myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
 		/* directory exists, check to remove previous subscription */
 		__myqtt_storage_sub_exists (ctx, full_path, topic_name, strlen (topic_name), axl_true, axl_true, NULL, NULL, NULL);
@@ -1220,6 +1274,7 @@ axl_bool      myqtt_storage_retain_msg_recover (MyQttCtx       * ctx,
 	char            * hash_value;
 	int               topic_filter_len;
 	char            * full_path;
+	axl_bool          result;
 
 	if (ctx == NULL || topic_name == NULL)
 		return axl_false;
@@ -1241,11 +1296,11 @@ axl_bool      myqtt_storage_retain_msg_recover (MyQttCtx       * ctx,
 		return axl_false;
 
 	/* remove subscription (well, in fact topic name) and message associated if it exists */
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Releasing retained message for subscription %s at %s", topic_name, full_path);
-	__myqtt_storage_sub_exists (ctx, full_path, topic_name, strlen (topic_name), axl_true, axl_true, qos, app_msg, app_msg_size);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Recovering retained message for subscription %s at %s", topic_name, full_path);
+	result = __myqtt_storage_sub_exists (ctx, full_path, topic_name, strlen (topic_name), axl_true, axl_true, qos, app_msg, app_msg_size);
 	axl_free (full_path);
 
-	return axl_false; /* by default report error */
+	return result; /* by default report error */
 }
 
 
