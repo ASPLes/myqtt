@@ -2211,8 +2211,7 @@ axl_bool test_16 (void) {
 	if (! ctx)
 		return axl_false;
 	MyQttQos          qos;
-	char            * topic_name;
-	char            * app_msg;
+	unsigned char   * app_msg;
 	int               app_size;
 
 	printf ("Test 16: checking message retention\n");
@@ -2229,35 +2228,35 @@ axl_bool test_16 (void) {
 
 	/* store a message but several times to ensure it remains the last */
 	if (! myqtt_storage_retain_msg_set (ctx, "this/is/a/test", MYQTT_QOS_2, (axlPointer) "This is a application message test that will act as retained message..", 70)) {
-		printf ("ERROR: failed to queue retained message..\n");
+		printf ("ERROR (1): failed to queue retained message..\n");
 		return axl_false;
 	} /* end if */
 
 	if (! myqtt_storage_retain_msg_set (ctx, "this/is/a/test", MYQTT_QOS_1, (axlPointer) "This is a application message test that will act as retained message (2)..", 74)) {
-		printf ("ERROR: failed to queue retained message..\n");
+		printf ("ERROR (2): failed to queue retained message..\n");
 		return axl_false;
 	} /* end if */
 
 	if (! myqtt_storage_retain_msg_set (ctx, "this/is/a/test", MYQTT_QOS_2, (axlPointer) "This is a application message test that will act as retained message (3)..", 74)) {
-		printf ("ERROR: failed to queue retained message..\n");
+		printf ("ERROR (3): failed to queue retained message..\n");
 		return axl_false;
 	} /* end if */
 
 	/* count number of files in test directory */
 	if (test_count_in_dir ("myqtt-test-16", TEST_FILES) != 2) {
-		printf ("ERROR: expected to find %d files but found: %d\n", 2, test_count_in_dir ("myqtt-test-16", TEST_FILES));
+		printf ("ERROR (4): expected to find %d files but found: %d\n", 2, test_count_in_dir ("myqtt-test-16", TEST_FILES));
 		return axl_false;
 	} /* end if */
 
 	/* save a different message */
 	if (! myqtt_storage_retain_msg_set (ctx, "this/is/a/test/b", MYQTT_QOS_2, (axlPointer) "This is a application message test that will act as retained message (4)..", 74)) {
-		printf ("ERROR: failed to queue retained message..\n");
+		printf ("ERROR (5): failed to queue retained message..\n");
 		return axl_false;
 	} /* end if */
 
 	/* count number of files in test directory */
 	if (test_count_in_dir ("myqtt-test-16", TEST_FILES) != 4) {
-		printf ("ERROR: expected to find %d files but found: %d\n", 4, test_count_in_dir ("myqtt-test-16", TEST_FILES));
+		printf ("ERROR (6): expected to find %d files but found: %d\n", 4, test_count_in_dir ("myqtt-test-16", TEST_FILES));
 		return axl_false;
 	} /* end if */
 
@@ -2266,28 +2265,29 @@ axl_bool test_16 (void) {
 
 	/* count number of files in test directory */
 	if (test_count_in_dir ("myqtt-test-16", TEST_FILES) != 4) {
-		printf ("ERROR: expected to find %d files but found: %d\n", 4, test_count_in_dir ("myqtt-test-16", TEST_FILES));
+		printf ("ERROR (7): expected to find %d files but found: %d\n", 4, test_count_in_dir ("myqtt-test-16", TEST_FILES));
 		return axl_false;
 	} /* end if */
 
 	/* now recover retained messages */
+	printf ("Test 16: calling to recover retained message for subscription: this/is/a/test/b\n");
 	if (! myqtt_storage_retain_msg_recover (ctx, "this/is/a/test/b", &qos, &app_msg, &app_size)) {
-		printf ("ERROR: failed to recover message that should be there..\n");
+		printf ("ERROR (8): failed to recover message that should be there..\n");
 		return axl_false;
  	} /* end if */
 	
 	if (app_size != 74) {
-		printf ("ERROR: expected to find 74 as size...but found: %d\n", app_size);
+		printf ("ERROR (9): expected to find 74 as size...but found: %d\n", app_size);
 		return axl_false;
 	} /* end if */
 
-	if (! axl_cmp (app_msg, "This is a application message test that will act as retained message (4)..")) {
-		printf ("ERROR: expected different content but found: '%s'\n", app_msg);
+	if (! axl_cmp ((const char *) app_msg, "This is a application message test that will act as retained message (4)..")) {
+		printf ("ERROR (10): expected different content but found: '%s'\n", app_msg);
 		return axl_false;
 	} /* end if */
 
 	if (qos != MYQTT_QOS_2) {
-		printf ("ERROR: expected to find qos 2 but found: %d\n", qos);
+		printf ("ERROR (11): expected to find qos 2 but found: %d\n", qos);
 		return axl_false;
 	} /* end if */
 
@@ -2299,7 +2299,7 @@ axl_bool test_16 (void) {
 
 	/* count number of files in test directory */
 	if (test_count_in_dir ("myqtt-test-16", TEST_FILES) != 2) {
-		printf ("ERROR: expected to find %d files but found: %d\n", 2, test_count_in_dir ("myqtt-test-16", TEST_FILES));
+		printf ("ERROR (12): expected to find %d files but found: %d\n", 2, test_count_in_dir ("myqtt-test-16", TEST_FILES));
 		return axl_false;
 	} /* end if */
 
@@ -2309,9 +2309,16 @@ axl_bool test_16 (void) {
 
 	/* count number of files in test directory */
 	if (test_count_in_dir ("myqtt-test-16", TEST_FILES) != 0) {
-		printf ("ERROR: expected to find %d files but found: %d\n", 0, test_count_in_dir ("myqtt-test-16", TEST_FILES));
+		printf ("ERROR (13): expected to find %d files but found: %d\n", 0, test_count_in_dir ("myqtt-test-16", TEST_FILES));
 		return axl_false;
 	} /* end if */
+
+	/* now recover retained messages */
+	printf ("Test 16: calling to recover retained message for subscription: this/is/a/test/b\n");
+	if (myqtt_storage_retain_msg_recover (ctx, "this/is/a/test/b", &qos, &app_msg, &app_size)) {
+		printf ("ERROR (14): we shouldn't have received a message recovered but we did!..\n");
+		return axl_false;
+ 	} /* end if */
 
 	/* release context */
 	printf ("Test 16: releasing context..\n");
@@ -2355,9 +2362,9 @@ int main (int argc, char ** argv)
 	printf ("** Regression tests: %s \n",
 		VERSION);
 	printf ("** To gather information about time performance you can use:\n**\n");
-	printf ("**     time ./test_01 [--help] [--debug] [--no-unmap] [--run-test=NAME]\n**\n");
+	printf ("**     time ./myqtt-regression-client [--help] [--debug] [--no-unmap] [--run-test=NAME]\n**\n");
 	printf ("** To gather information about memory consumed (and leaks) use:\n**\n");
-	printf ("**     >> libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes --error-limit=no ./test_01 [--debug]\n**\n");
+	printf ("**     >> libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes --error-limit=no ./myqtt-regression-client [--debug]\n**\n");
 	printf ("** Providing --run-test=NAME will run only the provided regression test.\n");
 	printf ("** Available tests: test_00, test_00_a, test_00_b, test_01, test_02, test_03, test_04, test_05\n");
 	printf ("**\n");
