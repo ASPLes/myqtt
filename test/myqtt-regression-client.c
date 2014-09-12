@@ -2327,6 +2327,138 @@ axl_bool test_16 (void) {
 	return axl_true;
 }
 
+axl_bool test_17_publish_and_check (MyQttConn * conn, MyQttAsyncQueue * queue, axl_bool should_be_received)
+{
+	int        sub_result;
+	MyQttMsg * msg;
+
+	if (! myqtt_conn_sub (conn, 14, "this/is/a/test", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* get message (ensure we don't receive anything) */
+	printf ("Test 17: now wait for message (for 3 seconds)\n");
+	msg   = myqtt_async_queue_timedpop (queue, 3000000);
+
+	/* it should not be received */
+	if (! should_be_received && msg == NULL)
+		return axl_true;
+
+	/* it should be received */
+	if (msg == NULL) {
+		printf ("ERROR: we should  have received a message after subscription...BUT null was received..\n");
+		return axl_false;
+	} /* end if */
+
+	/* check message received */
+	if (! axl_cmp (myqtt_msg_get_topic (msg), "this/is/a/test")) {
+		printf ("ERROR (1): expected to find a different topic but found: %s\n", myqtt_msg_get_topic (msg));
+		return axl_false;
+	} /* end if */
+
+	if (! axl_cmp (myqtt_msg_get_app_msg (msg), "This is a retained message for future subscribers..")) {
+		printf ("ERROR (2): expected to find a different app msg but found: %s\n", (const char *) myqtt_msg_get_app_msg (msg));
+		return axl_false;
+	} /* end if */
+
+	if (myqtt_msg_get_app_msg_size (msg) != 51) {
+		printf ("ERROR (3): expected to receive 51 as app msg size but found: %d\n", myqtt_msg_get_app_msg_size (msg));
+		return axl_false;
+	} /* end if */
+
+	/* release message */
+	myqtt_msg_unref (msg);
+
+	return axl_true;
+}
+
+axl_bool test_17 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+
+	MyQttAsyncQueue * queue;
+	int               sub_result;
+	MyQttMsg        * msg;
+	MyQttConn       * conn;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 17: checking message retention\n");
+
+	/* do a simple connection */
+	conn = myqtt_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 17: connection created..\n");
+
+	/* publish a message with retention */
+	if (! myqtt_conn_pub (conn, "this/is/a/test", "This is a retained message for future subscribers..", 51, MYQTT_QOS_2, axl_true, 10)) {
+		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 17: message published..\n");
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
+	/* now connect again and subscribe to a different topic */
+	queue = myqtt_async_queue_new ();
+
+	/* do a simple connection */
+	conn = myqtt_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* set on message received */
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+
+	printf ("Test 17: sending new subscription..\n");
+
+	/* subscribe to a topic without retained message */
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* get message (ensure we don't receive anything) */
+	printf ("Test 17: ensuring we don't get a message as a consequence of this subscription (3 seconds)..\n");
+	msg   = myqtt_async_queue_timedpop (queue, 3000000);
+	if (msg != NULL) {
+		printf ("ERROR: we shouldn't have received a message after subscription...topic: %s\n", myqtt_msg_get_topic (msg));
+		return axl_false;
+	} /* end if */
+
+	/* now subscribe to a topic with a retained message */
+	printf ("Test 17: subscribe and check we receive the message..\n");
+	if (! test_17_publish_and_check (conn, queue, axl_true))
+		return axl_false;
+
+	/* now subscribe to a topic with a retained message */
+	printf ("Test 17: subscribe with the same connection but without receiving message..\n");
+	if (! test_17_publish_and_check (conn, queue, axl_false))
+		return axl_false;
+
+	/* close connection and release message */
+	myqtt_conn_close (conn);
+
+	/* release queue */
+	myqtt_async_queue_unref (queue);
+
+	/* release context */
+	printf ("Test 17: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -2445,6 +2577,12 @@ int main (int argc, char ** argv)
 	
 	CHECK_TEST("test_16")
 	run_test (test_16, "Test 16: check message retention"); 
+
+	CHECK_TEST("test_17")
+	run_test (test_17, "Test 17: check message retention"); 
+
+	/* support for message retention when subscribed with a wild
+	   card topic filter that matches different topic names */
 
 	/* test will support with autentication */
 

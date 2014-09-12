@@ -518,6 +518,27 @@ connect_send_reply:
 	return;
 }
 
+void __myqtt_reader_recover_retained_message (MyQttCtx * ctx, MyQttConn * conn, const char * topic_filter)
+{
+	unsigned char * app_msg;
+	int             app_msg_size;
+	MyQttQos        qos;
+
+	/* recover message with direct topic_filter */
+	/* basic case: topic filter that aren't wild cards */
+	
+	if (! myqtt_storage_retain_msg_recover (ctx, topic_filter, &qos, &app_msg, &app_msg_size))
+		return; /* nothing found */
+
+	/* found message, send it to the client */
+	if (! myqtt_conn_pub (conn, topic_filter, app_msg, app_msg_size, qos, axl_true /* report this is retained */, 0))
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to send message due to retained subscription, myqtt_conn_pub() failed");
+	
+	/* now release content */
+	axl_free (app_msg);
+	return;
+}
+
 /** 
  * @internal Function used to subcribe the provided topic filter / qos
  * for the provided connection into the in-memory maps used by MyQtt
@@ -614,6 +635,10 @@ void __myqtt_reader_subscribe (MyQttCtx * ctx, const char * client_identifier, M
 	
 	/* release lock */
 	myqtt_mutex_unlock (&ctx->subs_m);
+
+	/* now recover retained message if any and send it to this
+	   client */
+	__myqtt_reader_recover_retained_message (ctx, conn, topic_filter);
 
 	return;
 }
@@ -1074,6 +1099,29 @@ void __myqtt_reader_queue_offline (MyQttCtx * ctx, MyQttMsg * msg, axlHash * sub
 }
 
 /** 
+ * @internal Handle retained message (see if we have to store it,
+ * release,..)
+ */
+void __myqtt_reader_handle_retained_msg (MyQttCtx * ctx, MyQttMsg * msg)
+{
+	/* do nothing if retain flag is not set */
+	if (! msg->retain)
+		return;
+
+	if (msg->qos == MYQTT_QOS_0 || msg->app_message_size == 0) {
+		/* remove retained message if any */
+		myqtt_storage_retain_msg_release (ctx, msg->topic_name);
+		return;
+	} /* end if */
+
+	/* save message for later publication */
+	myqtt_storage_retain_msg_set (ctx, msg->topic_name, msg->qos, msg->app_message, msg->app_message_size);
+
+	return;
+} /* end if */
+      
+
+/** 
  * @internal Fucntion to implement global publishing. ctx, conn and
  * msg must be defined.
  */
@@ -1115,6 +1163,12 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 	 *
 	 * In short, the code ensures these hashes are static structures.
 	 */
+
+	/* check for packages with retain flag */
+	if (msg->retain) {
+		/* handle retained messages */
+		__myqtt_reader_handle_retained_msg (ctx, msg);
+	} /* end if */
 	
 	/* notify we are publishing */
 	myqtt_mutex_lock (&ctx->subs_m);
@@ -1155,6 +1209,7 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 			/* publish message */
 			myqtt_log (MYQTT_LEVEL_DEBUG, "Publishing topic name '%s', qos: %d (app msg size: %d) on conn %p", 
 				   msg->topic_name, qos, msg->app_message_size, conn);
+			/* retain = axl_false always : MQTT-2.1.2-11 */
 			if (! myqtt_conn_pub (conn, msg->topic_name, (axlPointer) msg->app_message, msg->app_message_size, qos, axl_false, 0))
 				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to publish message message, errno=%d", errno); 
 			

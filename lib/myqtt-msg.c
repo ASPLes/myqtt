@@ -697,10 +697,12 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	} /* end if */
 
 	/* report the message type and qos */
-	msg->type = (header[0] & 0xf0) >> 4;
-	msg->qos  = (header[0] & 0x06) >> 1;
-	msg->dup  = myqtt_get_bit (header[0], 3);
-	myqtt_log (MYQTT_LEVEL_DEBUG, "New packet received: %s (QoS %d), header size indication is: %d (iterator=%d)", myqtt_msg_get_type_str (msg), msg->qos, remaining, iterator);
+	msg->type    = (header[0] & 0xf0) >> 4;
+	msg->qos     = (header[0] & 0x06) >> 1;
+	msg->dup     = myqtt_get_bit (header[0], 3);
+	msg->retain  = myqtt_get_bit (header[0], 0);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "New packet received: %s (QoS %d, dup: %d, retain: %d), header size indication is: %d (iterator=%d)", 
+		   myqtt_msg_get_type_str (msg), msg->qos, msg->dup, msg->retain, remaining, iterator);
 
 	/* check qos value here */
 	if (msg->qos < MYQTT_QOS_0 || msg->qos > MYQTT_QOS_2) {
