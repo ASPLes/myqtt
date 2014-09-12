@@ -1108,11 +1108,11 @@ axl_bool myqtt_storage_release_msg   (MyQttCtx * ctx, MyQttConn * conn, axlPoint
  * @param app_msg_size Application message size.
  *
  */
-axl_bool       myqtt_storage_retain_msg_set (MyQttCtx      * ctx,
-					     const char    * topic_name,
-					     MyQttQos        qos,
-					     unsigned char * app_msg,
-					     int             app_msg_size)
+axl_bool       myqtt_storage_retain_msg_set (MyQttCtx            * ctx,
+					     const char          * topic_name,
+					     MyQttQos              qos,
+					     const unsigned char * app_msg,
+					     int                   app_msg_size)
 {
 	char            * hash_value;
 	int               topic_filter_len;

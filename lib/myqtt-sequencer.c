@@ -58,10 +58,10 @@ axl_bool myqtt_sequencer_queue_data (MyQttCtx * ctx, MyQttSequencerData * data)
 
 	/* acquire reference to the connection */
 	if (! myqtt_conn_ref (data->conn, "sequencer")) {
-		axl_free (data->message);
-		axl_free (data);
 		myqtt_log (MYQTT_LEVEL_WARNING, "Not queueing data because connection reference conn-id=%d (%p) isn't working, myqtt_conn_ref() failed..",
 			   data->conn->id, data->conn);
+		axl_free (data->message);
+		axl_free (data);
 		return axl_false;
 	} /* end if */
 

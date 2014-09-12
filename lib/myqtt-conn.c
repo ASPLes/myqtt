@@ -2035,12 +2035,22 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
  * blocking the caller until that happens. If 0 is provided no wait is
  * performed. If some value is provided that will be the max amount of
  * time, in seconds, to wait for complete publication. For \ref
- * MYQTT_QOS_0 this value is ignored.
+ * MYQTT_QOS_0 this value is ignored. 
  *
+ * 
  * @return The function returns axl_true in the case the message was
  * published, otherwise axl_false is returned. The function returns
  * axl_false when the connection received is broken or topic name is
  * NULL or it is bigger than 65535 bytes.
+ *
+ * <b>A note about closing connection right away after publication</b>
+ *
+ * Please, note that if you want to close the connection (\ref
+ * myqtt_conn_close) just after publication (\ref myqtt_conn_pub) it
+ * is recommended to setup a wait for publish (wait_publish param) to
+ * ensure the function returns after actually publishing the message
+ * and after undergoing with all exchanges that are required according
+ * to the provided QoS.
  * 
  */
 axl_bool            myqtt_conn_pub             (MyQttConn           * conn,

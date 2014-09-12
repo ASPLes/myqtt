@@ -79,6 +79,8 @@ struct _MyQttMsg {
 
 	/* dup flag */
 	axl_bool             dup;
+	/* retain flag */
+	axl_bool             retain;
 
 	/* packet id if defined */
 	int                  packet_id;
