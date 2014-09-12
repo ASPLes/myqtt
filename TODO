@@ -1,12 +1,10 @@
 --== roadmap ==--
 
-* Add retain flag support
-
 * Add support to tls
 
 * Add support to websocket
 
-* Add wildcard support
+* Add wildcard support (for message retention too).
 
 * Big message support 
 
