@@ -1,5 +1,5 @@
 
-SUBDIRS = lib test
+SUBDIRS = lib tls test
 EXTRA_DIST = myqtt-1.0.pc.in VERSION
 
 pkgconfigdir = $(libdir)/pkgconfig

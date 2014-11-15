@@ -62,6 +62,75 @@ typedef enum {
 } MyQttDigestMethod;
 
 
+/** 
+ * @brief Handler definition for those functions that allows to locate
+ * the certificate file to be used while enabling TLS support.
+ * 
+ * Once a TLS negotiation is started at least two files are required
+ * to enable TLS cyphering: the certificate and the private key. Two
+ * handlers are used by MyQtt to allow user app level to configure
+ * file locations for both files.
+ * 
+ * This handler is used to configure location for the certificate
+ * file. The function will receive the connection where the TLS is
+ * being request to be activated and the serverName value which hold a
+ * optional host name value requesting to act as the server configured
+ * by this value.
+ * 
+ * The function must return a path to the certificate using a
+ * dynamically allocated value or the content of the certificate
+ * itself. Once finished, MyQtt will unref it.
+ * 
+ * <b>The function should return a basename file avoiding full path file
+ * names</b>. This is because the MyQtt will use \ref
+ * myqtt_support_find_data_file function to locate the file
+ * provided. That function is configured to lookup on the configured
+ * search path provided by \ref myqtt_support_add_search_path or \ref
+ * myqtt_support_add_search_path_ref.
+ * 
+ * As a consequence: 
+ * 
+ * - If all certificate files are located at
+ *  <b>/etc/repository/certificates</b> and the <b>serverName.cert</b> is to
+ *   be used <b>DO NOT</b> return on this function <b>/etc/repository/certificates/serverName.cert</b>
+ *
+ * - Instead, configure <b>/etc/repository/certificates</b> at \ref
+ *    myqtt_support_add_search_path and return <b>servername.cert</b>.
+ * 
+ * - Doing previous practice will allow your code to be as
+ *   platform/directory-structure independent as possible. The same
+ *   function works on every installation, the only question to be
+ *   configured are the search paths to lookup.
+ * 
+ * @param connection The connection where the TLS negotiation was
+ * received.
+ *
+ * @param serverName An optional value requesting to act as the server
+ * <b>serverName</b>. This value is supposed to be used to select the
+ * right certificate file (according to the common value stored on
+ * it).
+ * 
+ * @return A newly allocated value containing the path to the
+ * certificate file or the certificate content to be used.
+ */
+typedef char  * (* MyQttTlsCertificateFileLocator) (MyQttConn    * connection,
+						    const char   * serverName);
+
+/** 
+ * @brief Handler definition for those functions that allows to locate
+ * the private key file to be used while enabling TLS support.
+ * 
+ * See \ref MyQttTlsCertificateFileLocator handler for more
+ * information. This handler allows to define how is located the
+ * private key file used for the session TLS activation.
+ * 
+ * @return A newly allocated value containing the path to the private
+ * key file or the private key content to be used.
+ */
+typedef char  * (* MyQttTlsPrivateKeyFileLocator) (MyQttConn   * connection,
+						   const char  * serverName);
+
+
 
 /** 
  * @brief Handler definition used by the TLS profile, to allow the
@@ -134,7 +203,7 @@ typedef enum {
  *
  * See OpenSSL documenation for SSL_CTX_set_verify and SSL_CTX_set_verify_depth.
  * 
- * @param connection The connection that has been requested to be
+ * @param conn The connection that has been requested to be
  * activated the TLS profile, for which a new SSL_CTX must be created. 
  * 
  * @param user_data An optional user pointer defined at either \ref
@@ -144,7 +213,7 @@ typedef enum {
  * @return You must return a newly allocated SSL_CTX or NULL if the
  * handler must signal that the TLS activation must not be performed.
  */
-typedef axlPointer (* MyQttTlsCtxCreation) (MyQttConn * connection,
+typedef axlPointer (* MyQttTlsCtxCreation) (MyQttConn * conn,
 					    axlPointer        user_data);
 
 
@@ -161,7 +230,7 @@ typedef axlPointer (* MyQttTlsCtxCreation) (MyQttConn * connection,
  * passed, otherwise axl_false must be returned. In such case, the
  * connection will be dropped.
  * 
- * @param connection The connection that was TLS-fixated and
+ * @param conn The connection that was TLS-fixated and
  * additional checks were configured.
  * 
  * @param user_data User defined data passed to the function, defined
@@ -175,10 +244,10 @@ typedef axlPointer (* MyQttTlsCtxCreation) (MyQttConn * connection,
  * @return axl_true to accept the connection, otherwise, axl_false must be
  * returned.
  */
-typedef axl_bool  (*MyQttTlsPostCheck) (MyQttConn * connection, 
-					 axlPointer         user_data, 
-					 axlPointer         ssl, 
-					 axlPointer         ctx);
+typedef axl_bool  (*MyQttTlsPostCheck) (MyQttConn * conn, 
+					axlPointer  user_data, 
+					axlPointer  ssl, 
+					axlPointer  ctx);
 
 
 /** 
@@ -188,7 +257,7 @@ typedef axl_bool  (*MyQttTlsPostCheck) (MyQttConn * connection,
  * The function receives the connection where the failure * found an
  * error message and a pointer configured by the user at \ref myqtt_tls_set_failure_handler.
  *
- * @param connection The connection where the failure was found.
+ * @param conn The connection where the failure was found.
  *
  * @param error_message The error message describing the problem found.
  *
@@ -209,12 +278,14 @@ typedef axl_bool  (*MyQttTlsPostCheck) (MyQttConn * connection,
  * 
  *
  */
-typedef void      (*MyQttTlsFailureHandler) (MyQttConn   * connection,
+typedef void      (*MyQttTlsFailureHandler) (MyQttConn   * conn,
 					     const char  * error_message,
 					     axlPointer    user_data);
 
 
 axl_bool           myqtt_tls_init                       (MyQttCtx             * ctx);
+
+axl_bool           myqtt_tls_is_on                      (MyQttConn            * conn);
 
 void               myqtt_tls_set_ctx_creation           (MyQttConn            * connection,
 							 MyQttTlsCtxCreation    ctx_creation, 
@@ -233,8 +304,8 @@ void               myqtt_tls_set_default_post_check     (MyQttCtx              *
 							  axlPointer             user_data);
 
 void               myqtt_tls_set_failure_handler        (MyQttCtx                * ctx,
-							  MyQttTlsFailureHandler   failure_handler,
-							  axlPointer               user_data);
+							 MyQttTlsFailureHandler   failure_handler,
+							 axlPointer               user_data);
 
 axl_bool           myqtt_tls_verify_cert                (MyQttConn * connection);
 
