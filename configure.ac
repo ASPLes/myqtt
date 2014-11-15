@@ -309,6 +309,7 @@ AC_SUBST(EXARG_FLAGS)
 AC_OUTPUT([
 Makefile
 lib/Makefile
+tls/Makefile
 test/Makefile
 myqtt-1.0.pc
 ])
