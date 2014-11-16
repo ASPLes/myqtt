@@ -36,7 +36,11 @@
  *         info@aspl.es - http://www.aspl.es/mqtt
  *                        http://www.aspl.es/myqtt
  */
+/* base myqtt */
 #include <myqtt.h>
+
+/* include myqtt tls module */
+#include <myqtt-tls.h>
 
 #ifdef AXL_OS_UNIX
 #include <signal.h>
@@ -92,8 +96,9 @@ void __terminate_myqtt_listener (int value)
 axl_bool test_common_enable_debug = axl_false;
 
 /* default listener location */
-const char * listener_host = "localhost";
-const char * listener_port = "1909";
+const char * listener_host     = "localhost";
+const char * listener_port     = "1909";
+const char * listener_tls_port = "1910";
 
 MyQttCtx * init_ctx (void)
 {
@@ -268,9 +273,16 @@ int main (int argc, char ** argv)
 	myqtt_storage_set_path (ctx, ".myqtt-listener", 4096);
 
 	/* start a listener */
-	listener = myqtt_listener_new (ctx, listener_host, listener_port, NULL, NULL);
+	listener = myqtt_listener_new (ctx, listener_host, listener_port, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (listener, axl_false)) {
 		printf ("ERROR: failed to start listener at: %s:%s..\n", listener_host, listener_port);
+		exit (-1);
+	} /* end if */
+
+	/* start a TLS listener */
+	listener = myqtt_tls_listener_new (ctx, listener_host, listener_tls_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (listener, axl_false)) {
+		printf ("ERROR: failed to start TLS listener at: %s:%s..\n", listener_host, listener_tls_port);
 		exit (-1);
 	} /* end if */
 

@@ -130,7 +130,20 @@ typedef char  * (* MyQttTlsCertificateFileLocator) (MyQttConn    * connection,
 typedef char  * (* MyQttTlsPrivateKeyFileLocator) (MyQttConn   * connection,
 						   const char  * serverName);
 
-
+/** 
+ * @brief Handler definition for those functions that allows to locate
+ * the chain/intermediate certificate file to be used while enabling
+ * TLS support.
+ * 
+ * See \ref MyQttTlsCertificateFileLocator handler for more
+ * information. This handler allows to define how is located the
+ * private key file used for the session TLS activation.
+ * 
+ * @return A newly allocated value containing the path to the private
+ * key file or the private key content to be used.
+ */
+typedef char  * (* MyQttTlsChainCertificateFileLocator) (MyQttConn   * connection,
+							 const char  * serverName);
 
 /** 
  * @brief Handler definition used by the TLS profile, to allow the
@@ -284,6 +297,45 @@ typedef void      (*MyQttTlsFailureHandler) (MyQttConn   * conn,
 
 
 axl_bool           myqtt_tls_init                       (MyQttCtx             * ctx);
+
+MyQttConn        * myqtt_tls_conn_new                   (MyQttCtx        * ctx,
+							 const char      * client_identifier,
+							 axl_bool          clean_session,
+							 int               keep_alive,
+							 const char      * host, 
+							 const char      * port,
+							 MyQttConnOpts   * opts,
+							 MyQttConnNew      on_connected, 
+							 axlPointer        user_data);
+
+MyQttConn        * myqtt_tls_conn_new6                  (MyQttCtx       * ctx,
+							 const char     * client_identifier,
+							 axl_bool         clean_session,
+							 int              keep_alive,
+							 const char     * host, 
+							 const char     * port,
+							 MyQttConnOpts  * opts,
+							 MyQttConnNew     on_connected, 
+							 axlPointer       user_data);
+
+void              myqtt_tls_listener_set_certificate_handlers (MyQttCtx                            * ctx,
+							       MyQttTlsCertificateFileLocator        certificate_handler,
+							       MyQttTlsPrivateKeyFileLocator         private_key_handler,
+							       MyQttTlsChainCertificateFileLocator   chain_handler);
+
+MyQttConn       * myqtt_tls_listener_new                (MyQttCtx             * ctx,
+							 const char           * host, 
+							 const char           * port, 
+							 MyQttConnOpts        * opts,
+							 MyQttListenerReady     on_ready, 
+							 axlPointer             user_data);
+
+MyQttConn       * myqtt_tls_listener_new6               (MyQttCtx             * ctx,
+							 const char           * host, 
+							 const char           * port, 
+							 MyQttConnOpts        * opts,
+							 MyQttListenerReady     on_ready, 
+							 axlPointer             user_data);
 
 axl_bool           myqtt_tls_is_on                      (MyQttConn            * conn);
 
