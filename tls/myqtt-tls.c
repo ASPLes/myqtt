@@ -89,20 +89,21 @@ typedef struct _MyQttTlsCtx {
 
 	/* @internal Internal default handlers used to define the TLS
 	 * profile support. */
-	MyQttTlsCertificateFileLocator    tls_certificate_handler;
-	MyQttTlsPrivateKeyFileLocator     tls_private_key_handler;
+	MyQttTlsCertificateFileLocator      tls_certificate_handler;
+	MyQttTlsPrivateKeyFileLocator       tls_private_key_handler;
+	MyQttTlsChainCertificateFileLocator tls_chain_handler;
 
 	/* default ctx creation */
-	MyQttTlsCtxCreation               tls_default_ctx_creation;
-	axlPointer                        tls_default_ctx_creation_user_data;
+	MyQttTlsCtxCreation                 tls_default_ctx_creation;
+	axlPointer                          tls_default_ctx_creation_user_data;
 
 	/* default post check */
-	MyQttTlsPostCheck                 tls_default_post_check;
-	axlPointer                        tls_default_post_check_user_data;
+	MyQttTlsPostCheck                   tls_default_post_check;
+	axlPointer                          tls_default_post_check_user_data;
 
 	/* failure handler */
-	MyQttTlsFailureHandler            failure_handler;
-	axlPointer                        failure_handler_user_data;
+	MyQttTlsFailureHandler              failure_handler;
+	axlPointer                          failure_handler_user_data;
 
 } MyQttTlsCtx;
 
@@ -178,6 +179,137 @@ axl_bool      myqtt_tls_init (MyQttCtx * ctx)
 	myqtt_ctx_install_cleanup (ctx, (axlDestroyFunc) myqtt_tls_cleanup);
 
 	return axl_true;
+}
+
+
+/** 
+ * @brief Allows to configure the set of functions that will help the
+ * engine to find the appropriate certificate/key/chain for each case.
+ *
+ * @param ctx The context that is going to be configured.
+ *
+ * @param certificate_handler The certificate locator handler to find
+ * the suitable file or content according to the serverName.
+ *
+ * @param private_key_handler The private key locator handler to find
+ * the suitable file or content according to the serverName.
+ *
+ * @param chain_handler Optiona handler that allows to find the
+ * suitable file or content according to the serverName to provide the
+ * chain certificate.
+ */
+void              myqtt_tls_listener_set_certificate_handlers (MyQttCtx                            * ctx,
+							       MyQttTlsCertificateFileLocator        certificate_handler,
+							       MyQttTlsPrivateKeyFileLocator         private_key_handler,
+							       MyQttTlsChainCertificateFileLocator   chain_handler)
+{
+	MyQttTlsCtx * tls_ctx;
+
+	if (ctx == NULL)
+		return;
+
+	/* ensure module initialization */
+	myqtt_tls_init (ctx);
+
+	/* check if the tls ctx was created */
+	tls_ctx = myqtt_ctx_get_data (ctx, TLS_CTX);
+	if (tls_ctx == NULL) 
+		return;
+
+	/* set up handlers */
+	tls_ctx->tls_certificate_handler = certificate_handler;
+	tls_ctx->tls_private_key_handler = private_key_handler;
+	tls_ctx->tls_chain_handler       = chain_handler;
+
+	return;
+}
+
+/** 
+ * @brief Allows to start a MQTT server on the provided local host
+ * address and port running secure TLS protocol (secure-mqtt).
+ *
+ * <b>Important note:</b> you must call to \ref myqtt_storage_set_path
+ * to define the path first before creating any listener. This is
+ * because creating a listener activates all server side code which
+ * among other things includes the storage loading (client
+ * subscriptions, offline publishing, etc). In the case direction,
+ * once the storage path is loaded it cannot be changed after
+ * restarting the particular context used in this operation (\ref MyQttCtx).
+ *
+ * This function works the same as \ref myqtt_listener_new but
+ * providing TLS support.
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param host The local host address to list for incoming connections. 
+ *
+ * @param port The local port to listen on.
+ *
+ * @param opts Optional connection options to modify default behaviour.
+ *
+ * @param on_ready Optional on ready notification handler that gets
+ * called when the listener is created or a failure was
+ * found. Providing this handler makes this function to not block the
+ * caller.
+ *
+ * @param user_data Optional user defined pointer that is passed into
+ * the on_ready function (in the case the former is defined too).
+ */
+MyQttConn       * myqtt_tls_listener_new                (MyQttCtx             * ctx,
+							 const char           * host, 
+							 const char           * port, 
+							 MyQttConnOpts        * opts,
+							 MyQttListenerReady     on_ready, 
+							 axlPointer             user_data)
+{
+	return myqtt_listener_new (ctx, host, port, opts, on_ready, user_data);
+}
+
+/** 
+ * @brief Creates a new TCP/IPv6 MyQtt Listener accepting incoming
+ * connections on the given <b>host:port</b> configuration running TLS
+ * protocol (secure-mqtt).
+ *
+ * Take a look to \ref myqtt_listener_new for additional
+ * information. This functions provides same features plus IPv6
+ * support.
+ *
+ * <b>Important note:</b> you must call to \ref myqtt_storage_set_path
+ * to define the path first before creating any listener. This is
+ * because creating a listener activates all server side code which
+ * among other things includes the storage loading (client
+ * subscriptions, offline publishing, etc). In the case direction,
+ * once the storage path is loaded it cannot be changed after
+ * restarting the particular context used in this operation (\ref MyQttCtx).
+ *
+ * @param ctx The context where the operation will be performed.
+ *
+ * @param host The host to listen on.
+ *
+ * @param port The port to listen on.
+ *
+ * @param opts Optional connection options to change default behviour.
+ *
+ * @param on_ready A optional callback to get a notification when
+ * myqtt listener is ready to accept requests.
+ *
+ * @param user_data A user defined pointer to be passed in to
+ * <i>on_ready</i> handler.
+ *
+ * @return The listener connection created (represented by a \ref
+ * MyQttConn reference). You must use \ref
+ * myqtt_conn_is_ok to check if the server was started.
+ * 
+ * See additional notes at \ref myqtt_listener_new
+ */
+MyQttConn       * myqtt_tls_listener_new6               (MyQttCtx             * ctx,
+							 const char           * host, 
+							 const char           * port, 
+							 MyQttConnOpts        * opts,
+							 MyQttListenerReady     on_ready, 
+							 axlPointer             user_data)
+{
+	return myqtt_listener_new6 (ctx, host, port, opts, on_ready, user_data);
 }
 
 /** 

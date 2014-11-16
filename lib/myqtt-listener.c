@@ -766,6 +766,7 @@ MyQttConn * __myqtt_listener_new_common  (MyQttCtx                * ctx,
 					  const char              * host,
 					  int                       port,
 					  axl_bool                  register_conn,
+					  MyQttConnOpts           * opts,
 					  MyQttListenerReady        on_ready, 
 					  MyQttNetTransport         transport,
 					  axlPointer                user_data)
@@ -820,6 +821,8 @@ MyQttConn * __myqtt_listener_new_common  (MyQttCtx                * ctx,
  *
  * @param port The local port to listen on.
  *
+ * @param opts Optional connection options to modify default behaviour.
+ *
  * @param on_ready Optional on ready notification handler that gets
  * called when the listener is created or a failure was
  * found. Providing this handler makes this function to not block the
@@ -831,11 +834,12 @@ MyQttConn * __myqtt_listener_new_common  (MyQttCtx                * ctx,
 MyQttConn * myqtt_listener_new (MyQttCtx             * ctx,
 				const char           * host, 
 				const char           * port, 
+				MyQttConnOpts        * opts,
 				MyQttListenerReady     on_ready, 
 				axlPointer             user_data)
 {
 	/* call to int port API */
-	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, on_ready, MYQTT_IPv4, user_data);
+	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, opts, on_ready, MYQTT_IPv4, user_data);
 }
 
 /** 
@@ -860,6 +864,8 @@ MyQttConn * myqtt_listener_new (MyQttCtx             * ctx,
  *
  * @param port The port to listen on.
  *
+ * @param opts Optional connection options to change default behviour.
+ *
  * @param on_ready A optional callback to get a notification when
  * myqtt listener is ready to accept requests.
  *
@@ -872,14 +878,15 @@ MyQttConn * myqtt_listener_new (MyQttCtx             * ctx,
  * 
  * See additional notes at \ref myqtt_listener_new
  */
-MyQttConn * myqtt_listener_new6 (MyQttCtx            * ctx,
-				 const char          * host, 
-				 const char          * port, 
-				 MyQttListenerReady    on_ready, 
-				 axlPointer            user_data)
+MyQttConn * myqtt_listener_new6 (MyQttCtx             * ctx,
+				 const char           * host, 
+				 const char           * port, 
+				 MyQttConnOpts        * opts,
+				 MyQttListenerReady     on_ready, 
+				 axlPointer             user_data)
 {
 	/* call to int port API */
-	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, on_ready, MYQTT_IPv6, user_data);
+	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, opts, on_ready, MYQTT_IPv6, user_data);
 }
 
 /** 
@@ -903,6 +910,8 @@ MyQttConn * myqtt_listener_new6 (MyQttCtx            * ctx,
  *
  * @param port The port to listen to. Value defined for the port must be between 0 up to 65536.
  *
+ * @param opts Optional connection options to modify behviour
+ *
  * @param on_ready A optional notify callback to get when myqtt
  * listener is ready to perform replies.
  *
@@ -925,15 +934,16 @@ MyQttConn * myqtt_listener_new6 (MyQttCtx            * ctx,
  * 
  * To close immediately a listener you can use \ref myqtt_conn_shutdown.
  */
-MyQttConn * myqtt_listener_new2    (MyQttCtx          * ctx,
-				    const char        * host,
-				    int                 port,
-				    MyQttListenerReady  on_ready, 
-				    axlPointer          user_data)
+MyQttConn * myqtt_listener_new2    (MyQttCtx             * ctx,
+				    const char           * host,
+				    int                    port,
+				    MyQttConnOpts        * opts,
+				    MyQttListenerReady     on_ready, 
+				    axlPointer             user_data)
 {
 
 	/* call to common API */
-	return __myqtt_listener_new_common (ctx, host, port, axl_true, on_ready, MYQTT_IPv4, user_data);
+	return __myqtt_listener_new_common (ctx, host, port, axl_true, opts, on_ready, MYQTT_IPv4, user_data);
 }
 
 

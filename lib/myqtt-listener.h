@@ -49,12 +49,14 @@
 MyQttConn * myqtt_listener_new             (MyQttCtx             * ctx,
 					    const char           * host, 
 					    const char           * port, 
+					    MyQttConnOpts        * opts,
 					    MyQttListenerReady     on_ready, 
 					    axlPointer             user_data);
 
 MyQttConn * myqtt_listener_new6            (MyQttCtx             * ctx,
 					    const char           * host, 
 					    const char           * port, 
+					    MyQttConnOpts        * opts,
 					    MyQttListenerReady     on_ready, 
 					    axlPointer             user_data);
 
