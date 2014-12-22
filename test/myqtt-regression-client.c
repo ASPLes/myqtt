@@ -41,6 +41,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#if defined(ENABLE_TLS_SUPPORT)
+#include <myqtt-tls.h>
+#endif
+
 typedef enum {
 	TEST_FILES = 1,
 	TEST_DIRS  = 2
@@ -2459,6 +2463,58 @@ axl_bool test_17 (void) {
 	return axl_true;
 }
 
+#if defined(ENABLE_TLS_SUPPORT)
+axl_bool test_18 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 18: checking TLS support\n");
+
+	/* do a simple connection */
+	conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 18: pushing messages\n");
+
+	/* publish a message with retention */
+	if (! myqtt_conn_pub (conn, "this/is/a/test/18", "Test message 1", 14, MYQTT_QOS_2, axl_true, 10)) {
+		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* publish a message with retention */
+	if (! myqtt_conn_pub (conn, "this/is/a/test/18", "Test message 2", 14, MYQTT_QOS_2, axl_true, 10)) {
+		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 18: checking connection\n");
+
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 18: closing connection..\n");
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
+	/* release context */
+	printf ("Test 18: releasing context\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+#endif
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -2580,6 +2636,11 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_17")
 	run_test (test_17, "Test 17: check message retention"); 
+
+#if defined(ENABLE_TLS_SUPPORT)
+	CHECK_TEST("test_18")
+	run_test (test_18, "Test 18: check TLS support"); 
+#endif
 
 	/* support for message retention when subscribed with a wild
 	   card topic filter that matches different topic names */

@@ -37,6 +37,8 @@
  *                        http://www.aspl.es/myqtt
  */
 #include <myqtt-tls.h>
+#include <myqtt-conn-private.h>
+#include <myqtt-ctx-private.h>
 
 #define LOG_DOMAIN "myqtt-tls"
 
@@ -139,6 +141,270 @@ void myqtt_tls_notify_failure_handler (MyQttCtx * ctx,
 	return;
 }
 
+/** 
+ * @brief Allows to configure the handler that will be used to let
+ * user land code to define OpenSSL SSL_CTX object.
+ *
+ * By default, SSL_CTX (SSL Context) object is created by default
+ * settings that works for most of the cases. In the case you want to
+ * configure particular configurations that should be enabled on the
+ * provided SSL_CTX that is going to be used by the client ---while
+ * connecting--- or server ---while receiving a connection--- then use
+ * this function to setup your creator handler.
+ *
+ * See \ref MyQttSslContextCreator for more information about this
+ * handler.
+ *
+ */
+void           myqtt_tls_set_ssl_context_creator (MyQttCtx                * ctx,
+						  MyQttSslContextCreator    context_creator,
+						  axlPointer                user_data)
+{
+	if (ctx == NULL)
+		return;
+
+	/* set handlers as indicated by the caller */
+	ctx->context_creator      = context_creator;
+	ctx->context_creator_data = user_data;
+	return;
+}
+
+SSL_CTX * __myqtt_conn_get_ssl_context (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * opts, axl_bool is_client)
+{
+	/* call to user defined function if the context creator is defined */
+	if (ctx && ctx->context_creator) 
+		return ((MyQttSslContextCreator) ctx->context_creator) (ctx, conn, opts, is_client, ctx->context_creator_data);
+
+	if (opts == NULL) {
+		/* printf ("**** REPORTING TLSv1 ****\n"); */
+		return SSL_CTX_new (is_client ? TLSv1_client_method () : TLSv1_server_method ()); 
+	} /* end if */
+
+	switch (opts->ssl_protocol) {
+	case MYQTT_METHOD_TLSV1:
+		return SSL_CTX_new (is_client ? TLSv1_client_method () : TLSv1_server_method ()); 
+#if defined(TLSv1_1_client_method)
+	case MYQTT_METHOD_TLSV1_1:
+		/* printf ("**** REPORTING TLSv1.1 ****\n"); */
+		return SSL_CTX_new (is_client ? TLSv1_1_client_method () : TLSv1_1_server_method ()); 
+#endif
+	case MYQTT_METHOD_SSLV3:
+		/* printf ("**** REPORTING SSLv3 ****\n"); */
+		return SSL_CTX_new (is_client ? SSLv3_client_method () : SSLv3_server_method ()); 
+	case MYQTT_METHOD_SSLV23:
+		/* printf ("**** REPORTING SSLv23 ****\n"); */
+		return SSL_CTX_new (is_client ? SSLv23_client_method () : SSLv23_server_method ()); 
+	}
+
+	/* reached this point, report default TLSv1 method */
+	return SSL_CTX_new (is_client ? TLSv1_client_method () : TLSv1_server_method ()); 
+}
+
+MyQttCtx * __myqtt_conn_ssl_ctx_debug = NULL;
+
+int __myqtt_conn_ssl_verify_callback (int ok, X509_STORE_CTX * store) {
+	char   data[256];
+	X509 * cert;
+	int    depth;
+	int    err;
+	MyQttCtx * ctx = __myqtt_conn_ssl_ctx_debug;
+
+	if (! ok) {
+		cert  = X509_STORE_CTX_get_current_cert (store);
+		depth = X509_STORE_CTX_get_error_depth (store);
+		err   = X509_STORE_CTX_get_error (store);
+
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "CERTIFICATE: error at depth: %d", depth);
+
+		X509_NAME_oneline (X509_get_issuer_name (cert), data, 256);
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "CERTIFICATE: issuer: %s", data);
+
+		X509_NAME_oneline (X509_get_subject_name (cert), data, 256);
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "CERTIFICATE: subject: %s", data);
+
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "CERTIFICATE: error %d:%s", err, X509_verify_cert_error_string (err));
+			    
+	}
+	return ok; /* return same value */
+}
+
+axl_bool __myqtt_conn_set_ssl_client_options (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * options)
+{
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Checking to establish SSL options (%p)", options);
+
+	if (options && options->ca_certificate) {
+		myqtt_log ( MYQTT_LEVEL_DEBUG, "Setting CA certificate: %s", options->ca_certificate);
+		if (SSL_CTX_load_verify_locations (conn->ssl_ctx, options->ca_certificate, NULL) != 1) {
+			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Failed to configure CA certificate (%s), SSL_CTX_load_verify_locations () failed", options->ca_certificate);
+			return axl_false;
+		} /* end if */
+		
+	} /* end if */
+
+	/* enable default verification paths */
+	if (SSL_CTX_set_default_verify_paths (conn->ssl_ctx) != 1) {
+		myqtt_log ( MYQTT_LEVEL_CRITICAL, "Unable to configure default verification paths, SSL_CTX_set_default_verify_paths () failed");
+		return axl_false;
+	} /* end if */
+
+	if (options && options->chain_certificate) {
+		myqtt_log ( MYQTT_LEVEL_DEBUG, "Setting chain certificate: %s", options->chain_certificate);
+		if (SSL_CTX_use_certificate_chain_file (conn->ssl_ctx, options->chain_certificate) != 1) {
+			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Failed to configure chain certificate (%s), SSL_CTX_use_certificate_chain_file () failed", options->chain_certificate);
+			return axl_false;
+		} /* end if */
+	} /* end if */
+
+	if (options && options->certificate) {
+		myqtt_log ( MYQTT_LEVEL_DEBUG, "Setting certificate: %s", options->certificate);
+		if (SSL_CTX_use_certificate_chain_file (conn->ssl_ctx, options->certificate) != 1) {
+			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Failed to configure client certificate (%s), SSL_CTX_use_certificate_file () failed", options->certificate);
+			return axl_false;
+		} /* end if */
+	} /* end if */
+
+	if (options && options->private_key) {
+		myqtt_log ( MYQTT_LEVEL_DEBUG, "Setting private key: %s", options->private_key);
+		if (SSL_CTX_use_PrivateKey_file (conn->ssl_ctx, options->private_key, SSL_FILETYPE_PEM) != 1) {
+			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Failed to configure private key (%s), SSL_CTX_use_PrivateKey_file () failed", options->private_key);
+			return axl_false;
+		} /* end if */
+	} /* end if */
+
+	if (options && options->private_key && options->certificate) {
+		if (!SSL_CTX_check_private_key (conn->ssl_ctx)) {
+			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Certificate and private key do not matches, verification fails, SSL_CTX_check_private_key ()");
+			return axl_false;
+		} /* end if */
+		myqtt_log ( MYQTT_LEVEL_DEBUG, "Certificate (%s) and private key (%s) matches", options->certificate, options->private_key);
+	} /* end if */
+
+	/* if no option and it is not disabled */
+	if (options == NULL || ! options->disable_ssl_verify) {
+		myqtt_log ( MYQTT_LEVEL_DEBUG, "Enabling certificate peer verification");
+		/** really, really ugly hack to let
+		 * __myqtt_conn_ssl_verify_callback to be able to get
+		 * access to the context required to drop some logs */
+		__myqtt_conn_ssl_ctx_debug = ctx;
+		SSL_CTX_set_verify (conn->ssl_ctx, SSL_VERIFY_PEER, __myqtt_conn_ssl_verify_callback); 
+		SSL_CTX_set_verify_depth (conn->ssl_ctx, 10); 
+	} /* end if */
+
+	return axl_true;
+}
+
+
+axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * options, axlPointer user_data)
+{
+	int iterator;
+	int ssl_error;
+
+	/* found TLS connection request, enable it */
+	conn->ssl_ctx  = __myqtt_conn_get_ssl_context (ctx, conn, options, axl_true);
+
+	/* check for client side SSL configuration */
+	if (! __myqtt_conn_set_ssl_client_options (ctx, conn, options)) {
+		myqtt_log ( MYQTT_LEVEL_CRITICAL, "Unable to configure additional SSL options, unable to continue",
+			    conn->ssl_ctx, conn->ssl);
+		goto fail_ssl_connection;
+	} /* end if */
+
+	/* create context and check for result */
+	conn->ssl      = SSL_new (conn->ssl_ctx);       
+	if (conn->ssl_ctx == NULL || conn->ssl == NULL) {
+		myqtt_log ( MYQTT_LEVEL_CRITICAL, "Unable to create SSL context internal references are null (conn->ssl_ctx=%p, conn->ssl=%p)",
+			    conn->ssl_ctx, conn->ssl);
+	fail_ssl_connection:
+		
+		myqtt_conn_shutdown (conn);
+		
+		return axl_false;
+	} /* end if */
+	
+	/* set socket */
+	SSL_set_fd (conn->ssl, conn->session);
+	
+	/* do the initial connect connect */
+	myqtt_log ( MYQTT_LEVEL_DEBUG, "connecting to remote TLS site");
+	iterator = 0;
+	while (SSL_connect (conn->ssl) <= 0) {
+		
+		/* get ssl error */
+		ssl_error = SSL_get_error (conn->ssl, -1);
+		
+		switch (ssl_error) {
+		case SSL_ERROR_WANT_READ:
+			myqtt_log ( MYQTT_LEVEL_WARNING, "still not prepared to continue because read wanted, conn-id=%d (%p, session: %d), errno=%d",
+				    conn->id, conn, conn->session, errno);
+			break;
+		case SSL_ERROR_WANT_WRITE:
+			myqtt_log ( MYQTT_LEVEL_WARNING, "still not prepared to continue because write wanted, conn-id=%d (%p)",
+				    conn->id, conn);
+			break;
+		case SSL_ERROR_SYSCALL:
+			myqtt_log ( MYQTT_LEVEL_CRITICAL, "syscall error while doing TLS handshake, ssl error (code:%d), conn-id: %d (%p), errno: %d, session: %d",
+				    ssl_error, conn->id, conn, errno, conn->session);
+			myqtt_conn_log_ssl (conn);
+			myqtt_conn_shutdown (conn);
+			myqtt_free (content);
+			
+			return axl_false;
+		default:
+			myqtt_log ( MYQTT_LEVEL_CRITICAL, "there was an error with the TLS negotiation, ssl error (code:%d) : %s",
+				    ssl_error, ERR_error_string (ssl_error, NULL));
+			myqtt_conn_log_ssl (conn);
+			myqtt_conn_shutdown (conn);
+			myqtt_free (content);
+			
+			return axl_false;
+		} /* end switch */
+		
+		/* try and limit max reconnect allowed */
+		iterator++;
+		
+		if (iterator > 100) {
+			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Max retry calls=%d to SSL_connect reached, shutting down connection id=%d, errno=%d",
+				    iterator, conn->id, errno);
+			myqtt_free (content);
+			
+			return axl_false;
+		} /* end if */
+		
+		/* wait a bit before retry */
+		myqtt_sleep (10000);
+		
+	} /* end while */
+	
+	myqtt_log ( MYQTT_LEVEL_DEBUG, "Client TLS handshake finished, configuring I/O handlers");
+	
+	/* check remote certificate (if it is present) */
+	server_cert = SSL_get_peer_certificate (conn->ssl);
+	if (server_cert == NULL) {
+		myqtt_log ( MYQTT_LEVEL_CRITICAL, "server side didn't set a certificate for this session, these are bad news");
+		
+		return axl_false;
+	}
+	X509_free (server_cert);
+	
+	/* call to check post ssl checks after SSL finalization */
+	if (conn->ctx && conn->ctx->post_ssl_check) {
+		if (! conn->ctx->post_ssl_check (conn->ctx, conn, conn->ssl_ctx, conn->ssl, conn->ctx->post_ssl_check_data)) {
+			/* TLS post check failed */
+			myqtt_log (conn->ctx, MYQTT_LEVEL_CRITICAL, "TLS/SSL post check function failed, dropping connection");
+			myqtt_conn_shutdown (conn);
+			return axl_false;
+		} /* end if */
+	} /* end if */
+	
+	/* configure default handlers */
+	conn->receive = myqtt_conn_tls_receive;
+	conn->send    = myqtt_conn_tls_send;
+	
+	myqtt_log ( MYQTT_LEVEL_DEBUG, "TLS I/O handlers configured");
+	conn->tls_on = axl_true;
+	
+	return axl_true;
+}
 
 
 /** 
@@ -179,6 +445,148 @@ axl_bool      myqtt_tls_init (MyQttCtx * ctx)
 	myqtt_ctx_install_cleanup (ctx, (axlDestroyFunc) myqtt_tls_cleanup);
 
 	return axl_true;
+}
+
+/** 
+ * @brief Allows to create a new MQTT connection a MQTT broker/server
+ * securing first the connection with TLS (MQTT over TLS).
+ *
+ * Please, see \ref myqtt_conn_new for more notes.
+ *
+ * @param The context where the operation will take place.
+ *
+ * @param client_identifier The client identifier that uniquely
+ * identifies this MQTT client from others.  It can be NULL to let
+ * MQTT 3.1.1 servers to assign a default client identifier BUT
+ * clean_session must be set to axl_true. This is done automatically
+ * by the library (setting clean_session to axl_true when NULL is
+ * provided).
+ *
+ * @param clean_session Flag to clean client session or to reuse the
+ * existing one. If set to axl_false, you must provide a valid
+ * client_identifier (otherwise the function will fail).
+ *
+ * @param keep_alive Keep alive configuration in seconds after which
+ * the server/broker will close the connection if it doesn't detect
+ * any activity. Setting 0 will disable keep alive mechanism.
+ *
+ * @param host The location of the MQTT server/broker
+ *
+ * @param port The port of the MQTT server/broker
+ *
+ * @param opts Optional connection options. See \ref myqtt_conn_opts_new
+ *
+ * @param on_connected Async notification handler that will be called
+ * once the connection fails or it is completed. In the case this
+ * handler is configured the caller will not be blocked. In the case
+ * this parameter is NULL, the caller will be blocked until the
+ * connection completes or fails.
+ *
+ * @param user_data User defined pointer that will be passed to the on_connected handler (in case it is defined).
+ *
+ * @return A reference to the newli created connection or NULL if
+ * on_connected handler is provided. In both cases, the reference
+ * returned (or received at the on_connected handler) must be checked
+ * with \ref myqtt_conn_is_ok. 
+ *
+ * <b>About pending messages / queued messages </b>
+ *
+ * After successful connection with clean_session set to axl_false and
+ * defined client identifier, the library will resend any queued or in
+ * flight QoS1/QoS2 messages (as well as QoS0 if they were
+ * stored). This is done in background without intefering the caller.
+ *
+ * If you need to get the number of queued messages that are going to
+ * be sent use \ref myqtt_storage_queued_messages_offline. In the case
+ * you need the number remaining during the process use \ref
+ * myqtt_storage_queued_messages.
+ *
+ */
+MyQttConn        * myqtt_tls_conn_new                   (MyQttCtx        * ctx,
+							 const char      * client_identifier,
+							 axl_bool          clean_session,
+							 int               keep_alive,
+							 const char      * host, 
+							 const char      * port,
+							 MyQttConnOpts   * opts,
+							 MyQttConnNew      on_connected, 
+							 axlPointer        user_data)
+{
+	MyQttNetTransport transport;
+	
+	/* get transport we have to use */
+	transport = __myqtt_conn_detect_transport (ctx, host);
+
+	/* call to create the connection */
+	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, NULL, on_connected, transport, opts, user_data);
+}
+
+/** 
+ * @brief Allows to create a new MQTT connection to a MQTT
+ * broker/server securing first the connection with TLS (MQTT over
+ * TLS), forcing IPv6 transport.
+ *
+ * @param The context where the operation will take place.
+ *
+ * @param client_identifier The client identifier that uniquely
+ * identifies this MQTT client from others.  It can be NULL to let
+ * MQTT 3.1.1 servers to assign a default client identifier BUT
+ * clean_session must be set to axl_true. This is done automatically
+ * by the library (setting clean_session to axl_true when NULL is
+ * provided).
+ *
+ * @param clean_session Flag to clean client session or to reuse the
+ * existing one. If set to axl_false, you must provide a valid
+ * client_identifier (otherwise the function will fail).
+ *
+ * @param keep_alive Keep alive configuration in seconds after which
+ * the server/broker will close the connection if it doesn't detect
+ * any activity. Setting 0 will disable keep alive mechanism.
+ *
+ * @param host The location of the MQTT server/broker
+ *
+ * @param port The port of the MQTT server/broker
+ *
+ * @param opts Optional connection options. See \ref myqtt_conn_opts_new
+ *
+ * @param on_connected Async notification handler that will be called
+ * once the connection fails or it is completed. In the case this
+ * handler is configured the caller will not be blocked. In the case
+ * this parameter is NULL, the caller will be blocked until the
+ * connection completes or fails.
+ *
+ * @param user_data User defined pointer that will be passed to the on_connected handler (in case it is defined).
+ *
+ * @return A reference to the newli created connection or NULL if
+ * on_connected handler is provided. In both cases, the reference
+ * returned (or received at the on_connected handler) must be checked
+ * with \ref myqtt_conn_is_ok. 
+ *
+ * <b>About pending messages / queued messages </b>
+ *
+ * After successful connection with clean_session set to axl_false and
+ * defined client identifier, the library will resend any queued or in
+ * flight QoS1/QoS2 messages (as well as QoS0 if they were
+ * stored). This is done in background without intefering the caller.
+ *
+ * If you need to get the number of queued messages that are going to
+ * be sent use \ref myqtt_storage_queued_messages_offline. In the case
+ * you need the number remaining during the process use \ref
+ * myqtt_storage_queued_messages.
+ *
+ */
+MyQttConn        * myqtt_tls_conn_new6                  (MyQttCtx       * ctx,
+							 const char     * client_identifier,
+							 axl_bool         clean_session,
+							 int              keep_alive,
+							 const char     * host, 
+							 const char     * port,
+							 MyQttConnOpts  * opts,
+							 MyQttConnNew     on_connected, 
+							 axlPointer       user_data)
+{
+	/* call to create the connection */
+	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, NULL, on_connected, MYQTT_IPv6, opts, user_data);
 }
 
 
@@ -225,6 +633,17 @@ void              myqtt_tls_listener_set_certificate_handlers (MyQttCtx         
 }
 
 /** 
+ * @internal Function that prepares the TLS/SSL negotiation for every
+ * incoming connection accepted.
+ */
+void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_data)
+{
+	
+
+	return;
+}
+
+/** 
  * @brief Allows to start a MQTT server on the provided local host
  * address and port running secure TLS protocol (secure-mqtt).
  *
@@ -262,6 +681,8 @@ MyQttConn       * myqtt_tls_listener_new                (MyQttCtx             * 
 							 MyQttListenerReady     on_ready, 
 							 axlPointer             user_data)
 {
+	
+
 	return myqtt_listener_new (ctx, host, port, opts, on_ready, user_data);
 }
 
@@ -309,7 +730,17 @@ MyQttConn       * myqtt_tls_listener_new6               (MyQttCtx             * 
 							 MyQttListenerReady     on_ready, 
 							 axlPointer             user_data)
 {
-	return myqtt_listener_new6 (ctx, host, port, opts, on_ready, user_data);
+	MyQttConn * listener = myqtt_listener_new6 (ctx, host, port, opts, on_ready, user_data);
+
+	/* configure pre read handlers to prepare every connection
+	   accepted by this listener */
+	if (myqtt_conn_is_ok (listener, axl_false)) {
+		/* configure preread handlers */
+		listener->preread_handler   = __myqtt_tls_accept_connection;
+		listener->preread_user_data = NULL;
+	} /* end if */
+
+	return listener;
 }
 
 /** 

@@ -64,12 +64,12 @@ typedef enum {CONNECTION,
 
 typedef struct _MyQttReaderData {
 	WatchType            type;
-	MyQttConn   * connection;
-	MyQttForeachFunc    func;
+	MyQttConn          * connection;
+	MyQttForeachFunc     func;
 	axlPointer           user_data;
 	/* queue used to notify that the foreach operation was
 	 * finished: currently only used for type == FOREACH */
-	MyQttAsyncQueue   * notify;
+	MyQttAsyncQueue    * notify;
 } MyQttReaderData;
 
 /**  
@@ -1427,6 +1427,13 @@ void __myqtt_reader_process_socket (MyQttCtx  * ctx,
 	/* check for unwatch requests */
 	if (conn->reader_unwatch)
 		return;
+
+	/* check for preread handler */
+	if (conn->preread_handler) {
+		/* call pre read handler */
+		conn->preread_handler (ctx, conn, conn->preread_user_data);
+		return;
+	} /* end if */
 
 	/* read all msgs received from remote site */
 	msg   = myqtt_msg_get_next (conn);

@@ -616,6 +616,33 @@ typedef MyQttQos          (*MyQttOnSubscribeHandler) (MyQttCtx * ctx, MyQttConn 
  *
  */
 typedef MyQttPublishCodes (*MyQttOnPublish) (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data);
+
+/** 
+ * @brief Optional Pre-read handler definition that represents the set
+ * of functions that are called before any read operation happens on
+ * the provided connection.
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param conn The connection where the operation takes place.
+ *
+ * @param user_data User defined pointer received on the handler and
+ * defined at the time the pre-read handler was defined.
+ */
+typedef void (*MyQttPreRead) (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_data);
+
+/** 
+ * @internal A handler that is called to establish the session that is
+ * going to be used by the provided connetion.
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param conn The connection for which it is being requested a session.
+ *
+ * @param user_data Optionl user pointer defined by the user when
+ * configured this handler.
+ */
+typedef axl_bool (*MyQttSessionSetup) (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_data);
 				      
 #endif
 

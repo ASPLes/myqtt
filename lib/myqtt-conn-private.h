@@ -351,24 +351,80 @@ struct _MyQttConn {
 	/*** pingreq support ****/
 	MyQttAsyncQueue           * ping_resp_queue;
 
+	/*** pre read support ***/
+	MyQttPreRead                preread_handler;
+	axlPointer                  preread_user_data;
+
+	/* tls/ssl support */
+	axlPointer      ssl_ctx;
+	axlPointer      ssl;
 };
 
 struct _MyQttConnOpts {
 	/** 
 	 * @internal The following is an indication to avoid releasing this object if reuse == axl_true.
 	 */
-	axl_bool   reuse;
+	axl_bool        reuse;
 
 	/* support for auth */
-	axl_bool   use_auth;
-	char     * username;
-	char     * password;
+	axl_bool        use_auth;
+	char          * username;
+	char          * password;
 
 	/* will topic and will message configuration */
-	MyQttQos   will_qos;
-	char     * will_topic;
-	char     * will_message;
-	int        will_retain;
+	MyQttQos        will_qos;
+	char          * will_topic;
+	char          * will_message;
+	int             will_retain;
+
+	/* preread handler to configure on the connection */
+	MyQttPreRead    preread_handler;
+	axlPointer      preread_user_data;
+
+	/** ssl/tls support **/
+	/* What ssl protocol should be used */
+	int             ssl_protocol;
+
+	/* SSL options */
+	char * certificate;
+	char * private_key;
+	char * chain_certificate;
+	char * ca_certificate;
+
+	axl_bool  disable_ssl_verify;
 };
+
+axl_bool               myqtt_conn_ref_internal           (MyQttConn   * conn, 
+							  const char  * who,
+							  axl_bool      check_ref);
+
+void                   myqtt_conn_set_initial_accept     (MyQttConn   * conn,
+							  axl_bool      status);
+
+void                   myqtt_conn_report_and_close       (MyQttConn   * conn, 
+							  const char  * msg);
+
+axl_bool               __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx, 
+							       MyQttConn     * conn, 
+							       int             packet_id, 
+							       MyQttQos        qos, 
+							       axlPointer      handle, 
+							       int             wait_publish, 
+							       unsigned char * msg, 
+							       int             size);
+
+MyQttConn            * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
+							  const char           * client_identifier,
+							  axl_bool               clean_session,
+							  int                    keep_alive,
+							  const char           * host, 
+							  const char           * port,
+							  MyQttSessionSetup      setup_handler,
+							  MyQttConnNew           on_connected, 
+							  MyQttNetTransport      transport,
+							  MyQttConnOpts        * opts,
+							  axlPointer             user_data);
+
+MyQttNetTransport      __myqtt_conn_detect_transport (MyQttCtx * ctx, const char * host);
 
 #endif /* __MYQTT_CONNECTION_PRIVATE_H__ */

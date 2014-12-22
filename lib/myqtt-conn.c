@@ -269,7 +269,7 @@ MyQttConn * myqtt_conn_new_empty            (MyQttCtx *    ctx,
  */
 MyQttConn * myqtt_conn_new_empty_from_conn (MyQttCtx        * ctx,
 					    MYQTT_SOCKET      socket,
-					    MyQttConn * __connection,
+					    MyQttConn       * __connection,
 					    MyQttPeerRole     role)
 {
 	MyQttConn   * connection;
@@ -1437,6 +1437,7 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 						int                    keep_alive,
 						const char           * host, 
 						const char           * port,
+						MyQttSessionSetup      setup_handler,
 						MyQttConnNew           on_connected, 
 						MyQttNetTransport      transport,
 						MyQttConnOpts        * opts,
@@ -1544,7 +1545,7 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 }
 
 /** 
- * @brief Allows to create a new MQTT connection a MQTT broker/server.
+ * @brief Allows to create a new MQTT connection to a MQTT broker/server.
  *
  * @param The context where the operation will take place.
  *
@@ -1611,11 +1612,12 @@ MyQttConn  * myqtt_conn_new                    (MyQttCtx       * ctx,
 	transport = __myqtt_conn_detect_transport (ctx, host);
 
 	/* call to create the connection */
-	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, on_connected, transport, opts, user_data);
+	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, NULL, on_connected, transport, opts, user_data);
 }
 
 /** 
- * @brief Allows to create a new MQTT connection a MQTT broker/server.
+ * @brief Allows to create a new MQTT connection to a MQTT
+ * broker/server, forcing IPv6 transport.
  *
  * @param The context where the operation will take place.
  *
@@ -1658,7 +1660,7 @@ MyQttConn  * myqtt_conn_new6                   (MyQttCtx       * ctx,
 						axlPointer       user_data)
 {
 	/* call to create the connection */
-	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, on_connected, MYQTT_IPv6, opts, user_data);
+	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, NULL, on_connected, MYQTT_IPv6, opts, user_data);
 }
 
 /** 
