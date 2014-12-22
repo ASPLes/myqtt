@@ -42,6 +42,7 @@
 
 /* private include */
 #include <myqtt-ctx-private.h>
+#include <myqtt-conn-private.h>
 
 /** 
  * \defgroup myqtt_ctx MyQtt context: functions to manage myqtt context, an object that represent a myqtt library state.

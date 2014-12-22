@@ -273,9 +273,9 @@ void __myqtt_listener_release_master_ref (axlPointer ptr)
  * @return A reference to the connection initially accepted.
  */
 MyQttConn * __myqtt_listener_initial_accept (MyQttCtx            * ctx,
-						     MYQTT_SOCKET          client_socket, 
-						     MyQttConn     * listener,
-						     axl_bool               register_conn)
+					     MYQTT_SOCKET          client_socket, 
+					     MyQttConn           * listener,
+					     axl_bool              register_conn)
 {
 	MyQttConn     * connection = NULL;
 
@@ -290,6 +290,10 @@ MyQttConn * __myqtt_listener_initial_accept (MyQttCtx            * ctx,
 	 * master listener connection */
 	if (myqtt_conn_ref (listener, "master ref"))
 		myqtt_conn_set_data_full (connection, "_vo:li:master", listener, NULL, __myqtt_listener_release_master_ref);
+
+	/* configure here preread handlers that may be inherited by
+	   the listener */
+	
 
 	/* call to register the connection */
 	if (! register_conn)

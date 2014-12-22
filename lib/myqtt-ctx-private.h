@@ -265,6 +265,10 @@ struct _MyQttCtx {
 	char                      * storage_path;
 	int                         storage_path_hash_size;
 	axl_bool                    local_storage;
+
+	/* ssl/tls support */
+	axlPointer              context_creator;
+	axlPointer              context_creator_data;
 };
 
 #endif /* __MYQTT_CTX_PRIVATE_H__ */

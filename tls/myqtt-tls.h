@@ -296,7 +296,85 @@ typedef void      (*MyQttTlsFailureHandler) (MyQttConn   * conn,
 					     axlPointer    user_data);
 
 
+/** 
+ * @brief An optional handler that allows user land code to define how
+ * is SSL_CTX (SSL context) created and which are the settings it
+ * should have before taking place SSL/TLS handshake.
+ *
+ * NOTE: that the function should return one context for every
+ * connection created. Do not reuse unless you know what you are
+ * doing.
+ *
+ * A very bare implementation for this context creation will be:
+ *
+ * \code 
+ * SSL_CTX * my_ssl_ctx_creator (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * opts, axl_bool is_client, axlPointer user_data)
+ * {
+ *        // very basic context creation using default settings provided by OpenSSL
+ *        return SSL_CTX_new (is_client ? TLSv1_client_method () : TLSv1_server_method ()); 
+ * }
+ * \endcode
+ *
+ * @param ctx The context where the operation is taking place.
+ *
+ * @param conn The connection that is being requested for a new context (SSL_CTX). Use is_client to know if this is a connecting client or a listener connection.
+ *
+ * @param opts Optional reference to the connection object created for this connection.
+ *
+ * @param is_client axl_true to signal that this is a request for a context for a client connection. Otherwise, it is for a listener connection.
+ *
+ * @param user_data User defined pointer that received on this function as defined at \ref myqtt_tls_set_ssl_context_creator.
+ *
+ * @return The function must return a valid SSL_CTX object (see OpenSSL documentation to know more about this) or NULL if it fails.
+ */
+typedef axlPointer (*MyQttSslContextCreator) (MyQttCtx       * ctx, 
+					      MyQttConn      * conn, 
+					      MyQttConnOpts  * opts, 
+					      axl_bool         is_client, 
+					      axlPointer       user_data);
+
+/** 
+ * @brief SSL/TLS protocol type to use for the client or listener
+ * connection. 
+ */
+typedef enum { 
+	/** 
+	 * @brief Allows to define SSLv23 as SSL protocol used by the
+	 * client or server connection. A TLS/SSL connection
+	 * established with these methods may understand SSLv3, TLSv1,
+	 * TLSv1.1 and TLSv1.2 protocols (\ref MYQTT_METHOD_SSLV3, \ref MYQTT_METHOD_TLSV1, ...)
+	 */
+	MYQTT_METHOD_SSLV23      = 2,
+	/** 
+	 * @brief Allows to define SSLv3 as SSL protocol used by the
+	 * client or server connection. A connection/listener
+	 * established with this method will only understand this
+	 * method.
+	 */
+	MYQTT_METHOD_SSLV3       = 3,
+	/** 
+	 * @brief Allows to define TLSv1 as SSL protocol used by the
+	 * client or server connection. A connection/listener
+	 * established with this method will only understand this
+	 * method.
+	 */
+	MYQTT_METHOD_TLSV1       = 4,
+#if defined(TLSv1_1_client_method)
+	/** 
+	 * @brief Allows to define TLSv1.1 as SSL protocol used by the
+	 * client or server connection. A connection/listener
+	 * established with this method will only understand this
+	 * method.
+	 */
+	MYQTT_METHOD_TLSV1_1     = 5
+#endif
+} MyQttSslProtocol ;
+
 axl_bool           myqtt_tls_init                       (MyQttCtx             * ctx);
+
+void               myqtt_tls_set_ssl_context_creator    (MyQttCtx                * ctx,
+							 MyQttSslContextCreator    context_creator,
+							 axlPointer                user_data);
 
 MyQttConn        * myqtt_tls_conn_new                   (MyQttCtx        * ctx,
 							 const char      * client_identifier,
