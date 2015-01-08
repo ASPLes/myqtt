@@ -424,7 +424,7 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 	/* found TLS connection request, enable it */
 	conn->ssl_ctx  = __myqtt_conn_get_ssl_context (ctx, conn, options, axl_true);
 	if (conn->ssl_ctx == NULL) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to SSL context (__myqtt_conn_get_ssl_context failed)");
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create SSL context (__myqtt_conn_get_ssl_context failed)");
 		return axl_false;
 	} /* end if */
 	myqtt_conn_set_data_full (conn, "__my:co:ssl-ctx", conn->ssl_ctx, NULL, (axlDestroyFunc) SSL_CTX_free);
@@ -573,10 +573,10 @@ axl_bool      myqtt_tls_init (MyQttCtx * ctx)
 	if (! __myqtt_tls_was_init) {
 		__myqtt_tls_was_init = axl_true;
 		SSL_library_init ();
-	}
 
-	/* install cleanup */
-	myqtt_ctx_install_cleanup (ctx, (axlDestroyFunc) myqtt_tls_cleanup);
+		/* install cleanup */
+		atexit ((void (*)(void))myqtt_tls_cleanup);
+	}
 
 	return axl_true;
 }
@@ -978,7 +978,7 @@ void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttC
 	/* create ssl context */
 	conn->ssl_ctx  = __myqtt_conn_get_ssl_context (ctx, conn, listener->opts, axl_false);
 	if (conn->ssl_ctx == NULL) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to SSL context (__myqtt_conn_get_ssl_context failed)");
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create SSL context (__myqtt_conn_get_ssl_context failed)");
 		return;
 	} /* end if */
 	myqtt_conn_set_data_full (conn, "__my:co:ssl-ctx", conn->ssl_ctx, NULL, (axlDestroyFunc) SSL_CTX_free);

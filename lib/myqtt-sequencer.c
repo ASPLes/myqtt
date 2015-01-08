@@ -50,7 +50,8 @@ axl_bool myqtt_sequencer_queue_data (MyQttCtx * ctx, MyQttSequencerData * data)
 
 	/* check state before handling this message with the sequencer */
 	if (ctx->myqtt_exit) {
-		axl_free (data->message);
+		/* axl_free (data->message); */
+		myqtt_msg_free_build (ctx, data->message, data->message_size);
 		axl_free (data);
 		myqtt_log (MYQTT_LEVEL_WARNING, "Not queueing data because this myqtt instance is finishing..");
 		return axl_false;
@@ -60,7 +61,8 @@ axl_bool myqtt_sequencer_queue_data (MyQttCtx * ctx, MyQttSequencerData * data)
 	if (! myqtt_conn_ref (data->conn, "sequencer")) {
 		myqtt_log (MYQTT_LEVEL_WARNING, "Not queueing data because connection reference conn-id=%d (%p) isn't working, myqtt_conn_ref() failed..",
 			   data->conn->id, data->conn);
-		axl_free (data->message);
+		/* axl_free (data->message); */
+		myqtt_msg_free_build (ctx, data->message, data->message_size);
 		axl_free (data);
 		return axl_false;
 	} /* end if */
@@ -82,7 +84,10 @@ axl_bool myqtt_sequencer_queue_data (MyQttCtx * ctx, MyQttSequencerData * data)
 
 /** 
  * @internal Function to send content in an async manner, handled by
- * the MyQtt Sequencer.
+ * the MyQtt Sequencer. Provided reference (msg) is now owned by
+ * myqtt_sequencer_send: DO NOT RELEASE IT EVEN WITH A FAILURE OF THIS
+ * FUNCTION. This is already handled by this function (releasing msg
+ * at the right point).
  */
 axl_bool myqtt_sequencer_send                     (MyQttConn            * conn, 
 						   MyQttMsgType           type,
@@ -92,8 +97,15 @@ axl_bool myqtt_sequencer_send                     (MyQttConn            * conn,
 	MyQttSequencerData * data;
 	MyQttCtx           * ctx;
 
-	if (conn == NULL || msg == NULL || msg_size <= 0)
+	if (conn == NULL || msg == NULL || msg_size <= 0) {
+		/* free build */
+		if (conn)
+			myqtt_msg_free_build (conn->ctx, msg, msg_size);
+		else
+			axl_free (msg);
+
 		return axl_false;
+	} /* end if */
 
 	/* acquire reference to the context */
 	ctx = conn->ctx;
@@ -102,6 +114,7 @@ axl_bool myqtt_sequencer_send                     (MyQttConn            * conn,
 	data = axl_new (MyQttSequencerData, 1);
 	if (data == NULL) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to acquire memory to send message");
+		myqtt_msg_free_build (ctx, msg, msg_size);
 		return axl_false;
 	} /* end if */
 
@@ -113,6 +126,9 @@ axl_bool myqtt_sequencer_send                     (MyQttConn            * conn,
 
 	if (! myqtt_sequencer_queue_data (ctx, data)) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to queue data for delivery, failed to send message, myqtt_sequencer_queue_data() failed");
+		/* IMPORTANT NOTE: do not release msg here because
+		   this is already handled by
+		   myqtt_sequencer_queue_data */
 		return axl_false;
 	} /* end if */
 

@@ -1916,7 +1916,9 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 		} /* end if */
 
 		/* free build */
-		myqtt_msg_free_build (ctx, msg, size);
+		/* REALLY IMPORTANT: do not release here because this
+		   is already handled by myqtt_sequencer_send */
+		/* myqtt_msg_free_build (ctx, msg, size); */
 
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to queue data for delivery, failed to send publish message");
 		return axl_false;
@@ -1987,7 +1989,9 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 			__myqtt_conn_release_pkgid (ctx, conn, packet_id);
 			
 			/* free build */
-			myqtt_msg_free_build (ctx, msg, size);
+			/* REALLY IMPORTANT: do not release here because this
+			   is already handled by myqtt_sequencer_send */
+			/* myqtt_msg_free_build (ctx, msg, size); */
 			
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to queue data for delivery (PUBREL), failed to send PUBREL message");
 			return axl_false;
@@ -2577,7 +2581,9 @@ axl_bool            myqtt_conn_unsub           (MyQttConn           * conn,
 		__myqtt_conn_release_pkgid (ctx, conn, packet_id);
 
 		/* free build */
-		myqtt_msg_free_build (ctx, msg, size);
+		/* REALLY IMPORTANT: do not release here because this
+		   is already handled by myqtt_sequencer_send */
+		/* myqtt_msg_free_build (ctx, msg, size); */
 
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to acquire memory to send message, unable to subscribe");
 		return axl_false;
@@ -2696,7 +2702,9 @@ axl_bool            myqtt_conn_ping            (MyQttConn           * conn,
 	/* queue package to be sent */
 	if (! myqtt_sequencer_send (conn, MYQTT_PINGREQ, msg, size)) {
 		/* free build */
-		myqtt_msg_free_build (ctx, msg, size);
+		/* REALLY IMPORTANT: do not release here because this
+		   is already handled by myqtt_sequencer_send */
+		/* myqtt_msg_free_build (ctx, msg, size); */
 
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to acquire memory to send message, unable to subscribe");
 		return axl_false;

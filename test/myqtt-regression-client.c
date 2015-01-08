@@ -1650,9 +1650,13 @@ axl_bool test_12 (void) {
 		printf ("ERROR: expected to receive a message but NULL reference was found\n");
 		return axl_false;
 	} /* end if */
+	
+#define test_12_check_msg "This is a test message"
 
-	if (! axl_cmp (myqtt_msg_get_app_msg (msg), "This is a test message")) {
-		printf ("ERROR: expected to receive different message content but found: '%s'\n", (char *) myqtt_msg_get_app_msg (msg));
+	if (! axl_cmp (myqtt_msg_get_app_msg (msg), test_12_check_msg)) {
+		printf ("ERROR (12.1): expected to receive different message content ('%s') but found: '%s'\n", 
+			test_12_check_msg,
+			(char *) myqtt_msg_get_app_msg (msg));
 		return axl_false;
 	} /* end if */
 
@@ -2193,7 +2197,11 @@ axl_bool test_15 (void) {
 	printf ("Test 15: checking no more messages are published (3 seconds)..\n");
 	msg = myqtt_async_queue_timedpop (queue, 3000000);
 	if (msg != NULL) {
-		printf ("ERROR: we shouldn't have received any message but we did!\n");
+		printf ("ERROR (15.1): we shouldn't have received any message but we did!\nMessage received, topic='%s'\nmsg='%s'\nsize='%d'\nqos='%d'\n",
+			myqtt_msg_get_topic (msg),
+			(const char *) myqtt_msg_get_app_msg (msg),
+			myqtt_msg_get_app_msg_size (msg),
+			myqtt_msg_get_qos (msg));
 		return axl_false;
 	} /* end if */
 
