@@ -296,7 +296,7 @@ END_C_DECLS
 
 /** 
  * @internal The following definition allows to find printf like wrong
- * argument passing to nopoll_log function. To activate the depuration
+ * argument passing to myqtt_log function. To activate the depuration
  * just add the following header after this comment.
  *
  * #define SHOW_FORMAT_BUGS (1)

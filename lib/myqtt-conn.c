@@ -2987,34 +2987,6 @@ void                myqtt_conn_opts_set_will (MyQttConnOpts  * opts,
 }
 
 /** 
- * @brief Allows to disable peer ssl certificate verification. This is
- * not recommended for production enviroment. This affects in a
- * different manner to a listener connection and a client connection.
- *
- * For a client connection, by default, peer verification is enabled
- * and this function may help to disable it during development or
- * other reasons.
- *
- * In the case of the servers (created by using \ref
- * myqtt_listener_new for example) this is not required because by
- * default peer verification is disabled by default.
- *
- * @param opts The connection option to configure.
- *
- * @param verify axl_true to disable verification
- * otherwise, axl_false should be used. By default SSL verification
- * is enabled.
- *
- */
-void myqtt_conn_opts_ssl_peer_verify (MyQttConnOpts * opts, axl_bool verify)
-{
-	if (opts == NULL)
-		return;
-	opts->disable_ssl_verify = ! verify;
-	return;
-}
-
-/** 
  * @brief Releases the connection object created by \ref myqtt_conn_opts_new.
  *
  * In general you don't have to call this function unless you called

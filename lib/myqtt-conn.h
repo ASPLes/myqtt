@@ -134,8 +134,6 @@ void                myqtt_conn_opts_set_will (MyQttConnOpts  * opts,
 					      const char     * will_message,
 					      axl_bool         will_retain);
 
-void                myqtt_conn_opts_ssl_peer_verify (MyQttConnOpts * opts, axl_bool verify);
-
 void                myqtt_conn_opts_free     (MyQttConnOpts  * opts);
 
 MYQTT_SOCKET       myqtt_conn_sock_connect     (MyQttCtx    * ctx,

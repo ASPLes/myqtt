@@ -80,7 +80,6 @@ myqtt_conn_opts_new
 myqtt_conn_opts_set_auth
 myqtt_conn_opts_set_reuse
 myqtt_conn_opts_set_will
-myqtt_conn_opts_ssl_peer_verify
 myqtt_conn_parse_greetings_and_enable
 myqtt_conn_ping
 myqtt_conn_pub

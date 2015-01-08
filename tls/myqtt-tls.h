@@ -430,6 +430,14 @@ void              myqtt_tls_listener_set_certificate_handlers (MyQttCtx         
 							       MyQttTlsPrivateKeyFileLocator         private_key_handler,
 							       MyQttTlsChainCertificateFileLocator   chain_handler);
 
+void                myqtt_tls_opts_ssl_peer_verify (MyQttConnOpts * opts, axl_bool verify);
+
+axl_bool            myqtt_tls_opts_set_ssl_certs    (MyQttConnOpts * opts, 
+						     const char     * certificate,
+						     const char     * private_key,
+						     const char     * chain_certificate,
+						     const char     * ca_certificate);
+
 MyQttConn       * myqtt_tls_listener_new                (MyQttCtx             * ctx,
 							 const char           * host, 
 							 const char           * port, 

@@ -371,6 +371,7 @@ typedef struct _MyQttListenerData {
 	MyQttNetTransport          transport;
 	MyQttPreRead               preread_handler;
 	axlPointer                 preread_user_data;
+	MyQttConnOpts            * opts;
 }MyQttListenerData;
 
 /** 
@@ -630,6 +631,7 @@ axlPointer __myqtt_listener_new (MyQttListenerData * data)
 	MYQTT_SOCKET         fd;
 	struct sockaddr_in   sin;
 	MyQttNetTransport    transport     = data->transport;
+	MyQttConnOpts      * opts          = data->opts;
 
 	/* pre read handlers */
 	MyQttPreRead         preread_handler   = data->preread_handler;
@@ -682,6 +684,9 @@ axlPointer __myqtt_listener_new (MyQttListenerData * data)
 	   because a listener in fact can't be read */
 	listener->preread_handler   = preread_handler;
 	listener->preread_user_data = preread_user_data;
+
+	/* configure here connection options if present */
+	listener->opts              = opts;
 
 	/* handle returned socket or error */
 	switch (fd) {
@@ -779,6 +784,7 @@ MyQttConn * __myqtt_listener_new_common  (MyQttCtx                * ctx,
 	data->register_conn = register_conn;
 	data->threaded      = (on_ready != NULL);
 	data->transport     = transport;
+	data->opts          = opts;
 
 	/* pre read handlers */
 	data->preread_handler   = preread_handler;

@@ -239,7 +239,8 @@ MyQttConnAckTypes on_connect (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_
  */
 int main (int argc, char ** argv)
 {
-	MyQttConn * listener;
+	MyQttConn     * listener;
+	MyQttConnOpts * opts;
 
 	printf ("** MyQtt: A high performance open source MQTT implementation\n");
 	printf ("** Copyright (C) 2014 Advanced Software Production Line, S.L.\n**\n");
@@ -291,6 +292,30 @@ int main (int argc, char ** argv)
 		printf ("ERROR: unable to configure certificates for TLS myqtt..\n");
 		exit (-1);
 	}
+
+	/* create connection options */
+	opts     = myqtt_conn_opts_new ();
+
+	/* configure server certificates (server.pem) signed by the
+	 * provided ca (root.pem) also configured in the last
+	 * parameter */
+	if (! myqtt_tls_opts_set_ssl_certs (opts, 
+					    "server.pem",
+					    "server.pem",
+					    NULL,
+					    "root.pem")) {
+		printf ("ERROR: unable to setup certificates...\n");
+		return -1;
+	}
+	/* configure peer verification */
+	myqtt_tls_opts_ssl_peer_verify (opts, axl_true);
+
+	/* start a TLS listener */
+	listener = myqtt_tls_listener_new (ctx, listener_host, "1911", opts, NULL, NULL);
+	if (! myqtt_conn_is_ok (listener, axl_false)) {
+		printf ("ERROR: failed to start TLS listener at: %s:%s..\n", listener_host, "1911");
+		exit (-1);
+	} /* end if */
 
 	/* install on publish handler */
 	myqtt_ctx_set_on_publish (ctx, on_publish, NULL);
