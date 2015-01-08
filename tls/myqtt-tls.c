@@ -423,8 +423,11 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 
 	/* found TLS connection request, enable it */
 	conn->ssl_ctx  = __myqtt_conn_get_ssl_context (ctx, conn, options, axl_true);
-	if (conn->ssl_ctx)
-		myqtt_conn_set_data_full (conn, "__my:co:ssl-ctx", conn->ssl_ctx, NULL, (axlDestroyFunc) SSL_CTX_free);
+	if (conn->ssl_ctx == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to SSL context (__myqtt_conn_get_ssl_context failed)");
+		return axl_false;
+	} /* end if */
+	myqtt_conn_set_data_full (conn, "__my:co:ssl-ctx", conn->ssl_ctx, NULL, (axlDestroyFunc) SSL_CTX_free);
 
 	/* check for client side SSL configuration */
 	if (! __myqtt_conn_set_ssl_client_options (ctx, conn, options)) {
@@ -893,6 +896,11 @@ void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttC
 	
 	/* create ssl context */
 	conn->ssl_ctx  = __myqtt_conn_get_ssl_context (ctx, conn, listener->opts, axl_false);
+	if (conn->ssl_ctx == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to SSL context (__myqtt_conn_get_ssl_context failed)");
+		return;
+	} /* end if */
+	myqtt_conn_set_data_full (conn, "__my:co:ssl-ctx", conn->ssl_ctx, NULL, (axlDestroyFunc) SSL_CTX_free);
 	
 	/* Configure ca certificate in the case it is defined */
 	if (opts && opts->ca_certificate) {
@@ -975,6 +983,9 @@ void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttC
 			
 		return;
 	} /* end if */
+
+	/* configure release */
+	myqtt_conn_set_data_full (conn, "__my:co:ssl", conn->ssl, NULL, (axlDestroyFunc) SSL_free);
 	
 	/* set the file descriptor */
 	SSL_set_fd (conn->ssl, conn->session);
@@ -1146,9 +1157,16 @@ axl_bool           myqtt_tls_set_certificate (MyQttConn  * listener,
 
 	/* copy certificates to be used */
 	listener->certificate   = axl_strdup (certificate);
+	myqtt_ctx_set_data_full (ctx, axl_strdup_printf ("%p", listener->certificate), listener->certificate,
+				 axl_free, axl_free);
 	listener->private_key   = axl_strdup (private_key);
-	if (chain_file)
+	myqtt_ctx_set_data_full (ctx, axl_strdup_printf ("%p", listener->private_key), listener->private_key,
+				 axl_free, axl_free);
+	if (chain_file) {
 		listener->chain_certificate = axl_strdup (chain_file);
+		myqtt_ctx_set_data_full (ctx, axl_strdup_printf ("%p", listener->chain_certificate), listener->chain_certificate,
+					 axl_free, axl_free);
+	} /* end if */
 	    
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Configured certificate: %s, key: %s, for conn id: %d",
 		    listener->certificate, listener->private_key, listener->id);
@@ -1615,152 +1633,6 @@ void myqtt_tls_set_common_data (MyQttConn * connection,
 	myqtt_conn_set_send_handler    (connection, myqtt_tls_ssl_write);
 
 	return;
-}
-
-
-/** 
- * @internal
- * @brief Invoke the specific TLS code to perform the handshake.
- * 
- * @param connection The connection where the TLS handshake will be performed.
- * 
- * @return axl_true if the handshake was successfully performed. Otherwise
- * axl_false is returned.
- */
-int      myqtt_tls_invoke_tls_activation (MyQttConn * connection)
-{
-	/* get current context */
-	MyQttCtx            * ctx = myqtt_conn_get_ctx (connection);
-	SSL_CTX              * ssl_ctx;
-	SSL                  * ssl;
-	X509                 * server_cert;
-	MyQttTlsCtxCreation   ctx_creation;
-	axlPointer             ctx_creation_data;
-	MyQttTlsPostCheck     post_check;
-	axlPointer             post_check_data;
-	int                    ssl_error;
-	MyQttTlsCtx         * tls_ctx;
-
-	/* check if the tls ctx was created */
-	tls_ctx = myqtt_ctx_get_data (ctx, TLS_CTX);
-	if (tls_ctx == NULL)  {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "unable to find tls context, unable to activate TLS. Did you call to init myqtt_tls module (myqtt_tls_init)?");
-		return axl_false;
-	}
-
-	/* check if the connection have a ctx connection creation or
-	 * the default ctx creation is configured */
-	myqtt_log (MYQTT_LEVEL_DEBUG, "initializing TLS context");
-	ctx_creation      = myqtt_conn_get_data (connection, CTX_CREATION);
-	ctx_creation_data = myqtt_conn_get_data (connection, CTX_CREATION_DATA);
-	if (ctx_creation == NULL) {
-		/* get the default ctx creation */
-		ctx_creation      = tls_ctx->tls_default_ctx_creation;
-		ctx_creation_data = tls_ctx->tls_default_ctx_creation_user_data;
-	} /* end if */
-
-	if (ctx_creation == NULL) {
-		/* fall back into the default implementation */
-		ssl_ctx  = SSL_CTX_new (TLSv1_client_method ()); 
-		myqtt_log (MYQTT_LEVEL_DEBUG, "ssl context SSL_CTX_new (TLSv1_client_method ()) returned = %p", ssl_ctx);
-	} else {
-		/* call to the default handler to create the SSL_CTX */
-		ssl_ctx  = ctx_creation (connection, ctx_creation_data);
-		myqtt_log (MYQTT_LEVEL_DEBUG, "ssl context ctx_creation (connection, ctx_creation_data) returned = %p", ssl_ctx);
-	} /* end if */
-
-	/* create and register the TLS method */
-	if (ssl_ctx == NULL) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "error while creating TLS context");
-		myqtt_tls_log_ssl (ctx);
-		return axl_false;
-	}
-
-	/* create the tls transport */
-	myqtt_log (MYQTT_LEVEL_DEBUG, "initializing TLS transport");
-	ssl = SSL_new (ssl_ctx);       
-	if (ssl == NULL) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "error while creating TLS transport, SSL_new (%p) returned NULL", ssl_ctx);
-		return axl_false;
-	}
-
-	/* set the file descriptor */
-	myqtt_log (MYQTT_LEVEL_DEBUG, "setting file descriptor");
-	SSL_set_fd (ssl, myqtt_conn_get_socket (connection));
-
-	/* configure read and write handlers and store default data to
-	 * be used while sending and receiving data */
-	myqtt_tls_set_common_data (connection, ssl, ssl_ctx);
-
-	/* do the initial connect connect */
-	myqtt_log (MYQTT_LEVEL_DEBUG, "connecting to remote TLS site");
-	while (SSL_connect (ssl) <= 0) {
-		
- 		/* get ssl error */
-  		ssl_error = SSL_get_error (ssl, -1);
- 
-		switch (ssl_error) {
-		case SSL_ERROR_WANT_READ:
-			myqtt_log (MYQTT_LEVEL_WARNING, "still not prepared to continue because read wanted");
-			break;
-		case SSL_ERROR_WANT_WRITE:
-			myqtt_log (MYQTT_LEVEL_WARNING, "still not prepared to continue because write wanted");
-			break;
-		case SSL_ERROR_SYSCALL:
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "syscall error while doing TLS handshake, ssl error (code:%d)",
- 				    ssl_error);
-			
-			/* now the TLS process have failed because we
-			 * are in the middle of a tuning process we
-			 * have to close the connection because is not
-			 * possible to recover previous state */
-			__myqtt_conn_set_not_connected (connection, "tls handshake failed",
-							       MyQttProtocolError);
-
-			myqtt_tls_notify_failure_handler (ctx, connection, "syscall error while doing TLS handshake, ssl error (SSL_ERROR_SYSCALL)");
-			return axl_false;
-		default:
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "there was an error with the TLS negotiation, ssl error (code:%d) : %s",
-				    ssl_error, ERR_error_string (ssl_error, NULL));
-			/* now the TLS process have failed, we have to
-			 * restore how is read and written the data */
-			myqtt_conn_set_default_io_handler (connection);
-			return axl_false;
-		}
-	}
-	myqtt_log (MYQTT_LEVEL_DEBUG, "seems SSL connect call have finished in a proper manner");
-
-	/* check remote certificate (if it is present) */
-	server_cert = SSL_get_peer_certificate (ssl);
-	if (server_cert == NULL) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "server side didn't set a certificate for this session, these are bad news");
-		/* myqtt_support_free (2, ssl, SSL_free, ctx, SSL_CTX_free); */
-		return axl_false;
-	}
-	X509_free (server_cert);
-
-	/* post SSL activation checkings */
-	post_check      = myqtt_conn_get_data (connection, POST_CHECK);
-	post_check_data = myqtt_conn_get_data (connection, POST_CHECK_DATA);
-	if (post_check == NULL) {
-		/* get the default ctx creation */
-		post_check      = tls_ctx->tls_default_post_check;
-		post_check_data = tls_ctx->tls_default_post_check_user_data;
-	} /* end if */
-	
-	if (post_check != NULL) {
-		/* post check function found, call it */
-		if (! post_check (connection, post_check_data, ssl, ssl_ctx)) {
-			/* found that the connection didn't pass post checks */
-			__myqtt_conn_set_not_connected (connection, "post checks failed",
-							       MyQttProtocolError);
-			return axl_false;
-		} /* end if */
-	} /* end if */
-
-	myqtt_log (MYQTT_LEVEL_DEBUG, "TLS transport negotiation finished");
-	
-	return axl_true;
 }
 
 /** 
