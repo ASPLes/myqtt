@@ -2533,7 +2533,7 @@ axl_bool test_19 (void) {
 	if (! ctx)
 		return axl_false;
 
-	printf ("Test 19: checking TLS support (server side verified certificate with common CA)\n");
+	printf ("Test 19: (step 1) checking TLS support (server side verified certificate with common CA)\n");
 
 	/* disable verification */
 	opts = myqtt_conn_opts_new ();
@@ -2578,6 +2578,46 @@ axl_bool test_19 (void) {
 	printf ("Test 19: closing connection..\n");
 	if (! myqtt_tls_is_on (conn)) {
 		printf ("ERROR: expected to find TLS enabled connection but found it isn't\n");
+		return axl_false;
+	} /* end if */
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
+	/*** STEP 2 ***/
+	printf ("Test 19: (step 2) attempting to connect without providing certificates\n");
+
+	/* disable verification */
+	opts = myqtt_conn_opts_new ();
+	myqtt_tls_opts_ssl_peer_verify (opts, axl_false);
+
+	conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, "1911", opts, NULL, NULL);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being NOT able to connect to %s:%s..\n", listener_host, listener_tls_port);
+		return axl_false;
+	} /* end if */
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
+	/*** STEP 2 ***/
+	printf ("Test 19: (step 3) attempting to connect without providing certificates\n");
+
+	/* disable verification */
+	opts = myqtt_conn_opts_new ();
+
+	myqtt_tls_opts_set_ssl_certs (opts, 
+				      /* certificate */
+				      "test-certificate.crt",
+				      /* private key */
+				      "test-private.key",
+				      NULL,
+				      /* ca certificate */
+				      "root.pem");
+
+	conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, "1911", opts, NULL, NULL);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being NOT able to connect to %s:%s..\n", listener_host, listener_tls_port);
 		return axl_false;
 	} /* end if */
 
