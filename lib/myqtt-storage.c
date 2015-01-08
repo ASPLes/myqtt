@@ -1497,6 +1497,10 @@ axlPointer __myqtt_storage_queued_flush_proxy (axlPointer _conn)
 
 	/* signal we have finished flushing */
 	conn->flushing = axl_false;
+
+	/* release reference */
+	myqtt_conn_unref (conn, "flushing queue");
+
 	return NULL;
 }
 
@@ -1521,6 +1525,11 @@ void      myqtt_storage_queued_flush            (MyQttCtx   * ctx,
 	/* ensure only one process is flushing */
 	myqtt_mutex_lock (&conn->op_mutex);
 	if (conn->flushing) {
+		myqtt_mutex_unlock (&conn->op_mutex);
+		return;
+	} /* end if */
+
+	if (! myqtt_conn_ref (conn, "flushing queue")) {
 		myqtt_mutex_unlock (&conn->op_mutex);
 		return;
 	} /* end if */
