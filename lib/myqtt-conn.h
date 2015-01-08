@@ -134,6 +134,8 @@ void                myqtt_conn_opts_set_will (MyQttConnOpts  * opts,
 					      const char     * will_message,
 					      axl_bool         will_retain);
 
+void                myqtt_conn_opts_ssl_peer_verify (MyQttConnOpts * opts, axl_bool verify);
+
 void                myqtt_conn_opts_free     (MyQttConnOpts  * opts);
 
 MYQTT_SOCKET       myqtt_conn_sock_connect     (MyQttCtx    * ctx,
@@ -234,10 +236,10 @@ void                myqtt_conn_set_data               (MyQttConn * conn,
 							axlPointer         value);
 
 void                myqtt_conn_set_data_full          (MyQttConn * conn,
-							char             * key,
-							axlPointer         value,
-							axlDestroyFunc     key_destroy,
-							axlDestroyFunc     value_destroy);
+						       char             * key,
+						       axlPointer         value,
+						       axlDestroyFunc     key_destroy,
+						       axlDestroyFunc     value_destroy);
 
 void                myqtt_conn_set_hook               (MyQttConn * conn,
 							axlPointer         ptr);

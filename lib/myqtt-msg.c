@@ -608,7 +608,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 
 		myqtt_log (MYQTT_LEVEL_DEBUG, "this already complete (total size: %d", msg->size);
 		goto process_buffer;
-	}
+	} /* end if */
 	
 	/* parse msg header, read the first line */
 	bytes_read = myqtt_msg_receive_raw (connection, header, 2);
