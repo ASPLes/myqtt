@@ -506,6 +506,8 @@ void   myqtt_set_32bit (int value, unsigned char * buffer);
 
 int    myqtt_get_32bit (const unsigned  char * buffer);
 
+void   myqtt_sleep (long microseconds);
+
 #if defined(__COMPILING_MYQTT__) && defined(__GNUC__)
 /* makes gcc happy, by prototyping functions which aren't exported
  * while compiling with -ansi. Really uggly hack, please report

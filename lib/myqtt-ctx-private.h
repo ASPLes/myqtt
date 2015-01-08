@@ -269,6 +269,9 @@ struct _MyQttCtx {
 	/* ssl/tls support */
 	axlPointer              context_creator;
 	axlPointer              context_creator_data;
+
+	axlPointer              post_ssl_check;
+	axlPointer              post_ssl_check_data;
 };
 
 #endif /* __MYQTT_CTX_PRIVATE_H__ */

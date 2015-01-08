@@ -639,10 +639,12 @@ typedef void (*MyQttPreRead) (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_
  *
  * @param conn The connection for which it is being requested a session.
  *
+ * @param opts Optional connection options.
+ *
  * @param user_data Optionl user pointer defined by the user when
  * configured this handler.
  */
-typedef axl_bool (*MyQttSessionSetup) (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_data);
+typedef axl_bool (*MyQttSessionSetup) (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * opts, axlPointer user_data);
 				      
 #endif
 
