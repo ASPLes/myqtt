@@ -3009,6 +3009,12 @@ void                myqtt_conn_opts_free     (MyQttConnOpts  * opts)
 	axl_free (opts->will_topic);
 	axl_free (opts->will_message);
 
+	/* release certificate info */
+	axl_free (opts->certificate);
+	axl_free (opts->private_key);
+	axl_free (opts->chain_certificate);
+	axl_free (opts->ca_certificate);
+
 	axl_free (opts);
 	return;
 }
@@ -3536,6 +3542,10 @@ void               myqtt_conn_free (MyQttConn * connection)
 
 	/* release reference to context */
 	myqtt_ctx_unref2 (&connection->ctx, "end connection");
+
+	/* release master connection options */
+	if (connection->role == MyQttRoleMasterListener && connection->opts)
+		myqtt_conn_opts_free (connection->opts);
 
 	/* free connection */
 	axl_free (connection);

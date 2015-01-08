@@ -1,0 +1,26 @@
+Create CA certificates
+
+>> openssl genrsa -out cakey.pem 2048
+>> openssl req -x509 -new -nodes -key cakey.pem -days 3650 -out cacert.pem
+
+Create certificate request for server and sign it
+
+>> openssl genrsa -out server.key 2048
+>> openssl req -new -key server.key -out server.csr
+>> openssl x509 -req -in server.csr -CA cacert.pem -CAkey cakey.pem -CAcreateserial -out server.crt -days 3650
+
+Create certificate request for client and sign it
+
+>> openssl genrsa -out client.key 2048
+>> openssl req -new -key client.key -out client.csr
+>> openssl x509 -req -in client.csr -CA cacert.pem -CAkey cakey.pem -CAcreateserial -out client.crt -days 3650
+
+Now prepare files used by reg tests:
+
+>> cat cacert.pem cakey.pem > root.pem 
+>> cat server.crt server.key > server.pem
+>> cat client.crt  client.key > client.pem
+
+
+
+

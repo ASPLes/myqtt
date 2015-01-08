@@ -632,17 +632,17 @@ void __myqtt_reader_subscribe (MyQttCtx * ctx, const char * client_identifier, M
 		axl_hash_insert (sub_hash, conn, INT_TO_PTR (qos));
 	} /* end if */
 
-	if (__is_offline && should_release) {
-		/* if offline and the hash was created, this reference then must be released */
-		axl_free (topic_filter);
-	} /* end if */
-	
 	/* release lock */
 	myqtt_mutex_unlock (&ctx->subs_m);
 
 	/* now recover retained message if any and send it to this
 	   client */
 	__myqtt_reader_recover_retained_message (ctx, conn, topic_filter);
+
+	if (__is_offline && should_release) {
+		/* if offline and the hash was created, this reference then must be released */
+		axl_free (topic_filter);
+	} /* end if */
 
 	return;
 }

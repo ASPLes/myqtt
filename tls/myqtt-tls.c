@@ -824,24 +824,22 @@ axl_bool        myqtt_tls_opts_set_ssl_certs    (MyQttConnOpts * opts,
 {
 	if (opts == NULL)
 		return axl_false;
+
+	
+	if (certificate && access (certificate, R_OK) != 0)
+		return axl_false;
+	if (private_key && access (private_key, R_OK) != 0)
+		return axl_false;
+	if (chain_certificate && access (chain_certificate, R_OK) != 0)
+		return axl_false;
+	if (ca_certificate && access (ca_certificate, R_OK) != 0)
+		return axl_false;
 	
 	/* store certificate settings */
 	opts->certificate        = axl_strdup (certificate);
-	if (opts->certificate)
-		if (access (opts->certificate, R_OK) != 0)
-			return axl_false;
 	opts->private_key        = axl_strdup (private_key);
-	if (opts->private_key)
-		if (access (opts->private_key, R_OK) != 0)
-			return axl_false;
 	opts->chain_certificate  = axl_strdup (chain_certificate);
-	if (opts->chain_certificate)
-		if (access (opts->chain_certificate, R_OK) != 0)
-			return axl_false;
 	opts->ca_certificate     = axl_strdup (ca_certificate);
-	if (opts->ca_certificate)
-		if (access (opts->ca_certificate, R_OK) != 0)
-			return axl_false;
 
 	return axl_true;
 }
