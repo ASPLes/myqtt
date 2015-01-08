@@ -769,6 +769,85 @@ void              myqtt_tls_listener_set_certificate_handlers (MyQttCtx         
 }
 
 /** 
+ * @brief Allows to disable peer ssl certificate verification. This is
+ * not recommended for production enviroment. This affects in a
+ * different manner to a listener connection and a client connection.
+ *
+ * For a client connection, by default, peer verification is enabled
+ * and this function may help to disable it during development or
+ * other reasons.
+ *
+ * In the case of the servers (created by using \ref
+ * myqtt_listener_new for example) this is not required because by
+ * default peer verification is disabled by default.
+ *
+ * @param opts The connection option to configure.
+ *
+ * @param verify axl_true to disable verification
+ * otherwise, axl_false should be used. By default SSL verification
+ * is enabled.
+ *
+ */
+void myqtt_tls_opts_ssl_peer_verify (MyQttConnOpts * opts, axl_bool verify)
+{
+	if (opts == NULL)
+		return;
+	opts->disable_ssl_verify = ! verify;
+	return;
+}
+
+/** 
+ * @brief Allows to certificate, private key and optional chain
+ * certificate and ca for on a particular options that can be used for
+ * a client and a listener connection.
+ *
+ * @param opts The connection options where these settings will be
+ * applied.
+ *
+ * @param certificate The certificate to use on the connection.
+ *
+ * @param private_key client_certificate private key.
+ *
+ * @param chain_certificate Optional chain certificate to use 
+ *
+ * @param ca_certificate Optional CA certificate to use during the
+ * process.
+ *
+ * @return axl_true in the case all certificate files provided are
+ * reachable.
+ */
+axl_bool        myqtt_tls_opts_set_ssl_certs    (MyQttConnOpts * opts, 
+						 const char     * certificate,
+						 const char     * private_key,
+						 const char     * chain_certificate,
+						 const char     * ca_certificate)
+{
+	if (opts == NULL)
+		return axl_false;
+	
+	/* store certificate settings */
+	opts->certificate        = axl_strdup (certificate);
+	if (opts->certificate)
+		if (access (opts->certificate, R_OK) != 0)
+			return axl_false;
+	opts->private_key        = axl_strdup (private_key);
+	if (opts->private_key)
+		if (access (opts->private_key, R_OK) != 0)
+			return axl_false;
+	opts->chain_certificate  = axl_strdup (chain_certificate);
+	if (opts->chain_certificate)
+		if (access (opts->chain_certificate, R_OK) != 0)
+			return axl_false;
+	opts->ca_certificate     = axl_strdup (ca_certificate);
+	if (opts->ca_certificate)
+		if (access (opts->ca_certificate, R_OK) != 0)
+			return axl_false;
+
+	return axl_true;
+}
+
+
+/** 
  * @internal Function that prepares the TLS/SSL negotiation for every
  * incoming connection accepted.
  */
@@ -850,6 +929,10 @@ void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttC
 	}
 
 	/* get here SNI to query about the serverName */
+
+	/* overwrite connection options with listener's options: very TLS especific */
+	if (listener->opts)
+		opts = listener->opts;
 	
 	/* 1) GET FROM OPTIONS: detect here if we have
 	 * certificates provided through options */
@@ -967,7 +1050,7 @@ void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttC
 	if (opts != NULL && ! opts->disable_ssl_verify) {
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Enabling certificate client peer verification from server");
 		/** really, really ugly hack to let
-		 * __nopoll_conn_ssl_verify_callback to be able to get
+		 * __myqtt_tls_ssl_verify_callback to be able to get
 		 * access to the context required to drop some logs */
 		__myqtt_tls_ssl_ctx_debug = ctx;
 		SSL_CTX_set_verify (conn->ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, __myqtt_tls_ssl_verify_callback); 

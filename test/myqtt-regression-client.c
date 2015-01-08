@@ -2478,7 +2478,7 @@ axl_bool test_18 (void) {
 
 	/* disable verification */
 	opts = myqtt_conn_opts_new ();
-	myqtt_conn_opts_ssl_peer_verify (opts, axl_false);
+	myqtt_tls_opts_ssl_peer_verify (opts, axl_false);
 
 	/* do a simple connection */
 	conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
@@ -2519,6 +2519,73 @@ axl_bool test_18 (void) {
 
 	/* release context */
 	printf ("Test 18: releasing context\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+
+axl_bool test_19 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	MyQttConnOpts   * opts;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 19: checking TLS support (server side verified certificate with common CA)\n");
+
+	/* disable verification */
+	opts = myqtt_conn_opts_new ();
+
+	myqtt_tls_opts_set_ssl_certs (opts, 
+				      /* certificate */
+				      "client.pem",
+				      /* private key */
+				      "client.pem",
+				      NULL,
+				      /* ca certificate */
+				      "root.pem");
+
+	/* do a simple connection */
+	conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, "1911", opts, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_tls_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 19: pushing messages\n");
+
+	/* publish a message with retention */
+	if (! myqtt_conn_pub (conn, "this/is/a/test/19", "Test message 1", 14, MYQTT_QOS_2, axl_true, 10)) {
+		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* publish a message with retention */
+	if (! myqtt_conn_pub (conn, "this/is/a/test/19", "Test message 2", 14, MYQTT_QOS_2, axl_true, 10)) {
+		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 19: checking connection\n");
+
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 19: closing connection..\n");
+	if (! myqtt_tls_is_on (conn)) {
+		printf ("ERROR: expected to find TLS enabled connection but found it isn't\n");
+		return axl_false;
+	} /* end if */
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
+	/* release context */
+	printf ("Test 19: releasing context\n");
 	myqtt_exit_ctx (ctx, axl_true);
 
 	return axl_true;
@@ -2650,6 +2717,9 @@ int main (int argc, char ** argv)
 #if defined(ENABLE_TLS_SUPPORT)
 	CHECK_TEST("test_18")
 	run_test (test_18, "Test 18: check TLS support"); 
+
+	CHECK_TEST("test_19")
+	run_test (test_19, "Test 19: check TLS support (server side certificate auth: common CA)"); 
 #endif
 
 	/* support for message retention when subscribed with a wild
