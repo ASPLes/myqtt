@@ -286,6 +286,12 @@ int main (int argc, char ** argv)
 		exit (-1);
 	} /* end if */
 
+	/* configure certificates to be used by this listener */
+	if (! myqtt_tls_set_certificate (listener, "test-certificate.crt", "test-private.key", NULL)) {
+		printf ("ERROR: unable to configure certificates for TLS myqtt..\n");
+		exit (-1);
+	}
+
 	/* install on publish handler */
 	myqtt_ctx_set_on_publish (ctx, on_publish, NULL);
 	myqtt_ctx_set_on_connect (ctx, on_connect, NULL);

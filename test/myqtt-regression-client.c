@@ -2469,14 +2469,19 @@ axl_bool test_18 (void) {
 
 	MyQttCtx        * ctx = init_ctx ();
 	MyQttConn       * conn;
+	MyQttConnOpts   * opts;
 
 	if (! ctx)
 		return axl_false;
 
 	printf ("Test 18: checking TLS support\n");
 
+	/* disable verification */
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_ssl_peer_verify (opts, axl_false);
+
 	/* do a simple connection */
-	conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_tls_port, NULL, NULL, NULL);
+	conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_tls_port);
 		return axl_false;

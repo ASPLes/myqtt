@@ -39,6 +39,7 @@
 #include <myqtt-tls.h>
 #include <myqtt-conn-private.h>
 #include <myqtt-ctx-private.h>
+#include <myqtt-listener-private.h>
 
 #define LOG_DOMAIN "myqtt-tls"
 
@@ -125,7 +126,7 @@ int __myqtt_tls_handle_error (MyQttConn * conn, int res, const char * label, axl
 	switch (ssl_err) {
 	case SSL_ERROR_NONE:
 		/* no error, return the number of bytes read */
-	        /* nopoll_log (conn->ctx, NOPOLL_LEVEL_DEBUG, "%s, ssl_err=%d, perfect, no error reported, bytes read=%d", 
+	        /* myqtt_log (MYQTT_LEVEL_DEBUG, "%s, ssl_err=%d, perfect, no error reported, bytes read=%d", 
 		   label, ssl_err, res); */
 		return res;
 	case SSL_ERROR_WANT_WRITE:
@@ -259,14 +260,14 @@ SSL_CTX * __myqtt_conn_get_ssl_context (MyQttCtx * ctx, MyQttConn * conn, MyQttC
 	return SSL_CTX_new (is_client ? TLSv1_client_method () : TLSv1_server_method ()); 
 }
 
-MyQttCtx * __myqtt_conn_ssl_ctx_debug = NULL;
+MyQttCtx * __myqtt_tls_ssl_ctx_debug = NULL;
 
-int __myqtt_conn_ssl_verify_callback (int ok, X509_STORE_CTX * store) {
+int __myqtt_tls_ssl_verify_callback (int ok, X509_STORE_CTX * store) {
 	char   data[256];
 	X509 * cert;
 	int    depth;
 	int    err;
-	MyQttCtx * ctx = __myqtt_conn_ssl_ctx_debug;
+	MyQttCtx * ctx = __myqtt_tls_ssl_ctx_debug;
 
 	if (! ok) {
 		cert  = X509_STORE_CTX_get_current_cert (store);
@@ -340,12 +341,13 @@ axl_bool __myqtt_conn_set_ssl_client_options (MyQttCtx * ctx, MyQttConn * conn, 
 
 	/* if no option and it is not disabled */
 	if (options == NULL || ! options->disable_ssl_verify) {
-		myqtt_log ( MYQTT_LEVEL_DEBUG, "Enabling certificate peer verification");
+		myqtt_log ( MYQTT_LEVEL_DEBUG, "Enabling certificate peer verification (options=%p, disable_ssl_verify=%d)",
+			    options, options ? options->disable_ssl_verify : 0);
 		/** really, really ugly hack to let
 		 * __myqtt_conn_ssl_verify_callback to be able to get
 		 * access to the context required to drop some logs */
-		__myqtt_conn_ssl_ctx_debug = ctx;
-		SSL_CTX_set_verify (conn->ssl_ctx, SSL_VERIFY_PEER, __myqtt_conn_ssl_verify_callback); 
+		__myqtt_tls_ssl_ctx_debug = ctx;
+		SSL_CTX_set_verify (conn->ssl_ctx, SSL_VERIFY_PEER, __myqtt_tls_ssl_verify_callback); 
 		SSL_CTX_set_verify_depth (conn->ssl_ctx, 10); 
 	} /* end if */
 
@@ -394,7 +396,7 @@ int __myqtt_tls_send (MyQttConn * conn, const unsigned char * buffer, int buffer
 
 		/* call to handle error */
 		res = __myqtt_tls_handle_error (conn, res, "SSL_write", &needs_retry);
-		/* nopoll_log (conn->ctx, NOPOLL_LEVEL_DEBUG, "   SSL: after processing error, sent %d bytes (requested: %d)..",  res, buffer_size); */
+		/* myqtt_log (MYQTT_LEVEL_DEBUG, "   SSL: after processing error, sent %d bytes (requested: %d)..",  res, buffer_size); */
 
 		if (! needs_retry)
 		        break;
@@ -421,6 +423,8 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 
 	/* found TLS connection request, enable it */
 	conn->ssl_ctx  = __myqtt_conn_get_ssl_context (ctx, conn, options, axl_true);
+	if (conn->ssl_ctx)
+		myqtt_conn_set_data_full (conn, "__my:co:ssl-ctx", conn->ssl_ctx, NULL, (axlDestroyFunc) SSL_CTX_free);
 
 	/* check for client side SSL configuration */
 	if (! __myqtt_conn_set_ssl_client_options (ctx, conn, options)) {
@@ -431,6 +435,9 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 
 	/* create context and check for result */
 	conn->ssl      = SSL_new (conn->ssl_ctx);       
+	if (conn->ssl)
+		myqtt_conn_set_data_full (conn, "__my:co:ssl", conn->ssl, NULL, (axlDestroyFunc) SSL_free);
+
 	if (conn->ssl_ctx == NULL || conn->ssl == NULL) {
 		myqtt_log ( MYQTT_LEVEL_CRITICAL, "Unable to create SSL context internal references are null (conn->ssl_ctx=%p, conn->ssl=%p)",
 			    conn->ssl_ctx, conn->ssl);
@@ -523,6 +530,9 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 	return axl_true;
 }
 
+/** @internal reference to track if SSL_library_init was called () **/
+axl_bool __myqtt_tls_was_init = axl_false;
+
 
 /** 
  * @brief Initialize TLS library.
@@ -555,8 +565,12 @@ axl_bool      myqtt_tls_init (MyQttCtx * ctx)
 				  TLS_CTX, tls_ctx,
 				  NULL, axl_free);
 
-	/* init ssl ciphers and engines */
-	SSL_library_init ();
+	/* init ssl ciphers and engines (but only once even though we
+	   have several contexts running on the same process) */
+	if (! __myqtt_tls_was_init) {
+		__myqtt_tls_was_init = axl_true;
+		SSL_library_init ();
+	}
 
 	/* install cleanup */
 	myqtt_ctx_install_cleanup (ctx, (axlDestroyFunc) myqtt_tls_cleanup);
@@ -755,9 +769,222 @@ void              myqtt_tls_listener_set_certificate_handlers (MyQttCtx         
  * @internal Function that prepares the TLS/SSL negotiation for every
  * incoming connection accepted.
  */
-void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_data)
+void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttConn * conn, MyQttConnOpts * opts, axlPointer user_data)
 {
+	const char * certificateFile = NULL;
+	const char * privateKey = NULL;
+	const char * chainCertificate = NULL;
+	int          ssl_error;
+	int          result;
+
+	if (conn->pending_ssl_accept) {
+		/* SSL already configured but pending to fully accept
+		   connection by doing the entire handshake */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Received connect over a connection (id %d) with TLS handshake pending to be finished, processing..",
+			    conn->id);
+		
+		/* get ssl error */
+		ssl_error = SSL_accept (conn->ssl);
+		if (ssl_error == -1) {
+			/* get error */
+			ssl_error = SSL_get_error (conn->ssl, -1);
+			
+			myqtt_log (MYQTT_LEVEL_WARNING, "accept function have failed (for listener side) ssl_error=%d : dumping error stack..", ssl_error);
+ 
+			switch (ssl_error) {
+			case SSL_ERROR_WANT_READ:
+			        myqtt_log (MYQTT_LEVEL_WARNING, "still not prepared to continue because read wanted conn-id=%d (%p, session %d)",
+					   conn->id, conn, conn->session);
+				return;
+			case SSL_ERROR_WANT_WRITE:
+			        myqtt_log (MYQTT_LEVEL_WARNING, "still not prepared to continue because write wanted conn-id=%d (%p)",
+					   conn->id, conn);
+				return;
+			default:
+				break;
+			} /* end switch */
+
+			/* TLS-fication process have failed */
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "there was an error while accepting TLS connection");
+			myqtt_tls_log_ssl (ctx);
+			myqtt_conn_shutdown (conn);
+			return;
+		} /* end if */
+
+		/* ssl accept */
+		conn->pending_ssl_accept = axl_false;
+		myqtt_conn_set_sock_block (conn->session, axl_false);
+
+		result = SSL_get_verify_result (conn->ssl);
+
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Completed TLS operation from %s:%s (conn id %d, ssl veriry result: %d)",
+			    conn->host, conn->port, conn->id, (int) result);
+
+		/* configure default handlers */
+		conn->receive = __myqtt_tls_receive;
+		conn->send    = __myqtt_tls_send;
+
+		/* call to check post ssl checks after SSL finalization */
+		if (ctx && ctx->post_ssl_check) {
+			if (! ((MyQttSslPostCheck) ctx->post_ssl_check) (ctx, conn, conn->ssl_ctx, conn->ssl, ctx->post_ssl_check_data)) {
+				/* TLS post check failed */
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "TLS/SSL post check function failed, dropping connection");
+				myqtt_conn_shutdown (conn);
+				return;
+			} /* end if */
+		} /* end if */
+
+		/* set this connection has TLS ok */
+
+		/* reached this point, ensure tls is enabled on this
+		 * session */
+		conn->tls_on = axl_true;
+
+		/* remove preread handler */
+		conn->preread_handler = NULL;
+		conn->preread_user_data = NULL;
+		return;
+	}
+
+	/* get here SNI to query about the serverName */
 	
+	/* 1) GET FROM OPTIONS: detect here if we have
+	 * certificates provided through options */
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Starting TLS process, options=%p, listener=%p", opts, listener);
+	
+	if (opts) {
+		certificateFile = opts->certificate;
+		privateKey      = opts->private_key;
+	} /* end if */
+	if (certificateFile == NULL || privateKey == NULL) {
+		
+		/* 2) GET FROM LISTENER: get references to currently configured certificate file */
+		certificateFile = listener->certificate;
+		privateKey      = listener->private_key;
+		if (certificateFile == NULL || privateKey == NULL) {
+			/* 3) GET FROM STORE: check if the
+			 * certificate is already installed */
+			/* find a certicate according to the user name
+			   used or remote IP  */
+		}
+	} /* end if */
+	
+	/* check certificates and private key */
+	if (certificateFile == NULL || privateKey == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to accept secure connection, certificate file %s and/or key file %s isn't defined",
+			    certificateFile ? certificateFile : "<not defined>", 
+			    privateKey ? privateKey : "<not defined>");
+		myqtt_conn_shutdown (conn);
+			
+		return;
+	} /* end if */
+	
+	/* init ssl ciphers and engines */
+	if (! myqtt_tls_init (ctx)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to accept TLS connection, myqtt_tls_init () failed");
+		return;
+	} /* end if */
+	
+	/* now configure chainCertificate */
+	if (listener->chain_certificate) 
+		chainCertificate = listener->chain_certificate;
+	else if (opts && opts->chain_certificate)
+		chainCertificate = opts->chain_certificate;
+	
+	/* create ssl context */
+	conn->ssl_ctx  = __myqtt_conn_get_ssl_context (ctx, conn, listener->opts, axl_false);
+	
+	/* Configure ca certificate in the case it is defined */
+	if (opts && opts->ca_certificate) {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Setting up CA certificate: %s", opts->ca_certificate);
+		if (SSL_CTX_load_verify_locations (conn->ssl_ctx, opts->ca_certificate, NULL) != 1) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to configure CA certificate (%s), SSL_CTX_load_verify_locations () failed", opts->ca_certificate);
+			return;
+		} /* end if */
+		
+	} /* end if */
+	
+	/* enable default verification paths */
+	if (SSL_CTX_set_default_verify_paths (conn->ssl_ctx) != 1) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to configure default verification paths, SSL_CTX_set_default_verify_paths () failed");
+		return;
+	} /* end if */
+	
+	/* configure chain certificate */
+	if (chainCertificate) {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Setting up chain certificate: %s", chainCertificate);
+		if (SSL_CTX_use_certificate_chain_file (conn->ssl_ctx, chainCertificate) != 1) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to configure chain certificate (%s), SSL_CTX_use_certificate_chain_file () failed", chainCertificate);
+			return;
+		} /* end if */
+	} /* end if */
+	
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Using certificate file: %s (with ssl context ref: %p)", certificateFile, conn->ssl_ctx);
+	if (conn->ssl_ctx == NULL || SSL_CTX_use_certificate_chain_file (conn->ssl_ctx, certificateFile) != 1) {
+		/* drop an error log */
+		if (conn->ssl_ctx == NULL)
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to accept incoming connection, failed to create SSL context. Context creator returned NULL pointer");
+		else 
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "there was an error while setting certificate file into the SSl context, unable to start TLS profile. Failure found at SSL_CTX_use_certificate_file function. Tried certificate file: %s", 
+				    certificateFile);
+		
+		/* dump error stack */
+		myqtt_conn_shutdown (conn);
+		
+		return;
+	} /* end if */
+	
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Using certificate key: %s", privateKey);
+	if (SSL_CTX_use_PrivateKey_file (conn->ssl_ctx, privateKey, SSL_FILETYPE_PEM) != 1) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, 
+			    "there was an error while setting private file into the SSl context, unable to start TLS profile. Failure found at SSL_CTX_use_PrivateKey_file function. Tried private file: %s", 
+			    privateKey);
+		/* dump error stack */
+		myqtt_conn_shutdown (conn);
+
+		return;
+	}
+	
+	/* check for private key and certificate file to match. */
+	if (! SSL_CTX_check_private_key (conn->ssl_ctx)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, 
+			    "seems that certificate file and private key doesn't match!, unable to start TLS profile. Failure found at SSL_CTX_check_private_key function. Used certificate %s, and key: %s",
+			    certificateFile, privateKey);
+		/* dump error stack */
+		myqtt_conn_shutdown (conn);
+		
+		return;
+	} /* end if */
+	
+	if (opts != NULL && ! opts->disable_ssl_verify) {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Enabling certificate client peer verification from server");
+		/** really, really ugly hack to let
+		 * __nopoll_conn_ssl_verify_callback to be able to get
+		 * access to the context required to drop some logs */
+		__myqtt_tls_ssl_ctx_debug = ctx;
+		SSL_CTX_set_verify (conn->ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, __myqtt_tls_ssl_verify_callback); 
+		SSL_CTX_set_verify_depth (conn->ssl_ctx, 5);
+	} /* end if */
+	
+	
+	/* create SSL context */
+	conn->ssl = SSL_new (conn->ssl_ctx);       
+	if (conn->ssl == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "error while creating TLS transport, SSL_new (%p) returned NULL", conn->ssl_ctx);
+		myqtt_conn_shutdown (conn);
+			
+		return;
+	} /* end if */
+	
+	/* set the file descriptor */
+	SSL_set_fd (conn->ssl, conn->session);
+	
+	/* don't complete here the operation but flag it as
+	 * pending */
+	conn->pending_ssl_accept = axl_true;
+	myqtt_conn_set_sock_block (conn->session, axl_false);
+	
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Prepared TLS session to be activated on next reads (conn id %d)", conn->id);
 
 	return;
 }
@@ -800,7 +1027,13 @@ MyQttConn       * myqtt_tls_listener_new                (MyQttCtx             * 
 							 MyQttListenerReady     on_ready, 
 							 axlPointer             user_data)
 {
-	return myqtt_listener_new (ctx, host, port, opts, on_ready, user_data);
+	MyQttNetTransport transport;
+	
+	/* get transport we have to use */
+	transport = __myqtt_conn_detect_transport (ctx, host);
+
+	/* create listener */
+	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, opts, on_ready, transport, __myqtt_tls_accept_connection, NULL, user_data);
 }
 
 /** 
@@ -847,17 +1080,81 @@ MyQttConn       * myqtt_tls_listener_new6               (MyQttCtx             * 
 							 MyQttListenerReady     on_ready, 
 							 axlPointer             user_data)
 {
-	MyQttConn * listener = myqtt_listener_new6 (ctx, host, port, opts, on_ready, user_data);
+	/* create listener */
+	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, opts, on_ready, MYQTT_IPv6, __myqtt_tls_accept_connection, NULL, user_data);
+}
 
-	/* configure pre read handlers to prepare every connection
-	   accepted by this listener */
-	if (myqtt_conn_is_ok (listener, axl_false)) {
-		/* configure preread handlers */
-		listener->preread_handler   = __myqtt_tls_accept_connection;
-		listener->preread_user_data = NULL;
+/** 
+ * @brief Allows to configure the TLS certificate and key to be used
+ * on the provided connection.
+ *
+ * @param listener The listener that is going to be configured with
+ * the providing certificate and key.
+ *
+ * @param certificate The path to the public certificate file (PEM
+ * format) to be used for every TLS connection received under the
+ * provided listener.
+ *
+ * @param private_key The path to the key file (PEM format) to be used for
+ * every TLS connection received under the provided listener.
+ *
+ * @param chain_file The path to additional chain certificates (PEM
+ * format). You can safely pass here a NULL value.
+ *
+ * @return axl_true if the certificates were configured, otherwise
+ * axl_false is returned.
+ */
+axl_bool           myqtt_tls_set_certificate (MyQttConn  * listener,
+					      const char * certificate,
+					      const char * private_key,
+					      const char * chain_file)
+{
+	FILE     * handle;
+	MyQttCtx * ctx;
+
+	if (! listener || ! certificate || ! private_key)
+		return axl_false;
+
+	/* reference to certificate ctx */
+	ctx = listener->ctx;
+	
+	/* check certificate file */
+	handle = fopen (certificate, "r");
+	if (! handle) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to open certificate file from %s", certificate);
+		return axl_false;
+	} /* end if */
+	fclose (handle);
+
+	/* check private file */
+	handle = fopen (private_key, "r");
+	if (! handle) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to open private key file from %s", private_key);
+		return axl_false;
+	} /* end if */
+	fclose (handle);
+
+	if (chain_file) {
+		/* check private file */
+		handle = fopen (chain_file, "r");
+		if (! handle) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to open chain certificate file from %s", private_key);
+			return axl_false;
+		} /* end if */
+		fclose (handle);
 	} /* end if */
 
-	return listener;
+	/* copy certificates to be used */
+	listener->certificate   = axl_strdup (certificate);
+	listener->private_key   = axl_strdup (private_key);
+	if (chain_file)
+		listener->chain_certificate = axl_strdup (chain_file);
+	    
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Configured certificate: %s, key: %s, for conn id: %d",
+		    listener->certificate, listener->private_key, listener->id);
+
+	/* certificates configured */
+	return axl_true;
 }
 
 /** 

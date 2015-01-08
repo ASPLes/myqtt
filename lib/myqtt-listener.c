@@ -293,7 +293,8 @@ MyQttConn * __myqtt_listener_initial_accept (MyQttCtx            * ctx,
 
 	/* configure here preread handlers that may be inherited by
 	   the listener */
-	
+	connection->preread_handler   = listener->preread_handler;
+	connection->preread_user_data = listener->preread_user_data;
 
 	/* call to register the connection */
 	if (! register_conn)
@@ -306,36 +307,6 @@ MyQttConn * __myqtt_listener_initial_accept (MyQttCtx            * ctx,
 	myqtt_listener_accept_connection (connection, axl_true);
 
 	return connection;
-}
-
-/** 
- * @internal
- *
- * This function is for internal myqtt library purposes. This
- * function actually does the second accept step, that is, to read the
- * greeting response and finally accept the connection is that response
- * is ok.
- *
- * You can also read the doc for __myqtt_listener_initial_accept to
- * get an idea about the initial step.
- *
- * Once the greeting response is ok, the function unflag this
- * connection to be "being accepted" so the connection starts to work.
- * 
- * @param msg The msg which should contains the greeting response
- * @param connection the connection being on initial accept step
- */
-void __myqtt_listener_second_step_accept (MyQttMsg * msg, MyQttConn * connection)
-{
-
-
-	/** check incoming content here */
-	
-	/*** CONNECTION COMPLETELY ACCEPTED ***/
-	/* flag the connection to be totally accepted. */
-	connection->initial_accept = axl_false;
-
-	return;	
 }
 
 /** 
@@ -359,8 +330,8 @@ MYQTT_SOCKET myqtt_listener_accept (MYQTT_SOCKET server_socket)
 }
 
 void myqtt_listener_accept_connections (MyQttCtx        * ctx,
-					 int                server_socket, 
-					 MyQttConn * listener)
+					int               server_socket, 
+					MyQttConn       * listener)
 {
 	int   soft_limit, hard_limit, client_socket;
 
@@ -372,7 +343,7 @@ void myqtt_listener_accept_connections (MyQttCtx        * ctx,
 		myqtt_conf_get (ctx, MYQTT_HARD_SOCK_LIMIT, &hard_limit);
 
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "accept () failed, server_socket=%d, soft-limit=%d, hard-limit=%d: (errno=%d) %s\n",
-			    server_socket, soft_limit, hard_limit, errno, myqtt_errno_get_last_error ());
+			   server_socket, soft_limit, hard_limit, errno, myqtt_errno_get_last_error ());
 		return;
 	} /* end if */
 
@@ -398,6 +369,8 @@ typedef struct _MyQttListenerData {
 	axl_bool                   register_conn;
 	MyQttCtx                 * ctx;
 	MyQttNetTransport          transport;
+	MyQttPreRead               preread_handler;
+	axlPointer                 preread_user_data;
 }MyQttListenerData;
 
 /** 
@@ -658,6 +631,10 @@ axlPointer __myqtt_listener_new (MyQttListenerData * data)
 	struct sockaddr_in   sin;
 	MyQttNetTransport    transport     = data->transport;
 
+	/* pre read handlers */
+	MyQttPreRead         preread_handler   = data->preread_handler;
+	axlPointer           preread_user_data = data->preread_user_data;
+
 	/* handlers received (may be both null) */
 	MyQttListenerReady   on_ready       = data->on_ready;
 	
@@ -682,7 +659,7 @@ axlPointer __myqtt_listener_new (MyQttListenerData * data)
 		axl_free (host);
 		axl_error_free (error);
 		return NULL;
-	}
+	} /* end if */
 	
 	/* listener ok */
 	/* seems listener to be created, now create the MQTT connection around it */
@@ -699,6 +676,12 @@ axlPointer __myqtt_listener_new (MyQttListenerData * data)
 	/* unref the host and port value */
 	axl_free (str_port);
 	axl_free (host);
+
+	/* configure preread handlers here if defined: this handlers
+	   are inherited by connections accepted by this listeners
+	   because a listener in fact can't be read */
+	listener->preread_handler   = preread_handler;
+	listener->preread_user_data = preread_user_data;
 
 	/* handle returned socket or error */
 	switch (fd) {
@@ -773,6 +756,8 @@ MyQttConn * __myqtt_listener_new_common  (MyQttCtx                * ctx,
 					  MyQttConnOpts           * opts,
 					  MyQttListenerReady        on_ready, 
 					  MyQttNetTransport         transport,
+					  MyQttPreRead              preread_handler,
+					  axlPointer                preread_user_data,
 					  axlPointer                user_data)
 {
 	MyQttListenerData * data;
@@ -794,6 +779,10 @@ MyQttConn * __myqtt_listener_new_common  (MyQttCtx                * ctx,
 	data->register_conn = register_conn;
 	data->threaded      = (on_ready != NULL);
 	data->transport     = transport;
+
+	/* pre read handlers */
+	data->preread_handler   = preread_handler;
+	data->preread_user_data = preread_user_data;
 	
 	/* make request */
 	if (data->threaded) {
@@ -843,7 +832,7 @@ MyQttConn * myqtt_listener_new (MyQttCtx             * ctx,
 				axlPointer             user_data)
 {
 	/* call to int port API */
-	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, opts, on_ready, MYQTT_IPv4, user_data);
+	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, opts, on_ready, MYQTT_IPv4, NULL, NULL, user_data);
 }
 
 /** 
@@ -890,7 +879,7 @@ MyQttConn * myqtt_listener_new6 (MyQttCtx             * ctx,
 				 axlPointer             user_data)
 {
 	/* call to int port API */
-	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, opts, on_ready, MYQTT_IPv6, user_data);
+	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, opts, on_ready, MYQTT_IPv6, NULL, NULL, user_data);
 }
 
 /** 
@@ -947,7 +936,7 @@ MyQttConn * myqtt_listener_new2    (MyQttCtx             * ctx,
 {
 
 	/* call to common API */
-	return __myqtt_listener_new_common (ctx, host, port, axl_true, opts, on_ready, MYQTT_IPv4, user_data);
+	return __myqtt_listener_new_common (ctx, host, port, axl_true, opts, on_ready, MYQTT_IPv4, NULL, NULL, user_data);
 }
 
 

@@ -444,6 +444,11 @@ MyQttConn       * myqtt_tls_listener_new6               (MyQttCtx             * 
 							 MyQttListenerReady     on_ready, 
 							 axlPointer             user_data);
 
+axl_bool           myqtt_tls_set_certificate            (MyQttConn  * listener,
+							 const char * certificate,
+							 const char * private_key,
+							 const char * chain_file);
+	
 axl_bool           myqtt_tls_is_on                      (MyQttConn            * conn);
 
 void               myqtt_tls_set_ctx_creation           (MyQttConn            * connection,

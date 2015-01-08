@@ -191,6 +191,12 @@ struct _MyQttConn {
 	axl_bool       close_session;
 
 	/** 
+	 * @internal Internal reference to connection especific
+	 * options.
+	 */
+	MyQttConnOpts    * opts;
+
+	/** 
 	 * Hash to hold miscellaneous data, sometimes used by the
 	 * MyQtt Library itself, but also exposed to be used by the
 	 * MyQtt Library programmers through the functions:
@@ -359,6 +365,10 @@ struct _MyQttConn {
 	axlPointer      ssl_ctx;
 	axlPointer      ssl;
 	axl_bool        tls_on;
+	axl_bool        pending_ssl_accept;
+	char          * certificate;
+	char          * private_key;
+	char          * chain_certificate;
 };
 
 struct _MyQttConnOpts {
@@ -377,10 +387,6 @@ struct _MyQttConnOpts {
 	char          * will_topic;
 	char          * will_message;
 	int             will_retain;
-
-	/* preread handler to configure on the connection */
-	MyQttPreRead    preread_handler;
-	axlPointer      preread_user_data;
 
 	/** ssl/tls support **/
 	/* What ssl protocol should be used */

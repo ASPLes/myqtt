@@ -624,12 +624,17 @@ typedef MyQttPublishCodes (*MyQttOnPublish) (MyQttCtx * ctx, MyQttConn * conn, M
  *
  * @param ctx The context where the operation takes place.
  *
+ * @param listerner The listener that accepted the provided connection.
+ *
  * @param conn The connection where the operation takes place.
+ *
+ * @param opts The connection options reference used for this
+ * connection.
  *
  * @param user_data User defined pointer received on the handler and
  * defined at the time the pre-read handler was defined.
  */
-typedef void (*MyQttPreRead) (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_data);
+typedef void (*MyQttPreRead) (MyQttCtx * ctx, MyQttConn * listener, MyQttConn * conn, MyQttConnOpts * opts, axlPointer user_data);
 
 /** 
  * @internal A handler that is called to establish the session that is

@@ -54,12 +54,13 @@
  * @{
  */
 
-typedef enum {CONNECTION, 
-	      LISTENER, 
-	      TERMINATE, 
-	      IO_WAIT_CHANGED,
-	      IO_WAIT_READY,
-	      FOREACH
+typedef enum {
+	CONNECTION, 
+	LISTENER, 
+	TERMINATE, 
+	IO_WAIT_CHANGED,
+	IO_WAIT_READY,
+	FOREACH
 } WatchType;
 
 typedef struct _MyQttReaderData {
@@ -511,6 +512,9 @@ connect_send_reply:
 			/* we have pending messages, order to deliver them */
 			myqtt_storage_queued_flush (ctx, conn);
 		} /* end if */
+
+		/* flag the connection as fully accepted */
+		conn->initial_accept = axl_false;
 
 	} /* end if */
 
@@ -1431,7 +1435,7 @@ void __myqtt_reader_process_socket (MyQttCtx  * ctx,
 	/* check for preread handler */
 	if (conn->preread_handler) {
 		/* call pre read handler */
-		conn->preread_handler (ctx, conn, conn->preread_user_data);
+		conn->preread_handler (ctx, myqtt_conn_get_data (conn, "_vo:li:master"), conn, conn->opts, conn->preread_user_data);
 		return;
 	} /* end if */
 

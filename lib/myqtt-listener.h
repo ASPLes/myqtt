@@ -79,9 +79,6 @@ void          myqtt_listener_accept_connection    (MyQttConn * connection,
 
 MYQTT_SOCKET  myqtt_listener_accept               (MYQTT_SOCKET server_socket);
 
-void          __myqtt_listener_second_step_accept (MyQttMsg * msg, 
-						   MyQttConn * connection);
-
 void          myqtt_listener_complete_register    (MyQttConn * connection);
 
 void          myqtt_listener_wait                 (MyQttCtx  * ctx);
