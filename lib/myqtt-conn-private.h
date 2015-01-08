@@ -358,6 +358,7 @@ struct _MyQttConn {
 	/* tls/ssl support */
 	axlPointer      ssl_ctx;
 	axlPointer      ssl;
+	axl_bool        tls_on;
 };
 
 struct _MyQttConnOpts {

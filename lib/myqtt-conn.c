@@ -185,12 +185,13 @@ int  __myqtt_conn_get_next_id (MyQttCtx * ctx)
 
 
 typedef struct _MyQttConnNewData {
-	MyQttConn           * connection;
-	MyQttConnOpts       * opts;
-	MyQttConnNew          on_connected;
-	axlPointer            user_data;
-	axl_bool              threaded;
-	MyQttNetTransport     transport;
+	MyQttConn            * connection;
+	MyQttConnOpts        * opts;
+	MyQttConnNew           on_connected;
+	axlPointer             user_data;
+	axl_bool               threaded;
+	MyQttNetTransport      transport;
+	MyQttSessionSetup      setup_handler;
 }MyQttConnNewData;
 
 
@@ -1332,6 +1333,8 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 	MyQttConnNew           on_connected   = data->on_connected;
 	axlPointer             user_data      = data->user_data;
 	MyQttNetTransport      transport      = data->transport;
+	MyQttSessionSetup      setup_handler  = data->setup_handler;
+
 	char                   host_name[NI_MAXHOST];
 	char                   srv_name[NI_MAXSERV]; 
 
@@ -1345,9 +1348,17 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 
 	/* configure the socket created */
 	connection->session = myqtt_conn_sock_connect_common (ctx, connection->host, connection->port, &d_timeout, transport, &error);
+
+	/* call session setup handler if defined */
+	if (setup_handler && ! setup_handler (ctx, connection, opts, NULL)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Session setup handler failed for conn-id=%d, session=%d..", connection->id, connection->session);
+		myqtt_close_socket (connection->session);
+		connection->session = -1;
+	} /* end if */
+
 	if (connection->session == -1) {
 		/* configure error */
-		connection->last_err           = MYQTT_CONNACK_UNABLE_TO_CONNECT;
+		connection->last_err     = MYQTT_CONNACK_UNABLE_TO_CONNECT;
 
 		/* get error message and error status */
 		axl_error_free (error);
@@ -1461,6 +1472,8 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 	
 	data->connection                      = axl_new (MyQttConn, 1);
 	data->opts                            = opts;
+	data->setup_handler                   = setup_handler;
+
 	/* for now, set default connection error */
 	data->connection->last_err            = MYQTT_CONNACK_UNKNOWN_ERR;
 	data->connection->clean_session       = clean_session;

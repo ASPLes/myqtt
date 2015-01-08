@@ -109,6 +109,65 @@ typedef struct _MyQttTlsCtx {
 
 } MyQttTlsCtx;
 
+int __myqtt_tls_handle_error (MyQttConn * conn, int res, const char * label, axl_bool * needs_retry)
+{
+	int ssl_err;
+	MyQttCtx * ctx;
+
+	(*needs_retry) = axl_false;
+
+	if (conn == NULL)
+		return -1;
+	ctx = conn->ctx;
+
+	/* get error returned */
+	ssl_err = SSL_get_error (conn->ssl, res);
+	switch (ssl_err) {
+	case SSL_ERROR_NONE:
+		/* no error, return the number of bytes read */
+	        /* nopoll_log (conn->ctx, NOPOLL_LEVEL_DEBUG, "%s, ssl_err=%d, perfect, no error reported, bytes read=%d", 
+		   label, ssl_err, res); */
+		return res;
+	case SSL_ERROR_WANT_WRITE:
+	case SSL_ERROR_WANT_READ:
+	case SSL_ERROR_WANT_X509_LOOKUP:
+	        myqtt_log (MYQTT_LEVEL_DEBUG, "%s, ssl_err=%d returned that isn't ready to read/write: you should retry", 
+			   label, ssl_err);
+		(*needs_retry) = axl_true;
+		return -2;
+	case SSL_ERROR_SYSCALL:
+		if (res < 0) { /* not EOF */
+			if (errno == MYQTT_EINTR) {
+				myqtt_log (MYQTT_LEVEL_DEBUG, "%s interrupted by a signal: retrying", label);
+				/* report to retry */
+				return -2;
+			}
+			myqtt_log (MYQTT_LEVEL_WARNING, "SSL_read (SSL_ERROR_SYSCALL)");
+			return -1;
+		}
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "SSL socket closed on %s (res=%d, ssl_err=%d, errno=%d)",
+			   label, res, ssl_err, errno);
+		myqtt_tls_log_ssl (ctx);
+
+		return res;
+	case SSL_ERROR_ZERO_RETURN: /* close_notify received */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "SSL closed on %s", label);
+		return res;
+	case SSL_ERROR_SSL:
+		myqtt_log (MYQTT_LEVEL_WARNING, "%s function error (received SSL_ERROR_SSL) (res=%d, ssl_err=%d, errno=%d)",
+			   label, res, ssl_err, errno);
+		myqtt_tls_log_ssl (ctx);
+		return -1;
+	default:
+		/* nothing to handle */
+		break;
+	}
+	myqtt_log (MYQTT_LEVEL_WARNING, "%s/SSL_get_error returned %d", label, res);
+	return -1;
+	
+}
+
+
 /** 
  * @internal Calls to the failure handler if it is defined with the
  * provided error message.
@@ -293,11 +352,72 @@ axl_bool __myqtt_conn_set_ssl_client_options (MyQttCtx * ctx, MyQttConn * conn, 
 	return axl_true;
 }
 
+/** 
+ * @internal Default connection receive until handshake is complete.
+ */
+int __myqtt_tls_receive (MyQttConn * conn, unsigned char * buffer, int buffer_size)
+{
+	int      res;
+	axl_bool needs_retry;
+	int      tries = 0;
+
+	/* call to read content */
+	while (tries < 50) {
+	        res = SSL_read (conn->ssl, buffer, buffer_size);
+
+		/* call to handle error */
+		res = __myqtt_tls_handle_error (conn, res, "SSL_read", &needs_retry);
+		
+		if (! needs_retry)
+		        break;
+
+		/* next operation */
+		tries++;
+	}
+	return res;
+}
+
+/** 
+ * @internal Default connection send until handshake is complete.
+ */
+int __myqtt_tls_send (MyQttConn * conn, const unsigned char * buffer, int buffer_size)
+{
+	int         res;
+	axl_bool    needs_retry;
+	int         tries = 0;
+	MyQttCtx  * ctx = conn->ctx;
+
+	/* call to read content */
+	while (tries < 50) {
+	        res = SSL_write (conn->ssl, buffer, buffer_size);
+		myqtt_log (MYQTT_LEVEL_DEBUG, "SSL: sent %d bytes (requested: %d)..", res, buffer_size); 
+
+		/* call to handle error */
+		res = __myqtt_tls_handle_error (conn, res, "SSL_write", &needs_retry);
+		/* nopoll_log (conn->ctx, NOPOLL_LEVEL_DEBUG, "   SSL: after processing error, sent %d bytes (requested: %d)..",  res, buffer_size); */
+
+		if (! needs_retry)
+		        break;
+
+		/* next operation */
+		myqtt_sleep (tries * 10000);
+		tries++;
+	}
+	return res;
+}
+
+
 
 axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * options, axlPointer user_data)
 {
-	int iterator;
-	int ssl_error;
+	int    iterator;
+	int    ssl_error;
+	X509 * server_cert;
+
+	if (! myqtt_tls_init (ctx)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create TLS session, myqtt_tls_init() initialization failed");
+		return axl_false;
+	} /* end if */
 
 	/* found TLS connection request, enable it */
 	conn->ssl_ctx  = __myqtt_conn_get_ssl_context (ctx, conn, options, axl_true);
@@ -344,18 +464,16 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 		case SSL_ERROR_SYSCALL:
 			myqtt_log ( MYQTT_LEVEL_CRITICAL, "syscall error while doing TLS handshake, ssl error (code:%d), conn-id: %d (%p), errno: %d, session: %d",
 				    ssl_error, conn->id, conn, errno, conn->session);
-			myqtt_conn_log_ssl (conn);
+			myqtt_tls_log_ssl (ctx);
 			myqtt_conn_shutdown (conn);
-			myqtt_free (content);
-			
+					
 			return axl_false;
 		default:
 			myqtt_log ( MYQTT_LEVEL_CRITICAL, "there was an error with the TLS negotiation, ssl error (code:%d) : %s",
 				    ssl_error, ERR_error_string (ssl_error, NULL));
-			myqtt_conn_log_ssl (conn);
+			myqtt_tls_log_ssl (ctx);
 			myqtt_conn_shutdown (conn);
-			myqtt_free (content);
-			
+					
 			return axl_false;
 		} /* end switch */
 		
@@ -365,8 +483,7 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 		if (iterator > 100) {
 			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Max retry calls=%d to SSL_connect reached, shutting down connection id=%d, errno=%d",
 				    iterator, conn->id, errno);
-			myqtt_free (content);
-			
+				
 			return axl_false;
 		} /* end if */
 		
@@ -388,17 +505,17 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 	
 	/* call to check post ssl checks after SSL finalization */
 	if (conn->ctx && conn->ctx->post_ssl_check) {
-		if (! conn->ctx->post_ssl_check (conn->ctx, conn, conn->ssl_ctx, conn->ssl, conn->ctx->post_ssl_check_data)) {
+		if (! ((MyQttSslPostCheck)conn->ctx->post_ssl_check) (conn->ctx, conn, conn->ssl_ctx, conn->ssl, conn->ctx->post_ssl_check_data)) {
 			/* TLS post check failed */
-			myqtt_log (conn->ctx, MYQTT_LEVEL_CRITICAL, "TLS/SSL post check function failed, dropping connection");
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "TLS/SSL post check function failed, dropping connection");
 			myqtt_conn_shutdown (conn);
 			return axl_false;
 		} /* end if */
 	} /* end if */
 	
 	/* configure default handlers */
-	conn->receive = myqtt_conn_tls_receive;
-	conn->send    = myqtt_conn_tls_send;
+	conn->receive = __myqtt_tls_receive;
+	conn->send    = __myqtt_tls_send;
 	
 	myqtt_log ( MYQTT_LEVEL_DEBUG, "TLS I/O handlers configured");
 	conn->tls_on = axl_true;
@@ -451,7 +568,7 @@ axl_bool      myqtt_tls_init (MyQttCtx * ctx)
  * @brief Allows to create a new MQTT connection a MQTT broker/server
  * securing first the connection with TLS (MQTT over TLS).
  *
- * Please, see \ref myqtt_conn_new for more notes.
+ * Please, see \ref myqtt_conn_new for more notes. You must call \ref myqtt_tls_init first before creating any connection.
  *
  * @param The context where the operation will take place.
  *
@@ -518,13 +635,15 @@ MyQttConn        * myqtt_tls_conn_new                   (MyQttCtx        * ctx,
 	transport = __myqtt_conn_detect_transport (ctx, host);
 
 	/* call to create the connection */
-	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, NULL, on_connected, transport, opts, user_data);
+	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, __myqtt_tls_session_setup, on_connected, transport, opts, user_data);
 }
 
 /** 
  * @brief Allows to create a new MQTT connection to a MQTT
  * broker/server securing first the connection with TLS (MQTT over
  * TLS), forcing IPv6 transport.
+ *
+ * You must call \ref myqtt_tls_init first before creating any connection.
  *
  * @param The context where the operation will take place.
  *
@@ -586,7 +705,7 @@ MyQttConn        * myqtt_tls_conn_new6                  (MyQttCtx       * ctx,
 							 axlPointer       user_data)
 {
 	/* call to create the connection */
-	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, NULL, on_connected, MYQTT_IPv6, opts, user_data);
+	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, __myqtt_tls_session_setup, on_connected, MYQTT_IPv6, opts, user_data);
 }
 
 
@@ -681,8 +800,6 @@ MyQttConn       * myqtt_tls_listener_new                (MyQttCtx             * 
 							 MyQttListenerReady     on_ready, 
 							 axlPointer             user_data)
 {
-	
-
 	return myqtt_listener_new (ctx, host, port, opts, on_ready, user_data);
 }
 
@@ -754,7 +871,9 @@ MyQttConn       * myqtt_tls_listener_new6               (MyQttCtx             * 
  */
 axl_bool           myqtt_tls_is_on                      (MyQttConn            * conn)
 {
-	return (PTR_TO_INT (myqtt_conn_get_data (conn, "tls:status")));
+	if (conn == NULL)
+		return axl_false;
+	return conn->tls_on;
 }
 
 /** 

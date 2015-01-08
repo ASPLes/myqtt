@@ -334,6 +334,35 @@ typedef axlPointer (*MyQttSslContextCreator) (MyQttCtx       * ctx,
 					      axlPointer       user_data);
 
 /** 
+ * @brief Optional user defined handler that allows to execute SSL
+ * post checks code before proceed.
+ *
+ * This handler is configured at \ref myqtt_tls_set_post_ssl_check
+ * and allows to implement custom actions while additional
+ * verifications about certificate received, validation based on
+ * certain attributes, etc.
+ *
+ * Note that when this handler is called, the SSL handshake has
+ * finished without error. In case of SSL handshake failure, this
+ * handler is not executed.
+ *
+ * @param ctx The context where the operation happens.
+ *
+ * @param conn The connection where the operation takes place and for which the post SSL check is being done.
+ *
+ * @param SSL_CTX The OpenSSL SSL_CTX object created for this connection.
+ *
+ * @param SSL The OpenSSL SSL object created for this connection.
+ *
+ * @param user_data User defined data that is received on this handler as configured at \ref myqtt_tls_set_post_ssl_check
+ */
+typedef axl_bool (*MyQttSslPostCheck) (MyQttCtx      * ctx,
+				       MyQttConn     * conn,
+				       axlPointer      SSL_CTX,
+				       axlPointer      SSL,
+				       axlPointer      user_data);
+
+/** 
  * @brief SSL/TLS protocol type to use for the client or listener
  * connection. 
  */

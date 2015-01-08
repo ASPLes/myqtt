@@ -112,8 +112,9 @@ int test_count_in_dir (const char * directory, RegTestMyQttCountTypes  count_typ
 axl_bool test_common_enable_debug = axl_false;
 
 /* default listener location */
-const char * listener_host = "localhost";
-const char * listener_port = "1909";
+const char * listener_host     = "localhost";
+const char * listener_port     = "1909";
+const char * listener_tls_port = "1910";
 
 MyQttCtx * init_ctx (void)
 {
@@ -2475,9 +2476,9 @@ axl_bool test_18 (void) {
 	printf ("Test 18: checking TLS support\n");
 
 	/* do a simple connection */
-	conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_tls_port, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
-		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_port);
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_tls_port);
 		return axl_false;
 	} /* end if */
 
@@ -2503,6 +2504,10 @@ axl_bool test_18 (void) {
 	} /* end if */
 
 	printf ("Test 18: closing connection..\n");
+	if (! myqtt_tls_is_on (conn)) {
+		printf ("ERROR: expected to find TLS enabled connection but found it isn't\n");
+		return axl_false;
+	} /* end if */
 
 	/* close connection */
 	myqtt_conn_close (conn);

@@ -1332,6 +1332,23 @@ int    myqtt_get_32bit (const unsigned char * buffer)
 	return part1 | part2 | part3 | part4;
 }
 
+/** 
+ * @brief Portable subsecond sleep. Suspends the calling thread during
+ * the provided amount of time.
+ *
+ * @param microseconds The amount of time to wait.
+ */
+void        myqtt_sleep (long microseconds)
+{
+#if defined(NOPOLL_OS_UNIX)
+	usleep (microseconds);
+	return;
+#elif defined(NOPOLL_OS_WIN32)
+	Sleep (microseconds / 1000);
+	return;
+#endif
+}
+
 /* @} */
 
 
