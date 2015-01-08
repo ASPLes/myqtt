@@ -341,5 +341,5 @@ myqtt_thread_pool_stats
 myqtt_thread_set_create
 myqtt_thread_set_destroy
 myqtt_timeval_substract
-__myqtt_connection_set_not_connected
+__myqtt_conn_set_not_connected
 gettimeofday

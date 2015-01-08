@@ -78,5 +78,5 @@ libmyqtt-1.0.def: update-def
 update-def:
 	echo "EXPORTS" > libmyqtt-1.0.def
 	cat .libs/libmyqtt-1.0.exp | grep -v io_waiting_poll | grep -v io_waiting_epoll | grep -v __myqtt >> libmyqtt-1.0.def
-	echo "__myqtt_connection_set_not_connected" >> libmyqtt-1.0.def
+	echo "__myqtt_conn_set_not_connected" >> libmyqtt-1.0.def
 	echo "gettimeofday" >> libmyqtt-1.0.def

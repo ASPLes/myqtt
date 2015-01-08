@@ -9,4 +9,5 @@ all-local: update-defs
 
 update-defs: 
 	cd lib; make update-def; cd ..
+	cd tls; make update-def; cd ..
 
