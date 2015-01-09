@@ -1346,14 +1346,20 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 	/* release data */
 	axl_free (data);
 
-	/* configure the socket created */
-	connection->session = myqtt_conn_sock_connect_common (ctx, connection->host, connection->port, &d_timeout, transport, &error);
+	/* configure connection transport */
+	connection->transport = transport;
 
 	/* call session setup handler if defined */
-	if (setup_handler && ! setup_handler (ctx, connection, opts, NULL)) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Session setup handler failed for conn-id=%d, session=%d..", connection->id, connection->session);
-		myqtt_close_socket (connection->session);
+	if (setup_handler)  {
+		/* by default, cleanup session */
 		connection->session = -1;
+		if (! setup_handler (ctx, connection, opts, NULL)) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Session setup handler failed for conn-id=%d, session=%d..", connection->id, connection->session);
+			myqtt_close_socket (connection->session);
+		} /* end if */
+	} else {
+		/* configure the socket created */
+		connection->session = myqtt_conn_sock_connect_common (ctx, connection->host, connection->port, &d_timeout, connection->transport, &error);
 	} /* end if */
 
 	if (connection->session == -1) {
