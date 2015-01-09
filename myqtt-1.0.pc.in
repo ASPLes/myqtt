@@ -6,6 +6,6 @@ includedir=@includedir@
 Name: myqtt-1.0
 Description: A high performance open source MQTT implementation
 Requires: axl
-Version: @VORTEX_VERSION@
+Version: @MYQTT_VERSION@
 Libs: -L${libdir} -lmyqtt-1.0 @PTHREAD_LIBS@
 Cflags: -I${includedir}/myqtt-1.0 @PTHREAD_CFLAGS@

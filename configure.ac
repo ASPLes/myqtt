@@ -69,7 +69,7 @@ AC_SUBST(ansi_option)
 
 AC_CHECK_PROG(PKG_CONFIG, pkg-config, "yes", "no")
 if test "$PKG_CONFIG" = "no" ; then
-  AC_MSG_ERROR([You need to install pkg-config to compile MyQtt 1.1. See: http://pkgconfig.freedesktop.org/releases/])
+  AC_MSG_ERROR([You need to install pkg-config to compile MyQtt. See: http://pkgconfig.freedesktop.org/releases/])
 fi
 
 dnl
@@ -310,12 +310,15 @@ AC_OUTPUT([
 Makefile
 lib/Makefile
 tls/Makefile
+web-socket/Makefile
 test/Makefile
 myqtt-1.0.pc
+myqtt-tls-1.0.pc
+myqtt-web-socket-1.0.pc
 ])
 
 echo "------------------------------------------"
-echo "--     MYQTT LIBRARY 1.1 SETTINGS      --"
+echo "--     MYQTT LIBRARY 1.0 SETTINGS       --"
 echo "------------------------------------------"
 echo "   Installation prefix:            [$prefix]"
 echo "      select(2) support:           [yes]"
@@ -346,7 +349,7 @@ else
 fi
 if test x$enable_tls_support = xyes ; then
    echo "   Build TLS profile support:                enabled"
-   echo "     (libmyqtt-tls-1.1)"
+   echo "     (libmyqtt-tls-1.0)"
 else
    echo "   Build TLS profile support:                disabled"
    echo 
@@ -357,7 +360,7 @@ else
 fi
 if test x$enable_websocket_support = xyes ; then
    echo "   Build WebSocket extension library:        enabled"
-   echo "     (libmyqtt-websocket-1.1)"
+   echo "     (libmyqtt-websocket-1.0)"
 else
    echo "   Build WebSocket extension library:        disabled"
    echo 
