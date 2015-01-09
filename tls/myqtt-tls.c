@@ -412,12 +412,24 @@ int __myqtt_tls_send (MyQttConn * conn, const unsigned char * buffer, int buffer
 
 axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * options, axlPointer user_data)
 {
-	int    iterator;
-	int    ssl_error;
-	X509 * server_cert;
+	int        iterator;
+	int        ssl_error;
+	X509     * server_cert;
+	int        d_timeout = 0;
+	axlError * err = NULL;
 
 	if (! myqtt_tls_init (ctx)) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create TLS session, myqtt_tls_init() initialization failed");
+		return axl_false;
+	} /* end if */
+
+	/* configure the socket created */
+	conn->session = myqtt_conn_sock_connect_common (ctx, conn->host, conn->port, &d_timeout, conn->transport, &err);
+	if (conn->session == -1) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to connect to  %s:%s, errno=%d (%s), %s", 
+			   conn->host, conn->port, errno, myqtt_errno_get_last_error (),
+			   axl_error_get (err));
+		axl_error_free (err);
 		return axl_false;
 	} /* end if */
 
