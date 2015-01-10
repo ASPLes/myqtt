@@ -45,6 +45,10 @@
 #include <myqtt-tls.h>
 #endif
 
+#if defined(ENABLE_WEBSOCKET_SUPPORT)
+#include <myqtt-web-socket.h>
+#endif
+
 typedef enum {
 	TEST_FILES = 1,
 	TEST_DIRS  = 2
@@ -115,6 +119,7 @@ axl_bool test_common_enable_debug = axl_false;
 const char * listener_host     = "localhost";
 const char * listener_port     = "1909";
 const char * listener_tls_port = "1910";
+const char * listener_websocket_port = "1918";
 
 MyQttCtx * init_ctx (void)
 {
@@ -2640,6 +2645,76 @@ axl_bool test_19 (void) {
 }
 #endif
 
+#if defined(ENABLE_WEBSOCKET_SUPPORT)
+axl_bool test_20 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	noPollConn      * nopoll_conn;
+	noPollCtx       * nopoll_ctx;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 20: checking WebSocket ws:// support\n");
+
+	/* create first a noPoll connection, for that we need to
+	   create a context */
+	nopoll_ctx   = nopoll_ctx_new ();
+	nopoll_conn  = nopoll_conn_new (nopoll_ctx, listener_host, listener_websocket_port, NULL, NULL, NULL, NULL);
+	if (! nopoll_conn_is_ok (nopoll_conn)) {
+		printf ("ERROR: failed to connect remote host through WebSocket..\n");
+		return nopoll_false;
+	} /* end if */
+
+	printf ("Test 20: created WS connection, now starting MQTT session on top of it..\n");
+
+	/* now create MQTT connection using already working noPoll
+	   connection */
+	/* nopoll_log_enable (nopoll_ctx, axl_true);
+	   nopoll_log_color_enable (nopoll_ctx, axl_true); */
+	conn = myqtt_web_socket_conn_new (ctx, NULL, axl_false, 30, nopoll_conn, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_websocket_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 20: pushing messages\n");
+
+	/* publish a message with retention */
+	if (! myqtt_conn_pub (conn, "this/is/a/test/19", "Test message 1", 14, MYQTT_QOS_2, axl_true, 10)) {
+		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* publish a message with retention */
+	if (! myqtt_conn_pub (conn, "this/is/a/test/19", "Test message 2", 14, MYQTT_QOS_2, axl_true, 10)) {
+		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 20: checking connection\n");
+
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 20: closing connection..\n");
+
+	/* close connection (this already closes the provided
+	   connection) */
+	myqtt_conn_close (conn);
+
+	/* release context (this already closes provided noPollCtx
+	   (nopoll_ctx) */
+	printf ("Test 20: releasing context\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+#endif
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -2768,6 +2843,11 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_19")
 	run_test (test_19, "Test 19: check TLS support (server side certificate auth: common CA)"); 
+#endif
+
+#if defined(ENABLE_WEBSOCKET_SUPPORT)
+	CHECK_TEST("test_20")
+	run_test (test_20, "Test 20: check WebSocket support (basic MQTT over ws://)"); 
 #endif
 
 	/* support for message retention when subscribed with a wild

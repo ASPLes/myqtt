@@ -48,18 +48,14 @@ MyQttConn        * myqtt_web_socket_conn_new            (MyQttCtx        * ctx,
 							 const char      * client_identifier,
 							 axl_bool          clean_session,
 							 int               keep_alive,
-							 const char      * host, 
-							 const char      * port,
 							 noPollConn      * conn,
 							 MyQttConnOpts   * opts,
 							 MyQttConnNew      on_connected, 
 							 axlPointer        user_data);
 
 MyQttConn       * myqtt_web_socket_listener_new         (MyQttCtx             * ctx,
-							 const char           * host, 
-							 const char           * port, 
-							 MyQttConnOpts        * opts,
 							 noPollConn           * listener,
+							 MyQttConnOpts        * opts,
 							 MyQttListenerReady     on_ready, 
 							 axlPointer             user_data);
 

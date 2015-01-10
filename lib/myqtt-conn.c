@@ -192,6 +192,7 @@ typedef struct _MyQttConnNewData {
 	axl_bool               threaded;
 	MyQttNetTransport      transport;
 	MyQttSessionSetup      setup_handler;
+	axlPointer             setup_user_data;
 }MyQttConnNewData;
 
 
@@ -1324,16 +1325,17 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 	socklen_t              sin_size       = sizeof (sin);
 #endif
 	/* get current context */
-	MyQttConn            * connection     = data->connection;
-	MyQttConnOpts        * opts           = data->opts;
-	MyQttCtx             * ctx            = connection->ctx;
-	axlError             * error          = NULL;
-	int                    d_timeout      = 0;
-	axl_bool               threaded       = data->threaded;
-	MyQttConnNew           on_connected   = data->on_connected;
-	axlPointer             user_data      = data->user_data;
-	MyQttNetTransport      transport      = data->transport;
-	MyQttSessionSetup      setup_handler  = data->setup_handler;
+	MyQttConn            * connection      = data->connection;
+	MyQttConnOpts        * opts            = data->opts;
+	MyQttCtx             * ctx             = connection->ctx;
+	axlError             * error           = NULL;
+	int                    d_timeout       = myqtt_conn_get_connect_timeout (ctx);
+	axl_bool               threaded        = data->threaded;
+	MyQttConnNew           on_connected    = data->on_connected;
+	axlPointer             user_data       = data->user_data;
+	MyQttNetTransport      transport       = data->transport;
+	MyQttSessionSetup      setup_handler   = data->setup_handler;
+	axlPointer             setup_user_data = data->setup_user_data;
 
 	char                   host_name[NI_MAXHOST];
 	char                   srv_name[NI_MAXSERV]; 
@@ -1353,7 +1355,7 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 	if (setup_handler)  {
 		/* by default, cleanup session */
 		connection->session = -1;
-		if (! setup_handler (ctx, connection, opts, NULL)) {
+		if (! setup_handler (ctx, connection, opts, setup_user_data)) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Session setup handler failed for conn-id=%d, session=%d..", connection->id, connection->session);
 			myqtt_close_socket (connection->session);
 		} /* end if */
@@ -1455,6 +1457,7 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 						const char           * host, 
 						const char           * port,
 						MyQttSessionSetup      setup_handler,
+						axlPointer             setup_user_data,
 						MyQttConnNew           on_connected, 
 						MyQttNetTransport      transport,
 						MyQttConnOpts        * opts,
@@ -1465,12 +1468,16 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 	char               hostname[513];
 
 	/* check context is initialized */
-	if ((! myqtt_init_check (ctx)) || ctx->myqtt_exit) 
+	if ((! myqtt_init_check (ctx)) || ctx->myqtt_exit) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create connection myqtt_init_check () is failing or myqtt is exiting");
 		return NULL;
+	} /* end if */
 
 	/* check parameters */
-	if (host == NULL || port == NULL) 
+	if (setup_handler == NULL && (host == NULL || port == NULL)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "You didn't provide a host/port value to connect to nor a setup handler. Unable to connect");
 		return NULL;
+	}
 
 	data                                  = axl_new (MyQttConnNewData, 1);
 	if (data == NULL) 
@@ -1479,6 +1486,7 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 	data->connection                      = axl_new (MyQttConn, 1);
 	data->opts                            = opts;
 	data->setup_handler                   = setup_handler;
+	data->setup_user_data                 = setup_user_data;
 
 	/* for now, set default connection error */
 	data->connection->last_err            = MYQTT_CONNACK_UNKNOWN_ERR;
@@ -1631,7 +1639,7 @@ MyQttConn  * myqtt_conn_new                    (MyQttCtx       * ctx,
 	transport = __myqtt_conn_detect_transport (ctx, host);
 
 	/* call to create the connection */
-	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, NULL, on_connected, transport, opts, user_data);
+	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, NULL, NULL, on_connected, transport, opts, user_data);
 }
 
 /** 
@@ -1679,7 +1687,11 @@ MyQttConn  * myqtt_conn_new6                   (MyQttCtx       * ctx,
 						axlPointer       user_data)
 {
 	/* call to create the connection */
-	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, NULL, on_connected, MYQTT_IPv6, opts, user_data);
+	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, 
+					   /* session setup handlers */
+					   NULL, NULL, 
+					   /* on onnected handlers, transport, options and user data */
+					   on_connected, MYQTT_IPv6, opts, user_data);
 }
 
 /** 
@@ -3376,16 +3388,26 @@ long                myqtt_conn_get_timeout (MyQttCtx * ctx)
  */
 long              myqtt_conn_get_connect_timeout (MyQttCtx * ctx)
 {
+	char * value;
+
 	/* check context recevied */
 	if (ctx == NULL) {
 		/* get the the default connect */
-		return (0);
+		return (15);
 	} /* end if */
 		
 	/* check if we have used the current environment variable */
 	if (! ctx->connection_connect_timeout_checked) {
 		ctx->connection_connect_timeout_checked = axl_true;
-		ctx->connection_connect_std_timeout     = myqtt_support_getenv_int ("MYQTT_CONNECT_TIMEOUT");
+
+		/* get value from enviroment */
+		value = myqtt_support_getenv ("MYQTT_CONNECT_TIMEOUT");
+		if (value && strlen (value) > 0)
+			ctx->connection_connect_std_timeout  = myqtt_support_getenv_int ("MYQTT_CONNECT_TIMEOUT");
+		else {
+			/* environment value no defined, set defaults */
+			ctx->connection_connect_std_timeout  = 15;
+		}
 	} /* end if */
 
 	/* return current value */

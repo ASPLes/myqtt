@@ -71,7 +71,7 @@
  * @param message the message reporting the listener status creation.
  * @param user_data user data passed in to this async notifier.
  */
-typedef void (*MyQttListenerReady)           (char         * host, 
+typedef void (*MyQttListenerReady)           (const char   * host, 
 					      int            port, 
 					      MyQttStatus    status, 
 					      char         * message, 

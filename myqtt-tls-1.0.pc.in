@@ -8,4 +8,4 @@ Description: TLS support for MyQtt, a high performance open source MQTT implemen
 Requires: myqtt-1.0
 Version: @MYQTT_VERSION@
 Libs: -L${libdir} -lmyqtt-tls-1.0 @PTHREAD_LIBS@
-Cflags: -I${includedir}/myqtt-1.0 @PTHREAD_CFLAGS@
+Cflags: -I${includedir}/myqtt-1.0 @PTHREAD_CFLAGS@ -DENABLE_TLS_SUPPORT

@@ -427,6 +427,7 @@ MyQttConn            * myqtt_conn_new_full_common        (MyQttCtx             *
 							  const char           * host, 
 							  const char           * port,
 							  MyQttSessionSetup      setup_handler,
+							  axlPointer             setup_user_data,
 							  MyQttConnNew           on_connected, 
 							  MyQttNetTransport      transport,
 							  MyQttConnOpts        * opts,

@@ -372,6 +372,7 @@ typedef struct _MyQttListenerData {
 	MyQttPreRead               preread_handler;
 	axlPointer                 preread_user_data;
 	MyQttConnOpts            * opts;
+	MYQTT_SOCKET               reuse_socket;
 }MyQttListenerData;
 
 /** 
@@ -639,6 +640,7 @@ axlPointer __myqtt_listener_new (MyQttListenerData * data)
 
 	/* handlers received (may be both null) */
 	MyQttListenerReady   on_ready       = data->on_ready;
+	MYQTT_SOCKET         reuse_socket   = data->reuse_socket;
 	
 	/* free data */
 	axl_free (data);
@@ -646,23 +648,28 @@ axlPointer __myqtt_listener_new (MyQttListenerData * data)
 	/* call to load local storage first (before an incoming connection) */
 	myqtt_storage_load (ctx);
 
-	/* allocate listener, try to guess IPv6 support */
-	if (strstr (host, ":") || transport == MYQTT_IPv6) {
-		myqtt_log (MYQTT_LEVEL_DEBUG, "Detected IPv6 listener: %s:%s..", host, str_port);
-		fd = myqtt_listener_sock_listen6 (ctx, host, str_port, &error);
-	} else
-		fd = myqtt_listener_sock_listen (ctx, host, str_port, &error);
-
-	if (fd == MYQTT_SOCKET_ERROR || fd == -1) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create listener socket, fd reported is an error %d. Unable to find on %s:%s. Error found: %s", fd,
-			    host, str_port, axl_error_get (error));
-		/* unref the host and port value */
-		axl_free (str_port);
-		axl_free (host);
-		axl_error_free (error);
-		return NULL;
+	if (reuse_socket < 0) {
+		/* allocate listener, try to guess IPv6 support */
+		if (strstr (host, ":") || transport == MYQTT_IPv6) {
+			myqtt_log (MYQTT_LEVEL_DEBUG, "Detected IPv6 listener: %s:%s..", host, str_port);
+			fd = myqtt_listener_sock_listen6 (ctx, host, str_port, &error);
+		} else
+			fd = myqtt_listener_sock_listen (ctx, host, str_port, &error);
+		
+		if (fd == MYQTT_SOCKET_ERROR || fd == -1) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create listener socket, fd reported is an error %d. Unable to find on %s:%s. Error found: %s", fd,
+				   host, str_port, axl_error_get (error));
+			/* unref the host and port value */
+			axl_free (str_port);
+			axl_free (host);
+			axl_error_free (error);
+			return NULL;
+		} /* end if */
+	} else {
+		/* reuse socket for fd */
+		fd = reuse_socket;
 	} /* end if */
-	
+		
 	/* listener ok */
 	/* seems listener to be created, now create the MQTT connection around it */
 	listener = myqtt_conn_new_empty (ctx, fd, MyQttRoleMasterListener);
@@ -758,6 +765,7 @@ MyQttConn * __myqtt_listener_new_common  (MyQttCtx                * ctx,
 					  const char              * host,
 					  int                       port,
 					  axl_bool                  register_conn,
+					  MYQTT_SOCKET              reuse_socket,
 					  MyQttConnOpts           * opts,
 					  MyQttListenerReady        on_ready, 
 					  MyQttNetTransport         transport,
@@ -785,6 +793,7 @@ MyQttConn * __myqtt_listener_new_common  (MyQttCtx                * ctx,
 	data->threaded      = (on_ready != NULL);
 	data->transport     = transport;
 	data->opts          = opts;
+	data->reuse_socket  = reuse_socket;
 
 	/* pre read handlers */
 	data->preread_handler   = preread_handler;
@@ -838,7 +847,7 @@ MyQttConn * myqtt_listener_new (MyQttCtx             * ctx,
 				axlPointer             user_data)
 {
 	/* call to int port API */
-	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, opts, on_ready, MYQTT_IPv4, NULL, NULL, user_data);
+	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, -1, opts, on_ready, MYQTT_IPv4, NULL, NULL, user_data);
 }
 
 /** 
@@ -885,7 +894,7 @@ MyQttConn * myqtt_listener_new6 (MyQttCtx             * ctx,
 				 axlPointer             user_data)
 {
 	/* call to int port API */
-	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, opts, on_ready, MYQTT_IPv6, NULL, NULL, user_data);
+	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, -1, opts, on_ready, MYQTT_IPv6, NULL, NULL, user_data);
 }
 
 /** 
@@ -942,7 +951,7 @@ MyQttConn * myqtt_listener_new2    (MyQttCtx             * ctx,
 {
 
 	/* call to common API */
-	return __myqtt_listener_new_common (ctx, host, port, axl_true, opts, on_ready, MYQTT_IPv4, NULL, NULL, user_data);
+	return __myqtt_listener_new_common (ctx, host, port, axl_true, -1, opts, on_ready, MYQTT_IPv4, NULL, NULL, user_data);
 }
 
 

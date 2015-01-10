@@ -39,8 +39,14 @@
 /* base myqtt */
 #include <myqtt.h>
 
+#if defined(ENABLE_TLS_SUPPORT)
 /* include myqtt tls module */
 #include <myqtt-tls.h>
+#endif
+
+#if defined(ENABLE_WEBSOCKET_SUPPORT)
+#include <myqtt-web-socket.h>
+#endif
 
 #ifdef AXL_OS_UNIX
 #include <signal.h>
@@ -93,12 +99,14 @@ void __terminate_myqtt_listener (int value)
 	return;
 }
 
-axl_bool test_common_enable_debug = axl_false;
+axl_bool test_common_enable_debug        = axl_false;
+axl_bool test_common_enable_nopoll_debug = axl_false;
 
 /* default listener location */
 const char * listener_host     = "localhost";
 const char * listener_port     = "1909";
 const char * listener_tls_port = "1910";
+const char * listener_websocket_port = "1918";
 
 MyQttCtx * init_ctx (void)
 {
@@ -241,6 +249,10 @@ int main (int argc, char ** argv)
 {
 	MyQttConn     * listener;
 	MyQttConnOpts * opts;
+#if defined(ENABLE_WEBSOCKET_SUPPORT)
+	noPollCtx     * nopoll_ctx;
+	noPollConn    * nopoll_listener;
+#endif
 
 	printf ("** MyQtt: A high performance open source MQTT implementation\n");
 	printf ("** Copyright (C) 2014 Advanced Software Production Line, S.L.\n**\n");
@@ -261,6 +273,8 @@ int main (int argc, char ** argv)
 			exit (0);
 		if (axl_cmp (argv[argc], "--debug")) 
 			test_common_enable_debug = axl_true;
+		if (axl_cmp (argv[argc], "--nopoll-debug")) 
+			test_common_enable_nopoll_debug = axl_true;
 		argc--;
 	} /* end if */
 
@@ -280,6 +294,7 @@ int main (int argc, char ** argv)
 		exit (-1);
 	} /* end if */
 
+#if defined(ENABLE_TLS_SUPPORT)
 	/* start a TLS listener */
 	listener = myqtt_tls_listener_new (ctx, listener_host, listener_tls_port, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (listener, axl_false)) {
@@ -316,6 +331,29 @@ int main (int argc, char ** argv)
 		printf ("ERROR: failed to start TLS listener at: %s:%s..\n", listener_host, "1911");
 		exit (-1);
 	} /* end if */
+#endif
+
+#if defined(ENABLE_WEBSOCKET_SUPPORT)
+	printf ("INFO: starting MQTT over WebSocket at %s:%s\n", listener_host, listener_websocket_port);
+	nopoll_ctx      = nopoll_ctx_new ();
+	if (test_common_enable_nopoll_debug) {
+		nopoll_log_enable (nopoll_ctx, axl_true);
+		nopoll_log_color_enable (nopoll_ctx, axl_true);
+	} /* end if */
+	nopoll_listener = nopoll_listener_new (nopoll_ctx, listener_host, listener_websocket_port);
+	if (! nopoll_conn_is_ok (nopoll_listener)) {
+		printf ("ERROR: failed to start WebSocket listener at %s:%s..\n", listener_host, listener_websocket_port);
+		return nopoll_false;
+	} /* end if */
+
+	/* now start listener */
+	listener = myqtt_web_socket_listener_new (ctx, nopoll_listener, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (listener, axl_false)) {
+		printf ("ERROR: failed to start WebSocket listener at: %s:%s..\n", listener_host, listener_websocket_port);
+		exit (-1);
+	} /* end if */
+
+#endif
 
 	/* install on publish handler */
 	myqtt_ctx_set_on_publish (ctx, on_publish, NULL);

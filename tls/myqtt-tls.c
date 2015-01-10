@@ -415,7 +415,7 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 	int        iterator;
 	int        ssl_error;
 	X509     * server_cert;
-	int        d_timeout = 0;
+	int        d_timeout = myqtt_conn_get_connect_timeout (ctx);
 	axlError * err = NULL;
 
 	if (! myqtt_tls_init (ctx)) {
@@ -664,7 +664,7 @@ MyQttConn        * myqtt_tls_conn_new                   (MyQttCtx        * ctx,
 	transport = __myqtt_conn_detect_transport (ctx, host);
 
 	/* call to create the connection */
-	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, __myqtt_tls_session_setup, on_connected, transport, opts, user_data);
+	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, __myqtt_tls_session_setup, NULL, on_connected, transport, opts, user_data);
 }
 
 /** 
@@ -734,7 +734,7 @@ MyQttConn        * myqtt_tls_conn_new6                  (MyQttCtx       * ctx,
 							 axlPointer       user_data)
 {
 	/* call to create the connection */
-	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, __myqtt_tls_session_setup, on_connected, MYQTT_IPv6, opts, user_data);
+	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, __myqtt_tls_session_setup, NULL, on_connected, MYQTT_IPv6, opts, user_data);
 }
 
 
@@ -1137,7 +1137,7 @@ MyQttConn       * myqtt_tls_listener_new                (MyQttCtx             * 
 	transport = __myqtt_conn_detect_transport (ctx, host);
 
 	/* create listener */
-	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, opts, on_ready, transport, __myqtt_tls_accept_connection, NULL, user_data);
+	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, -1, opts, on_ready, transport, __myqtt_tls_accept_connection, NULL, user_data);
 }
 
 /** 
@@ -1185,7 +1185,7 @@ MyQttConn       * myqtt_tls_listener_new6               (MyQttCtx             * 
 							 axlPointer             user_data)
 {
 	/* create listener */
-	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, opts, on_ready, MYQTT_IPv6, __myqtt_tls_accept_connection, NULL, user_data);
+	return __myqtt_listener_new_common (ctx, host, __myqtt_listener_get_port (port), axl_true, -1, opts, on_ready, MYQTT_IPv6, __myqtt_tls_accept_connection, NULL, user_data);
 }
 
 /** 
