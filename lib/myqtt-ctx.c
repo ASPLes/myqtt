@@ -116,6 +116,9 @@ MyQttCtx * myqtt_ctx_new (void)
 	/* client ids */
 	myqtt_mutex_create (&ctx->client_ids_m);
 
+	/* set default connect timeout */
+	ctx->connection_connect_std_timeout = 15;
+
 	/* return context created */
 	return ctx;
 }

@@ -613,7 +613,7 @@ typedef enum {
 	/** 
 	 * @brief IPv6 transport.
 	 */
-	MYQTT_IPv6 = 2
+	MYQTT_IPv6 = 2,
 } MyQttNetTransport;
 
 /** 
