@@ -1204,6 +1204,9 @@ axl_bool      myqtt_conn_parse_greetings_and_enable (MyQttConn * connection,
 
 		return axl_true;
 	}
+
+	myqtt_log (MYQTT_LEVEL_CRITICAL, "received a null msg (null reply) from remote side when expected a greetings reply, closing session");
+
 	__myqtt_conn_shutdown_and_record_error (
 		connection, MyQttProtocolError,
 		"received a null msg (null reply) from remote side when expected a greetings reply, closing session");
@@ -1228,6 +1231,12 @@ axl_bool __myqtt_conn_do_greetings_exchange (MyQttCtx      * ctx,
 	}
 	
 	myqtt_log (MYQTT_LEVEL_DEBUG, "greetings sent, waiting for reply");
+
+	if (timeout == 0) {
+		/* make the connection to be blocking during the
+		 * greetings process (if it were not) */
+		myqtt_conn_set_blocking_socket (connection);
+	} /* end if */
 
 	/* while we did not finish */
 	while (axl_true) {
@@ -1289,10 +1298,6 @@ axl_bool __myqtt_conn_do_greetings_exchange (MyQttCtx      * ctx,
 		
 	} /* end while */
 
-	/* make the connection to be blocking during the
-	 * greetings process (if it were not) */
-	myqtt_conn_set_blocking_socket (connection);
-	
 	/* process msg response */
 	if (!myqtt_conn_parse_greetings_and_enable (connection, msg))
 		return axl_false;
@@ -3255,7 +3260,7 @@ int                 myqtt_conn_ref_count              (MyQttConn * connection)
  * value of 0, will reset the timeout to the default value.
  */
 void               myqtt_conn_timeout (MyQttCtx * ctx,
-					     long        microseconds_to_wait)
+				       long       microseconds_to_wait)
 {
 	/* get current context */
 	char      * value;
@@ -3294,8 +3299,8 @@ void               myqtt_conn_timeout (MyQttCtx * ctx,
  * connection.
  *
  * Value configured on this function, will be returned by \ref
- * myqtt_conn_get_connect_timeout. By default, if not
- * configured, no timeout is implemented.
+ * myqtt_conn_get_connect_timeout. By default, no timeout is
+ * configured.
  *
  * See also \ref myqtt_conn_timeout which implements the
  * general timeout used by myqtt engine for I/O operations.
@@ -3307,7 +3312,7 @@ void               myqtt_conn_timeout (MyQttCtx * ctx,
  * timeout to the default value.
  */
 void               myqtt_conn_connect_timeout (MyQttCtx * ctx,
-						     long        microseconds_to_wait)
+					       long        microseconds_to_wait)
 {
 	/* get current context */
 	char      * value;
@@ -3388,26 +3393,17 @@ long                myqtt_conn_get_timeout (MyQttCtx * ctx)
  */
 long              myqtt_conn_get_connect_timeout (MyQttCtx * ctx)
 {
-	char * value;
-
 	/* check context recevied */
 	if (ctx == NULL) {
 		/* get the the default connect */
-		return (15);
+		return (0);
 	} /* end if */
 		
 	/* check if we have used the current environment variable */
 	if (! ctx->connection_connect_timeout_checked) {
 		ctx->connection_connect_timeout_checked = axl_true;
-
 		/* get value from enviroment */
-		value = myqtt_support_getenv ("MYQTT_CONNECT_TIMEOUT");
-		if (value && strlen (value) > 0)
-			ctx->connection_connect_std_timeout  = myqtt_support_getenv_int ("MYQTT_CONNECT_TIMEOUT");
-		else {
-			/* environment value no defined, set defaults */
-			ctx->connection_connect_std_timeout  = 15;
-		}
+		ctx->connection_connect_std_timeout  = myqtt_support_getenv_int ("MYQTT_CONNECT_TIMEOUT");
 	} /* end if */
 
 	/* return current value */

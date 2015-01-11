@@ -110,12 +110,12 @@ int         myqtt_msg_receive_raw  (MyQttConn * connection, unsigned char  * buf
  __myqtt_msg_readn_keep_reading:
 	/* clear buffer */
 	/* memset (buffer, 0, maxlen * sizeof (char )); */
-	if ((nread = myqtt_conn_invoke_receive (connection, buffer, maxlen)) == MYQTT_SOCKET_ERROR) {
+	if ((nread = myqtt_conn_invoke_receive (connection, buffer, maxlen)) < 0) {
 		if (errno == MYQTT_EAGAIN) {
-			return 0;
+			return -2;
 		}
 		if (errno == MYQTT_EWOULDBLOCK) {
-			return 0;
+			return -2;
 		}
 		if (errno == MYQTT_EINTR)
 			goto __myqtt_msg_readn_keep_reading;
@@ -611,10 +611,10 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	} /* end if */
 	
 	/* parse msg header, read the first line */
-	myqtt_log (MYQTT_LEVEL_DEBUG, "CALLING TO: myqtt_msg_receive_raw");
+	myqtt_log (MYQTT_LEVEL_DEBUG, "CALLING TO: myqtt_msg_receive_raw, errno=%d", errno);
 	bytes_read = myqtt_msg_receive_raw (connection, header, 2);
-	myqtt_log (MYQTT_LEVEL_DEBUG, "FINISHED CALLING TO: myqtt_msg_receive_raw, bytes_read=%d", bytes_read);
-	if (bytes_read == -2 || errno == MYQTT_EAGAIN || errno == MYQTT_EWOULDBLOCK) {
+	myqtt_log (MYQTT_LEVEL_DEBUG, "FINISHED CALLING TO: myqtt_msg_receive_raw, bytes_read=%d, errno=%d", bytes_read, errno);
+	if (bytes_read == -2) {
 		/* count number of non-blocking operations on this
 		 * connection to avoid iterating for ever */
 		connection->no_data_opers++;
