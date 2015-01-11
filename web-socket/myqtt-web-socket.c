@@ -89,21 +89,14 @@ int __myqtt_web_socket_receive (MyQttConn     * conn,
 	/* call to acquire mutex, read and release */
 	myqtt_mutex_lock (mutex);
 	result = nopoll_conn_read (_conn, (char *) buffer, buffer_len, nopoll_false, 0);
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Called nopoll_conn_read, result was %d, errno=%d (is_ok %d)", result, errno, nopoll_conn_is_ok (_conn));
 	myqtt_mutex_unlock (mutex);
-
-	myqtt_log (MYQTT_LEVEL_DEBUG, "..1..");
 
 	if (result == -1) {
 
-		myqtt_log (MYQTT_LEVEL_DEBUG, "..2..");
-
 		/* check connection status to notify that no data was
 		 * available  */
-		if (nopoll_conn_is_ok (_conn)) {
-			myqtt_log (MYQTT_LEVEL_DEBUG, "Reporting connection no ready, result was %d, errno=%d (is_ok %d)", result, errno, nopoll_conn_is_ok (_conn));
+		if (nopoll_conn_is_ok (_conn)) 
 			return -2; 
-		}
 
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Found noPollConn-id=%d (%p) read error myqtt conn-id=%d (session: %d), errno=%d (shutting down)",
 			   nopoll_conn_get_id (_conn), _conn, myqtt_conn_get_id (conn), myqtt_conn_get_socket (conn), errno);
@@ -112,8 +105,6 @@ int __myqtt_web_socket_receive (MyQttConn     * conn,
 		nopoll_conn_set_socket (_conn, -1);
 		myqtt_conn_shutdown (conn);
 	} /* end if */
-
-	myqtt_log (MYQTT_LEVEL_DEBUG, "..3..");
 
 	return result;
 }
