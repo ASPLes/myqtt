@@ -260,7 +260,9 @@ axl_bool __myqtt_reader_check_client_id (MyQttCtx * ctx, MyQttConn * conn, MyQtt
 	} /* end if */
 
 	/* register client identifier */
-	axl_hash_insert (ctx->client_ids, conn->client_identifier, conn);
+	axl_hash_insert_full (ctx->client_ids, 
+			      axl_strdup (conn->client_identifier), axl_free,
+			      conn, NULL);
 
 	/* not found, everything ok */
 	myqtt_mutex_unlock (&ctx->client_ids_m);
@@ -2027,7 +2029,7 @@ void __myqtt_reader_remove_conn_refs (MyQttConn * conn)
 	
 	/* remove client id from global table */
 	myqtt_mutex_lock (&ctx->client_ids_m);
-	axl_hash_delete (ctx->client_ids, conn->client_identifier); 
+	axl_hash_remove (ctx->client_ids, conn->client_identifier); 
 	myqtt_mutex_unlock (&ctx->client_ids_m);
 
 	/* skip any operation if we are about to finish */
