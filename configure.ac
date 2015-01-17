@@ -205,6 +205,54 @@ AC_ARG_VAR(READLINE_PATH, [Readline base include path. This can be helpful to se
 This will be used to build a include path as READLINE_PATH/include and a READLINE_PATH/lib.
 ])
 
+AC_CHECK_HEADER(termios.h, [termios_found=yes], [termios_found=no])
+AM_CONDITIONAL(ENABLE_TERMIOS, test ".$termios_found" = ".yes")
+
+dnl define a m4 macro to check for perl regular expresion support
+AC_DEFUN([CHECK_LIB_PCRE],[dnl
+AC_MSG_CHECKING([lib pcre])
+AC_ARG_WITH(pcre,
+[  --with-pcre[[=prefix]] builds tuburlence with regular expression support (highly recomended)],,
+     with_pcre="yes")
+if test ".$with_pcre" = ".no" ; then
+  AC_MSG_RESULT([disabled])
+  m4_ifval($2,$2)
+else
+  AC_MSG_RESULT([(testing)])
+  AC_CHECK_LIB(pcre, pcre_study)
+  if test "$ac_cv_lib_pcre_pcre_study" = "yes" ; then
+     PCRE_LIBS="-lpcre"
+     AC_MSG_CHECKING([lib pcre])
+     AC_MSG_RESULT([$PCRE_LIBS])
+     m4_ifval($1,$1)
+  else
+     OLDLDFLAGS="$LDFLAGS" ; LDFLAGS="$LDFLAGS -L$with_pcre/lib"
+     OLDCPPFLAGS="$CPPFLAGS" ; CPPFLAGS="$CPPFLAGS -I$with_pcre/include"
+     AC_CHECK_LIB(pcre, pcre_compile)
+     CPPFLAGS="$OLDCPPFLAGS"
+     LDFLAGS="$OLDLDFLAGS"
+     if test "$ac_cv_lib_pcre_pcre_compile" = "yes" ; then
+        AC_MSG_RESULT(.setting PCRE_LIBS -L$with_pcre/lib -lpcre)
+        PCRE_LIBS="-L$with_pcre/lib -lpcre"
+        test -d "$with_pcre/include" && PCRE_CFLAGS="-I$with_pcre/include"
+        AC_MSG_CHECKING([lib pcre])
+        AC_MSG_RESULT([$PCRE_LIBS])
+        m4_ifval($1,$1)
+     else
+        AC_MSG_CHECKING([lib pcre])
+	AC_MSG_ERROR([Cannot build turbulence without PCRE. This is mandatory (libpcre3-dev)])
+        m4_ifval($2,$2)
+     fi
+  fi
+fi
+AC_SUBST([PCRE_LIBS])
+AC_SUBST([PCRE_CFLAGS])
+])
+
+dnl check for libpcre support
+CHECK_LIB_PCRE([pcre_found="yes"],[pcre_found="no"])
+AM_CONDITIONAL(ENABLE_PCRE_SUPPORT, test ".$pcre_found" = ".yes")
+
 dnl check for doxygen documentation
 AC_ARG_ENABLE(myqtt-doc, [  --enable-myqtt-doc       Enable building MyQtt documentation (doxygen required) [default=yes]], 
 	      enable_myqtt_doc="$enableval", 
@@ -233,7 +281,7 @@ if test x$enable_tls_support = xyes ; then
    dnl check header needed
    AC_CHECK_HEADER(openssl/ssl.h,,enable_tls_support=no)
    if test x$enable_tls_support = xno ; then
-      AC_MSG_WARN([Cannot OpenSSL installation, disabling it. This will disable TLS profile support. ]) 
+      AC_MSG_WARN([Cannot OpenSSL installation, disabling it. This will disable TLS support. ]) 
       enable_tls_support=no
    else
       dnl configure additional TLS flags
@@ -311,6 +359,7 @@ Makefile
 lib/Makefile
 tls/Makefile
 web-socket/Makefile
+server/Makefile
 test/Makefile
 myqtt-1.0.pc
 myqtt-tls-1.0.pc
@@ -348,12 +397,12 @@ else
    echo "     using --enable-myqtt-client option."
 fi
 if test x$enable_tls_support = xyes ; then
-   echo "   Build TLS profile support:                enabled"
+   echo "   Build TLS support:                enabled"
    echo "     (libmyqtt-tls-1.0)"
 else
-   echo "   Build TLS profile support:                disabled"
+   echo "   Build TLS support:                disabled"
    echo 
-   echo "     NOTE: To enable TLS profile support you have to"
+   echo "     NOTE: To enable TLS support you have to"
    echo "     install OpenSSL developement headers. "
    echo "     Once installed run again configure process "
    echo "     using --enable-tls-support option."
