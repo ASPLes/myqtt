@@ -263,7 +263,7 @@ axl_bool __myqttd_child_post_init_openlogs (MyQttdCtx  * ctx,
 	MYQTTD_CHILD_CONF_LOG (items[6], items[5], LOG_REPORT_ACCESS);
 
 	/* configure vortex_log */
-	MYQTTD_CHILD_CONF_LOG (items[8], items[7], LOG_REPORT_VORTEX);
+	MYQTTD_CHILD_CONF_LOG (items[8], items[7], LOG_REPORT_MYQTT);
 
 	return axl_true;
 }

@@ -41,25 +41,11 @@
 #define __MYQTTD_CONN_MGR_H__
 
 /* internal use API */
-void myqttd_conn_mgr_init          (MyQttdCtx    * ctx, 
-				    axl_bool       reinit);
-
-void myqttd_conn_mgr_register      (MyQttdCtx * ctx, 
-				    MyQttConn * conn);
-
-void myqttd_conn_mgr_unregister    (MyQttdCtx * ctx, 
-				    MyQttConn * conn);
+void myqttd_conn_mgr_init          (MyQttdCtx    * ctx);
 
 void myqttd_conn_mgr_cleanup       (MyQttdCtx * ctx);
 
 /* public API */
-axl_bool  myqttd_conn_mgr_broadcast_msg (MyQttdCtx            * ctx,
-					 const void           * message,
-					 int                    message_size,
-					 const char           * profile,
-					 MyQttdConnMgrFilter    filter_conn,
-					 axlPointer             filter_data);
-
 axlList *  myqttd_conn_mgr_conn_list   (MyQttdCtx            * ctx, 
 					MyQttPeerRole          role,
 					const char           * filter);

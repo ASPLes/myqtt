@@ -83,10 +83,6 @@ typedef enum {
 	 * @brief Module init handler 
 	 */
 	MYQTTD_INIT_HANDLER   = 3,
-	/** 
-	 * @brief Module profile path selected handler.
-	 */ 
-	MYQTTD_PPATH_SELECTED_HANDLER = 4
 } MyQttdModHandler;
 
 #endif

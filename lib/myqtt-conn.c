@@ -4453,6 +4453,19 @@ MyQttConn  * myqtt_conn_get_listener           (MyQttConn * connection)
 }
 
 /** 
+ * @brief Allows to get the server name that was used on this
+ * connection by indicating the host to connect to.
+ *
+ * @param conn The connection where the operation is taking place.
+ *
+ * @return A reference to the connection where the serverName is stored.
+ */
+const char        * myqtt_conn_get_server_name        (MyQttConn * conn)
+{
+	return NULL;
+}
+
+/** 
  * @brief Allows to get the context under which the connection was
  * created. 
  * 

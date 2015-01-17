@@ -41,6 +41,7 @@
 
 /* include private headers */
 #include <myqttd-ctx-private.h>
+#include <myqtt-conn-private.h>
 
 /* include signal handler: SIGCHLD */
 #include <signal.h>
@@ -67,17 +68,17 @@ extern axl_bool __myqttd_module_no_unmap;
  * @internal Macro used to block sigchild and lock the mutex
  * associated to child processes.
  */
-#define TBC_PROCESS_LOCK_CHILD() do {                  \
+#define MYQTTD_PROCESS_LOCK_CHILD() do {                  \
 	myqttd_signal_block (ctx, SIGCHLD);        \
-	vortex_mutex_lock (&ctx->child_process_mutex); \
+	myqtt_mutex_lock (&ctx->child_process_mutex); \
 } while (0)
 
 /** 
  * @internal Macro used to block sigchild and lock the mutex
  * associated to child processes.
  */
-#define TBC_PROCESS_UNLOCK_CHILD() do {                  \
-	vortex_mutex_unlock (&ctx->child_process_mutex); \
+#define MYQTTD_PROCESS_UNLOCK_CHILD() do {                  \
+	myqtt_mutex_unlock (&ctx->child_process_mutex); \
 	myqttd_signal_unblock (ctx, SIGCHLD);        \
 } while (0)
 
@@ -101,14 +102,14 @@ void myqttd_process_init         (MyQttdCtx * ctx, axl_bool reinit)
 		ctx->child_process = axl_hash_new (axl_hash_int, axl_hash_equal_int);
 
 	/* init mutex */
-	vortex_mutex_create (&ctx->child_process_mutex);
+	myqtt_mutex_create (&ctx->child_process_mutex);
 	return;
 }
 
 
 axlPointer __myqttd_process_finished (MyQttdCtx * ctx)
 {
-	VortexCtx        * vortex_ctx = ctx->vortex_ctx;
+	MyQttCtx        * myqtt_ctx = ctx->myqtt_ctx;
 	int                delay      = 300000; /* 300ms */
 	int                tries      = 30; 
 
@@ -116,20 +117,20 @@ axlPointer __myqttd_process_finished (MyQttdCtx * ctx)
 
 		/* check if the conn manager has connections watched
 		 * at this time */
-		vortex_mutex_lock (&ctx->conn_mgr_mutex);
+		myqtt_mutex_lock (&ctx->conn_mgr_mutex);
 		if (axl_hash_items (ctx->conn_mgr_hash) > 0) {
 			msg ("CHILD: cancelled child process termination because new connections are now handled, tries=%d, delay=%d, reader connections=%d, tbc conn mgr=%d",
 			      tries, delay, 
-			      vortex_reader_connections_watched (vortex_ctx), 
+			      myqtt_reader_connections_watched (myqtt_ctx), 
 			      axl_hash_items (ctx->conn_mgr_hash));
-			vortex_mutex_unlock (&ctx->conn_mgr_mutex);
+			myqtt_mutex_unlock (&ctx->conn_mgr_mutex);
 			return NULL;
 		} /* end if */
-		vortex_mutex_unlock (&ctx->conn_mgr_mutex);
+		myqtt_mutex_unlock (&ctx->conn_mgr_mutex);
 		
 		/* finish current thread if myqttd is existing */
 		if (ctx->is_exiting) {
-			msg ("CHILD: Found myqttd existing, finishing child process termination thread signaled due to vortex reader stop");
+			msg ("CHILD: Found myqttd existing, finishing child process termination thread signaled due to myqtt reader stop");
 			return NULL;
 		}
 
@@ -137,7 +138,7 @@ axlPointer __myqttd_process_finished (MyQttdCtx * ctx)
 			/* reduce tries, wait */
 			msg ("CHILD: delay child process termination to ensure the parent has no pending connections, tries=%d, delay=%d, reader connections=%d, tbc conn mgr=%d, is-existing=%d",
 			     tries, delay,
-			     vortex_reader_connections_watched (vortex_ctx), 
+			     myqtt_reader_connections_watched (myqtt_ctx), 
 			     axl_hash_items (ctx->conn_mgr_hash),
 			     ctx->is_exiting);
 		} /* end if */
@@ -147,17 +148,17 @@ axlPointer __myqttd_process_finished (MyQttdCtx * ctx)
 	}
 
 	/* unlock waiting child */
-	msg ("CHILD: calling to unlock due to vortex reader stoped (no more connections to be watched): %p (vortex refs: %d)..",
-	     ctx, vortex_ctx_ref_count (ctx->vortex_ctx));
+	msg ("CHILD: calling to unlock due to myqtt reader stoped (no more connections to be watched): %p (myqtt refs: %d)..",
+	     ctx, myqtt_ctx_ref_count (ctx->myqtt_ctx));
 	/* unlock the current listener */
-	vortex_listener_unlock (TBC_VORTEX_CTX (ctx));
+	myqtt_listener_unlock (MYQTTD_MYQTT_CTX (ctx));
 	return NULL;
 }
 
 
 void myqttd_process_check_for_finish (MyQttdCtx * ctx)
 {
-	VortexThread                thread;
+	MyQttThread                thread;
 
 	/* do not implement any notification if the myqttd process
 	   is itself finishing */
@@ -168,28 +169,28 @@ void myqttd_process_check_for_finish (MyQttdCtx * ctx)
 
 	/* check if the child process was configured with a reuse
 	   flag, if not, notify exist right now */
-	if (! ctx->child->ppath->reuse) {
-	        msg ("CHILD: unlocking listener to finish: %p..", ctx->vortex_ctx);
+	/* if (! ctx->child->ppath->reuse) { */
+	/*	        msg ("CHILD: unlocking listener to finish: %p..", ctx->myqtt_ctx); */
 		/* so it is a child process without reuse flag
 		   activated, exit now */
-		vortex_listener_unlock (TBC_VORTEX_CTX (ctx));
-		return;
-	}
+	/*		myqtt_listener_unlock (MYQTTD_MYQTT_CTX (ctx)); */
+	/* return; */
+	/* } */
 
 	/* reached this point, the child process has reuse = yes which
 	   means we have to ensure we don't miss any connection which
 	   is already accepted on the parent but still not reached the
-	   child: the following creates a thread to unlock the vortex
+	   child: the following creates a thread to unlock the myqtt
 	   reader, so he can listen for new registration while we do
 	   the wait code for new connections... */
 
 	/* create data to be notified */
 	msg ("CHILD: initiated child termination (checking for rogue connections..");
-	if (! vortex_thread_create (&thread,
-				    (VortexThreadFunc) __myqttd_process_finished,
-				    ctx, VORTEX_THREAD_CONF_DETACHED, VORTEX_THREAD_CONF_END)) {
+	if (! myqtt_thread_create (&thread,
+				    (MyQttThreadFunc) __myqttd_process_finished,
+				    ctx, MYQTT_THREAD_CONF_DETACHED, MYQTT_THREAD_CONF_END)) {
 		error ("Failed to create thread to watch reader state and notify process termination (code %d) %s",
-		       errno, vortex_errno_get_last_error ());
+		       errno, myqtt_errno_get_last_error ());
 	}
 	return;
 }
@@ -212,7 +213,7 @@ int __myqttd_process_local_unix_fd (const char *path, axl_bool is_parent, MyQttd
 	_socket = socket (AF_UNIX, SOCK_STREAM, 0);
 	if (_socket == -1) {
 	        error ("%s: Failed to create local socket to hold connection, reached limit?, errno: %d, %s", 
-		       is_parent ? "PARENT" : "CHILD", errno, vortex_errno_get_error (errno));
+		       is_parent ? "PARENT" : "CHILD", errno, myqtt_errno_get_error (errno));
 	        return -1;
 	}
 
@@ -225,7 +226,7 @@ int __myqttd_process_local_unix_fd (const char *path, axl_bool is_parent, MyQttd
 					myqttd_sleep (ctx, delay);
 				} else {
 					error ("%s: Unexpected error found while creating child control connection: (errno: %d) %s", 
-					       is_parent ? "PARENT" : "CHILD", errno, vortex_errno_get_last_error ());
+					       is_parent ? "PARENT" : "CHILD", errno, myqtt_errno_get_last_error ());
 					break;
 				} /* end if */
 			} else {
@@ -251,7 +252,7 @@ int __myqttd_process_local_unix_fd (const char *path, axl_bool is_parent, MyQttd
 
 	/* check path */
 	if (strlen (path) >= sizeof (socket_name.sun_path)) {
-	        vortex_close_socket (_socket);
+	        myqtt_close_socket (_socket);
 	        error ("%s: Failed to create local socket to hold connection, path is bigger that limit (%d >= %d), path: %s", 
 		       is_parent ? "PARENT" : "CHILD", (int) strlen (path), (int) sizeof (socket_name.sun_path), path);
 		return -1;
@@ -259,25 +260,25 @@ int __myqttd_process_local_unix_fd (const char *path, axl_bool is_parent, MyQttd
 	umask (0077);
 	if (bind (_socket, (struct sockaddr *) &socket_name, sizeof(socket_name))) {
 	        error ("%s: Failed to create local socket to hold conection, bind function failed with error: %d, %s", 
-		       is_parent ? "PARENT" : "CHILD", errno, vortex_errno_get_last_error ());
-		vortex_close_socket (_socket);
+		       is_parent ? "PARENT" : "CHILD", errno, myqtt_errno_get_last_error ());
+		myqtt_close_socket (_socket);
 		return -1;
 	} /* end if */
 
 	/* listen */
 	if (listen (_socket, 1) < 0) {
-	        vortex_close_socket (_socket);
+	        myqtt_close_socket (_socket);
 		error ("%s: Failed to listen on socket created, error was (code: %d) %s", 
-		       is_parent ? "PARENT" : "CHILD", errno, vortex_errno_get_last_error ());
+		       is_parent ? "PARENT" : "CHILD", errno, myqtt_errno_get_last_error ());
 		return -1;
 	}
 
 	/* now call to accept connection from parent */
-	_aux_socket = vortex_listener_accept (_socket);
+	_aux_socket = myqtt_listener_accept (_socket);
 	if (_aux_socket < 0) 
 	         error ("%s: Failed to create local socket to hold conection, listener function failed with error: %d, %s (socket value is %d)", 
-			is_parent ? "PARENT" : "CHILD", errno, vortex_errno_get_last_error (), _aux_socket);
-	vortex_close_socket (_socket);
+			is_parent ? "PARENT" : "CHILD", errno, myqtt_errno_get_last_error (), _aux_socket);
+	myqtt_close_socket (_socket);
 
 	/* unix semantic applies, now remove the file socket because
 	 * now having opened a socket, the reference will be removed
@@ -308,7 +309,7 @@ axl_bool __myqttd_process_create_child_connection (MyQttdChild * child)
 	myqttd_sleep (ctx, 1000);
 	while (iterator < 25) {
 		/* check if the file exists ... */
-		if (vortex_support_file_test (child->socket_control_path, FILE_EXISTS)) {
+		if (myqtt_support_file_test (child->socket_control_path, FILE_EXISTS)) {
 			/* create child connection */
 			child->child_connection = __myqttd_process_local_unix_fd (child->socket_control_path, axl_true, ctx);
 			/* check child creation status */
@@ -318,7 +319,7 @@ axl_bool __myqttd_process_create_child_connection (MyQttdChild * child)
 			
 		/* check if the file exists before returning error returned
 		   by previous function */
-		if (! vortex_support_file_test (child->socket_control_path, FILE_EXISTS)) 
+		if (! myqtt_support_file_test (child->socket_control_path, FILE_EXISTS)) 
 			wrn ("PARENT: child still not ready, socket control path isn't found: %s", child->socket_control_path);
 
 		/* next position but wait a bit */
@@ -361,7 +362,7 @@ axl_bool __myqttd_process_create_parent_connection (MyQttdChild * child)
  *
  * @return If the socket was sent.
  */
-axl_bool myqttd_process_send_socket (VORTEX_SOCKET     socket, 
+axl_bool myqttd_process_send_socket (MYQTT_SOCKET     socket, 
 					 MyQttdChild * child, 
 					 const char      * ancillary_data, 
 					 int               size)
@@ -409,9 +410,9 @@ axl_bool myqttd_process_send_socket (VORTEX_SOCKET     socket,
 		msg ("PARENT: Socket %d sent to child via %d (ancillary data: %s), closing (status: %d)..", 
 		     socket, child->child_connection, ancillary_data, rv);
 		/* close the socket  */
-		vortex_close_socket (socket); 
+		myqtt_close_socket (socket); 
 	} else {
-		error ("PARENT: Failed to send socket, error code %d, textual was: %s", rv, vortex_errno_get_error (errno));
+		error ("PARENT: Failed to send socket, error code %d, textual was: %s", rv, myqtt_errno_get_error (errno));
 	}
 	
 	return rv;
@@ -428,7 +429,7 @@ axl_bool myqttd_process_send_socket (VORTEX_SOCKET     socket,
  * @return The function returns axl_false in the case of failure,
  * otherwise axl_true is returned.
  */
-axl_bool myqttd_process_receive_socket (VORTEX_SOCKET    * _socket, 
+axl_bool myqttd_process_receive_socket (MYQTT_SOCKET    * _socket, 
 					    MyQttdChild  * child, 
 					    char            ** ancillary_data, 
 					    int              * size)
@@ -442,7 +443,7 @@ axl_bool myqttd_process_receive_socket (VORTEX_SOCKET    * _socket,
 	MyQttdCtx  * ctx;
 
 	/* variables for error reporting */
-	VORTEX_SOCKET    temp;
+	MYQTT_SOCKET    temp;
 	int              soft_limit, hard_limit;
 
 	int            * int_ptr;
@@ -466,7 +467,7 @@ axl_bool myqttd_process_receive_socket (VORTEX_SOCKET    * _socket,
 	status = recvmsg (child->child_connection, &msg, 0);
 	if (status == -1) {
 		error ("Failed to receive socket, recvmsg failed, error was: (code %d) %s",
-		       errno, vortex_errno_get_last_error ());
+		       errno, myqtt_errno_get_last_error ());
 		(*_socket) = -1;
 		return axl_false;
 	} /* end if */
@@ -475,16 +476,16 @@ axl_bool myqttd_process_receive_socket (VORTEX_SOCKET    * _socket,
 	if (cmsg == NULL) {
 		/* check first if we have support to create more sockets */
 		temp = socket (AF_INET, SOCK_STREAM, 0);
-		if (temp == VORTEX_INVALID_SOCKET) {
+		if (temp == MYQTT_INVALID_SOCKET) {
 			/* we have received our socket limit */
-			vortex_conf_get (TBC_VORTEX_CTX(ctx), VORTEX_SOFT_SOCK_LIMIT, &soft_limit);
-			vortex_conf_get (TBC_VORTEX_CTX(ctx), VORTEX_HARD_SOCK_LIMIT, &hard_limit);
+			myqtt_conf_get (MYQTTD_MYQTT_CTX(ctx), MYQTT_SOFT_SOCK_LIMIT, &soft_limit);
+			myqtt_conf_get (MYQTTD_MYQTT_CTX(ctx), MYQTT_HARD_SOCK_LIMIT, &hard_limit);
 		
 			error ("Unable to receive socket from parent, droping socket connection, reached process limit: soft-limit=%d, hard-limit=%d\n",
 			       soft_limit, hard_limit);
 		} else {
 			error ("Received empty control message from parent (status: %d), unable to receive socket (code %d): %s",
-			       status, errno, vortex_errno_get_last_error ());
+			       status, errno, myqtt_errno_get_last_error ());
 			error ("Reached socket process limit?");
 		} /* end if */
 
@@ -524,35 +525,20 @@ axl_bool myqttd_process_receive_socket (VORTEX_SOCKET    * _socket,
  * status of the BEEP session so the receiving process can reconstruct
  * the connection.
  */
-char * myqttd_process_connection_status_string (axl_bool          handle_start_reply,
-						    int               channel_num,
-						    const char      * profile,
-						    const char      * profile_content,
-						    VortexEncoding    encoding,
-						    const char      * serverName,
-						    int               msg_no,
-						    int               seq_no,
-						    int               seq_no_expected,
-						    int               ppath_id,
-						    int               has_tls,
-						    int               fix_server_name,
-						    const char      * remote_host,
-						    const char      * remote_port,
-						    const char      * remote_host_ip,
-						    /* the following must be the last parameter */
-						    int               skip_conn_recover)
+char * myqttd_process_connection_status_string (axl_bool          handle_reply,
+						const char      * serverName,
+						int               has_tls,
+						int               fix_server_name,
+						const char      * remote_host,
+						const char      * remote_port,
+						const char      * remote_host_ip,
+						/* the following must be the last parameter */
+						int               skip_conn_recover)
 {
 	return axl_strdup_printf ("n%d;-;%d;-;%s;-;%s;-;%d;-;%s;-;%d;-;%d;-;%d;-;%d;-;%d;-;%d;-;%s;-;%s;-;%s;-;%d",
-				  handle_start_reply,
-				  channel_num,
-				  profile ? profile : "",
-				  profile_content ? profile_content : "",
-				  encoding,
+				  handle_reply,
 				  serverName ? serverName : "",
-				  ppath_id,
-				  msg_no,
-				  seq_no,
-				  seq_no_expected, has_tls, 
+				  has_tls, 
 				  /* indicate the child that the serverName we are passing is the
 				   * serverName that must be setup and do not accept any change about
 				   * this serverName */
@@ -568,63 +554,49 @@ char * myqttd_process_connection_status_string (axl_bool          handle_start_r
 }
 
 void myqttd_process_send_connection_to_child (MyQttdCtx    * ctx, 
-						  MyQttdChild  * child, 
-						  VortexConnection * conn, 
-						  axl_bool           handle_start_reply, 
-						  int                channel_num,
-						  const char       * profile, 
-						  const char       * profile_content,
-						  VortexEncoding     encoding, 
-						  const char       * serverName, 
-						  VortexFrame      * frame)
+					      MyQttdChild  * child, 
+					      MyQttConn    * conn, 
+					      axl_bool       handle_reply, 
+					      const char   * serverName, 
+					      MyQttMsg     * msg)
 {
-	VORTEX_SOCKET        client_socket;
-	VortexChannel      * channel0    = vortex_connection_get_channel (conn, 0);
-	MyQttdPPathDef * ppath       = myqttd_ppath_selected (conn);
-	char               * conn_status;
+	MYQTT_SOCKET        client_socket;
+	char              * conn_status;
 
 	/* build connection status string */
-	conn_status = myqttd_process_connection_status_string (handle_start_reply, 
-								   channel_num,
-								   profile,
-								   profile_content,
-								   encoding,
-								   serverName,
-								   vortex_frame_get_msgno (frame),
-								   vortex_channel_get_next_seq_no (channel0),
-								   vortex_channel_get_next_expected_seq_no (channel0),
-								   myqttd_ppath_get_id (ppath),
-								   vortex_connection_is_tlsficated (conn),
-								   /* notify if we have to fix the serverName */
-								   axl_cmp (serverName, vortex_connection_get_server_name (conn)),
-								   /* get host, port and host ip */
-								   vortex_connection_get_host (conn), vortex_connection_get_port (conn), 
-								   vortex_connection_get_host_ip (conn),
-								   /* if proxied, skip recover on child */
-								   myqttd_conn_mgr_proxy_on_parent (conn));
+	conn_status = myqttd_process_connection_status_string (handle_reply, 
+							       serverName,
+							       conn->tls_on,
+							       /* notify if we have to fix the serverName */
+							       axl_cmp (serverName, myqtt_conn_get_server_name (conn)),
+							       /* get host, port and host ip */
+							       myqtt_conn_get_host (conn), myqtt_conn_get_port (conn), 
+							       myqtt_conn_get_host_ip (conn),
+							       /* if proxied, skip recover on child */
+							       myqttd_conn_mgr_proxy_on_parent (conn));
 	
 	msg ("Sending connection to child already created, ancillary data ('%s') size: %d", conn_status, (int) strlen (conn_status));
 
 	/* socket that is know handled by the child process */
-	client_socket = vortex_connection_get_socket (conn);
-	vortex_connection_set_close_socket (conn, axl_false);
+	client_socket = myqtt_conn_get_socket (conn);
+	myqtt_conn_set_close_socket (conn, axl_false);
 
 	/* unwatch the connection from the parent to avoid receiving
 	   more content which now handled by the child and unregister
 	   from connection manager */
-	vortex_reader_unwatch_connection (CONN_CTX (conn), conn);
+	myqtt_reader_unwatch_connection (CONN_CTX (conn), conn);
 
 	/* send the socket descriptor to the child to avoid holding a
 	   bucket in the parent */
 	if (! myqttd_process_send_socket (client_socket, child, conn_status, strlen (conn_status))) {
 		error ("PARENT: Something failed while sending socket (%d) to child pid %d already created, error (code %d): %s",
-		       client_socket, child->pid, errno, vortex_errno_get_last_error ());
+		       client_socket, child->pid, errno, myqtt_errno_get_last_error ());
 
 		/* release ancillary data */
 		axl_free (conn_status);
 
 		/* close connection */
-		vortex_connection_shutdown (conn);
+		myqtt_conn_shutdown (conn);
 		return;
 	}
 
@@ -632,46 +604,32 @@ void myqttd_process_send_connection_to_child (MyQttdCtx    * ctx,
 	axl_free (conn_status);
 	
 	/* terminate the connection */
-	vortex_connection_shutdown (conn);
+	myqtt_conn_shutdown (conn);
 
 	return;
 }
 
-axl_bool myqttd_process_send_proxy_connection_to_child (MyQttdCtx    * ctx, 
-							    MyQttdChild  * child, 
-							    VortexConnection * conn, 
-							    VORTEX_SOCKET      client_socket,
-							    axl_bool           handle_start_reply, 
-							    int                channel_num,
-							    const char       * profile, 
-							    const char       * profile_content,
-							    VortexEncoding     encoding, 
-							    const char       * serverName, 
-							    VortexFrame      * frame)
+axl_bool myqttd_process_send_proxy_connection_to_child (MyQttdCtx        * ctx, 
+							MyQttdChild      * child, 
+							MyQttConn        * conn, 
+							MYQTT_SOCKET       client_socket,
+							axl_bool           handle_reply, 
+							const char       * serverName, 
+							MyQttMsg         * msg)
 {
-	VortexChannel      * channel0    = vortex_connection_get_channel (conn, 0);
-	MyQttdPPathDef * ppath       = myqttd_ppath_selected (conn);
-	char               * conn_status;
+	char    * conn_status;
 
 	/* build connection status string */
-	conn_status = myqttd_process_connection_status_string (handle_start_reply, 
-								   channel_num,
-								   profile,
-								   profile_content,
-								   encoding,
-								   serverName,
-								   vortex_frame_get_msgno (frame),
-								   vortex_channel_get_next_seq_no (channel0),
-								   vortex_channel_get_next_expected_seq_no (channel0),
-								   myqttd_ppath_get_id (ppath),
-								   vortex_connection_is_tlsficated (conn),
-								   /* notify if we have to fix the serverName */
-								   axl_cmp (serverName, vortex_connection_get_server_name (conn)),
-								   /* host and port */
-								   vortex_connection_get_host (conn), vortex_connection_get_port (conn),
-								   vortex_connection_get_host_ip (conn),
-								   /* if proxied, skip recover on child */
-								   myqttd_conn_mgr_proxy_on_parent (conn));
+	conn_status = myqttd_process_connection_status_string (handle_reply, 
+							       serverName,
+							       conn->tls_on,
+							       /* notify if we have to fix the serverName */
+							       axl_cmp (serverName, myqtt_conn_get_server_name (conn)),
+							       /* host and port */
+							       myqtt_conn_get_host (conn), myqtt_conn_get_port (conn),
+							       myqtt_conn_get_host_ip (conn),
+							       /* if proxied, skip recover on child */
+							       myqttd_conn_mgr_proxy_on_parent (conn));
 	
 	msg ("PARENT: (PROXY) Sending connection to child already created, ancillary data ('%s') size: %d", conn_status, (int) strlen (conn_status));
 
@@ -679,14 +637,14 @@ axl_bool myqttd_process_send_proxy_connection_to_child (MyQttdCtx    * ctx,
 	   bucket in the parent */
 	if (! myqttd_process_send_socket (client_socket, child, conn_status, strlen (conn_status))) {
 		error ("PARENT: Something failed while sending socket (%d) to child pid %d already created, error (code %d): %s",
-		       client_socket, child->pid, errno, vortex_errno_get_last_error ());
+		       client_socket, child->pid, errno, myqtt_errno_get_last_error ());
 
 		/* release ancillary data */
 		axl_free (conn_status);
 
 		/* close connection */
-		vortex_connection_shutdown (conn);
-		vortex_close_socket (client_socket);
+		myqtt_conn_shutdown (conn);
+		myqtt_close_socket (client_socket);
 		return axl_false;
 	}
 
@@ -702,96 +660,52 @@ axl_bool myqttd_process_send_proxy_connection_to_child (MyQttdCtx    * ctx,
  * connection that is accepted into a child process.
  */
 axl_bool __myqttd_process_common_new_connection (MyQttdCtx      * ctx,
-						     VortexConnection   * conn,
-						     MyQttdPPathDef * def,
-						     axl_bool             handle_start_reply,
-						     int                  channel_num,
-						     const char         * profile,
-						     const char         * profile_content,
-						     VortexEncoding       encoding,
-						     const char         * serverName,
-						     VortexFrame        * frame)
+						 MyQttConn      * conn,
+						 axl_bool         handle_reply,
+						 const char     * serverName,
+						 MyQttMsg       * msg)
 {
-	VortexChannel * channel0;
 	axl_bool        result = axl_true;
 
 	/* avoid handling any connection if myqttd is finishing */
 	if (ctx->is_exiting) {
-		error ("CHILD: Dropping connection=%d, myqttd is exiting..", vortex_connection_get_id (conn));
-		vortex_connection_shutdown (conn);
-		vortex_connection_close (conn);
+		error ("CHILD: Dropping connection=%d, myqttd is exiting..", myqtt_conn_get_id (conn));
+		myqtt_conn_shutdown (conn);
+		myqtt_conn_close (conn);
 		return axl_false;
 	}
 
-	/* now notify profile path selected after dropping
-	   priviledges */
-	if (! myqttd_module_notify (ctx, TBC_PPATH_SELECTED_HANDLER, def, conn, NULL)) {
-		/* close the connection */
-		TBC_FAST_CLOSE (conn);
-
-		return axl_false;
-	}
-
-	if (! vortex_connection_is_ok (conn, axl_false)) {
-		error ("CHILD: Connection id=%d is not working after notifying ppath selected handler..", vortex_connection_get_id (conn));
-		vortex_connection_close (conn);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		error ("CHILD: Connection id=%d is not working after notifying ppath selected handler..", myqtt_conn_get_id (conn));
+		myqtt_conn_close (conn);
 		return axl_false;
 	}
 
 	/* check if the connection was received during on connect
-	   phase (vortex_listener_set_on_accept_handler) or because a
+	   phase (myqtt_listener_set_on_accept_handler) or because a
 	   channel start */
-	if (! handle_start_reply) {
+	if (! handle_reply) {
 		/* set the connection to still finish BEEP greetings
 		   negotiation phase */
-		vortex_connection_set_initial_accept (conn, axl_true);
+		myqtt_conn_set_initial_accept (conn, axl_true);
 	}
 
 	/* now finish and register the connection */
-	vortex_connection_set_close_socket (conn, axl_true);
-	vortex_reader_watch_connection (TBC_VORTEX_CTX (ctx), conn);
+	myqtt_conn_set_close_socket (conn, axl_true);
+	myqtt_reader_watch_connection (MYQTTD_MYQTT_CTX (ctx), conn);
 
 	/* because the conn manager module has been initialized again,
 	   register the connection handling by this process */
-	myqttd_conn_mgr_register (ctx, conn);
+	/* myqttd_conn_mgr_register (ctx, conn); */
 
 	/* check to handle start reply message */
-	msg ("CHILD: Checking to handle start channel=%s serverName=%s reply=%d at child=%d", profile, serverName ? serverName : "", handle_start_reply, getpid ());
-	if (handle_start_reply) {
-		/* handle start channel reply */
-		if (! vortex_channel_0_handle_start_msg_reply (TBC_VORTEX_CTX (ctx), conn, channel_num,
-							       profile, profile_content,
-							       encoding, serverName, frame)) {
-			error ("Channel start not (profile=%s) accepted on child=%d process, closing conn id=%d..sending error reply",
-			       profile,
-			       vortex_getpid (), vortex_connection_get_id (conn));
-
-			/* wait here so the error message reaches the
-			 * remote BEEP peer */
-			channel0 = vortex_connection_get_channel (conn, 0);
-			if (channel0 != NULL) 
-				vortex_channel_block_until_replies_are_sent (channel0, 1000);
-
-			/* because this connection is being handled at
-			 * the child and the child did not accepted
-			 * it, shutdown to force its removal */
-			if (myqttd_config_is_attr_positive (
-				    ctx, 
-				    TBC_CONFIG_PATH ("/myqttd/global-settings/close-conn-on-start-failure"), "value")) {
-				/* close connection */
-				error ("   shutting down connection id=%d (refs: %d) because it was not accepted on child process due to start handle negative reply", 
-				       vortex_connection_get_id (conn), vortex_connection_ref_count (conn));
-				myqttd_conn_mgr_unregister (ctx, conn);
-				vortex_connection_shutdown (conn); 
-				result = axl_false; 
-			}
-		} else {
-			msg ("Channel start accepted on child profile=%s, serverName=%s accepted on child", profile, serverName ? serverName : "");
-		}
+	msg ("CHILD: Checking to handle start serverName=%s reply=%d at child=%d", serverName ? serverName : "", handle_reply, getpid ());
+	if (handle_reply) {
+		
 	} /* end if */
 
 	/* unref connection since it is registered */
-	vortex_connection_unref (conn, "myqttd process, conn registered");
+	myqtt_conn_unref (conn, "myqttd process, conn registered");
 
 	return result;
 }
@@ -824,52 +738,20 @@ int __get_next_field (char * conn_status, int _iterator)
  * connection state from the provided string.
  */
 void     myqttd_process_connection_recover_status (char            * conn_status,
-						       axl_bool        * handle_start_reply,
-						       int             * channel_num,
-						       const char     ** profile,
-						       const char     ** profile_content,
-						       VortexEncoding  * encoding,
-						       const char     ** serverName,
-						       int             * msg_no,
-						       int             * seq_no,
-						       int             * seq_no_expected,
-						       int             * ppath_id,
-						       int             * fix_server_name,
-						       const char     ** remote_host,
-						       const char     ** remote_port,
-						       const char     ** remote_host_ip,
-						       int             * has_tls)
+						   axl_bool        * handle_reply,
+						   const char     ** serverName,
+						   int             * fix_server_name,
+						   const char     ** remote_host,
+						   const char     ** remote_port,
+						   const char     ** remote_host_ip,
+						   int             * has_tls)
 {
 	int iterator = 0;
 	int next;
 
 	/* parse ancillary data */
 	conn_status[1]  = 0;
-	(*handle_start_reply) = atoi (conn_status);
-
-	/* get next position */
-	iterator           = 4;
-	next               = __get_next_field (conn_status, 4);
-	(*channel_num) = atoi (conn_status + iterator); 
-
-	/* get next position */
-	iterator           = next;
-	next               = __get_next_field (conn_status, iterator);
-	(*profile)         = conn_status + iterator;
-	if (strlen (*profile) == 0)
-		*profile = 0;
-
-	/* get next position */
-	iterator           = next;
-	next               = __get_next_field (conn_status, iterator);
-	(*profile_content) = conn_status + iterator;
-	if (strlen (*profile_content) == 0)
-		*profile_content = 0;
-
-	/* get next position */
-	iterator           = next;
-	next               = __get_next_field (conn_status, iterator);
-	(*encoding)        = atoi (conn_status + iterator);
+	(*handle_reply) = atoi (conn_status);
 
 	/* get next position */
 	iterator           = next;
@@ -877,26 +759,6 @@ void     myqttd_process_connection_recover_status (char            * conn_status
 	(*serverName)      = conn_status + iterator;	
 	if (strlen (*serverName) == 0)
 		*serverName = 0;
-
-	/* get next position */
-	iterator           = next;
-	next               = __get_next_field (conn_status, iterator);
-	(*ppath_id) = atoi (conn_status + iterator);
-
-	/* get next position */
-	iterator           = next;
-	next               = __get_next_field (conn_status, iterator);
-	(*msg_no) = atoi (conn_status + iterator);
-
-	/* get next position */
-	iterator           = next;
-	next               = __get_next_field (conn_status, iterator);
-	(*seq_no) = atoi (conn_status + iterator);
-
-	/* get next position */
-	iterator           = next;
-	next               = __get_next_field (conn_status, iterator);
-	(*seq_no_expected) = atoi (conn_status + iterator);
 
 	/* get next position */
 	iterator           = next;
@@ -932,25 +794,15 @@ void     myqttd_process_connection_recover_status (char            * conn_status
 	return;
 }
 
-VortexConnection * __myqttd_process_handle_connection_received (MyQttdCtx      * ctx, 
-								    MyQttdPPathDef * ppath,
-								    VORTEX_SOCKET        _socket, 
-								    char               * conn_status)
+MyQttConn * __myqttd_process_handle_connection_received (MyQttdCtx      * ctx, 
+							 MYQTT_SOCKET     _socket, 
+							 char           * conn_status)
 {
-	axl_bool           handle_start_reply = axl_false;
-	int                channel_num        = -1;
-	const char       * profile            = NULL;
-	const char       * profile_content    = NULL;
+	axl_bool           handle_reply       = axl_false;
 	const char       * serverName         = NULL;
-	VortexEncoding     encoding           = EncodingNone;
-	VortexConnection * conn               = NULL;
-	int                msg_no             = -1;
-	int                seq_no             = -1;
-	int                seq_no_expected    = -1;
-	int                ppath_id           = -1;
+	MyQttConn        * conn               = NULL;
 	int                has_tls            = 0;
-	VortexFrame      * frame              = NULL;
-	VortexChannel    * channel0;
+	MyQttMsg         * msg                = NULL;
 	int                fix_server_name    = 0;
 	const char       * remote_host        = NULL;
 	const char       * remote_port        = NULL;
@@ -960,7 +812,7 @@ VortexConnection * __myqttd_process_handle_connection_received (MyQttdCtx      *
 	if (conn_status == NULL || strlen (conn_status) == 0) {
 		error ("CHILD: internal server error, received conn_status string NULL or empty, socket=%d (ppath: %s), unable to initialize connection on child",
 		       _socket, myqttd_ppath_get_name (ppath));
-		vortex_close_socket (_socket);
+		myqtt_close_socket (_socket);
 		return NULL;
 	} /* end if */
 
@@ -995,9 +847,9 @@ VortexConnection * __myqttd_process_handle_connection_received (MyQttdCtx      *
 	     remote_port ? remote_port : "",
 	     remote_host_ip ? remote_host_ip : "");
 
-	/* create a connection and register it on local vortex
+	/* create a connection and register it on local myqtt
 	   reader */
-	conn = vortex_connection_new_empty (TBC_VORTEX_CTX (ctx), _socket, VortexRoleListener);
+	conn = myqtt_conn_new_empty (MYQTTD_MYQTT_CTX (ctx), _socket, MyQttRoleListener);
 	if (conn == NULL) {
 		error ("CHILD: internal server error, unable to create connection object at child (socket=%d, role=listener)", _socket);
 		return NULL;
@@ -1006,18 +858,18 @@ VortexConnection * __myqttd_process_handle_connection_received (MyQttdCtx      *
 	/* setup host and port manually */
 	if (remote_host && remote_port) {
 		/* call to setup host and port */
-		vortex_connection_set_host_and_port (conn, remote_host, remote_port, remote_host_ip);
+		myqtt_conn_set_host_and_port (conn, remote_host, remote_port, remote_host_ip);
 	}
 
 	/* notify about the connection received and setup serverName
 	 * if required by the parent server */
 	msg ("CHILD: New connection id=%d (%s:%s) accepted on child pid=%d", 
-	     vortex_connection_get_id (conn), vortex_connection_get_host (conn), vortex_connection_get_port (conn), getpid ());
+	     myqtt_conn_get_id (conn), myqtt_conn_get_host (conn), myqtt_conn_get_port (conn), getpid ());
 	if (fix_server_name && serverName) {
 		msg ("CHILD: setting connection-id=%d serverName=%s as indicated by parent process", 
-		     vortex_connection_get_id (conn), serverName);
+		     myqtt_conn_get_id (conn), serverName);
 		/* setup server name */
-		vortex_connection_set_server_name (conn, serverName);
+		myqtt_conn_set_server_name (conn, serverName);
 	} /* end if */
 
 	/* set profile path state */
@@ -1025,32 +877,32 @@ VortexConnection * __myqttd_process_handle_connection_received (MyQttdCtx      *
 
 	/* set TLS status */
 	if (has_tls > 0) {
-		vortex_connection_set_data (conn, "tls-fication:status", INT_TO_PTR (axl_true));
+		myqtt_conn_set_data (conn, "tls-fication:status", INT_TO_PTR (axl_true));
 		msg ("CHILD: flagging the connection to have tls enabled (for profile path activation, fake TLS socket), conn-id=%d (%d)",
-		     vortex_connection_get_id (conn), vortex_connection_is_tlsficated (conn));
+		     myqtt_conn_get_id (conn), myqtt_conn_is_tlsficated (conn));
 	} 
 
 	if (handle_start_reply) {
 		/* build a fake frame to simulate the frame received from the
 		   parent */
-		frame = vortex_frame_create (TBC_VORTEX_CTX (ctx), 
-					     VORTEX_FRAME_TYPE_MSG,
+		frame = myqtt_frame_create (MYQTTD_MYQTT_CTX (ctx), 
+					     MYQTT_FRAME_TYPE_MSG,
 					     0, msg_no, axl_false, -1, 0, 0, NULL);
 		/* update channel 0 status */
-		channel0 = vortex_connection_get_channel (conn, 0);
+		channel0 = myqtt_conn_get_channel (conn, 0);
 		if (channel0 == NULL) {
 			error ("CHILD: internal server error, unable to get channel0 from connection %p (id=%d)",
-			       conn, vortex_connection_get_id (conn));
-			vortex_connection_shutdown (conn);
-			vortex_connection_close (conn);
+			       conn, myqtt_conn_get_id (conn));
+			myqtt_conn_shutdown (conn);
+			myqtt_conn_close (conn);
 			
 			/* unref frame here */
-			vortex_frame_unref (frame);
+			myqtt_frame_unref (frame);
 			return NULL;
 		} /* end if */
 
 		/* call to set channel state */
-		__vortex_channel_set_state (channel0, msg_no, seq_no, seq_no_expected, 0);
+		__myqtt_channel_set_state (channel0, msg_no, seq_no, seq_no_expected, 0);
 	}
 
 	/* call to register */
@@ -1063,7 +915,7 @@ VortexConnection * __myqttd_process_handle_connection_received (MyQttdCtx      *
 	}
 	    
 	/* unref frame here */
-	vortex_frame_unref (frame);
+	myqtt_frame_unref (frame);
 	return conn;
 }
 
@@ -1120,31 +972,31 @@ axl_bool myqttd_process_parent_notify (MyQttdLoop * loop,
 	/* release data received */
  release_content:
 	axl_free (ancillary_data);
-	vortex_close_socket (_socket);
+	myqtt_close_socket (_socket);
 
 	return axl_true; /* don't close descriptor */
 }
 
-void __myqttd_process_release_parent_connections_foreach  (VortexConnection * conn, axlPointer user_data, axlPointer user_data2, axlPointer user_data3) 
+void __myqttd_process_release_parent_connections_foreach  (MyQttConn * conn, axlPointer user_data, axlPointer user_data2, axlPointer user_data3) 
 {
 #if ! defined(SHOW_FORMAT_BUGS)
 	MyQttdCtx          * ctx           = user_data;
 #endif
-	VortexConnection       * child_conn    = user_data2;
-	int                      client_socket = vortex_connection_get_socket (conn);
+	MyQttConn       * child_conn    = user_data2;
+	int                      client_socket = myqtt_conn_get_socket (conn);
 
 	/* don't close/send the socket that the child must handle */
-	if (child_conn && vortex_connection_get_id (child_conn) == 
-	    vortex_connection_get_id (conn)) {
+	if (child_conn && myqtt_conn_get_id (child_conn) == 
+	    myqtt_conn_get_id (conn)) {
 		msg ("CHILD: NOT Sending connection id=%d (socket: %d) to parent (now handled by child) (pointer: %p, role: %d)", 
-		     vortex_connection_get_id (conn), client_socket,
-		     conn, vortex_connection_get_role (conn));
+		     myqtt_conn_get_id (conn), client_socket,
+		     conn, myqtt_conn_get_role (conn));
 		return;
 	} /* end if */
 
 	/* setting close on exec flag for all sockets the child will not handle */
 	msg ("CHILD: Setting close on exec on socket: %d (conn id: %d, role: %d)", client_socket, 
-	     vortex_connection_get_id (conn), vortex_connection_get_role (conn));
+	     myqtt_conn_get_id (conn), myqtt_conn_get_role (conn));
 	fcntl (client_socket, F_SETFD, fcntl(client_socket, F_GETFD) | FD_CLOEXEC);
 
 	return;
@@ -1171,28 +1023,28 @@ void __myqttd_process_release_parent_connections_foreach  (VortexConnection * co
  * issuing a myqttd_conn_mgr_register.
  */
 int __myqttd_process_release_parent_connections (MyQttdCtx    * ctx, 
-						     VortexConnection * child_conn, 
+						     MyQttConn * child_conn, 
 						     MyQttdChild  * child)
 {
 	int                client_socket;
-	VortexConnection * conn; 
+	MyQttConn * conn; 
 
 	/* set close on exec flag for all sockets but the socket the
 	 * child will handle */
-	vortex_reader_foreach_offline (ctx->vortex_ctx, __myqttd_process_release_parent_connections_foreach, 
+	myqtt_reader_foreach_offline (ctx->myqtt_ctx, __myqttd_process_release_parent_connections_foreach, 
 				       ctx, child_conn, NULL);
 
 	/* release temporal listener created by the parent for
 	 * master<->child link  */
 	conn          = child->conn_mgr;
-	client_socket = vortex_connection_get_socket (conn);
+	client_socket = myqtt_conn_get_socket (conn);
 	msg ("CHILD: Setting close on exec on socket: %d (conn id: %d, role: %d)", client_socket, 
-	     vortex_connection_get_id (conn), vortex_connection_get_role (conn));
+	     myqtt_conn_get_id (conn), myqtt_conn_get_role (conn));
 	     fcntl (client_socket, F_SETFD, fcntl(client_socket, F_GETFD) | FD_CLOEXEC); 
 	return 0;
 }
 
-void __myqttd_process_prepare_logging (MyQttdCtx * ctx, axl_bool is_parent, int * general_log, int * error_log, int * access_log, int * vortex_log)
+void __myqttd_process_prepare_logging (MyQttdCtx * ctx, axl_bool is_parent, int * general_log, int * error_log, int * access_log, int * myqtt_log)
 {
 	/* check if log is enabled or not */
 	if (! myqttd_log_is_enabled (ctx))
@@ -1202,19 +1054,19 @@ void __myqttd_process_prepare_logging (MyQttdCtx * ctx, axl_bool is_parent, int 
 
 		/* support for general-log */
 		myqttd_log_manager_register (ctx, LOG_REPORT_GENERAL, general_log[0]); /* register read end */
-		vortex_close_socket (general_log[1]);                                      /* close write end */
+		myqtt_close_socket (general_log[1]);                                      /* close write end */
 		
 		/* support for error-log */
 		myqttd_log_manager_register (ctx, LOG_REPORT_ERROR, error_log[0]); /* register read end */
-		vortex_close_socket (error_log[1]);                                      /* close write end */
+		myqtt_close_socket (error_log[1]);                                      /* close write end */
 			
 		/* support for access-log */
 		myqttd_log_manager_register (ctx, LOG_REPORT_ACCESS, access_log[0]); /* register read end */
-		vortex_close_socket (access_log[1]);                                      /* close write end */
+		myqtt_close_socket (access_log[1]);                                      /* close write end */
 		
-		/* support for vortex-log */
-		myqttd_log_manager_register (ctx, LOG_REPORT_VORTEX, vortex_log[0]); /* register read end */
-		vortex_close_socket (vortex_log[1]);                                      /* close write end */
+		/* support for myqtt-log */
+		myqttd_log_manager_register (ctx, LOG_REPORT_MYQTT, myqtt_log[0]); /* register read end */
+		myqtt_close_socket (myqtt_log[1]);                                      /* close write end */
 
 		return;
 	} /* end if */
@@ -1237,16 +1089,16 @@ void __myqttd_process_prepare_logging (MyQttdCtx * ctx, axl_bool is_parent, int 
  * connection was closed, otherwise axl_false is returned.
  */
 axl_bool myqttd_process_check_child_limit (MyQttdCtx      * ctx,
-					       VortexConnection   * conn,
+					       MyQttConn   * conn,
 					       MyQttdPPathDef * def)
 {
 	msg ("Checking global child limit: %d before creating process.", ctx->global_child_limit);
 
 	if (axl_hash_items (ctx->child_process) >= ctx->global_child_limit) {
 		error ("Child limit reached (%d), unable to accept connection on child process, closing conn-id=%d", 
-		       ctx->global_child_limit, vortex_connection_get_id (conn));
+		       ctx->global_child_limit, myqtt_conn_get_id (conn));
 
-		vortex_connection_shutdown (conn);
+		myqtt_conn_shutdown (conn);
 		return axl_true; /* limit reached */
 	} /* end if */	
 
@@ -1255,9 +1107,9 @@ axl_bool myqttd_process_check_child_limit (MyQttdCtx      * ctx,
 		/* check limits */
 		if (def->childs_running >= def->child_limit) {
 			error ("Profile path child limit reached (%d), unable to accept connection on child process, closing conn-id=%d", 
-			       def->child_limit, vortex_connection_get_id (conn));
+			       def->child_limit, myqtt_conn_get_id (conn));
 			
-			vortex_connection_shutdown (conn);
+			myqtt_conn_shutdown (conn);
 			return axl_true; /* limit reached */
 		} /* end if */
 	} /* end if */
@@ -1283,22 +1135,22 @@ axl_bool __myqttd_process_show_conn_keys (axlPointer key, axlPointer data, axlPo
  */
 axl_bool __myqttd_process_send_child_init_string (MyQttdCtx       * ctx,
 						      MyQttdChild     * child,
-						      VortexConnection    * conn,
+						      MyQttConn    * conn,
 						      int                   client_socket,
 						      MyQttdPPathDef  * def,
 						      axl_bool              handle_start_reply,
 						      int                   channel_num,
 						      const char          * profile,
 						      const char          * profile_content,
-						      VortexEncoding        encoding,
+						      MyQttEncoding        encoding,
 						      char                * serverName,
-						      VortexFrame         * frame,
+						      MyQttFrame         * frame,
 						      int                 * general_log,
 						      int                 * error_log,
 						      int                 * access_log,
-						      int                 * vortex_log)
+						      int                 * myqtt_log)
 {
-	VortexChannel * channel0;
+	MyQttChannel * channel0;
 	char          * conn_status;
 	char          * child_init_string;
 	int             length;
@@ -1320,23 +1172,23 @@ axl_bool __myqttd_process_send_child_init_string (MyQttdCtx       * ctx,
 #endif
 
 	/* build connection status string */
-	channel0    = vortex_connection_get_channel (conn, 0);
+	channel0    = myqtt_conn_get_channel (conn, 0);
 	conn_status = myqttd_process_connection_status_string (handle_start_reply, 
 								   channel_num,
 								   profile,
 								   profile_content,
 								   encoding,
 								   serverName,
-								   vortex_frame_get_msgno (frame),
-								   vortex_channel_get_next_seq_no (channel0),
-								   vortex_channel_get_next_expected_seq_no (channel0),
+								   myqtt_frame_get_msgno (frame),
+								   myqtt_channel_get_next_seq_no (channel0),
+								   myqtt_channel_get_next_expected_seq_no (channel0),
 								   myqttd_ppath_get_id (def),
-								   vortex_connection_is_tlsficated (conn),
+								   myqtt_conn_is_tlsficated (conn),
 								   /* notify if we have to fix the serverName */
-								   axl_cmp (serverName, vortex_connection_get_server_name (conn)),
+								   axl_cmp (serverName, myqtt_conn_get_server_name (conn)),
 								   /* provide host and port */
-								   vortex_connection_get_host (conn), vortex_connection_get_port (conn),
-								   vortex_connection_get_host_ip (conn),
+								   myqtt_conn_get_host (conn), myqtt_conn_get_port (conn),
+								   myqtt_conn_get_host_ip (conn),
 								   /* if proxied, skip recover on child */
 								   myqttd_conn_mgr_proxy_on_parent (conn));
 	if (conn_status == NULL) {
@@ -1354,8 +1206,8 @@ axl_bool __myqttd_process_send_child_init_string (MyQttdCtx       * ctx,
 	 * 4) error_log[1] : write end for error log 
 	 * 5) access_log[0] : read end for access log 
 	 * 6) access_log[1] : write end for access log 
-	 * 7) vortex_log[0] : read end for vortex log 
-	 * 8) vortex_log[1] : write end for vortex log 
+	 * 7) myqtt_log[0] : read end for myqtt log 
+	 * 8) myqtt_log[1] : write end for myqtt log 
 	 * 9) child->socket_control_path : path to the socket_control_path
 	 * 10) ppath_id : profile path identification to be used on child (the profile path activated for this child)
 	 * 11) conn_status : connection status description to recover it at the child
@@ -1370,13 +1222,13 @@ axl_bool __myqttd_process_send_child_init_string (MyQttdCtx       * ctx,
 					       /* 4  */ error_log[1],
 					       /* 5  */ access_log[0],
 					       /* 6  */ access_log[1],
-					       /* 7  */ vortex_log[0],
-					       /* 8  */ vortex_log[1],
+					       /* 7  */ myqtt_log[0],
+					       /* 8  */ myqtt_log[1],
 					       /* 9  */ child->socket_control_path,
 					       /* 10 */ myqttd_ppath_get_id (def),
 					       /* 11 */ conn_status,
-					       /* 12 */ vortex_connection_get_local_addr (child->conn_mgr),
-					       /* 13 */ vortex_connection_get_local_port (child->conn_mgr));
+					       /* 12 */ myqtt_conn_get_local_addr (child->conn_mgr),
+					       /* 13 */ myqtt_conn_get_local_port (child->conn_mgr));
 	axl_free (conn_status);
 	if (child_init_string == NULL) {
 		error ("PARENT: failled to create child, unable to allocate memory for child init string");
@@ -1384,7 +1236,7 @@ axl_bool __myqttd_process_send_child_init_string (MyQttdCtx       * ctx,
 	} /* end if */
 
 	msg ("PARENT: created child init string: %s, handle_start_reply=%d", child_init_string, handle_start_reply);
-	vortex_hash_foreach (vortex_connection_get_data_hash (conn), __myqttd_process_show_conn_keys, ctx);
+	myqtt_hash_foreach (myqtt_conn_get_data_hash (conn), __myqttd_process_show_conn_keys, ctx);
 
 	/* get child init string length */
 	length = strlen (child_init_string);
@@ -1401,9 +1253,9 @@ axl_bool __myqttd_process_send_child_init_string (MyQttdCtx       * ctx,
 		if (errno == 107) {
 			wrn ("PARENT: child still not ready, waiting 10ms (socket: %d), reconnecting..", child->child_connection);
 			myqttd_sleep (ctx, 10000);
-			vortex_close_socket (child->child_connection);
+			myqtt_close_socket (child->child_connection);
 			if (! __myqttd_process_create_child_connection (child)) {
-				error ("PARENT: error after reconnecting to child process, errno: %d:%s", errno, vortex_errno_get_last_error ());
+				error ("PARENT: error after reconnecting to child process, errno: %d:%s", errno, myqtt_errno_get_last_error ());
 				break;
 			} /* end if */
 		}
@@ -1419,7 +1271,7 @@ axl_bool __myqttd_process_send_child_init_string (MyQttdCtx       * ctx,
 	/* check errors */
 	if (written != length) {
 		error ("PARENT: failed to send init child string, expected to write %d bytes but %d were written, errno: %d:%s",
-		       length, written, errno, vortex_errno_get_last_error ());
+		       length, written, errno, myqtt_errno_get_last_error ());
 		return axl_false;
 	}
 
@@ -1446,15 +1298,15 @@ axl_bool __myqttd_process_send_child_init_string (MyQttdCtx       * ctx,
  * provided.
  */
 void myqttd_process_create_child (MyQttdCtx       * ctx, 
-				      VortexConnection    * conn, 
+				      MyQttConn    * conn, 
 				      MyQttdPPathDef  * def,
 				      axl_bool              handle_start_reply,
 				      int                   channel_num,
 				      const char          * profile,
 				      const char          * profile_content,
-				      VortexEncoding        encoding,
+				      MyQttEncoding        encoding,
 				      char                * serverName,
-				      VortexFrame         * frame)
+				      MyQttFrame         * frame)
 {
 	int                pid;
 	MyQttdChild  * child;
@@ -1464,7 +1316,7 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 	int                general_log[2] = {-1, -1};
 	int                error_log[2]   = {-1, -1};
 	int                access_log[2]  = {-1, -1};
-	int                vortex_log[2]  = {-1, -1};
+	int                myqtt_log[2]  = {-1, -1};
 	const char       * ppath_name;
 	int                error_code;
 	char            ** cmds;
@@ -1476,7 +1328,7 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 
 	if (ctx->is_exiting) {
 		error ("Unable to create child process, myqttd is finishing..");
-		vortex_connection_shutdown (conn);
+		myqtt_conn_shutdown (conn);
 		return;
 	} /* end if */
 
@@ -1484,8 +1336,8 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 	 * childs, at least for now) */
 	if (ctx->child) {
 		error ("Internal runtime error, child process %d is trying to create another subchild, closing conn-id=%d", 
-		       ctx->pid, vortex_connection_get_id (conn));
-		vortex_connection_shutdown (conn);
+		       ctx->pid, myqtt_conn_get_id (conn));
+		myqtt_conn_shutdown (conn);
 		return;
 	} /* end if */
 
@@ -1494,15 +1346,15 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 
 	msg2 ("Calling to create child process to handle profile path: %s..", ppath_name);
 
-	TBC_PROCESS_LOCK_CHILD ();
+	MYQTTD_PROCESS_LOCK_CHILD ();
 
 	/* recheck again if we are exiting */
 	if (ctx->is_exiting) {
 		/* unlock */
-		TBC_PROCESS_UNLOCK_CHILD ();
+		MYQTTD_PROCESS_UNLOCK_CHILD ();
 
 		error ("Unable to create child process, myqttd is finishing..");
-		vortex_connection_shutdown (conn);
+		myqtt_conn_shutdown (conn);
 		return;
 	} /* end if */
 
@@ -1516,7 +1368,7 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 	child = myqttd_process_get_child_from_ppath (ctx, def, axl_false);
 	if (def->reuse && child) {
 		msg ("Found child process reuse flag and child already created (%p), sending connection id=%d, frame msgno=%d",
-		     child, vortex_connection_get_id (conn), vortex_frame_get_msgno (frame));
+		     child, myqtt_conn_get_id (conn), myqtt_frame_get_msgno (frame));
 
 		if (proxy_on_parent) {
 			/* setup the proxy on parent code creating a
@@ -1535,24 +1387,24 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 								     profile, profile_content,
 								     encoding, serverName, frame);
 		} /* end if */
-		TBC_PROCESS_UNLOCK_CHILD ();
+		MYQTTD_PROCESS_UNLOCK_CHILD ();
 		return;
 	}
 
 	/* check limits here before continue */
 	if (myqttd_process_check_child_limit (ctx, conn, def)) {
 		/* unlock before shutting down connection */
-		TBC_PROCESS_UNLOCK_CHILD ();
+		MYQTTD_PROCESS_UNLOCK_CHILD ();
 		return;
 	} /* end if */
 
 	/* show some logs about what will happen */
 	if (child == NULL) 
 		msg ("PARENT: Creating a child process (first instance), proxy_on_parent=%d, conn-id=%d", 
-		     proxy_on_parent, vortex_connection_get_id (conn));
+		     proxy_on_parent, myqtt_conn_get_id (conn));
 	else
  		msg ("PARENT: Child defined, but not reusing child processes (reuse=no flag), proxy_on_parent=%d, conn-id=%d", 
-		     proxy_on_parent, vortex_connection_get_id (conn));
+		     proxy_on_parent, myqtt_conn_get_id (conn));
 
 	if (myqttd_log_is_enabled (ctx)) {
 		if (pipe (general_log) != 0)
@@ -1561,25 +1413,25 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 			error ("unable to create pipe to transport error log, this will cause these logs to be lost");
 		if (pipe (access_log) != 0)
 			error ("unable to create pipe to transport access log, this will cause these logs to be lost");
-		if (pipe (vortex_log) != 0)
-			error ("unable to create pipe to transport vortex log, this will cause these logs to be lost");
+		if (pipe (myqtt_log) != 0)
+			error ("unable to create pipe to transport myqtt log, this will cause these logs to be lost");
 	} /* end if */
 
 	/* create control socket path */
 	child        = myqttd_child_new (ctx, def);
 	if (child == NULL) {
 		/* unlock child process mutex */
-		TBC_PROCESS_UNLOCK_CHILD ();
+		MYQTTD_PROCESS_UNLOCK_CHILD ();
 
 		/* close connection that would handle child process */
-		vortex_connection_shutdown (conn);
+		myqtt_conn_shutdown (conn);
 		return;
 	} /* end if */
 
 	/* unregister from connection manager */
 	msg ("PARENT: created temporal listener to prepare child management connection id=%d (socket: %d): %p (refs: %d)", 
-	     vortex_connection_get_id (child->conn_mgr), vortex_connection_get_socket (child->conn_mgr),
-	     child->conn_mgr, vortex_connection_ref_count (child->conn_mgr));
+	     myqtt_conn_get_id (child->conn_mgr), myqtt_conn_get_socket (child->conn_mgr),
+	     child->conn_mgr, myqtt_conn_ref_count (child->conn_mgr));
 
 	/* call to fork */
 	pid = fork ();
@@ -1593,12 +1445,12 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 		} else {
 			/* socket that is know handled by the child
 			 * process */
-			client_socket = vortex_connection_get_socket (conn);
+			client_socket = myqtt_conn_get_socket (conn);
 
 			/* unwatch the connection from the parent to
 			   avoid receiving more content which now
 			   handled by the child */
-			vortex_reader_unwatch_connection (CONN_CTX (conn), conn);
+			myqtt_reader_unwatch_connection (CONN_CTX (conn), conn);
 		} /* end if */
 
 		/* update child pid and additional data */
@@ -1609,9 +1461,9 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 		if (! __myqttd_process_create_child_connection (child)) {
 			error ("Unable to create child process connection to pass sockets for pid=%d", pid);
 		
-			TBC_PROCESS_UNLOCK_CHILD ();
+			MYQTTD_PROCESS_UNLOCK_CHILD ();
 
-			vortex_connection_shutdown (conn);
+			myqtt_conn_shutdown (conn);
 			myqttd_child_unref (child);
 			return;
 		}
@@ -1621,10 +1473,10 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 								   handle_start_reply, channel_num, 
 								   profile, profile_content, 
 								   encoding, serverName, frame,
-								   general_log, error_log, access_log, vortex_log)) {
-			TBC_PROCESS_UNLOCK_CHILD ();
+								   general_log, error_log, access_log, myqtt_log)) {
+			MYQTTD_PROCESS_UNLOCK_CHILD ();
 
-			vortex_connection_shutdown (conn);
+			myqtt_conn_shutdown (conn);
 			myqttd_child_unref (child);
 			return;
 		} /* end if */
@@ -1637,9 +1489,9 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 			    ctx, child, conn, client_socket,handle_start_reply, channel_num,
 			    profile, profile_content, encoding, serverName, frame)) {
 			error ("PARENT: Unable to send socket associated to the connection that originated the child process (proxied)");
-			TBC_PROCESS_UNLOCK_CHILD ();
+			MYQTTD_PROCESS_UNLOCK_CHILD ();
 
-			vortex_connection_shutdown (conn);
+			myqtt_conn_shutdown (conn);
 			myqttd_child_unref (child);
 			return;
 		} /* end if */
@@ -1650,21 +1502,21 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 		 */
 		if (! proxy_on_parent && ! myqttd_process_send_socket (client_socket, child, "s", 1)) {
 			error ("PARENT: Unable to send socket associated to the connection that originated the child process");
-			TBC_PROCESS_UNLOCK_CHILD ();
+			MYQTTD_PROCESS_UNLOCK_CHILD ();
 
-			vortex_connection_shutdown (conn);
+			myqtt_conn_shutdown (conn);
 			myqttd_child_unref (child);
 			return;
 		}
 
 		/* terminate the connection */
 		if (! proxy_on_parent) {
-			vortex_connection_set_close_socket (conn, axl_false);
-			vortex_connection_shutdown (conn);
+			myqtt_conn_set_close_socket (conn, axl_false);
+			myqtt_conn_shutdown (conn);
 		} /* end if */
 
 		/* register pipes to receive child logs */
-		__myqttd_process_prepare_logging (ctx, axl_true, general_log, error_log, access_log, vortex_log);
+		__myqttd_process_prepare_logging (ctx, axl_true, general_log, error_log, access_log, myqtt_log);
 
 		/* register the child process identifier */
 		axl_hash_insert_full (ctx->child_process,
@@ -1676,7 +1528,7 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 		/* update number of childs running this profile path */
 		def->childs_running++;
 
-		TBC_PROCESS_UNLOCK_CHILD ();
+		MYQTTD_PROCESS_UNLOCK_CHILD ();
 
 		/* record child */
 		msg ("PARENT=%d: Created child process pid=%d (childs: %d)", getpid (), pid, myqttd_process_child_count (ctx));
@@ -1691,7 +1543,7 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 	/* release connections received from parent (including
 	   sockets) */
 	msg ("CHILD: calling to release all (parent) connections but conn-id=%d", 
-	     vortex_connection_get_id (conn));
+	     myqtt_conn_get_id (conn));
 	__myqttd_process_release_parent_connections (ctx, proxy_on_parent ? NULL : conn, child);   
 
 	/* call to start myqttd process */
@@ -1749,22 +1601,22 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 			iterator++;
 		}
 		/* get skip thread pool wait */
-		vortex_conf_get (TBC_VORTEX_CTX(ctx), VORTEX_SKIP_THREAD_POOL_WAIT, &skip_thread_pool_wait);
+		myqtt_conf_get (MYQTTD_MYQTT_CTX(ctx), MYQTT_SKIP_THREAD_POOL_WAIT, &skip_thread_pool_wait);
 		if (! skip_thread_pool_wait) {
 			cmds[iterator] = "--wait-thread-pool";
 			iterator++;
 		}
 
-		if (enable_debug && vortex_log_is_enabled (ctx->vortex_ctx)) {
-			cmds[iterator] = "--vortex-debug";
+		if (enable_debug && myqtt_log_is_enabled (ctx->myqtt_ctx)) {
+			cmds[iterator] = "--myqtt-debug";
 			iterator++;
 		}
-		if (enable_debug && vortex_log2_is_enabled (ctx->vortex_ctx)) {
-			cmds[iterator] = "--vortex-debug2";
+		if (enable_debug && myqtt_log2_is_enabled (ctx->myqtt_ctx)) {
+			cmds[iterator] = "--myqtt-debug2";
 			iterator++;
 		}
-		if (enable_debug && vortex_color_log_is_enabled (ctx->vortex_ctx)) {
-			cmds[iterator] = "--vortex-debug-color";
+		if (enable_debug && myqtt_color_log_is_enabled (ctx->myqtt_ctx)) {
+			cmds[iterator] = "--myqtt-debug-color";
 			iterator++;
 		}
 
@@ -1785,17 +1637,17 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 			myqttd_log2_enabled (ctx) ? "--debug2" : "", 
 			myqttd_log3_enabled (ctx) ? "--debug3" : "", 
 			ctx->console_color_debug ? "--color-debug" : "",
-			/* pass vortex debug options */
-			(enable_debug && vortex_log_is_enabled (ctx->vortex_ctx)) ? "--vortex-debug" : "",
-			(enable_debug && vortex_log2_is_enabled (ctx->vortex_ctx)) ? "--vortex-debug2" : "",
-			(enable_debug && vortex_color_log_is_enabled (ctx->vortex_ctx)) ? "--vortex-debug-color" : "",
+			/* pass myqtt debug options */
+			(enable_debug && myqtt_log_is_enabled (ctx->myqtt_ctx)) ? "--myqtt-debug" : "",
+			(enable_debug && myqtt_log2_is_enabled (ctx->myqtt_ctx)) ? "--myqtt-debug2" : "",
+			(enable_debug && myqtt_color_log_is_enabled (ctx->myqtt_ctx)) ? "--myqtt-debug-color" : "",
 			/* unmap modules support */
 			__myqttd_module_no_unmap ? "--no-unmap-modules" : "",
 			/* always last parameter */
 			NULL);
 	}
 	
-	error ("CHILD: unable to create child process, error found was: %d: errno: %s", error_code, vortex_errno_get_last_error ());
+	error ("CHILD: unable to create child process, error found was: %d: errno: %s", error_code, myqtt_errno_get_last_error ());
 	exit (-1);
 
 	/**** CHILD PROCESS CREATION FINISHED ****/
@@ -1816,7 +1668,7 @@ axl_bool __terminate_child (axlPointer key, axlPointer data, axlPointer user_dat
 	/* send term signal */
 	if (kill (child->pid, SIGTERM) != 0)
 		error ("failed to kill child (%d) error was: %d:%s",
-		       child->pid, errno, vortex_errno_get_last_error ());
+		       child->pid, errno, myqtt_errno_get_last_error ());
 	return axl_false; /* keep on iterating */
 }
 
@@ -1857,7 +1709,7 @@ void myqttd_process_kill_childs  (MyQttdCtx * ctx)
 	childs = axl_hash_items (ctx->child_process);
 	if (childs > 0) {
 		/* lock child to get first element and remove it */
-		TBC_PROCESS_LOCK_CHILD ();
+		MYQTTD_PROCESS_LOCK_CHILD ();
 
 		/* reacquire current childs */
 		childs = axl_hash_items (ctx->child_process);
@@ -1867,7 +1719,7 @@ void myqttd_process_kill_childs  (MyQttdCtx * ctx)
 
 
 		/* unlock the list during the kill and wait */
-		TBC_PROCESS_UNLOCK_CHILD ();
+		MYQTTD_PROCESS_UNLOCK_CHILD ();
 
 		while (childs > 0) {
 			/* wait childs to finish */
@@ -1899,9 +1751,9 @@ int      myqttd_process_child_count  (MyQttdCtx * ctx)
 	if (ctx == NULL)
 		return -1;
 
-	TBC_PROCESS_LOCK_CHILD ();
+	MYQTTD_PROCESS_LOCK_CHILD ();
 	count = axl_hash_items (ctx->child_process);
-	TBC_PROCESS_UNLOCK_CHILD ();
+	MYQTTD_PROCESS_UNLOCK_CHILD ();
 
 	/* msg ("child process count: %d..", count); */
 	return count;
@@ -1948,9 +1800,9 @@ axlList         * myqttd_process_child_list (MyQttdCtx * ctx)
 		return NULL;
 
 	/* now add childs */
-	TBC_PROCESS_LOCK_CHILD ();
+	MYQTTD_PROCESS_LOCK_CHILD ();
 	axl_hash_foreach (ctx->child_process, myqttd_process_child_list_build, result);
-	TBC_PROCESS_UNLOCK_CHILD ();
+	MYQTTD_PROCESS_UNLOCK_CHILD ();
 
 	return result;
 }
@@ -1996,13 +1848,13 @@ MyQttdChild * myqttd_process_child_by_id (MyQttdCtx * ctx, int pid)
 		return NULL;
 
 	/* lock */
-	TBC_PROCESS_LOCK_CHILD ();
+	MYQTTD_PROCESS_LOCK_CHILD ();
 
 	/* get child */
 	child = axl_hash_get (ctx->child_process, INT_TO_PTR (pid));
 
 	/* unlock */
-	TBC_PROCESS_UNLOCK_CHILD ();
+	MYQTTD_PROCESS_UNLOCK_CHILD ();
 
 	return child; /* no child found */
 }
@@ -2040,9 +1892,9 @@ int      myqttd_process_find_pid_from_ppath_id (MyQttdCtx * ctx, int pid)
 {
 	int ppath_id = -1;
 	
-	TBC_PROCESS_LOCK_CHILD ();
+	MYQTTD_PROCESS_LOCK_CHILD ();
 	axl_hash_foreach2 (ctx->child_process, __find_ppath_id, &pid, &ppath_id);
-	TBC_PROCESS_UNLOCK_CHILD ();
+	MYQTTD_PROCESS_UNLOCK_CHILD ();
 
 	/* check that the pid was found */
 	return ppath_id;
@@ -2089,14 +1941,14 @@ MyQttdChild * myqttd_process_get_child_from_ppath (MyQttdCtx * ctx,
 	
 	/* lock mutex if signaled */
 	if (acquire_mutex) {
-		TBC_PROCESS_LOCK_CHILD ();
+		MYQTTD_PROCESS_LOCK_CHILD ();
 	}
 
 	axl_hash_foreach2 (ctx->child_process, __find_ppath, def, &result);
 
 	/* unlock mutex if signaled */
 	if (acquire_mutex) {
-		TBC_PROCESS_UNLOCK_CHILD ();
+		MYQTTD_PROCESS_UNLOCK_CHILD ();
 	}
 
 	/* check that the pid was found */
@@ -2108,7 +1960,7 @@ MyQttdChild * myqttd_process_get_child_from_ppath (MyQttdCtx * ctx,
  */
 void myqttd_process_cleanup      (MyQttdCtx * ctx)
 {
-	vortex_mutex_destroy (&ctx->child_process_mutex);
+	myqtt_mutex_destroy (&ctx->child_process_mutex);
 	axl_hash_free (ctx->child_process);
 	return;
 			      
