@@ -37,60 +37,23 @@
  *                        http://www.aspl.es/myqtt
  */
 
-#ifndef __MYQTTD_TYPES_H__
-#define __MYQTTD_TYPES_H__
+#ifndef __MYQTTD_CHILD_H__
+#define __MYQTTD_CHILD_H__
 
-/** 
- * \defgroup myqttd_types Myqttd types: types used/exposed by MyQttd API
- */
+#include <myqttd.h>
 
-/** 
- * \addtogroup myqttd_types
- * @{
- */
+MyQttdChild * myqttd_child_new (MyQttdCtx      * ctx);
 
-/** 
- * @brief Type that represents a myqttd module.
- */
-typedef struct _MyQttdModule MyQttdModule;
+axl_bool      myqttd_child_ref (MyQttdChild * child);
 
-/** 
- * @brief Type representing a child process created. Abstraction used
- * to store a set of data used around the child.
- */
-typedef struct _MyQttdChild  MyQttdChild;
+void          myqttd_child_unref (MyQttdChild * child);
 
-/** 
- * @brief Type representing a loop watching a set of files. See \ref myqttd_loop.
- */
-typedef struct _MyQttdLoop MyQttdLoop;
+const char  * myqttd_child_get_serverName (MyQttdCtx * ctx);
 
-/** 
- * @brief Set of handlers that are supported by modules. This handler
- * descriptors are used by some functions to notify which handlers to
- * call: \ref myqttd_module_notify.
- */
-typedef enum {
-	/** 
-	 * @brief Module reload handler 
-	 */
-	MYQTTD_RELOAD_HANDLER = 1,
-	/** 
-	 * @brief Module close handler 
-	 */
-	MYQTTD_CLOSE_HANDLER  = 2,
-	/** 
-	 * @brief Module init handler 
-	 */
-	MYQTTD_INIT_HANDLER   = 3,
-	/** 
-	 * @brief Module profile path selected handler.
-	 */ 
-	MYQTTD_PPATH_SELECTED_HANDLER = 4
-} MyQttdModHandler;
+/* recover child information */
+axl_bool      myqttd_child_build_from_init_string (MyQttdCtx * ctx, 
+						   const char    * socket_control_path);
 
-#endif
+axl_bool      myqttd_child_post_init (MyQttdCtx * ctx);
 
-/** 
- * @}
- */
+#endif 

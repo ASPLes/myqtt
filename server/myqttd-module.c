@@ -83,7 +83,7 @@ void               myqttd_module_init      (MyQttdCtx * ctx)
 	ctx->registered_modules = axl_list_new (axl_list_always_return_1, 
 						(axlDestroyFunc) myqttd_module_free);
 	/* init mutex */
-	vortex_mutex_create (&ctx->registered_modules_mutex);
+	myqtt_mutex_create (&ctx->registered_modules_mutex);
 	return;
 }
 
@@ -187,7 +187,7 @@ void               myqttd_module_unload       (MyQttdCtx * ctx,
 		return;
 
 	/* register the module */
-	vortex_mutex_lock (&ctx->registered_modules_mutex);
+	myqtt_mutex_lock (&ctx->registered_modules_mutex);
 
 	/* check first that the module is not already added */
 	iterator = 0;
@@ -205,14 +205,14 @@ void               myqttd_module_unload       (MyQttdCtx * ctx,
 			axl_list_remove_at (ctx->registered_modules, iterator);
 
 			/* terminate it */
-			vortex_mutex_unlock (&ctx->registered_modules_mutex);
+			myqtt_mutex_unlock (&ctx->registered_modules_mutex);
 			return;
 		} /* end if */
 
 		/* next position */
 		iterator++;
 	} /* end while */
-	vortex_mutex_unlock (&ctx->registered_modules_mutex);
+	myqtt_mutex_unlock (&ctx->registered_modules_mutex);
 
 	/* no module with the same name was found */
 	return;
@@ -276,7 +276,7 @@ axl_bool           myqttd_module_exists      (MyQttdModule * module)
 	ctx = module->ctx;
 
 	/* register the module */
-	vortex_mutex_lock (&ctx->registered_modules_mutex);
+	myqtt_mutex_lock (&ctx->registered_modules_mutex);
 
 	/* check first that the module is not already added */
 	iterator = 0;
@@ -286,14 +286,14 @@ axl_bool           myqttd_module_exists      (MyQttdModule * module)
 
 		/* check mod name */
 		if (axl_cmp (mod_added->def->mod_name, module->def->mod_name)) {
-			vortex_mutex_unlock (&ctx->registered_modules_mutex);
+			myqtt_mutex_unlock (&ctx->registered_modules_mutex);
 			return axl_true;
 		} /* end if */
 
 		/* next position */
 		iterator++;
 	} /* end while */
-	vortex_mutex_unlock (&ctx->registered_modules_mutex);
+	myqtt_mutex_unlock (&ctx->registered_modules_mutex);
 
 	/* no module with the same name was found */
 	return axl_false;
@@ -321,7 +321,7 @@ axl_bool             myqttd_module_register  (MyQttdModule * module)
 	ctx = module->ctx;
 
 	/* register the module */
-	vortex_mutex_lock (&ctx->registered_modules_mutex);
+	myqtt_mutex_lock (&ctx->registered_modules_mutex);
 
 	/* check first that the module is not already added */
 	iterator = 0;
@@ -333,7 +333,7 @@ axl_bool             myqttd_module_register  (MyQttdModule * module)
 		if (axl_cmp (mod_added->def->mod_name, module->def->mod_name)) {
 			wrn ("skipping module found: %s, already found a module registered with the same name, at path: %s",
 			     module->def->mod_name, mod_added->path);
-			vortex_mutex_unlock (&ctx->registered_modules_mutex);
+			myqtt_mutex_unlock (&ctx->registered_modules_mutex);
 			return axl_false;
 		} /* end if */
 
@@ -343,7 +343,7 @@ axl_bool             myqttd_module_register  (MyQttdModule * module)
 
 	axl_list_add (ctx->registered_modules, module);
 	msg ("Registered modules (%d, %p)", axl_list_length (ctx->registered_modules), ctx->registered_modules);
-	vortex_mutex_unlock (&ctx->registered_modules_mutex);
+	myqtt_mutex_unlock (&ctx->registered_modules_mutex);
 
 	return axl_true;
 }
@@ -367,9 +367,9 @@ void               myqttd_module_unregister  (MyQttdModule * module)
 	ctx = module->ctx;
 
 	/* register the module */
-	vortex_mutex_lock (&ctx->registered_modules_mutex);
+	myqtt_mutex_lock (&ctx->registered_modules_mutex);
 	axl_list_unlink (ctx->registered_modules, module);
-	vortex_mutex_unlock (&ctx->registered_modules_mutex);
+	myqtt_mutex_unlock (&ctx->registered_modules_mutex);
 
 	return;
 }
@@ -438,10 +438,6 @@ MyQttdModule           * myqttd_module_open_and_register (MyQttdCtx * ctx, const
 	/* register the module to be loaded */
 	myqttd_module_register (module);
 
-	/* now the module is registered, publish this is done */
-	myqttd_mediator_push_event (ctx, "myqttd", "module-registered", 
-					/* publish name added */
-					(axlPointer) myqttd_module_name (module), NULL, NULL, NULL);
 	return module;
 }
 
@@ -462,7 +458,7 @@ void               myqttd_module_skip_unmap  (MyQttdCtx * ctx,
 	v_return_if_fail (mod_name);
 
 	/* register the module */
-	vortex_mutex_lock (&ctx->registered_modules_mutex);
+	myqtt_mutex_lock (&ctx->registered_modules_mutex);
 
 	/* check first that the module is not already added */
 	iterator = 0;
@@ -474,7 +470,7 @@ void               myqttd_module_skip_unmap  (MyQttdCtx * ctx,
 		if (axl_cmp (mod_added->def->mod_name, mod_name)) {
 			/* flag skip */
 			mod_added->skip_unmap = axl_true;
-			vortex_mutex_unlock (&ctx->registered_modules_mutex);
+			myqtt_mutex_unlock (&ctx->registered_modules_mutex);
 			return;
 		} /* end if */
 
@@ -482,7 +478,7 @@ void               myqttd_module_skip_unmap  (MyQttdCtx * ctx,
 		iterator++;
 	} /* end while */
 
-	vortex_mutex_unlock (&ctx->registered_modules_mutex);
+	myqtt_mutex_unlock (&ctx->registered_modules_mutex);
 	return;
 }
 
@@ -545,11 +541,7 @@ axl_bool           myqttd_module_notify      (MyQttdCtx         * ctx,
 	MyQttdModule   * module;
 	int                  iterator = 0;
 
-	vortex_mutex_lock (&ctx->registered_modules_mutex);
-
-	/* load search paths here in case of TBC_PPATH_SELECTED_HANDLER */
-	if (handler == TBC_PPATH_SELECTED_HANDLER)
-		__myqttd_ppath_load_search_nodes (ctx, data);
+	myqtt_mutex_lock (&ctx->registered_modules_mutex);
 
 	while (iterator < axl_list_length (ctx->registered_modules)) {
 		/* get the module */
@@ -562,49 +554,36 @@ axl_bool           myqttd_module_notify      (MyQttdCtx         * ctx,
 		} /* end if */
 			
 		switch (handler) {
-		case TBC_CLOSE_HANDLER:
+		case MYQTTD_CLOSE_HANDLER:
 			/* notify if defined reconf function */
 			if (module->def->close != NULL) {
 				msg ("closing module: %s (%s)", module->def->mod_name, module->path);
-				vortex_mutex_unlock (&ctx->registered_modules_mutex);
+				myqtt_mutex_unlock (&ctx->registered_modules_mutex);
 				module->def->close (ctx);
-				vortex_mutex_lock (&ctx->registered_modules_mutex);
+				myqtt_mutex_lock (&ctx->registered_modules_mutex);
 			}
 			break;
-		case TBC_RELOAD_HANDLER:
+		case MYQTTD_RELOAD_HANDLER:
 			/* notify if defined reconf function */
 			if (module->def->reconf != NULL) {
 				msg ("reloading module: %s (%s)", module->def->mod_name, module->path);
-				vortex_mutex_unlock (&ctx->registered_modules_mutex);
+				myqtt_mutex_unlock (&ctx->registered_modules_mutex);
 				module->def->reconf (ctx);
-				vortex_mutex_lock (&ctx->registered_modules_mutex);
+				myqtt_mutex_lock (&ctx->registered_modules_mutex);
 			}
 			break;
-		case TBC_INIT_HANDLER:
+		case MYQTTD_INIT_HANDLER:
 			/* notify if defined reconf function */
 			if (module->def->init != NULL) {
 				msg ("initializing module: %s (%s)", module->def->mod_name, module->path);
-				vortex_mutex_unlock (&ctx->registered_modules_mutex);
+				myqtt_mutex_unlock (&ctx->registered_modules_mutex);
 				if (! module->def->init (ctx)) {
 					/* init failed */
 					wrn ("failed to initialized module: %s, it returned initialization failure", module->def->mod_name);
 					return axl_false;
 				}
-				vortex_mutex_lock (&ctx->registered_modules_mutex);
+				myqtt_mutex_lock (&ctx->registered_modules_mutex);
 					
-			}
-			break;
-		case TBC_PPATH_SELECTED_HANDLER:
-			/* notify if defined reconf function */
-			if (module->def->ppath_selected != NULL) {
-				msg ("notifying profile path selected on module: %s (%s)", module->def->mod_name, module->path);
-				vortex_mutex_unlock (&ctx->registered_modules_mutex);
-				if (! module->def->ppath_selected (ctx, data, data2))  {
-					/* init failed */
-					wrn ("profile path selection for module: %s returned failure", module->def->mod_name);
-					return axl_false;
-				} /* end if */
-				vortex_mutex_lock (&ctx->registered_modules_mutex);
 			}
 			break;
 		}
@@ -613,7 +592,7 @@ axl_bool           myqttd_module_notify      (MyQttdCtx         * ctx,
 		iterator++;
 
 	} /* end if */
-	vortex_mutex_unlock (&ctx->registered_modules_mutex);
+	myqtt_mutex_unlock (&ctx->registered_modules_mutex);
 
 	/* reached this point always return TRUE dude!! */
 	return axl_true;
@@ -626,7 +605,7 @@ axl_bool           myqttd_module_notify      (MyQttdCtx         * ctx,
  */
 void               myqttd_module_notify_reload_conf (MyQttdCtx * ctx)
 {
-	myqttd_module_notify (ctx, TBC_RELOAD_HANDLER, NULL, NULL, NULL);
+	myqttd_module_notify (ctx, MYQTTD_RELOAD_HANDLER, NULL, NULL, NULL);
 
 	return;
 }
@@ -637,7 +616,7 @@ void               myqttd_module_notify_reload_conf (MyQttdCtx * ctx)
  */
 void               myqttd_module_notify_close (MyQttdCtx * ctx)
 {
-	myqttd_module_notify (ctx, TBC_CLOSE_HANDLER, NULL, NULL, NULL);
+	myqttd_module_notify (ctx, MYQTTD_CLOSE_HANDLER, NULL, NULL, NULL);
 
 	return;
 }
@@ -661,7 +640,7 @@ void               myqttd_module_cleanup   (MyQttdCtx * ctx)
 	msg ("Cleaning up myqttd %d modules (ctx: %p)..", axl_list_length (ctx->registered_modules), ctx);
 	axl_list_free (ctx->registered_modules);
 	ctx->registered_modules = NULL;
-	vortex_mutex_destroy (&ctx->registered_modules_mutex);
+	myqtt_mutex_destroy (&ctx->registered_modules_mutex);
 
 	return;
 }

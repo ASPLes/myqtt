@@ -37,60 +37,42 @@
  *                        http://www.aspl.es/myqtt
  */
 
-#ifndef __MYQTTD_TYPES_H__
-#define __MYQTTD_TYPES_H__
+#ifndef __MYQTTD_LOOP_H__
+#define __MYQTTD_LOOP_H__
+
+#include <myqttd.h>
 
 /** 
- * \defgroup myqttd_types Myqttd types: types used/exposed by MyQttd API
- */
-
-/** 
- * \addtogroup myqttd_types
+ * \addtogroup myqttd_loop
  * @{
  */
 
-/** 
- * @brief Type that represents a myqttd module.
- */
-typedef struct _MyQttdModule MyQttdModule;
+MyQttdLoop * myqttd_loop_create (MyQttdCtx * ctx);
 
-/** 
- * @brief Type representing a child process created. Abstraction used
- * to store a set of data used around the child.
- */
-typedef struct _MyQttdChild  MyQttdChild;
+MyQttdCtx  * myqttd_loop_ctx    (MyQttdLoop * loop);
 
-/** 
- * @brief Type representing a loop watching a set of files. See \ref myqttd_loop.
- */
-typedef struct _MyQttdLoop MyQttdLoop;
+void             myqttd_loop_set_read_handler (MyQttdLoop        * loop,
+					       MyQttdLoopOnRead    on_read,
+					       axlPointer              ptr,
+					       axlPointer              ptr2);
 
-/** 
- * @brief Set of handlers that are supported by modules. This handler
- * descriptors are used by some functions to notify which handlers to
- * call: \ref myqttd_module_notify.
- */
-typedef enum {
-	/** 
-	 * @brief Module reload handler 
-	 */
-	MYQTTD_RELOAD_HANDLER = 1,
-	/** 
-	 * @brief Module close handler 
-	 */
-	MYQTTD_CLOSE_HANDLER  = 2,
-	/** 
-	 * @brief Module init handler 
-	 */
-	MYQTTD_INIT_HANDLER   = 3,
-	/** 
-	 * @brief Module profile path selected handler.
-	 */ 
-	MYQTTD_PPATH_SELECTED_HANDLER = 4
-} MyQttdModHandler;
+void             myqttd_loop_watch_descriptor (MyQttdLoop        * loop,
+					       int                     descriptor,
+					       MyQttdLoopOnRead    on_read,
+					       axlPointer              ptr,
+					       axlPointer              ptr2);
 
-#endif
+void             myqttd_loop_unwatch_descriptor (MyQttdLoop        * loop,
+						 int                     descriptor,
+						 axl_bool                wait_until_unwatched);
+
+int              myqttd_loop_watching (MyQttdLoop * loop);
+
+void             myqttd_loop_close (MyQttdLoop * loop, 
+				    axl_bool        notify);
 
 /** 
  * @}
  */
+
+#endif

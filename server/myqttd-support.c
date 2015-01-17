@@ -188,11 +188,11 @@ char          * myqttd_support_get_backtrace (MyQttdCtx * ctx, int pid)
 #endif			
 }
 
-axl_bool myqttd_support_smtp_send_receive_reply_and_check (MyQttdCtx * ctx,
-							       VORTEX_SOCKET   conn, 
-							       char          * buffer, 
-							       int             buffer_size, 
-							       const char    * error_message)
+axl_bool myqttd_support_smtp_send_receive_reply_and_check (MyQttdCtx     * ctx,
+							   MYQTT_SOCKET    conn, 
+							   char          * buffer, 
+							   int             buffer_size, 
+							   const char    * error_message)
 {
 	int read_bytes;
 
@@ -210,7 +210,7 @@ axl_bool myqttd_support_smtp_send_receive_reply_and_check (MyQttdCtx * ctx,
 
 	if (! axl_memcmp (buffer, "250", 3) && ! axl_memcmp (buffer, "220", 3) && ! axl_memcmp (buffer, "354", 3)) {
 		error ("Received negative SMTP reply: %s", buffer);
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	}
 
@@ -257,7 +257,7 @@ axl_bool        myqttd_support_smtp_send (MyQttdCtx * ctx,
 					      const char    * smtp_server,
 					      const char    * smtp_port)
 {
-	VORTEX_SOCKET   conn;
+	MYQTT_SOCKET    conn;
 	axlError      * err = NULL;
 	char            buffer[1024];
 	FILE          * body_ffile;
@@ -271,10 +271,10 @@ axl_bool        myqttd_support_smtp_send (MyQttdCtx * ctx,
 		mail_from = "myqttd@localdomain.local";
 
 	/* create connection */
-	conn = vortex_connection_sock_connect (MYQTTD_VORTEX_CTX (ctx), 
-					       smtp_server ? smtp_server : "localhost",
-					       smtp_port ? smtp_port : "25",
-					       NULL, &err);
+	conn = myqtt_conn_sock_connect (MYQTTD_MYQTT_CTX (ctx), 
+					smtp_server ? smtp_server : "localhost",
+					smtp_port ? smtp_port : "25",
+					NULL, &err);
 	if (conn == -1) {
 		error ("Unable to connect to smtp server %s:%s, error was: %s",
 		       smtp_server ? smtp_server : "localhost",
@@ -291,20 +291,20 @@ axl_bool        myqttd_support_smtp_send (MyQttdCtx * ctx,
 	/* ok, now write content */
 	if (send (conn, "mail from: ", 11, 0) != 11) {
 		error ("Unable to send mail message, failed to send mail from content..");
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	} /* end if */
 
 	if (send (conn, mail_from, strlen (mail_from), 0) != strlen (mail_from)) {
 		error ("Unable to send mail message, failed to send mail from content (address)..");
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	} /* end if */
 
 	/* send termination */
 	if (send (conn, "\r\n", 2, 0) != 2) {
 		error ("Unable to send mail message, failed to send mail from content (address)..");
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	} /* end if */
 
@@ -315,20 +315,20 @@ axl_bool        myqttd_support_smtp_send (MyQttdCtx * ctx,
 
 	if (send (conn, "rcpt to: ", 9, 0) != 9) {
 		error ("Unable to send mail message, failed to send rcpt to content..");
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	} /* end if */
 
 	if (send (conn, mail_to, strlen (mail_to), 0) != strlen (mail_to)) {
 		error ("Unable to send mail message, failed to send rcpt to content (address)..");
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	} /* end if */
 
 	/* send termination */
 	if (send (conn, "\r\n", 2, 0) != 2) {
 		error ("Unable to send mail message, failed to send mail from content (address)..");
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	} /* end if */
 
@@ -340,7 +340,7 @@ axl_bool        myqttd_support_smtp_send (MyQttdCtx * ctx,
 	/* init data section */
 	if (send (conn, "data\n", 5, 0) != 5) {
 		error ("Unable to send mail message, failed to send data section..");
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	} /* end if */
 
@@ -353,40 +353,40 @@ axl_bool        myqttd_support_smtp_send (MyQttdCtx * ctx,
 	/* send To: content */
 	if (send (conn, "To: ", 4, 0) != 4) {
 		error ("Unable to send mail message, failed to send To: content..");
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	} /* end if */
 
 	if (send (conn, mail_to, strlen (mail_to), 0) != strlen (mail_to)) {
 		error ("Unable to send mail message, failed to send rcpt to content (address)..");
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	} /* end if */
 
 	/* send termination */
 	if (send (conn, "\r\n", 2, 0) != 2) {
 		error ("Unable to send mail message, failed to send mail from content (address)..");
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	} /* end if */
 
 	/* send From: content */
 	if (send (conn, "From: ", 6, 0) != 6) {
 		error ("Unable to send mail message, failed to send From: content..");
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	} /* end if */
 
 	if (send (conn, mail_from, strlen (mail_from), 0) != strlen (mail_from)) {
 		error ("Unable to send mail message, failed to send rcpt to content (address)..");
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	} /* end if */
 
 	/* send termination */
 	if (send (conn, "\r\n", 2, 0) != 2) {
 		error ("Unable to send mail message, failed to send mail from content (address)..");
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	} /* end if */
 	
@@ -397,14 +397,14 @@ axl_bool        myqttd_support_smtp_send (MyQttdCtx * ctx,
 		/* send subject content */
 		if (send (conn, "Subject: ", 9, 0) != 9) {
 			error ("Unable to send mail message, failed to send subject section..");
-			vortex_close_socket (conn);
+			myqtt_close_socket (conn);
 			return axl_false;
 		} /* end if */
 
 		/* send the subject it self */
 		if (send (conn, subject, strlen (subject), 0) != strlen (subject)) {
 			error ("Unable to send mail message, failed to send subject content..");
-			vortex_close_socket (conn);
+			myqtt_close_socket (conn);
 			return axl_false;
 		} /* end if */
 
@@ -412,7 +412,7 @@ axl_bool        myqttd_support_smtp_send (MyQttdCtx * ctx,
 		/* send termination */
 		if (send (conn, "\r\n", 2, 0) != 2) {
 			error ("Unable to send mail message, failed to send mail from content (address)..");
-			vortex_close_socket (conn);
+			myqtt_close_socket (conn);
 			return axl_false;
 		} /* end if */
 	}
@@ -423,14 +423,14 @@ axl_bool        myqttd_support_smtp_send (MyQttdCtx * ctx,
 
 		if (send (conn, body, strlen (body), 0) != strlen (body)) {
 			error ("Unable to send mail message, failed to send body content..");
-			vortex_close_socket (conn);
+			myqtt_close_socket (conn);
 			return axl_false;
 		} /* end if */
 
 		/* send termination */
 		if (send (conn, "\r\n", 2, 0) != 2) {
 			error ("Unable to send mail message, failed to send mail from content (address)..");
-			vortex_close_socket (conn);
+			myqtt_close_socket (conn);
 			return axl_false;
 		} /* end if */
 	}
@@ -451,7 +451,7 @@ axl_bool        myqttd_support_smtp_send (MyQttdCtx * ctx,
 					error ("Unable to send mail message, found a failure while sending content from file (sent %d != requested %d)..",
 					       bytes_sent, bytes_read);
 					fclose (body_ffile);
-					vortex_close_socket (conn);
+					myqtt_close_socket (conn);
 					return axl_false;
 				} /* end if */
 
@@ -463,7 +463,7 @@ axl_bool        myqttd_support_smtp_send (MyQttdCtx * ctx,
 			/* send termination */
 			if (send (conn, "\r\n", 2, 0) != 2) {
 			        error ("Unable to send mail message, failed to send mail from content (address)..");
-				vortex_close_socket (conn);
+				myqtt_close_socket (conn);
 				return axl_false;
 			} /* end if */
 		} /* end if */
@@ -472,7 +472,7 @@ axl_bool        myqttd_support_smtp_send (MyQttdCtx * ctx,
 	/* send termination */
 	if (send (conn, ".\r\n", 3, 0) != 3) {
 		error ("Unable to send mail message, failed to send termination message..");
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	} /* end if */
 
@@ -486,10 +486,10 @@ axl_bool        myqttd_support_smtp_send (MyQttdCtx * ctx,
 	msg ("Now sending quit..");
 	if (send (conn, "quit\r\n", 6, 0) != 6) {
 		error ("Unable to send mail message, failed to send termination message..");
-		vortex_close_socket (conn);
+		myqtt_close_socket (conn);
 		return axl_false;
 	} /* end if */
-	vortex_close_socket (conn);
+	myqtt_close_socket (conn);
 
 	return axl_true;
 }

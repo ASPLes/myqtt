@@ -63,12 +63,10 @@
 #include <myqttd-run.h>
 #include <myqttd-module.h>
 #include <myqttd-log.h>
-#include <myqttd-db-list.h>
 #include <myqttd-conn-mgr.h>
-#include <myqttd-process.h>
 #include <myqttd-loop.h>
-#include <myqttd-mediator.h>
 #include <myqttd-child.h>
+#include <myqttd-process.h>
 
 /** 
  * \addtogroup myqttd
@@ -221,8 +219,8 @@ void     myqttd_exit                (MyQttdCtx * ctx,
 
 void     myqttd_reload_config       (MyQttdCtx * ctx, int value);
 
-axl_bool myqttd_file_test_v         (const char * format, 
-				     VortexFileTest test, ...);
+axl_bool myqttd_file_test_v         (const char    * format, 
+				     MyQttFileTest   test, ...);
 
 axl_bool myqttd_create_dir          (const char * path);
 

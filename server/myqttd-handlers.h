@@ -62,6 +62,45 @@
  */
 typedef void (*MyQttdSignalHandler) (int signal);
 
+/** 
+ * @brief Handler definition for the set of functions that are able to
+ * filter connections to be not broadcasted by the myqttd conn mgr
+ * module.
+ *
+ * The function must return true to filter the connection and avoid
+ * sending the message broadcasted.
+ * 
+ * @param conn The connection which is asked to be filtered or not.
+ *
+ * @param user_data User defined data associated to the filter
+ * configuration.
+ * 
+ * @return true to filter the connection, otherwise return false.
+ */
+typedef int  (*MyQttdConnMgrFilter) (MyQttConn * conn, axlPointer user_data);
+
+/** 
+ * @brief Handler definition used by myqttd_loop_set_read_handler
+ * to notify that the descriptor is ready to be read (either because
+ * it has data or because it was closed).
+ *
+ * @param loop The loop wher the notification was found.
+ * @param ctx The MyQttd context where the loop is running.
+ * @param descriptor The descriptor that is ready to be read.
+ * @param ptr User defined pointer defined at \ref myqttd_loop_set_read_handler and passed to this handler.
+ * @param ptr2 User defined pointer defined at \ref myqttd_loop_set_read_handler and passed to this handler.
+ *
+ * @return The function return axl_true in the case the read operation
+ * was completed without problem. Otherwise axl_false is returned
+ * indicating that the myqttd loop engine should close the
+ * descriptor.
+ */
+typedef axl_bool (*MyQttdLoopOnRead) (MyQttdLoop   * loop, 
+				      MyQttdCtx    * ctx,
+				      int            descriptor, 
+				      axlPointer     ptr, 
+				      axlPointer     ptr2);
+
 #endif
 
 /**

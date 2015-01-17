@@ -45,7 +45,11 @@ libmyqttdinclude_HEADERS    = \
 	myqttd-moddef.h \
 	myqttd-run.h \
 	myqttd-module.h \
-	myqttd-log.h
+	myqttd-log.h \
+	myqttd-conn-mgr.h \
+	myqttd-loop.h \
+	myqttd-process.h \
+	myqttd-child.h
 
 libmyqttd_la_SOURCES = \
 	exarg.c \
@@ -57,7 +61,11 @@ libmyqttd_la_SOURCES = \
 	myqttd-signal.c \
 	myqttd-run.c \
 	myqttd-module.c \
-	myqttd-log.c
+	myqttd-log.c \
+	myqttd-conn-mgr.c \
+	myqttd-loop.c \
+	myqttd-process.c \
+	myqttd-child.c
 
 libmyqttd_la_LIBADD = $(AXL_LIBS)  $(PCRE_LIBS)
 libmyqttd_la_LDFLAGS = -Wl,-export-dynamic -ldl -no-undefined -export-symbols-regex '^(myqttd|__myqttd|exarg).*'
