@@ -42,7 +42,7 @@
 #include <myqttd-ctx-private.h>
 
 /** 
- * \defgroup myqttd_ctx Myqttd Context: API provided to handle Myqttd contexts
+ * \defgroup myqttd_ctx MyQttd Context: API provided to handle MyQttd contexts
  */
 
 /** 
@@ -64,7 +64,7 @@
  * myqttd_exit is required, followed by a call to \ref
  * myqttd_ctx_free.
  * 
- * @return A newly allocated reference to the Myqttd context
+ * @return A newly allocated reference to the MyQttd context
  * created. This function is already called by the myqttd engine.
  */
 MyQttdCtx * myqttd_ctx_new ()
@@ -91,9 +91,6 @@ MyQttdCtx * myqttd_ctx_new ()
 	ctx->access_log  = -1;
 	ctx->myqtt_log  = -1;
 
-	/* init ppath unique id assigment */
-	ctx->ppath_next_id = 1;
-
 	/* init wait queue */
 	ctx->wait_queue    = myqtt_async_queue_new ();
 
@@ -106,7 +103,7 @@ MyQttdCtx * myqttd_ctx_new ()
  * after a child process creation. It also closed or removes internal
  * elements not required by child process.
  */
-void           myqttd_ctx_reinit (MyQttdCtx * ctx, MyqttdChild * child, MyqttdPPathDef * def)
+void           myqttd_ctx_reinit (MyQttdCtx * ctx, MyQttdChild * child)
 {
 	/* init pid to the child */
 	ctx->pid = getpid ();
@@ -114,9 +111,6 @@ void           myqttd_ctx_reinit (MyQttdCtx * ctx, MyqttdChild * child, MyqttdPP
 	/* define context child and child context */
 	ctx->child   = child;
 	child->ctx   = ctx;
-
-	/* record profile path selected */
-	ctx->child->ppath = def;
 
 	/* re-init mutex */
 	myqtt_mutex_create (&ctx->exit_mutex);
@@ -134,14 +128,14 @@ void           myqttd_ctx_reinit (MyQttdCtx * ctx, MyqttdChild * child, MyqttdPP
 }
 
 /** 
- * @brief Allows to configure the myqtt context (MyqttCtx)
+ * @brief Allows to configure the myqtt context (MyQttCtx)
  * associated to the provided \ref MyQttdCtx.
  * 
  * @param ctx \ref MyQttdCtx to be configured.
- * @param myqtt_ctx Myqtt context to be configured.
+ * @param myqtt_ctx MyQtt context to be configured.
  */
 void            myqttd_ctx_set_myqtt_ctx (MyQttdCtx * ctx, 
-					       MyqttCtx     * myqtt_ctx)
+					       MyQttCtx     * myqtt_ctx)
 {
 	v_return_if_fail (ctx);
 
@@ -162,11 +156,11 @@ void            myqttd_ctx_set_myqtt_ctx (MyQttdCtx * ctx,
  * myqtt.
  * 
  * @param ctx The myqttd context where it is expected to find a
- * Myqtt context (MyqttCtx).
+ * MyQtt context (MyQttCtx).
  * 
- * @return A reference to the MyqttCtx.
+ * @return A reference to the MyQttCtx.
  */
-MyqttCtx     * myqttd_ctx_get_myqtt_ctx (MyQttdCtx * ctx)
+MyQttCtx     * myqttd_ctx_get_myqtt_ctx (MyQttdCtx * ctx)
 {
 	v_return_val_if_fail (ctx, NULL);
 
@@ -350,7 +344,7 @@ void            myqttd_ctx_free (MyQttdCtx * ctx)
 			error ("ERROR: current process is attempting to release myqtt context more times than references supported");
 		else {
 			/* release myqtt reference acquired */
-			msg ("Finishing MyqttCtx (%p, ref count: %d)", ctx->myqtt_ctx, myqtt_ctx_ref_count (ctx->myqtt_ctx));
+			msg ("Finishing MyQttCtx (%p, ref count: %d)", ctx->myqtt_ctx, myqtt_ctx_ref_count (ctx->myqtt_ctx));
 			myqtt_ctx_unref (&(ctx->myqtt_ctx));
 		}
 	}

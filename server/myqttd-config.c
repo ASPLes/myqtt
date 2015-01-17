@@ -39,9 +39,6 @@
 /* local include */
 #include <myqttd-ctx-private.h>
 
-/* include local DTD */
-#include <myqttd-config.dtd.h>
-
 /** 
  * \defgroup myqttd_config Myqttd Config: files to access to run-time Myqttd Config
  */
@@ -200,7 +197,6 @@ void myqttd_config_load_expand_nodes (MyQttdCtx * ctx)
 axl_bool  myqttd_config_load (MyQttdCtx * ctx, const char * config)
 {
 	axlError   * error;
-	axlDtd     * dtd_file;
 
 	/* check null value */
 	if (config == NULL) {
@@ -230,32 +226,6 @@ axl_bool  myqttd_config_load (MyQttdCtx * ctx, const char * config)
 
 	/* now process inclusions */
 	myqttd_config_load_expand_nodes (ctx);
-
-	/* found dtd file */
-	dtd_file = axl_dtd_parse (MYQTTD_CONFIG_DTD, -1, &error);
-	if (dtd_file == NULL) {
-		axl_doc_free (ctx->config);
-		error ("unable to load DTD to validate myqttd configuration, error: %s", axl_error_get (error));
-		axl_error_free (error);
-		return axl_false;
-	} /* end if */
-
-	if (! axl_dtd_validate (ctx->config, dtd_file, &error)) {
-		abort_error ("unable to validate server configuration, something is wrong: %s", 
-			     axl_error_get (error));
-
-		/* free and set a null reference */
-		axl_doc_free (ctx->config);
-		ctx->config = NULL;
-
-		axl_error_free (error);
-		return axl_false;
-	} /* end if */
-
-	msg ("server configuration is valid..");
-	
-	/* free resources */
-	axl_dtd_free (dtd_file);
 
 	return axl_true;
 }

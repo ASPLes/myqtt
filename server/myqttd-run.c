@@ -41,9 +41,6 @@
 #include <myqttd.h>
 #include <myqttd-ctx-private.h>
 
-/* include inline dtd */
-#include <mod-myqttd.dtd.h>
-
 /** 
  * \defgroup myqttd_run MyQttd runtime: runtime checkings 
  */
@@ -128,8 +125,8 @@ void myqttd_run_load_modules_from_path (MyQttdCtx * ctx, const char * path, DIR 
 			goto next;
 		} /* end if */
 		
-		fullpath = vortex_support_build_filename (path, entry->d_name, NULL);
-		if (! vortex_support_file_test (fullpath, FILE_IS_REGULAR))
+		fullpath = myqtt_support_build_filename (path, entry->d_name, NULL);
+		if (! myqtt_support_file_test (fullpath, FILE_IS_REGULAR))
 			goto next;
 
 		/* check if the fullpath is ended with .xml */
@@ -211,7 +208,7 @@ void myqttd_run_load_modules (MyQttdCtx * ctx, axlDoc * doc)
 		path = ATTR_VALUE (directory, "src");
 		
 		/* try to open the directory */
-		if (vortex_support_file_test (path, FILE_IS_DIR | FILE_EXISTS)) {
+		if (myqtt_support_file_test (path, FILE_IS_DIR | FILE_EXISTS)) {
 			dirHandle = opendir (path);
 			if (dirHandle == NULL) {
 				wrn ("unable to open mod directory '%s' (%s), skiping to the next", strerror (errno), path);
@@ -243,8 +240,8 @@ axl_bool myqttd_run_config_start_listeners (MyQttdCtx * ctx, axlDoc * doc)
 	axl_bool           at_least_one_listener = axl_false;
 	axlNode          * name;
 	axlNode          * port;
-	VortexConnection * conn_listener;
-	VortexCtx        * vortex_ctx = myqttd_ctx_get_vortex_ctx (ctx);
+	MyQttConn        * conn_listener;
+	MyQttCtx         * myqtt_ctx = myqttd_ctx_get_myqtt_ctx (ctx);
 
 	/* check if this is a child process (it has no listeners, only
 	 * master process do) */
@@ -263,19 +260,21 @@ axl_bool myqttd_run_config_start_listeners (MyQttdCtx * ctx, axlDoc * doc)
 		while (port != NULL) {
 
 			/* start the listener */
-			conn_listener = vortex_listener_new (
+			conn_listener = myqtt_listener_new (
 				/* the context where the listener will
 				 * be started */
-				vortex_ctx,
+				myqtt_ctx,
 				/* listener name */
 				axl_node_get_content (name, NULL),
 				/* port to use */
 				axl_node_get_content (port, NULL),
+				/* opts */
+				NULL,
 				/* on ready callbacks */
 				NULL, NULL);
 			
 			/* check the listener started */
-			if (! vortex_connection_is_ok (conn_listener, axl_false)) {
+			if (! myqtt_conn_is_ok (conn_listener, axl_false)) {
 				/* unable to start the server configuration */
 				error ("unable to start listener at %s:%s...", 
 				       /* server name */
@@ -289,7 +288,7 @@ axl_bool myqttd_run_config_start_listeners (MyQttdCtx * ctx, axlDoc * doc)
 			msg ("started listener at %s:%s (id: %d, socket: %d)...",
 			     axl_node_get_content (name, NULL),
 			     axl_node_get_content (port, NULL),
-			     vortex_connection_get_id (conn_listener), vortex_connection_get_socket (conn_listener));
+			     myqtt_conn_get_id (conn_listener), myqtt_conn_get_socket (conn_listener));
 
 			/* flag that at least one listener was
 			 * created */
@@ -328,16 +327,15 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 	/* get the document configuration */
 	axlDoc           * doc        = myqttd_config_get (ctx);
 	axlNode          * node;
-	VortexCtx        * vortex_ctx = myqttd_ctx_get_vortex_ctx (ctx);
+	MyQttCtx         * myqtt_ctx = myqttd_ctx_get_myqtt_ctx (ctx);
 
 	/* mod myqttd dtd */
 	char             * features   = NULL;
 	char             * string_aux;
 #if defined(AXL_OS_UNIX)
-	/* required by the vortex_conf_set hard/soft socket limit. */
+	/* required by the myqtt_conf_set hard/soft socket limit. */
 	int                int_aux;
 #endif
-	axlError         * error;
 
 	/* check ctx received */
 	if (ctx == NULL) 
@@ -361,7 +359,7 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 	node       = axl_doc_get (doc, "/myqttd/global-settings/connections/max-connections");
 
 #if defined(AXL_OS_UNIX)
-	/* NOTE: currently, vortex_conf_set do not allows to configure
+	/* NOTE: currently, myqtt_conf_set do not allows to configure
 	 * the hard/soft connection limit on windows platform. Once done,
 	 * this section must be public (remove
 	 * defined(AXL_OS_UNIX)). */
@@ -371,9 +369,9 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 		/* set hard limit */
 		string_aux = (char*) ATTR_VALUE (node, "hard-limit");
 		int_aux    = strtol (string_aux, NULL, 10);
-		if (! vortex_conf_set (vortex_ctx, VORTEX_HARD_SOCK_LIMIT, int_aux, NULL)) {
+		if (! myqtt_conf_set (myqtt_ctx, MYQTT_HARD_SOCK_LIMIT, int_aux, NULL)) {
 			error ("failed to set hard limit to=%s (int value=%d), error: %s, terminating myqttd..",
-			       string_aux, int_aux, vortex_errno_get_last_error ());
+			       string_aux, int_aux, myqtt_errno_get_last_error ());
 		} else {
 			msg ("configured max connections hard limit to: %s", string_aux);
 		} /* end if */
@@ -381,7 +379,7 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 		/* set soft limit */
 		string_aux = (char*) ATTR_VALUE (node, "soft-limit");
 		int_aux    = strtol (string_aux, NULL, 10);
-		if (! vortex_conf_set (vortex_ctx, VORTEX_SOFT_SOCK_LIMIT, int_aux, NULL)) {
+		if (! myqtt_conf_set (myqtt_ctx, MYQTT_SOFT_SOCK_LIMIT, int_aux, NULL)) {
 			error ("failed to set soft limit to=%s (int value=%d), terminating myqttd..",
 			       string_aux, int_aux);
 		} else {
@@ -394,14 +392,6 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 	if (HAS_ATTR_VALUE (node, "enabled", "yes")) {
 		/* enable sasl support */
 		/* myqttd_tls_enable (); */
-	} /* end if */
-
-	/* found dtd file */
-	ctx->module_dtd = axl_dtd_parse (MOD_MYQTTD_DTD, -1, &error);
-	if (ctx->module_dtd == NULL) {
-		error ("unable to load mod-myqttd.dtd file: %s", axl_error_get (error));
-		axl_error_free (error);
-		return axl_false;
 	} /* end if */
 
 	/* check features here */
@@ -426,12 +416,6 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 
 		} /* end while */
 
-		/* now set features (if defined) */
-		if (features != NULL) {
-			vortex_greetings_set_features (vortex_ctx, features);
-			axl_free (features);
-		}
-
 	} /* end if */
 
 	/* load search paths */
@@ -439,7 +423,7 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 	while (node) {
 		/* add search path */
 		msg ("Adding domain (%s) search path: %s", ATTR_VALUE (node, "domain"), ATTR_VALUE (node, "path"));
-		vortex_support_add_domain_search_path (TBC_VORTEX_CTX (ctx), ATTR_VALUE (node, "domain"), ATTR_VALUE (node, "path"));
+		myqtt_support_add_domain_search_path (MYQTTD_MYQTT_CTX (ctx), ATTR_VALUE (node, "domain"), ATTR_VALUE (node, "path"));
 
 		/* get next search node */
 		node = axl_node_get_next_called (node, "search");
@@ -447,17 +431,6 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 
 	/* now load all modules found */
 	myqttd_run_load_modules (ctx, doc);
-
-	/* now check for profiles already activated */
-	if (vortex_profiles_registered (vortex_ctx) == 0) {
-		/* check for <allow-start-without-profiles> */
-		if (myqttd_config_is_attr_negative (ctx, 
-							axl_doc_get (doc, "/myqttd/global-settings/allow-start-without-profiles"),
-							"value")) {
-			abort_error ("unable to start myqttd server, no profile was registered into the vortex engine either by configuration or modules");
-			return axl_false;
-		} /* end if */
-	} /* end if */
 
 	/* start here log manager */
 	myqttd_log_manager_start (ctx);

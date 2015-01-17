@@ -37,7 +37,8 @@
  *                        http://www.aspl.es/myqtt
  */
 
-#include <myqttd-expr.h>
+#include <myqttd.h>
+#include <myqttd-types.h>
 
 #include <pcre.h>
 
@@ -276,9 +277,9 @@ const char * myqttd_expr_check_negative_expr (const char * expression, int  * ne
  * NULL if it fails. The expression returned must be terminated to
  * return resouces used by using \ref myqttd_expr_free.
  */
-MyQttdExpr * myqttd_expr_compile (MyQttd * ctx, 
-					  const char    * expression, 
-					  const char    * error_msg)
+MyQttdExpr * myqttd_expr_compile (MyQttdCtx     * ctx, 
+				  const char    * expression, 
+				  const char    * error_msg)
 {
 	MyQttdExpr  * expr;
 	const char      * error;

@@ -65,7 +65,6 @@ int myqttd_signal_received (MyQttdCtx * ctx, int _signal)
 {
 	int exit_status = 0;
 	int pid;
-	MyQttdChild * child;
 
 	if (_signal == SIGHUP) {
 		msg ("received reconf signal, handling..");
@@ -86,13 +85,6 @@ int myqttd_signal_received (MyQttdCtx * ctx, int _signal)
 
 		/* lock to remove */
 		myqtt_mutex_lock (&ctx->child_process_mutex);
-
-		/* get child to reduce childs running */
-		child = axl_hash_get (ctx->child_process, INT_TO_PTR (pid));
-		if (child && child->ppath) {
-			/* decrease number of childs running */
-			child->ppath->childs_running--;
-		} /* end if */
 
 		/* remove pid from list */
 		axl_hash_remove (ctx->child_process, INT_TO_PTR (pid));

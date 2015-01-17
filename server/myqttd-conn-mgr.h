@@ -37,60 +37,49 @@
  *                        http://www.aspl.es/myqtt
  */
 
-#ifndef __MYQTTD_TYPES_H__
-#define __MYQTTD_TYPES_H__
+#ifndef __MYQTTD_CONN_MGR_H__
+#define __MYQTTD_CONN_MGR_H__
 
-/** 
- * \defgroup myqttd_types Myqttd types: types used/exposed by MyQttd API
- */
+/* internal use API */
+void myqttd_conn_mgr_init          (MyQttdCtx    * ctx, 
+				    axl_bool       reinit);
 
-/** 
- * \addtogroup myqttd_types
- * @{
- */
+void myqttd_conn_mgr_register      (MyQttdCtx * ctx, 
+				    MyQttConn * conn);
 
-/** 
- * @brief Type that represents a myqttd module.
- */
-typedef struct _MyQttdModule MyQttdModule;
+void myqttd_conn_mgr_unregister    (MyQttdCtx * ctx, 
+				    MyQttConn * conn);
 
-/** 
- * @brief Type representing a child process created. Abstraction used
- * to store a set of data used around the child.
- */
-typedef struct _MyQttdChild  MyQttdChild;
+void myqttd_conn_mgr_cleanup       (MyQttdCtx * ctx);
 
-/** 
- * @brief Type representing a loop watching a set of files. See \ref myqttd_loop.
- */
-typedef struct _MyQttdLoop MyQttdLoop;
+/* public API */
+axl_bool  myqttd_conn_mgr_broadcast_msg (MyQttdCtx            * ctx,
+					 const void           * message,
+					 int                    message_size,
+					 const char           * profile,
+					 MyQttdConnMgrFilter    filter_conn,
+					 axlPointer             filter_data);
 
-/** 
- * @brief Set of handlers that are supported by modules. This handler
- * descriptors are used by some functions to notify which handlers to
- * call: \ref myqttd_module_notify.
- */
-typedef enum {
-	/** 
-	 * @brief Module reload handler 
-	 */
-	MYQTTD_RELOAD_HANDLER = 1,
-	/** 
-	 * @brief Module close handler 
-	 */
-	MYQTTD_CLOSE_HANDLER  = 2,
-	/** 
-	 * @brief Module init handler 
-	 */
-	MYQTTD_INIT_HANDLER   = 3,
-	/** 
-	 * @brief Module profile path selected handler.
-	 */ 
-	MYQTTD_PPATH_SELECTED_HANDLER = 4
-} MyQttdModHandler;
+axlList *  myqttd_conn_mgr_conn_list   (MyQttdCtx            * ctx, 
+					MyQttPeerRole          role,
+					const char           * filter);
 
-#endif
+axlList *  myqttd_conn_mgr_conn_list   (MyQttdCtx            * ctx, 
+					MyQttPeerRole          role,
+					const char           * filter);
 
-/** 
- * @}
- */
+int        myqttd_conn_mgr_count       (MyQttdCtx            * ctx);
+
+axl_bool   myqttd_conn_mgr_proxy_on_parent (MyQttConn * conn);
+
+int        myqttd_conn_mgr_setup_proxy_on_parent (MyQttdCtx * ctx, MyQttConn * conn);
+
+MyQttConn * myqttd_conn_mgr_find_by_id (MyQttdCtx * ctx,
+					int         conn_id);
+
+/* private API */
+void myqttd_conn_mgr_on_close (MyQttConn * conn, 
+			       axlPointer         user_data);
+
+
+#endif 
