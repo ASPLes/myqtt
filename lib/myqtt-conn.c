@@ -47,6 +47,7 @@
 
 /* include connection internal definition */
 #include <myqtt-conn-private.h>
+#include <myqtt-addrinfo.h>
 
 #if defined(AXL_OS_UNIX)
 # include <netinet/tcp.h>
