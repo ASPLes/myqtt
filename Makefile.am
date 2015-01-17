@@ -11,7 +11,7 @@ WEBSOCKET_DEFS = update-web-socket-defs
 endif
 
 
-SUBDIRS = lib $(TLS_SUPPORT_DIR) $(WEBSOCKET_SUPPORT_DIR) test
+SUBDIRS = lib $(TLS_SUPPORT_DIR) $(WEBSOCKET_SUPPORT_DIR) server test
 EXTRA_DIST = myqtt-1.0.pc.in VERSION
 
 pkgconfigdir = $(libdir)/pkgconfig
