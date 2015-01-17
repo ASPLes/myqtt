@@ -46,7 +46,7 @@ void      myqttd_log_init         (MyQttdCtx * ctx);
 
 typedef enum {LOG_REPORT_GENERAL = 1, 
 	      LOG_REPORT_ACCESS  = 1 << 2, 
-	      LOG_REPORT_VORTEX  = 1 << 3,
+	      LOG_REPORT_MYQTT  = 1 << 3,
 	      LOG_REPORT_ERROR   = 1 << 4,
 	      LOG_REPORT_WARNING = 1 << 5
 } LogReportType;

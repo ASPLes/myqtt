@@ -114,10 +114,10 @@ void myqttd_log_init (MyQttdCtx * ctx)
 	} /* end if */
 	node      = axl_node_get_parent (node);
 
-	node      = axl_node_get_child_called (node, "vortex-log");
-	ctx->vortex_log  = open (ATTR_VALUE (node, "file"), O_CREAT | O_APPEND | O_WRONLY, 0600);
-	if (ctx->vortex_log == -1) {
-		abort_error ("unable to open vortex log: %s", ATTR_VALUE (node, "file"));
+	node      = axl_node_get_child_called (node, "myqtt-log");
+	ctx->myqtt_log  = open (ATTR_VALUE (node, "file"), O_CREAT | O_APPEND | O_WRONLY, 0600);
+	if (ctx->myqtt_log == -1) {
+		abort_error ("unable to open myqtt log: %s", ATTR_VALUE (node, "file"));
 	} else {
 		msg ("opened log: %s", ATTR_VALUE (node, "file"));
 	} /* end if */
@@ -154,9 +154,9 @@ void      myqttd_log_configure (MyQttdCtx * ctx,
 		/* configure new access log descriptor */
 		ctx->access_log = descriptor;
 		break;
-	case LOG_REPORT_VORTEX:
-		/* configure new vortex log descriptor */
-		ctx->vortex_log = descriptor;
+	case LOG_REPORT_MYQTT:
+		/* configure new myqtt log descriptor */
+		ctx->myqtt_log = descriptor;
 		break;
 	} /* end switch */
 	return;
@@ -185,8 +185,8 @@ axl_bool __myqttd_log_manager_transfer_content (MyQttdLoop * loop,
 	case LOG_REPORT_ACCESS:
 		output_sink = ctx->access_log;
 		break;
-	case LOG_REPORT_VORTEX:
-		output_sink = ctx->vortex_log;
+	case LOG_REPORT_MYQTT:
+		output_sink = ctx->myqtt_log;
 		break;
 	default:
 		/* send to default output sink */
@@ -206,7 +206,7 @@ axl_bool __myqttd_log_manager_transfer_content (MyQttdLoop * loop,
 	if (size_written != size) {
 		error ("failed to write log received from child, content differs (%d != %d), error was: %s", 
 		       size, size_written,
-		       vortex_errno_get_last_error ());
+		       myqtt_errno_get_last_error ());
 	} /* end if */
 
 	return axl_true;
@@ -277,12 +277,12 @@ void      myqttd_log_manager_register (MyQttdCtx * ctx,
 						  INT_TO_PTR(LOG_REPORT_ACCESS),
 						  NULL);
 		break;
-	case LOG_REPORT_VORTEX:
-		/* configure vortex log watcher */
+	case LOG_REPORT_MYQTT:
+		/* configure myqtt log watcher */
 		myqttd_loop_watch_descriptor (ctx->log_manager,
 						  descriptor,
 						  __myqttd_log_manager_transfer_content,
-						  INT_TO_PTR(LOG_REPORT_VORTEX),
+						  INT_TO_PTR(LOG_REPORT_MYQTT),
 						  NULL);
 		break;
 	} /* end switch */
@@ -316,8 +316,8 @@ void REPORT (axl_bool use_syslog, LogReportType type, int log, const char * mess
 			syslog (LOG_INFO, "warning: %s", string);
 		} else if (type == LOG_REPORT_ACCESS) {
 			syslog (LOG_INFO, "access: %s", string);
-		} else if (type == LOG_REPORT_VORTEX) {
-			syslog (LOG_INFO, "vortex: %s", string);
+		} else if (type == LOG_REPORT_MYQTT) {
+			syslog (LOG_INFO, "myqtt: %s", string);
 		} else {
  		        syslog (LOG_INFO, "info: %s", string);
 		}
@@ -410,8 +410,8 @@ void myqttd_log_report (MyQttdCtx   * ctx,
 	if ((type & LOG_REPORT_ACCESS) == LOG_REPORT_ACCESS) 
 		REPORT (ctx->use_syslog, LOG_REPORT_ACCESS, ctx->access_log, message, args, file, line);
 
-	if ((type & LOG_REPORT_VORTEX) == LOG_REPORT_VORTEX) {
-		REPORT (ctx->use_syslog, LOG_REPORT_VORTEX, ctx->vortex_log, message, args, file, line);
+	if ((type & LOG_REPORT_MYQTT) == LOG_REPORT_MYQTT) {
+		REPORT (ctx->use_syslog, LOG_REPORT_MYQTT, ctx->myqtt_log, message, args, file, line);
 	}
 	return;
 }
@@ -464,10 +464,10 @@ void __myqttd_log_close (MyQttdCtx * ctx)
 		close (ctx->access_log);
 	ctx->access_log = -1;
 
-	/* close vortex log */
-	if (ctx->vortex_log >= 0)
-		close (ctx->vortex_log);
-	ctx->vortex_log = -1;
+	/* close myqtt log */
+	if (ctx->myqtt_log >= 0)
+		close (ctx->myqtt_log);
+	ctx->myqtt_log = -1;
 	return;
 }
 

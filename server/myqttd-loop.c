@@ -50,11 +50,11 @@
 
 struct _MyQttdLoop {
 	MyQttdCtx      * ctx;
-	VortexThread         thread;
+	MyQttThread         thread;
 	axlList            * list;
 	axlListCursor      * cursor;
 	axlPointer           fileset;
-	VortexAsyncQueue   * queue;
+	MyQttAsyncQueue   * queue;
 
 	/* read handler */
 	MyQttdLoopOnRead on_read;
@@ -90,14 +90,14 @@ typedef struct _MyQttdLoopDescriptor {
 	 * descriptor.
 	 */
 	axl_bool             remove;
-	VortexAsyncQueue   * queue_reply;
+	MyQttAsyncQueue   * queue_reply;
 } MyQttdLoopDescriptor;
 
 axl_bool __myqttd_loop_read_first (MyQttdLoop * loop)
 {
 	MyQttdLoopDescriptor * loop_descriptor;
 
-	loop_descriptor = vortex_async_queue_pop (loop->queue);
+	loop_descriptor = myqtt_async_queue_pop (loop->queue);
 
 	/* check item received: if null received terminate loop */
 	if (PTR_TO_INT (loop_descriptor) == -4)
@@ -146,11 +146,11 @@ axl_bool __myqttd_loop_read_pending (MyQttdLoop * loop)
 
 	while (axl_true) {
 		/* check if there are no pending items */
-		if (vortex_async_queue_items (loop->queue) == 0)
+		if (myqtt_async_queue_items (loop->queue) == 0)
 			return axl_true;
 
 		/* get descriptor */
-		loop_descriptor = vortex_async_queue_pop (loop->queue);
+		loop_descriptor = myqtt_async_queue_pop (loop->queue);
 			
 		/* check item received: if null received terminate loop */
 		if (PTR_TO_INT (loop_descriptor) == -4)
@@ -175,7 +175,7 @@ axl_bool __myqttd_loop_read_pending (MyQttdLoop * loop)
 
 			/* notify caller if he is waiting */
 			if (loop_descriptor->queue_reply)
-				vortex_async_queue_push (loop_descriptor->queue_reply, INT_TO_PTR (axl_true));
+				myqtt_async_queue_push (loop_descriptor->queue_reply, INT_TO_PTR (axl_true));
 
 			axl_free (loop_descriptor);
 			continue;
@@ -191,7 +191,7 @@ axl_bool __myqttd_loop_read_pending (MyQttdLoop * loop)
 void __myqttd_loop_descriptor_free (axlPointer __loop_descriptor)
 {
 	MyQttdLoopDescriptor * loop_descriptor = __loop_descriptor;
-	vortex_close_socket (loop_descriptor->descriptor);
+	myqtt_close_socket (loop_descriptor->descriptor);
 	axl_free (loop_descriptor);
 	return;
 }
@@ -203,7 +203,7 @@ int __myqttd_loop_build_watch_set (MyQttdLoop * loop)
 	MyQttdLoopDescriptor * loop_descriptor;
 
 	/* reset descriptor set */
-	__vortex_io_waiting_default_clear (loop->fileset);
+	__myqtt_io_waiting_default_clear (loop->fileset);
 	
 	/* reset cursor */
 	axl_list_cursor_first (loop->cursor);
@@ -212,7 +212,7 @@ int __myqttd_loop_build_watch_set (MyQttdLoop * loop)
 		loop_descriptor = axl_list_cursor_get (loop->cursor);
 
 		/* now add to the waiting socket */
-		if (! __vortex_io_waiting_default_add_to (loop_descriptor->descriptor, 
+		if (! __myqtt_io_waiting_default_add_to (loop_descriptor->descriptor, 
 							  NULL, 
 							  loop->fileset)) {
 			
@@ -245,7 +245,7 @@ void myqttd_loop_handle_descriptors (MyQttdLoop * loop)
 		loop_descriptor = axl_list_cursor_get (loop->cursor);
 
 		/* check if the loop descriptor is set */
-		if (__vortex_io_waiting_default_is_set (loop_descriptor->descriptor, loop->fileset, NULL)) {
+		if (__myqtt_io_waiting_default_is_set (loop_descriptor->descriptor, loop->fileset, NULL)) {
 			/* reset handlers and user pointers */
 			read_handler = NULL;
 			ptr          = NULL;
@@ -299,7 +299,7 @@ axlPointer __myqttd_loop_run (MyQttdLoop * loop)
 	loop->cursor  = axl_list_cursor_new (loop->list);
 
 	/* force to use always default select(2) based implementation */
-	loop->fileset  = __vortex_io_waiting_default_create (myqttd_ctx_get_vortex_ctx (loop->ctx), READ_OPERATIONS);
+	loop->fileset  = __myqtt_io_waiting_default_create (myqttd_ctx_get_myqtt_ctx (loop->ctx), READ_OPERATIONS);
 	
 	/* now loop watching content from the list */
 wait_for_first_item:
@@ -317,7 +317,7 @@ wait_for_first_item:
 		} /* end if */
 		
 		/* perform IO wait operation */
-		result = __vortex_io_waiting_default_wait_on (loop->fileset, max_fds, READ_OPERATIONS);
+		result = __myqtt_io_waiting_default_wait_on (loop->fileset, max_fds, READ_OPERATIONS);
 		
 		/* check for timeout and errors */
 		if (result == -1 || result == -2) {
@@ -362,13 +362,13 @@ MyQttdLoop * myqttd_loop_create (MyQttdCtx * ctx)
 	/* create loop instance */
 	loop              = axl_new (MyQttdLoop, 1);
 	loop->ctx         = ctx;
-	loop->queue       = vortex_async_queue_new ();
+	loop->queue       = myqtt_async_queue_new ();
 
 	/* crear manager */
-	if (! vortex_thread_create (&loop->thread, 
-				    (VortexThreadFunc) __myqttd_loop_run,
+	if (! myqtt_thread_create (&loop->thread, 
+				    (MyQttThreadFunc) __myqttd_loop_run,
 				    loop,
-				    VORTEX_THREAD_CONF_END)) {
+				    MYQTT_THREAD_CONF_END)) {
 		axl_free (loop);
 		error ("unable to start loop manager, checking clean start..");
 		return NULL;
@@ -458,7 +458,7 @@ void             myqttd_loop_watch_descriptor (MyQttdLoop        * loop,
 	loop_descriptor->ptr2       = ptr2;
 
 	/* notify loop_descriptor */
-	vortex_async_queue_push (loop->queue, loop_descriptor);
+	myqtt_async_queue_push (loop->queue, loop_descriptor);
 
 	return;
 }
@@ -481,7 +481,7 @@ void             myqttd_loop_unwatch_descriptor (MyQttdLoop        * loop,
 						     axl_bool                wait_until_unwatched)
 {
 	MyQttdLoopDescriptor * loop_descriptor;
-	VortexAsyncQueue         * queue = NULL;
+	MyQttAsyncQueue      * queue = NULL;
 
 	v_return_if_fail (loop);
 
@@ -494,17 +494,17 @@ void             myqttd_loop_unwatch_descriptor (MyQttdLoop        * loop,
 
 	/* user requested to wait until removed descriptor, so create wait reply */
 	if (wait_until_unwatched) {
-		queue = vortex_async_queue_new ();
+		queue = myqtt_async_queue_new ();
 		loop_descriptor->queue_reply = queue;
 	} /* end if */
 
 	/* notify loop_descriptor */
-	vortex_async_queue_push (loop->queue, loop_descriptor);
+	myqtt_async_queue_push (loop->queue, loop_descriptor);
 
 	if (queue && wait_until_unwatched) {
 		/* wait for reply */
-		vortex_async_queue_pop (queue);
-		vortex_async_queue_unref (queue);
+		myqtt_async_queue_pop (queue);
+		myqtt_async_queue_unref (queue);
 	} /* end if */
 
 	return;
@@ -542,8 +542,8 @@ void             myqttd_loop_close (MyQttdLoop * loop, axl_bool notify)
 
 	/* now finish log manager */
 	if (notify && loop->queue != NULL) {
-		vortex_async_queue_push (loop->queue, INT_TO_PTR (-4));
-		vortex_thread_destroy (&loop->thread, axl_false);
+		myqtt_async_queue_push (loop->queue, INT_TO_PTR (-4));
+		myqtt_thread_destroy (&loop->thread, axl_false);
 	} /* end if */	
 	
 	axl_list_free (loop->list);
@@ -552,10 +552,10 @@ void             myqttd_loop_close (MyQttdLoop * loop, axl_bool notify)
 	axl_list_cursor_free (loop->cursor);
 	loop->cursor = NULL;
 
-	vortex_async_queue_unref (loop->queue);
+	myqtt_async_queue_unref (loop->queue);
 	loop->queue = NULL;
 
-	__vortex_io_waiting_default_destroy (loop->fileset);
+	__myqtt_io_waiting_default_destroy (loop->fileset);
 	loop->fileset = NULL;
 
 	axl_free (loop);

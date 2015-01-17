@@ -255,6 +255,8 @@ MyQttPeerRole       myqtt_conn_get_role               (MyQttConn * conn);
 
 MyQttConn         * myqtt_conn_get_listener           (MyQttConn * conn);
 
+const char        * myqtt_conn_get_server_name        (MyQttConn * conn);
+
 MyQttCtx          * myqtt_conn_get_ctx                (MyQttConn * conn);
 
 MyQttSend              myqtt_conn_set_send_handler    (MyQttConn * conn,
