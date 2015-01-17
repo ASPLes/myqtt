@@ -44,6 +44,7 @@
 /* local include */
 #include <myqtt-ctx-private.h>
 #include <myqtt-conn-private.h>
+#include <myqtt-addrinfo.h>
 
 #define LOG_DOMAIN "myqtt-listener"
 

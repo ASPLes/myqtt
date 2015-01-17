@@ -52,6 +52,7 @@ libmyqtt_1_0_include_HEADERS = myqtt.h \
 	myqtt-ctx-private.h \
 	myqtt-conn.h \
 	myqtt-conn-private.h \
+	myqtt-addrinfo.h \
 	myqtt-reader.h  \
 	myqtt-win32.h \
 	myqtt-thread.h \
