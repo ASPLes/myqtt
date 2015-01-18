@@ -257,6 +257,9 @@ MyQttConn         * myqtt_conn_get_listener           (MyQttConn * conn);
 
 const char        * myqtt_conn_get_server_name        (MyQttConn * conn);
 
+void                myqtt_conn_set_server_name        (MyQttConn  * conn, 
+						       const char * serverName);
+
 MyQttCtx          * myqtt_conn_get_ctx                (MyQttConn * conn);
 
 MyQttSend              myqtt_conn_set_send_handler    (MyQttConn * conn,

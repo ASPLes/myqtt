@@ -11,7 +11,7 @@ INCLUDE_TERMIOS=-DENABLE_TERMIOS
 endif
 
 INCLUDES = $(compiler_options) -DCOMPILATION_DATE=`date +%s` -D__COMPILING_MYQTTD__ -D_POSIX_C_SOURCE  \
-	   -DVERSION=\"$(MYQTT_VERSION)\" -DAXL_VERSION=\"$(AXL_VERSION)\" -I$(top_srcdir)/lib \
+	   -DMYQTT_VERSION=\"$(MYQTT_VERSION)\" -DVERSION=\"$(MYQTT_VERSION)\" -DAXL_VERSION=\"$(AXL_VERSION)\" -I$(top_srcdir)/lib \
 	   -DSYSCONFDIR=\""$(sysconfdir)"\" -DDEFINE_CHROOT_PROTO -DDEFINE_KILL_PROTO -DDEFINE_MKSTEMP_PROTO \
 	   -DPIDFILE=\""$(statusdir)/myqttd.pid"\" \
 	   -DMYQTTD_RUNTIME_DATADIR=\""$(runtimedatadir)"\" \
@@ -27,7 +27,7 @@ myqttd_SOURCES = \
 
 myqttd_LDFLAGS = -Wl,-export-dynamic -ldl
 
-myqttd_LDADD = $(AXL_LIBS) libmyqttd.la
+myqttd_LDADD = $(AXL_LIBS) libmyqttd.la $(top_builddir)/lib/libmyqtt-1.0.la 
 
 lib_LTLIBRARIES  = libmyqttd.la
 
@@ -35,12 +35,11 @@ libmyqttdinclude_HEADERS    = \
 	exarg.h \
 	myqttd-types.h \
 	myqttd.h \
-	myqttd-handers.h \
+	myqttd-handlers.h \
 	myqttd-config.h \
 	myqttd-support.h \
 	myqttd-ctx.h \
 	myqttd-expr.h \
-	myqttd-support.h \
 	myqttd-signal.h \
 	myqttd-moddef.h \
 	myqttd-run.h \
@@ -53,11 +52,11 @@ libmyqttdinclude_HEADERS    = \
 
 libmyqttd_la_SOURCES = \
 	exarg.c \
+	myqttd.c \
 	myqttd-config.c \
 	myqttd-support.c \
 	myqttd-ctx.c \
 	myqttd-expr.c \
-	myqttd-support.c \
 	myqttd-signal.c \
 	myqttd-run.c \
 	myqttd-module.c \
@@ -67,7 +66,7 @@ libmyqttd_la_SOURCES = \
 	myqttd-process.c \
 	myqttd-child.c
 
-libmyqttd_la_LIBADD = $(AXL_LIBS)  $(PCRE_LIBS)
+libmyqttd_la_LIBADD = $(AXL_LIBS)  $(PCRE_LIBS) 
 libmyqttd_la_LDFLAGS = -Wl,-export-dynamic -ldl -no-undefined -export-symbols-regex '^(myqttd|__myqttd|exarg).*'
 
 libmyqttdincludedir = $(includedir)/myqttd

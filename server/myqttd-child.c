@@ -47,7 +47,7 @@
  * @internal Creates a object that will represents a child object and
  * initialize internal data structures for its function.
  */
-MyQttdChild * myqttd_child_new (MyQttdCtx * ctx, MyQttdPPathDef * def)
+MyQttdChild * myqttd_child_new (MyQttdCtx * ctx)
 {
 	MyQttdChild * result;
 	char            * temp_dir;
@@ -64,9 +64,9 @@ MyQttdChild * myqttd_child_new (MyQttdCtx * ctx, MyQttdPPathDef * def)
 	/* create socket path: socket used to transfer file descriptors from parent to child */
 	result->socket_control_path = axl_strdup_printf ("%s%s%s%s%p%d%d.tbc",
 							 myqttd_runtime_datadir (ctx),
-							 VORTEX_FILE_SEPARATOR,
+							 MYQTT_FILE_SEPARATOR,
 							 "myqttd",
-							 VORTEX_FILE_SEPARATOR,
+							 MYQTT_FILE_SEPARATOR,
 							 result, now.tv_sec, now.tv_usec);
 	/* check result */
 	if (result->socket_control_path == NULL) {
@@ -76,7 +76,7 @@ MyQttdChild * myqttd_child_new (MyQttdCtx * ctx, MyQttdPPathDef * def)
 
 	/* now check check base dir for socket control path exists */
 	temp_dir = myqttd_base_dir (result->socket_control_path);
-	if (temp_dir && ! vortex_support_file_test (temp_dir, FILE_EXISTS)) {
+	if (temp_dir && ! myqtt_support_file_test (temp_dir, FILE_EXISTS)) {
 		/* base directory having child socket control do not exists */
 		wrn ("run time directory %s do not exists, creating..", temp_dir);
 		if (! myqttd_create_dir (temp_dir)) {
@@ -92,30 +92,12 @@ MyQttdChild * myqttd_child_new (MyQttdCtx * ctx, MyQttdPPathDef * def)
 	axl_free (temp_dir);
 	
 	/* set profile path and context */
-	result->ppath = def;
+	/* result->ppath = def; */
 	result->ctx   = ctx;
 
-	/* create listener connection used for child management */
-	result->conn_mgr = vortex_listener_new_full (ctx->vortex_ctx, "0.0.0.0", "0", NULL, NULL);
-	if (! vortex_connection_is_ok (result->conn_mgr, axl_false)) {
-		error ("Failed to connection child connection management, unable to create child process");
-
-		/* shutdown connection to be child by the child */
-		vortex_connection_close (result->conn_mgr);
-		axl_free (result);
-
-		return NULL;
-	}
-
-	/* flag this listener as master<->child link */
-	vortex_connection_set_data (result->conn_mgr, "tbc:mc-link", result);
-
-	/* unregister conn mgr */
-	myqttd_conn_mgr_unregister (ctx, result->conn_mgr);
-	
 	/* set default reference counting */
 	result->ref_count = 1;
-	vortex_mutex_create (&result->mutex);
+	myqtt_mutex_create (&result->mutex);
 
 	return result;
 }
@@ -134,12 +116,12 @@ axl_bool              myqttd_child_ref (MyQttdChild * child)
 		return axl_false;
 
 	/* get mutex */
-	vortex_mutex_lock (&child->mutex);
+	myqtt_mutex_lock (&child->mutex);
 
 	child->ref_count++;
 
 	/* release */
-	vortex_mutex_unlock (&child->mutex);
+	myqtt_mutex_unlock (&child->mutex);
 
 	return axl_true;
 }
@@ -153,56 +135,36 @@ axl_bool              myqttd_child_ref (MyQttdChild * child)
  */
 void              myqttd_child_unref (MyQttdChild * child)
 {
-	MyQttdCtx * ctx;
-
 	if (child == NULL || child->ref_count == 0)
 		return;
 
 	/* get mutex */
-	vortex_mutex_lock (&child->mutex);
+	myqtt_mutex_lock (&child->mutex);
 
 	child->ref_count--;
 
 	if (child->ref_count != 0) {
 		/* release */
-		vortex_mutex_unlock (&child->mutex);
+		myqtt_mutex_unlock (&child->mutex);
 		return;
 	}
-
-	/* get reference to the context */
-	ctx = child->ctx;
 
 #if defined(AXL_OS_UNIX)
 	/* unlink (child->socket_control_path);*/
 	axl_free (child->socket_control_path);
 	child->socket_control_path = NULL;
-	vortex_close_socket (child->child_connection);
+	myqtt_close_socket (child->child_connection);
 	axl_freev (child->init_string_items);
 #endif
 
-	/* finish child connection */
-	msg ("PARENT: Finishing child connection manager id=%d (refs: %d, role %d)", 
-	     vortex_connection_get_id (child->conn_mgr), 
-	     vortex_connection_ref_count (child->conn_mgr), 
-	     vortex_connection_get_role (child->conn_mgr));
-
-	/* release reference if it is either initiator or listener */
-	if (vortex_connection_get_role (child->conn_mgr) == VortexRoleListener) {
-		vortex_connection_shutdown (child->conn_mgr);
-		vortex_connection_unref (child->conn_mgr, "free data"); 
-	} /* end if */
-
 	/* finish child conn loop */
 	myqttd_loop_close (child->child_conn_loop, axl_true);
-
-	/* nullify */
-	child->conn_mgr = NULL;
 
 	/* release server name */
 	axl_free (child->serverName);
 
 	/* destroy mutex */
-	vortex_mutex_destroy (&child->mutex);
+	myqtt_mutex_destroy (&child->mutex);
 
 	axl_free (child);
 
@@ -239,7 +201,7 @@ const char      * myqttd_child_get_serverName (MyQttdCtx * ctx)
 	log_descriptor = atoi (logw);                                   \
 	if (log_descriptor > 0) {                                       \
 		myqttd_log_configure (ctx, level, log_descriptor);  \
-		vortex_close_socket (atoi (logr));                      \
+		myqtt_close_socket (atoi (logr));                      \
 	}                                                               \
 } while(0)
 
@@ -262,7 +224,7 @@ axl_bool __myqttd_child_post_init_openlogs (MyQttdCtx  * ctx,
 	/* configure access_log */
 	MYQTTD_CHILD_CONF_LOG (items[6], items[5], LOG_REPORT_ACCESS);
 
-	/* configure vortex_log */
+	/* configure myqtt_log */
 	MYQTTD_CHILD_CONF_LOG (items[8], items[7], LOG_REPORT_MYQTT);
 
 	return axl_true;
@@ -351,7 +313,7 @@ axl_bool          myqttd_child_build_from_init_string (MyQttdCtx * ctx,
 
 	/* set default reference counting */
 	child->ref_count = 1;
-	vortex_mutex_create (&child->mutex);	
+	myqtt_mutex_create (&child->mutex);	
 
 	/* open logs */
 	if (! __myqttd_child_post_init_openlogs (ctx, child->init_string_items)) 
@@ -363,17 +325,11 @@ axl_bool          myqttd_child_build_from_init_string (MyQttdCtx * ctx,
 
 axl_bool __myqttd_child_post_init_register_conn (MyQttdCtx * ctx, const char * conn_socket, char * conn_status)
 {
-	VortexConnection * conn;
+	MyQttConn * conn;
 
 	msg ("CHILD: restoring connection to be handled at child, socket: %s, connection status: %s", conn_socket, conn_status);
-	if (! (conn = __myqttd_process_handle_connection_received (ctx, ctx->child->ppath, atoi (conn_socket), conn_status + 1))) 
+	if (! (conn = __myqttd_process_handle_connection_received (ctx, ctx->child, atoi (conn_socket), conn_status + 1))) 
 		return axl_false;
-
-	/* drop a log in case of success */
-	if (conn) {
-		msg ("CHILD: child starting conn-id=%d (socket: %d, ref: %p) registered..", 
-		     vortex_connection_get_id (conn), vortex_connection_get_socket (conn), conn);
-	} /* end if */
 
 	return axl_true;
 } 
@@ -385,6 +341,7 @@ axl_bool          myqttd_child_post_init (MyQttdCtx * ctx)
 {
 	MyQttdChild     * child;
 	int               len;
+	axlPointer        def = NULL;
 
 	/*** NOTE: indexes used for child->init_string_items[X] are defined inside
 	 * myqttd_process_create_child.c, around line 1392 ***/
@@ -395,45 +352,27 @@ axl_bool          myqttd_child_post_init (MyQttdCtx * ctx)
 
 	/* define profile path */
 	msg ("Setting profile path id for child %s", child->init_string_items[10] ? child->init_string_items[10] : "<not defined>");
-	def = myqttd_ppath_find_by_id (ctx, atoi (child->init_string_items[10]));
+	/* def = myqttd_ppath_find_by_id (ctx, atoi (child->init_string_items[10])); */
 	if (def == NULL) {
 		error ("Unable to find profile path associated to id %d, unable to complete post init", atoi (child->init_string_items[10]));
 		return axl_false;
 	}
-	msg ("  Set profile path: '%s'", myqttd_ppath_get_name (def));
-	ctx->child->ppath = def;
+	/* msg ("  Set path: '%s'", myqttd_ppath_get_name (def));
+	   ctx->child->ppath = def; */
 
 	/* check here to change root path, in the case it is defined
 	 * now we still have priviledges */
-	myqttd_ppath_change_root (ctx, def);
+	/* myqttd_ppath_change_root (ctx, def); */
 
 	/* check here for setuid support */
-	myqttd_ppath_change_user_id (ctx, def);
-
+	/* myqttd_ppath_change_user_id (ctx, def); */
+	
 	/* create loop to watch child->child_connection */
 	child->child_conn_loop = myqttd_loop_create (ctx);
 	myqttd_loop_watch_descriptor (child->child_conn_loop, child->child_connection, 
 					  myqttd_process_parent_notify, child, NULL);
 	msg ("CHILD: started socket watch on (child_connection socket: %d)", child->child_connection);
 
-	/* open connection management (child->conn_mgr) */
-	msg ("CHILD: starting child<->master BEEP link on %s:%s (timeout 10 seconds)", child->init_string_items[12], child->init_string_items[13]);
-	vortex_connection_connect_timeout (ctx->vortex_ctx, 10000000);
-	child->conn_mgr = vortex_connection_new (ctx->vortex_ctx, 
-						 /* host */
-						 child->init_string_items[12], 
-						 /* port */
-						 child->init_string_items[13],
-						 NULL, NULL);
-
-	if (! vortex_connection_is_ok (child->conn_mgr, axl_false)) {
-		error ("CHILD: failed to create master<->child BEEP link..");
-		return axl_false;
-	} else {
-		/* connection ok, now unregister */
-		myqttd_conn_mgr_unregister (ctx, child->conn_mgr);
-	}
-	msg ("CHILD: child<->master BEEP link started..OK");
 
 	/* check if we have to restore the connection or skip this
 	 * step */
@@ -451,7 +390,7 @@ axl_bool          myqttd_child_post_init (MyQttdCtx * ctx)
 			return axl_false;
 		} /* end if */
 	} /* end if */
-	msg ("CHILD: post init phase done, child running (vortex.ctx refs: %d)", vortex_ctx_ref_count (child->ctx->vortex_ctx));
+	msg ("CHILD: post init phase done, child running (myqtt.ctx refs: %d)", myqtt_ctx_ref_count (child->ctx->myqtt_ctx));
 	return axl_true;
 }
 

@@ -277,10 +277,10 @@ void main_signal_received (int _signal) {
 }
 
 void __myqttd_myqtt_log_handler (const char       * file,
-				      int                line,
-				      MyqttDebugLevel   log_level,
-				      const char       * message,
-				      va_list            args)
+				 int                line,
+				 MyQttDebugLevel   log_level,
+				 const char       * message,
+				 va_list            args)
 {
 	if (log_level != MYQTT_LEVEL_CRITICAL)
 		return;
@@ -291,7 +291,7 @@ void __myqttd_myqtt_log_handler (const char       * file,
 int main (int argc, char ** argv)
 {
 	char          * config;
-	MyqttCtx     * myqtt_ctx;
+	MyQttCtx      * myqtt_ctx;
 
 	/*** init exarg library ***/
 	if (! main_init_exarg (argc, argv))

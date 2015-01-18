@@ -79,6 +79,7 @@ void              myqttd_process_set_child_cmd_prefix (const char * cmd_prefix);
 axl_bool          __myqttd_process_create_parent_connection (MyQttdChild * child);
 
 MyQttConn * __myqttd_process_handle_connection_received (MyQttdCtx         * ctx, 
+							 MyQttdChild       * child,
 							 MYQTT_SOCKET        socket, 
 							 char               * conn_status);
 

@@ -522,7 +522,7 @@ axl_bool myqttd_process_receive_socket (MYQTT_SOCKET    * _socket,
 
 /** 
  * @internal Function used to create an string that represents the
- * status of the BEEP session so the receiving process can reconstruct
+ * status of the MQTT session so the receiving process can reconstruct
  * the connection.
  */
 char * myqttd_process_connection_status_string (axl_bool          handle_reply,
@@ -685,9 +685,9 @@ axl_bool __myqttd_process_common_new_connection (MyQttdCtx      * ctx,
 	   phase (myqtt_listener_set_on_accept_handler) or because a
 	   channel start */
 	if (! handle_reply) {
-		/* set the connection to still finish BEEP greetings
+		/* set the connection to still finish MQTT greetings
 		   negotiation phase */
-		myqtt_conn_set_initial_accept (conn, axl_true);
+		/* myqtt_conn_set_initial_accept (conn, axl_true); */
 	}
 
 	/* now finish and register the connection */
@@ -754,7 +754,6 @@ void     myqttd_process_connection_recover_status (char            * conn_status
 	(*handle_reply) = atoi (conn_status);
 
 	/* get next position */
-	iterator           = next;
 	next               = __get_next_field (conn_status, iterator);
 	(*serverName)      = conn_status + iterator;	
 	if (strlen (*serverName) == 0)
@@ -795,6 +794,7 @@ void     myqttd_process_connection_recover_status (char            * conn_status
 }
 
 MyQttConn * __myqttd_process_handle_connection_received (MyQttdCtx      * ctx, 
+							 MyQttdChild    * child,
 							 MYQTT_SOCKET     _socket, 
 							 char           * conn_status)
 {
@@ -810,8 +810,8 @@ MyQttConn * __myqttd_process_handle_connection_received (MyQttdCtx      * ctx,
 
 	/* check connection status after continue */
 	if (conn_status == NULL || strlen (conn_status) == 0) {
-		error ("CHILD: internal server error, received conn_status string NULL or empty, socket=%d (ppath: %s), unable to initialize connection on child",
-		       _socket, myqttd_ppath_get_name (ppath));
+		error ("CHILD: internal server error, received conn_status string NULL or empty, socket=%d, unable to initialize connection on child",
+		       _socket);
 		myqtt_close_socket (_socket);
 		return NULL;
 	} /* end if */
@@ -819,30 +819,18 @@ MyQttConn * __myqttd_process_handle_connection_received (MyQttdCtx      * ctx,
 	/* call to recover data from string */
 	msg ("CHILD: processing conn_status received: [%s]", conn_status);
 	myqttd_process_connection_recover_status (conn_status, 
-						      &handle_start_reply,
-						      &channel_num,
-						      &profile, 
-						      &profile_content,
-						      &encoding,
-						      &serverName,
-						      &msg_no,
-						      &seq_no,
-						      &seq_no_expected,
-						      &ppath_id,
-						      &has_tls,
-						      &remote_host,
-						      &remote_port,
-						      &remote_host_ip,
-						      &fix_server_name);
+						  &handle_reply,
+						  &serverName,
+						  &has_tls,
+						  &remote_host,
+						  &remote_port,
+						  &remote_host_ip,
+						  &fix_server_name);
 
-	msg ("CHILD: Received conn_status: handle_start_reply=%d, channel_num=%d, profile=%s, profile_content=%s, encoding=%d, serverName=%s, msg_no=%d, seq_no=%d, ppath_id=%d, has_tls=%d, fix_server_name=%d, remote_host=%s, remote_port=%s, remote_host_ip=%s",
-	     handle_start_reply, channel_num, 
-	     profile ? profile : "", 
-	     profile_content ? profile_content : "", encoding, 
+	msg ("CHILD: Received conn_status: handle_reply=%d, serverName=%s, has_tls=%d, fix_server_name=%d, remote_host=%s, remote_port=%s, remote_host_ip=%s",
+	     handle_reply,
 	     serverName ? serverName : "",
-	     msg_no,
-	     seq_no,
-	     ppath_id, has_tls, fix_server_name,
+	     has_tls, fix_server_name,
 	     remote_host ? remote_host : "", 
 	     remote_port ? remote_port : "",
 	     remote_host_ip ? remote_host_ip : "");
@@ -872,50 +860,26 @@ MyQttConn * __myqttd_process_handle_connection_received (MyQttdCtx      * ctx,
 		myqtt_conn_set_server_name (conn, serverName);
 	} /* end if */
 
-	/* set profile path state */
-	__myqttd_ppath_set_state (ctx, conn, ppath_id, serverName);
-
 	/* set TLS status */
 	if (has_tls > 0) {
-		myqtt_conn_set_data (conn, "tls-fication:status", INT_TO_PTR (axl_true));
+		conn->tls_on = axl_true;
 		msg ("CHILD: flagging the connection to have tls enabled (for profile path activation, fake TLS socket), conn-id=%d (%d)",
-		     myqtt_conn_get_id (conn), myqtt_conn_is_tlsficated (conn));
+		     myqtt_conn_get_id (conn), conn->tls_on);
 	} 
 
-	if (handle_start_reply) {
-		/* build a fake frame to simulate the frame received from the
-		   parent */
-		frame = myqtt_frame_create (MYQTTD_MYQTT_CTX (ctx), 
-					     MYQTT_FRAME_TYPE_MSG,
-					     0, msg_no, axl_false, -1, 0, 0, NULL);
-		/* update channel 0 status */
-		channel0 = myqtt_conn_get_channel (conn, 0);
-		if (channel0 == NULL) {
-			error ("CHILD: internal server error, unable to get channel0 from connection %p (id=%d)",
-			       conn, myqtt_conn_get_id (conn));
-			myqtt_conn_shutdown (conn);
-			myqtt_conn_close (conn);
-			
-			/* unref frame here */
-			myqtt_frame_unref (frame);
-			return NULL;
-		} /* end if */
+	if (handle_reply) {
+		/* handle reply here */
 
-		/* call to set channel state */
-		__myqtt_channel_set_state (channel0, msg_no, seq_no, seq_no_expected, 0);
 	}
 
 	/* call to register */
-	if (! __myqttd_process_common_new_connection (ctx, conn, ppath,
-							  handle_start_reply, channel_num,
-							  profile, profile_content,
-							  encoding, serverName, frame)) {
+	if (! __myqttd_process_common_new_connection (ctx, conn, handle_reply, serverName, msg)) {
 		/* nullify conn on error */
 		conn = NULL;
 	}
 	    
-	/* unref frame here */
-	myqtt_frame_unref (frame);
+	/* unref message */
+	myqtt_msg_unref (msg);
 	return conn;
 }
 
@@ -962,7 +926,7 @@ axl_bool myqttd_process_parent_notify (MyQttdLoop * loop,
 		   register it */
 		msg ("%s: Received socket %d, and ancillary_data[0]='%c' (processing)", 
 		     label, _socket, ancillary_data[0]);
-		__myqttd_process_handle_connection_received (ctx, child->ppath, _socket, ancillary_data + 1);
+		__myqttd_process_handle_connection_received (ctx, child, _socket, ancillary_data + 1);
 		_socket = -1; /* avoid socket be closed */
 	} else {
 		msg ("%s: Unknown command, socket received (%d), ancillary data: %s", 
@@ -1026,21 +990,10 @@ int __myqttd_process_release_parent_connections (MyQttdCtx    * ctx,
 						     MyQttConn * child_conn, 
 						     MyQttdChild  * child)
 {
-	int                client_socket;
-	MyQttConn * conn; 
-
 	/* set close on exec flag for all sockets but the socket the
 	 * child will handle */
 	myqtt_reader_foreach_offline (ctx->myqtt_ctx, __myqttd_process_release_parent_connections_foreach, 
 				       ctx, child_conn, NULL);
-
-	/* release temporal listener created by the parent for
-	 * master<->child link  */
-	conn          = child->conn_mgr;
-	client_socket = myqtt_conn_get_socket (conn);
-	msg ("CHILD: Setting close on exec on socket: %d (conn id: %d, role: %d)", client_socket, 
-	     myqtt_conn_get_id (conn), myqtt_conn_get_role (conn));
-	     fcntl (client_socket, F_SETFD, fcntl(client_socket, F_GETFD) | FD_CLOEXEC); 
 	return 0;
 }
 
@@ -1089,8 +1042,7 @@ void __myqttd_process_prepare_logging (MyQttdCtx * ctx, axl_bool is_parent, int 
  * connection was closed, otherwise axl_false is returned.
  */
 axl_bool myqttd_process_check_child_limit (MyQttdCtx      * ctx,
-					       MyQttConn   * conn,
-					       MyQttdPPathDef * def)
+					   MyQttConn      * conn)
 {
 	msg ("Checking global child limit: %d before creating process.", ctx->global_child_limit);
 
@@ -1102,55 +1054,27 @@ axl_bool myqttd_process_check_child_limit (MyQttdCtx      * ctx,
 		return axl_true; /* limit reached */
 	} /* end if */	
 
-	/* now check profile path limits */
-	if (def && def->child_limit > 0) {
-		/* check limits */
-		if (def->childs_running >= def->child_limit) {
-			error ("Profile path child limit reached (%d), unable to accept connection on child process, closing conn-id=%d", 
-			       def->child_limit, myqtt_conn_get_id (conn));
-			
-			myqtt_conn_shutdown (conn);
-			return axl_true; /* limit reached */
-		} /* end if */
-	} /* end if */
+	/* now check limits */
 
 	return axl_false; /* limit NOT reached */
 }
-
-axl_bool __myqttd_process_show_conn_keys (axlPointer key, axlPointer data, axlPointer user_data)
-{
-#if ! defined(SHOW_FORMAT_BUGS)
-	MyQttdCtx * ctx = user_data;
-#endif
-
-	msg ("PARENT: found key %s", (const char *) key);
-
-	return axl_false; /* don't stop the process */
-}
-
 
 /** 
  * @internal Function used to send child init string to the child
  * process.
  */
 axl_bool __myqttd_process_send_child_init_string (MyQttdCtx       * ctx,
-						      MyQttdChild     * child,
-						      MyQttConn    * conn,
-						      int                   client_socket,
-						      MyQttdPPathDef  * def,
-						      axl_bool              handle_start_reply,
-						      int                   channel_num,
-						      const char          * profile,
-						      const char          * profile_content,
-						      MyQttEncoding        encoding,
-						      char                * serverName,
-						      MyQttFrame         * frame,
-						      int                 * general_log,
-						      int                 * error_log,
-						      int                 * access_log,
-						      int                 * myqtt_log)
+						  MyQttdChild     * child,
+						  MyQttConn       * conn,
+						  int               client_socket,
+						  axl_bool          handle_reply,
+						  char            * serverName,
+						  MyQttMsg        * msg,
+						  int             * general_log,
+						  int             * error_log,
+						  int             * access_log,
+						  int             * myqtt_log)
 {
-	MyQttChannel * channel0;
 	char          * conn_status;
 	char          * child_init_string;
 	int             length;
@@ -1158,44 +1082,29 @@ axl_bool __myqttd_process_send_child_init_string (MyQttdCtx       * ctx,
 	char          * aux;
 	int             tries = 0;
 
-	if (myqttd_ppath_get_id (def) <= 0) {
-		error ("PARENT: profile path id isn't a valid number %d, unable to send child init string..", 
-		       myqttd_ppath_get_id (def));
-		return axl_false;
-	}
-
 #if defined(__MYQTTD_ENABLE_DEBUG_CODE__)
-	if (serverName && axl_cmp (serverName, "dk534jd.fail.aspl.es")) {
+	if (serverName && axl_cmp (serverName, "kd7tkgnm3.fail.aspl.es")) {
 		error ("PARENT: found serverName=%s that must trigger failure..", serverName);
 		return axl_false;
 	} /* end if */
 #endif
 
 	/* build connection status string */
-	channel0    = myqtt_conn_get_channel (conn, 0);
-	conn_status = myqttd_process_connection_status_string (handle_start_reply, 
-								   channel_num,
-								   profile,
-								   profile_content,
-								   encoding,
-								   serverName,
-								   myqtt_frame_get_msgno (frame),
-								   myqtt_channel_get_next_seq_no (channel0),
-								   myqtt_channel_get_next_expected_seq_no (channel0),
-								   myqttd_ppath_get_id (def),
-								   myqtt_conn_is_tlsficated (conn),
-								   /* notify if we have to fix the serverName */
-								   axl_cmp (serverName, myqtt_conn_get_server_name (conn)),
-								   /* provide host and port */
-								   myqtt_conn_get_host (conn), myqtt_conn_get_port (conn),
-								   myqtt_conn_get_host_ip (conn),
-								   /* if proxied, skip recover on child */
-								   myqttd_conn_mgr_proxy_on_parent (conn));
+	conn_status = myqttd_process_connection_status_string (handle_reply, 
+							       serverName,
+							       conn->tls_on,
+							       /* notify if we have to fix the serverName */
+							       axl_cmp (serverName, myqtt_conn_get_server_name (conn)),
+							       /* provide host and port */
+							       myqtt_conn_get_host (conn), myqtt_conn_get_port (conn),
+							       myqtt_conn_get_host_ip (conn),
+							       /* if proxied, skip recover on child */
+							       myqttd_conn_mgr_proxy_on_parent (conn));
 	if (conn_status == NULL) {
 		error ("PARENT: failled to create child, unable to allocate conn status string");
 		return axl_false;
 	}
-	msg ("PARENT: conn_status value: %s (profile path id: %d, 4th postiion from the end)", conn_status, myqttd_ppath_get_id (def));
+	msg ("PARENT: conn_status value: %s", conn_status);
 
 	/* prepare child init string: 
 	 *
@@ -1209,12 +1118,9 @@ axl_bool __myqttd_process_send_child_init_string (MyQttdCtx       * ctx,
 	 * 7) myqtt_log[0] : read end for myqtt log 
 	 * 8) myqtt_log[1] : write end for myqtt log 
 	 * 9) child->socket_control_path : path to the socket_control_path
-	 * 10) ppath_id : profile path identification to be used on child (the profile path activated for this child)
-	 * 11) conn_status : connection status description to recover it at the child
-	 * 12) conn_mgr_host : host where the connection mgr is locatd (BEEP master<->child link)
-	 * 13) conn_mgr_port : port where the connection mgr is locatd (BEEP master<->child link)
-	 * POSITION INDEX:                       0    1    2    3    4    5    6    7    8    9   10   11   12   13*/
- 	child_init_string = axl_strdup_printf ("%d;_;%d;_;%d;_;%d;_;%d;_;%d;_;%d;_;%d;_;%d;_;%s;_;%d;_;%s;_;%s;_;%s",
+	 * 10) conn_status : connection status description to recover it at the child
+	 * POSITION INDEX:                       0    1    2    3    4    5    6    7    8    9   10*/
+ 	child_init_string = axl_strdup_printf ("%d;_;%d;_;%d;_;%d;_;%d;_;%d;_;%d;_;%d;_;%d;_;%s;_;%d",
 					       /* 0  */ client_socket,
 					       /* 1  */ general_log[0],
 					       /* 2  */ general_log[1],
@@ -1225,18 +1131,14 @@ axl_bool __myqttd_process_send_child_init_string (MyQttdCtx       * ctx,
 					       /* 7  */ myqtt_log[0],
 					       /* 8  */ myqtt_log[1],
 					       /* 9  */ child->socket_control_path,
-					       /* 10 */ myqttd_ppath_get_id (def),
-					       /* 11 */ conn_status,
-					       /* 12 */ myqtt_conn_get_local_addr (child->conn_mgr),
-					       /* 13 */ myqtt_conn_get_local_port (child->conn_mgr));
+					       /* 10 */ conn_status);
 	axl_free (conn_status);
 	if (child_init_string == NULL) {
 		error ("PARENT: failled to create child, unable to allocate memory for child init string");
 		return axl_false;
 	} /* end if */
 
-	msg ("PARENT: created child init string: %s, handle_start_reply=%d", child_init_string, handle_start_reply);
-	myqtt_hash_foreach (myqtt_conn_get_data_hash (conn), __myqttd_process_show_conn_keys, ctx);
+	msg ("PARENT: created child init string: %s, handle_reply=%d", child_init_string, handle_reply);
 
 	/* get child init string length */
 	length = strlen (child_init_string);
@@ -1297,19 +1199,14 @@ axl_bool __myqttd_process_send_child_init_string (MyQttdCtx       * ctx,
  * @internal Allows to create a child process running listener connection
  * provided.
  */
-void myqttd_process_create_child (MyQttdCtx       * ctx, 
-				      MyQttConn    * conn, 
-				      MyQttdPPathDef  * def,
-				      axl_bool              handle_start_reply,
-				      int                   channel_num,
-				      const char          * profile,
-				      const char          * profile_content,
-				      MyQttEncoding        encoding,
-				      char                * serverName,
-				      MyQttFrame         * frame)
+void myqttd_process_create_child (MyQttdCtx           * ctx, 
+				  MyQttConn           * conn, 
+				  axl_bool              handle_reply,
+				  char                * serverName,
+				  MyQttMsg            * msg)
 {
 	int                pid;
-	MyQttdChild  * child;
+	MyQttdChild      * child = NULL;
 	int                client_socket;
 	
 	/* pipes to communicate logs from child to parent */
@@ -1317,7 +1214,7 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 	int                error_log[2]   = {-1, -1};
 	int                access_log[2]  = {-1, -1};
 	int                myqtt_log[2]  = {-1, -1};
-	const char       * ppath_name;
+	/* const char    * ppath_name;*/
 	int                error_code;
 	char            ** cmds;
 	int                iterator = 0;
@@ -1342,9 +1239,8 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 	} /* end if */
 
 	/* get profile path name */
-	ppath_name     = myqttd_ppath_get_name (def) ? myqttd_ppath_get_name (def) : "";
-
-	msg2 ("Calling to create child process to handle profile path: %s..", ppath_name);
+	/* ppath_name     = myqttd_ppath_get_name (def) ? myqttd_ppath_get_name (def) : "";
+	   msg2 ("Calling to create child process to handle profile path: %s..", ppath_name); */
 
 	MYQTTD_PROCESS_LOCK_CHILD ();
 
@@ -1361,14 +1257,14 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 	/* enable SIGCHLD handling */
 	myqttd_signal_sigchld (ctx, axl_true);
 
-	msg2 ("LOCK acquired: calling to create child process to handle profile path: %s..", ppath_name);
+	/* msg2 ("LOCK acquired: calling to create child process to handle profile path: %s..", ppath_name); */
 	
 	/* check if child associated to the given profile path is
 	   defined and if reuse flag is enabled */
-	child = myqttd_process_get_child_from_ppath (ctx, def, axl_false);
-	if (def->reuse && child) {
-		msg ("Found child process reuse flag and child already created (%p), sending connection id=%d, frame msgno=%d",
-		     child, myqtt_conn_get_id (conn), myqtt_frame_get_msgno (frame));
+	/* child = myqttd_process_get_child_from_ppath (ctx, def, axl_false); */
+	if (/* def->reuse && */ child) {
+		msg ("Found child process reuse flag and child already created (%p), sending connection id=%d",
+		     child, myqtt_conn_get_id (conn));
 
 		if (proxy_on_parent) {
 			/* setup the proxy on parent code creating a
@@ -1377,22 +1273,21 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 
 			/* send the connection to the child process */
 			myqttd_process_send_proxy_connection_to_child (
-				ctx, child, conn, client_socket,handle_start_reply, channel_num,
-				profile, profile_content, encoding, serverName, frame);
+			       ctx, child, conn, client_socket, handle_reply,
+			       serverName, msg);
 		} else {
 		     
 			/* reuse profile path */
-			myqttd_process_send_connection_to_child (ctx, child, conn, 
-								     handle_start_reply, channel_num,
-								     profile, profile_content,
-								     encoding, serverName, frame);
+			myqttd_process_send_connection_to_child (
+			       ctx, child, conn, 
+			       handle_reply, serverName, msg);
 		} /* end if */
 		MYQTTD_PROCESS_UNLOCK_CHILD ();
 		return;
 	}
 
 	/* check limits here before continue */
-	if (myqttd_process_check_child_limit (ctx, conn, def)) {
+	if (myqttd_process_check_child_limit (ctx, conn)) {
 		/* unlock before shutting down connection */
 		MYQTTD_PROCESS_UNLOCK_CHILD ();
 		return;
@@ -1418,7 +1313,7 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 	} /* end if */
 
 	/* create control socket path */
-	child        = myqttd_child_new (ctx, def);
+	child        = myqttd_child_new (ctx);
 	if (child == NULL) {
 		/* unlock child process mutex */
 		MYQTTD_PROCESS_UNLOCK_CHILD ();
@@ -1428,15 +1323,10 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 		return;
 	} /* end if */
 
-	/* unregister from connection manager */
-	msg ("PARENT: created temporal listener to prepare child management connection id=%d (socket: %d): %p (refs: %d)", 
-	     myqtt_conn_get_id (child->conn_mgr), myqtt_conn_get_socket (child->conn_mgr),
-	     child->conn_mgr, myqtt_conn_ref_count (child->conn_mgr));
-
 	/* call to fork */
 	pid = fork ();
 	if (pid != 0) {
-		msg ("PARENT: child process created pid=%d, selected-ppath=%s", pid, def->path_name ? def->path_name : "(empty)");
+		msg ("PARENT: child process created pid=%d", pid);
 
 		if (proxy_on_parent) {
 			/* setup the proxy on parent code creating a
@@ -1469,11 +1359,9 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 		}
 
 		/* send child init string through the control socket */
-		if (! __myqttd_process_send_child_init_string (ctx, child, conn, client_socket, def, 
-								   handle_start_reply, channel_num, 
-								   profile, profile_content, 
-								   encoding, serverName, frame,
-								   general_log, error_log, access_log, myqtt_log)) {
+		if (! __myqttd_process_send_child_init_string (ctx, child, conn, client_socket,
+							       handle_reply, serverName, msg,
+							       general_log, error_log, access_log, myqtt_log)) {
 			MYQTTD_PROCESS_UNLOCK_CHILD ();
 
 			myqtt_conn_shutdown (conn);
@@ -1486,8 +1374,7 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 		 * child to handle it.
 		 */
 		if (proxy_on_parent && ! myqttd_process_send_proxy_connection_to_child (
-			    ctx, child, conn, client_socket,handle_start_reply, channel_num,
-			    profile, profile_content, encoding, serverName, frame)) {
+			    ctx, child, conn, client_socket, handle_reply, serverName, msg)) {
 			error ("PARENT: Unable to send socket associated to the connection that originated the child process (proxied)");
 			MYQTTD_PROCESS_UNLOCK_CHILD ();
 
@@ -1526,7 +1413,7 @@ void myqttd_process_create_child (MyQttdCtx       * ctx,
 				      child, (axlDestroyFunc) myqttd_child_unref);
 
 		/* update number of childs running this profile path */
-		def->childs_running++;
+		/* def->childs_running++; */
 
 		MYQTTD_PROCESS_UNLOCK_CHILD ();
 
@@ -1824,7 +1711,7 @@ axl_bool myqttd_process_child_exists  (MyQttdCtx * ctx, int pid)
 	if (ctx == NULL || pid < 0)
 		return axl_false;
 
-	return (myqttd_process_find_pid_from_ppath_id (ctx, pid) != -1);
+	return axl_false; /* (myqttd_process_find_pid_from_ppath_id (ctx, pid) != -1); */
 }
 
 /** 
@@ -1857,102 +1744,6 @@ MyQttdChild * myqttd_process_child_by_id (MyQttdCtx * ctx, int pid)
 	MYQTTD_PROCESS_UNLOCK_CHILD ();
 
 	return child; /* no child found */
-}
-
-/** 
- * @internal Function used by
- * myqttd_process_find_pid_from_ppath_id
- */
-axl_bool __find_ppath_id (axlPointer key, axlPointer data, axlPointer user_data, axlPointer user_data2) 
-{
-	int             * pid        = (int *) user_data;
-	int             * _ppath_id  = (int *) user_data2;
-	MyQttdChild * child      = data;
-	
-	if (child->pid == (*pid)) {
-		/* child found, update pid to have ppath_id */
-		(*_ppath_id) = myqttd_ppath_get_id (child->ppath);
-		return axl_true; /* found key, stop foreach */
-	}
-	return axl_false; /* child not found, keep foreach looping */
-}
-
-/** 
- * @brief The function returns the profile path associated to the pid
- * child provided. The pid represents a child created by myqttd
- * due to a profile path selected.
- *
- * @param ctx The myqttd context where the ppath identifier will be looked up.
- * @param pid The child pid to be used during the search.
- *
- * @return The function returns -1 in the case of failure or the
- * ppath_id associated to the child process.
- */
-int      myqttd_process_find_pid_from_ppath_id (MyQttdCtx * ctx, int pid)
-{
-	int ppath_id = -1;
-	
-	MYQTTD_PROCESS_LOCK_CHILD ();
-	axl_hash_foreach2 (ctx->child_process, __find_ppath_id, &pid, &ppath_id);
-	MYQTTD_PROCESS_UNLOCK_CHILD ();
-
-	/* check that the pid was found */
-	return ppath_id;
-	
-}
-
-/** 
- * @internal Function used by
- * myqttd_process_get_child_from_ppath
- */
-axl_bool __find_ppath (axlPointer key, axlPointer data, axlPointer user_data, axlPointer user_data2) 
-{
-	MyQttdPPathDef  * ppath      = user_data;
-	MyQttdChild     * child      = data;
-	MyQttdChild    ** result     = user_data2;
-	
-	if (myqttd_ppath_get_id (child->ppath) == myqttd_ppath_get_id (ppath)) {
-		/* found child associated, updating reference and
-		   signaling to stop earch */
-		(*result) = child;
-		return axl_true; /* found key, stop foreach */
-	} /* end if */
-	return axl_false; /* child not found, keep foreach looping */
-}
-
-/** 
- * @internal Allows to get the child associated to the profile path
- * definition.
- *
- * @param ctx The context where the lookup will be implemented.
- *
- * @param def The myqttd profile path definition to use to select
- * the child process associted.
- *
- * @param acquire_mutex Acquire mutex to access child process hash.
- *
- * @return A reference to the child process or NULL it if fails.
- */
-MyQttdChild * myqttd_process_get_child_from_ppath (MyQttdCtx * ctx, 
-							   MyQttdPPathDef * def,
-							   axl_bool             acquire_mutex)
-{
-	MyQttdChild * result = NULL;
-	
-	/* lock mutex if signaled */
-	if (acquire_mutex) {
-		MYQTTD_PROCESS_LOCK_CHILD ();
-	}
-
-	axl_hash_foreach2 (ctx->child_process, __find_ppath, def, &result);
-
-	/* unlock mutex if signaled */
-	if (acquire_mutex) {
-		MYQTTD_PROCESS_UNLOCK_CHILD ();
-	}
-
-	/* check that the pid was found */
-	return result;
 }
 
 /** 

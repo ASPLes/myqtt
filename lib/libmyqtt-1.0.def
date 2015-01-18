@@ -60,6 +60,7 @@ myqtt_conn_get_password
 myqtt_conn_get_port
 myqtt_conn_get_receive_stamp
 myqtt_conn_get_role
+myqtt_conn_get_server_name
 myqtt_conn_get_socket
 myqtt_conn_get_timeout
 myqtt_conn_get_username
@@ -104,6 +105,7 @@ myqtt_conn_set_on_msg
 myqtt_conn_set_receive_handler
 myqtt_conn_set_receive_stamp
 myqtt_conn_set_send_handler
+myqtt_conn_set_server_name
 myqtt_conn_set_sock_block
 myqtt_conn_set_sock_tcp_nodelay
 myqtt_conn_set_socket

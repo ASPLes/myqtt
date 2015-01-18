@@ -150,9 +150,6 @@ struct _MyQttdChild {
 	char              ** init_string_items;
 #endif
 
-	/* connection management */
-	MyQttConn          * conn_mgr;
-
 	/* ref counting and mutex */
 	int                  ref_count;
 	MyQttMutex           mutex;

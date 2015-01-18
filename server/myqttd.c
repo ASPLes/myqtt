@@ -202,16 +202,16 @@ axl_bool  myqttd_init (MyQttdCtx   * ctx,
 
 	/* init myqttd-mediator.c: init this module before others
 	   to acchieve notifications and push events  */
-	myqttd_mediator_init (ctx);
+	/* myqttd_mediator_init (ctx); */
 
 	/*** not required to initialize axl library, already done by myqtt ***/
 	msg ("myqttd internal init ctx: %p, myqtt ctx: %p", ctx, myqtt_ctx);
 
 	/* db list */
-	if (! myqttd_db_list_init (ctx)) {
+	/* if (! myqttd_db_list_init (ctx)) {
 		abort_error ("failed to init the myqttd db-list module");
 		return axl_false;
-	} /* end if */
+		} */ /* end if */ 
 
 	/* init myqttd-module.c */
 	myqttd_module_init (ctx);
@@ -228,12 +228,12 @@ axl_bool  myqttd_init (MyQttdCtx   * ctx,
 	/* init profile path module: this initialization must be done
 	 * before calling to myqttd_run_config to avoid third
 	 * party modules to install handler with higher priority. */
-	if (! myqttd_ppath_init (ctx)) {
+	/* if (! myqttd_ppath_init (ctx)) {
 		return axl_false;
-	} /* end if */
+		} */ /* end if */
 
-	/* init connection manager: reinit=axl_false */
-	myqttd_conn_mgr_init (ctx, axl_false);
+	/* init connection manager */
+	myqttd_conn_mgr_init (ctx);
 
 	/* init ok */
 	return axl_true;
@@ -270,7 +270,7 @@ void     myqttd_reload_config       (MyQttdCtx * ctx, int value)
 
 	/* reload myqttd here, before modules
 	 * reloading */
-	myqttd_db_list_reload_module ();
+	/* myqttd_db_list_reload_module (); */
 	
 	/* reload modules */
 	myqttd_module_notify_reload_conf (ctx);
@@ -307,7 +307,7 @@ void myqttd_exit (MyQttdCtx * ctx,
 	myqtt_ctx = myqttd_ctx_get_myqtt_ctx (ctx);
 
 	/* terminate profile path */
-	myqttd_ppath_cleanup (ctx);
+	/* myqttd_ppath_cleanup (ctx); */
 
 	/* close modules before terminating myqtt so they still can
 	 * use the Myqtt API to terminate its function. */
@@ -315,10 +315,10 @@ void myqttd_exit (MyQttdCtx * ctx,
 
 	/* terminate myqttd db list module at this point to avoid
 	 * modules referring to db-list to lost references */
-	myqttd_db_list_cleanup (ctx);
-
+	/* myqttd_db_list_cleanup (ctx); */
+	
 	/* terminate myqttd mediator module */
-	myqttd_mediator_cleanup (ctx);
+	/* myqttd_mediator_cleanup (ctx); */
 
 	/* do not release the context (this is done by the caller) */
 	myqttd_log_cleanup (ctx);
@@ -824,7 +824,7 @@ void myqttd_wrn_sl (MyQttdCtx * ctx, const char * file, int line, const char * f
  * is returned. Note that if format is NULL, the function will always
  * return axl_false.
  */
-axl_bool  myqttd_file_test_v (const char * format, MyqttFileTest test, ...)
+axl_bool  myqttd_file_test_v (const char * format, MyQttFileTest test, ...)
 {
 	va_list   args;
 	char    * path;
@@ -1464,10 +1464,9 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
  *
  * \section intro Myqttd Introduction
  *
- * Myqttd is a general BEEP application server that allows to
- * develop and easily deploy BEEP enabled server applications. This
- * means you focus on adding features to your server side application,
- * letting Myqttd to help you with (to name some of them):
+ * Myqttd is a general MQTT server server. This means you focus on
+ * adding features to your server side application, letting Myqttd to
+ * help you with (to name some of them):
  *
  * - The profile security (\ref profile_path_configuration "by using profile path"), that is, to ensure your
  *      profile is used in the exact combination sequence required.
@@ -1487,11 +1486,9 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
  *     configurations like chroot, changing executing user and group,
  *     etc.
  *
- * Myqttd is written on top of Myqtt Library and it is extended
+ * Myqttd is written on top of MyQtt Library and it is extended
  * by modules written in C or python (for now) and can be accessed by
- * available BEEP toolkits like Myqtt Library
- * (http://www.aspl.es/myqtt) or jsMyqtt
- * (http://www.aspl.es/jsMyqtt).
+ * available MQTT toolkits.
  *
  * \section documentation Myqttd Documentation
  *
@@ -1532,7 +1529,7 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
  *   - \ref myqttd_configure_system_paths
  *   - \ref myqttd_configure_splitting
  *
- * <b>Section 3: BEEP profile management</b>
+ * <b>Section 3: MQTT management</b>
  *
  *   - \ref profile_path_configuration
  *   - \ref profile_path_flags_supported_by_allow_and_if_sucess
@@ -1547,7 +1544,6 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
  *   - \ref myqttd_modules_filtering
  *   - \ref myqttd_modules_activation
  *   - \ref myqttd_mod_sasl   "4.4 mod-sasl: SASL support for Myqttd (auth services)"
- *   - \ref myqttd_mod_tunnel "4.5 mod-tunnel: TUNNEL support for Myqttd (BEEP proxy services)"
  *   - \ref myqttd_mod_python "4.6 mod-python: python language support for Myqttd"
  *   - \ref myqttd_mod_tls    "4.7 mod-tls: TLS support for Myqttd (secure connections)"
  *   - \ref myqttd_mod_radmin "4.8 mod-radmin: support for query runtime status"
@@ -1559,7 +1555,7 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
  * Myqttd have the following required dependencies:
  *
  * <ol>
- *  <li> <b>Myqtt Library 1.1</b>: which provides the BEEP engine (located at: http://www.aspl.es/myqtt).</li>
+ *  <li> <b>Myqtt Library 1.1</b>: which provides the MQTT engine (located at: http://www.aspl.es/myqtt).</li>
  *
  *  <li> <b>Axl Library:</b> which provides all XML services (located at: http://www.aspl.es/xml).</li>
  * </ol>
@@ -1647,7 +1643,7 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
  *
  * <ol>
  *  <li><b>&lt;global-settings></b>: This main section includes several
- *  run time configuration for the BEEP server: TCP ports, listener
+ *  run time configuration for the MQTT server: TCP ports, listener
  *  address, log files, crash handling, etc.
  *  </li>
  *
@@ -1677,13 +1673,6 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
  * myqttd (0.0.0.0). Myqttd will understand this section
  * listening on all addresses provided, for all ports.
  *
- * Then you can use profile path to enforce which profiles will be
- * served on each port. For example, you can provide TUNNEL support
- * only on port 604 (though not recommended: see <a
- * href="beep-applications-and-ports.html">Building wrong port
- * oriented network applications</a>). 
- *
- * 
  * Alternatively, during development or when it is found a myqttd
  * bug, it is handy to configure the default action to take on server
  * crash (bad signal received). This is done by configuring the
@@ -1832,176 +1821,6 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
  *
  * Previous declaration import all content from files found in
  * <b>/etc/myqttd/profile.d</b> replacing the <b>include</b> node.
- *
- * \section profile_path_configuration 3.1 Profile path configuration
- *
- * Profile Path is a feature that allows to configure which profiles
- * can be used by remote peers, according to several run time
- * configurations. It is designed to make it easy to develop BEEP
- * profiles, that are later mixed with other profiles in many ways
- * making them more useful through the combinations created at
- * run-time.
- * 
- * Let's see some examples to initially clarify the profile path
- * concept. A usual configuration around BEEP is to provide SASL
- * authentication and then allow using a profile which do useful
- * work. The intention is to enforce a successful SASL negotiation to
- * then provide a protected resource. 
- *
- * With profile path this can be done as follows:
- * 
- * \htmlinclude path-def.xml-tmp
- *
- * Previous example instruct Myqttd to apply a profile path called
- * "not local-parts" if the source of the connection comes <i>"not
- * from 192.168.0.X"</i>. It also teaches Myqttd to only provide
- * SASL profiles available and only once initiated properly (and
- * authenticated), the remote peer can use the TUNNEL
- * profile. 
- *
- * Profile path is applied as a chain, composed by a set of
- * <b>&lt;path-def></b> declarations. Once a <b>&lt;path-def></b>
- * match the target, the profile path configuration found inside it is
- * applied to the peer, discarding the rest of <b>&lt;path-def></b> nodes
- * defined.  
- * 
- * \image html profile-path-chain.png "Profile path chain"
- *
- * As the previous image shows, the myqttd profile path
- * configuration is composed by several profile path definitions: 
- * 
- * \htmlinclude path-def-conf.xml-tmp
- * 
- * Once a connection is received, a path-def is selected and the
- * configuration inside it is applied. If no path-def is selected, the
- * connection is rejected.
- *
- * Every <b>&lt;path-def></b> supports the following matching configurations:
- *
- * <ol> 
- * <li><b>server-name</b>: a perl expression defining the serverName
- * to match for the connection. This can be used to only provide
- * services based on a virtual hosting.</li>
- *
- * <li><b>src</b>: a perl expression defining the source of the
- * connection. This can be used to only provide critical services to
- * local administrators.</li>
- *
- * <li><b>dst</b>: a perl expression defining the destination of the
- * connection. This can be used to provide services on a particular local IP.</li>
- *
- * <li><b>path-name</b>: an administrative flag that will help to
- * recognize the connection in future process (log
- * reporting).</li>
- *
- * <li><b>work-dir</b>: defines a working directory for the profile
- * path. This value is used by several modules to load user site
- * especific files (database configuration, etc). </li>
- *
- * <li><b>chroot</b>: Defines a file system path used to make the
- * current process to chroot to that directory. Note in most cases
- * this should be used in conjunction with separate flag because once
- * the current process chroots, will not be able to do it again for
- * new connections. </li>
- *
- * <li><b>separate</b>: [yes|no] Default no. Allows to configure
- * Myqttd to create a child process to handle the connection that
- * matches current profile path. A new child process will be created
- * for each connection received. </li>
- *
- * <li><b>reuse</b>: [yes|no] Default no. Requires
- * separate="yes". Once a child process is created for the first
- * connection associated to a profile path, next connections are sent
- * to that child rather creating a new child process.</li>
- *
- * <li><b>run-as-user</b>: [user name| user id]. Makes current process to change its
- * executing user to the provided value. Requires Myqttd startup
- * user to have permissions to run this system operation. Note this
- * configuration may require to use separate (and/or reuse) flag.</li>
- *
- * <li><b>run-as-group</b>: [group name| group id]. Makes current process to change its
- * executing group to the provided value. Requires Myqttd startup
- * user to have permissions to run this system operation. Note this
- * configuration may require to use separate (and/or reuse) flag.</li>
- *
- * <li><b>child-limit</b>: [child number] In the case this profile
- * path has a declaration of separate="yes" this flag limits the
- * number of child process that can be created due to this profile
- * path. Rembember to set at least child-limit="1" when reuse="yes",
- * though it is recommended to avoid using this flag when reuse="yes".</li>
- * 
- * </ol> 
- * 
- * Once a path is matched, the following are discarded and the
- * configuration inside the profile path is applied to the connection
- * as long as the connection is running.
- * 
- * Now, it is required to configure which profiles will be
- * allowed. This is done by using two types of nodes:
- *
- * <ol>
- * 
- * <li><p><b>&lt;if-success></b>: a configuration that allows to use
- * the profile referenced by it, and additionally, allows to use
- * profiles provided by its child nodes once a channel with the
- * profile provided is created.</p></li>
- *
- * <li><p><b>&lt;allow></b>: a configuration that allows to use a
- * profile at a particular level. </p></li>
- *
- * </ol>
- *
- * Let's see an example to show how it works:
- * 
- * \htmlinclude path-def-example.xml-tmp
- *
- * Previous example have configured a particular profile path as
- * follows: 
- *
- * <div class="center"><img src="images/profile-path-example.png" alt="[PROFILE PATH EXAMPLE]"></div>
- *
- * The example is mostly self-explanatory, but one detail remains. The
- * caonfiguration uses two attributes: <b>connmark</b> and
- * <b>preconnmark</b>. They are used as flags that must be detected in
- * the connection in other to allow the connection to accept a profile
- * or the content of the following profiles.
- *
- * \section profile_path_flags_supported_by_allow_and_if_sucess 3.2 Profile path configuration: flags supported by <allow> and <if-success>
- *
- * The following are the flags supported by <b>&lt;allow></b> and
- * <b>&lt;if-success></b>:
- *
- * <ol>
- *
- * <li><p><b>preconnmark</b>: if used, it means connections must have
- * the "mark" provided before the profile can be accepted/used. <br>SUPPORTED: &lt;allow>, &lt;if-success></p></li>
- * 
- * <li><p><b>connmark</b>: can only be used from &lt;if-success>
- * nodes. Allows to restrict profiles allowed inside &lt;if-success>
- * only if the provided mark is defined. </p>
- *
- * <p>This is particular useful for the SASL case because having a
- * SASL channel created isn't a warranty of a connection
- * authenticated. Thus, an additional mark is required to properly
- * ensure that the connection was authenticated. These "marks" are
- * profile/module especific.</p></li>
- *
- * <li><p><b>max-per-con</b>: allows to configure the maximum amount
- * of channels running the profile provided in the particular
- * connection instance. <br>SUPPORTED: &lt;allow>,
- * &lt;if-success></p></li>
- *
- * </ol>
- * 
- * <p>So, a good question at this point is "how are those marks
- * created?". These marks are profile dependant and are created using
- * the interface provided by the myqtt connection module to store
- * data. You must check the profile documentation to know which marks
- * are supported as they are particular to each BEEP profile. </p>
- * 
- * <p>In this case, Myqtt Library SASL implementation flags the
- * connection as authenticated using the provided flag:
- * "sasl:is:authenticated".</p>
  *
  * \section profile_path_expressions_examples 3.3 Profile path configuration: expression examples
  *
@@ -2168,8 +1987,8 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
  * set of \ref configuring_myqttd "configuration files" to start
  * at some selected ports, etc, and then load all modules installed.
  *
- * These modules could implement new BEEP profiles or features that
- * extend Myqttd internal function. 
+ * These modules could implement new MQTT features that extend MyQttd
+ * internal function.
  *
  * Myqttd core is really small. The rest of features are added as
  * modules. For example, Myqttd SASL support is a module which is
@@ -2212,10 +2031,6 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
  * - <b>mod-test.c</b>: base module source code: \ref myqttd_mod_test_c "mod-test.c" | <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqttd/modules/mod-test/mod-test.c"><b>[TXT]</b></a>
  * - <b>Makefile.am</b>: optional automake file used to build the module: <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqttd/modules/mod-test/Makefile.am"><b>[TXT]</b></a>
  * - <b>mod-test.xml.in</b>: xml module pointer, a file that is installed at the Myqttd modules dir to load the module: <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqttd/modules/mod-test/mod-test.xml.in"><b>[TXT]</b></a>
- *
- * Now if your intention is to built a BEEP profile then you should do
- * all calls to install it and its associated handlers using the
- * myqtt profiles API at the Init (\ref ModInitFunc) handler.
  *
  * \section myqttd_developer_manual_using_tbc_mod_gen Using tbc-mod-gen to create the module (recommended)
  *
