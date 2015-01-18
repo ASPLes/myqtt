@@ -4462,7 +4462,22 @@ MyQttConn  * myqtt_conn_get_listener           (MyQttConn * connection)
  */
 const char        * myqtt_conn_get_server_name        (MyQttConn * conn)
 {
+	/* still not implemented */
 	return NULL;
+}
+
+/** 
+ * @internal Allows to configure the serverName under which this
+ * connection is working.
+ *
+ * @param conn The conection to be configured.
+ *
+ * @param serverName the server name to be configured. 
+ */
+void                myqtt_conn_set_server_name        (MyQttConn * conn, const char * serverName)
+{
+	/* still not implemented */
+	return;
 }
 
 /** 

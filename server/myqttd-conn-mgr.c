@@ -122,65 +122,6 @@ void myqttd_conn_mgr_unref (axlPointer data)
 	return;
 }
 
-axlDoc * myqttd_conn_mgr_show_connections (const char * line,
-					   axlPointer   user_data, 
-					   axl_bool   * status)
-{
-	MyQttdCtx          * ctx = (MyQttdCtx *) user_data;
-	axlDoc                 * doc;
-	axlHashCursor          * cursor;
-	MyQttdConnMgrState * state;
-	axlNode                * parent;
-	axlNode                * node;
-
-	/* signal command completed ok */
-	(* status) = axl_true;
-
-	/* build document */
-	doc = axl_doc_parse_strings (NULL, 
-				     "<table>",
-				     "  <title>BEEP peers connected</title>",
-				     "  <description>The following is a list of peers connected</description>",
-				     "  <content></content>",
-				     "</table>");
-	/* get parent node */
-	parent = axl_doc_get (doc, "/table/content");
-
-	/* lock connections */
-	myqtt_mutex_lock (&ctx->conn_mgr_mutex);
-	
-	/* create cursor */
-	cursor = axl_hash_cursor_new (ctx->conn_mgr_hash);
-
-	while (axl_hash_cursor_has_item (cursor)) {
-		/* get connection */
-		state = axl_hash_cursor_get_value (cursor);
-
-		/* build connection status information */
-		node  = axl_node_parse (NULL, "<row id='%d' host='%s' port='%s' local-addr='%s' local-port='%s' />",
-					myqtt_conn_get_id (state->conn),
-					myqtt_conn_get_host (state->conn),
-					myqtt_conn_get_port (state->conn),
-					myqtt_conn_get_local_addr (state->conn),
-					myqtt_conn_get_local_port (state->conn));
-
-		/* set node to result document */
-		axl_node_set_child (parent, node);
-
-		/* next cursor */
-		axl_hash_cursor_next (cursor);
-	} /* end while */
-	
-	/* free cursor */
-	axl_hash_cursor_free (cursor);
-
-	/* unlock connections */
-	myqtt_mutex_unlock (&ctx->conn_mgr_mutex);
-	
-	return doc;
-}
-
-
 /** 
  * @internal Module init.
  */

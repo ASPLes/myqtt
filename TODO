@@ -1,12 +1,12 @@
 --== roadmap ==--
 
-* Add support to websocket
-
 * Add wildcard support (for message retention too).
 
 * Big message support 
 
 * High load support 
+
+* Remove references to ppath concept inside myqttd
 
 --== things that should be reviewed ==--
 
