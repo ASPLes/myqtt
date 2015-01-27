@@ -33,6 +33,10 @@
   http://www.hardill.me.uk/wordpress/2013/03/24/d3-mqtt-tree-visualiser-updated/
   http://test.mosquitto.org/sys/
 
+* Review and provide support for message ordering differences:
+  https://groups.google.com/forum/#!msg/mqtt/UfcO0HtLq9s/cjboTzdoR64J
+
+
 
 
 
