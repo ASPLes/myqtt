@@ -44,8 +44,17 @@
 
 * External storage like some kind of "casssandra connector"
 
+* Think handling load is key for the IoT ....if we can get say 250 000
+  concurrent connections on a single server that would really help - 500 000
+  would be epic.
 
+* BIG options is router - allowing device to be route to dedicated mosquitto
+  broker - diff to clustering :)...clustering is complex, routing is easy
+ 
+* Rules engine for routing in-comming message
 
+* MONITORING options - keeping an eye on load and troughput for tests and
+  support.
 
 
 
