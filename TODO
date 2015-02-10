@@ -36,6 +36,15 @@
 * Review and provide support for message ordering differences:
   https://groups.google.com/forum/#!msg/mqtt/UfcO0HtLq9s/cjboTzdoR64J
 
+* Some way of dynamically configuring/starting/stopping bridges, either
+  via messages or via files (a directory watched by the daemon).
+
+* More hooks to implement via plugin system, hook on store messages,
+  hook on send message, hook on receive message.
+
+* External storage like some kind of "casssandra connector"
+
+
 
 
 
