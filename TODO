@@ -1,3 +1,11 @@
+--== Features ==--
+
+* Designed as a reusable library that allows to start several
+  context into the same process or the provide client or server
+  support to an existing application.
+
+* It is multi-threaded.
+
 --== roadmap ==--
 
 * Add wildcard support (for message retention too).
