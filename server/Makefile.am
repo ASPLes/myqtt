@@ -19,15 +19,24 @@ INCLUDES = $(compiler_options) -DCOMPILATION_DATE=`date +%s` -D__COMPILING_MYQTT
 	   -D__MYQTTD_ENABLE_DEBUG_CODE__ \
 	   $(AXL_CFLAGS)  -g -Wall -Werror -Wstrict-prototypes 
 
-bin_PROGRAMS = myqttd
+bin_PROGRAMS = myqttd 
 
+noinst_PROGRAMS = test_01
 
+# myqttd
 myqttd_SOURCES = \
 	main-common.c main-common.h main.c
 
 myqttd_LDFLAGS = -Wl,-export-dynamic -ldl
 
 myqttd_LDADD = $(AXL_LIBS) libmyqttd.la $(top_builddir)/lib/libmyqtt-1.0.la 
+
+# test_01
+test_01_SOURCES = test_01.c
+
+test_01_LDFLAGS = -Wl,-export-dynamic -ldl
+
+test_01_LDADD = $(AXL_LIBS) libmyqttd.la $(top_builddir)/lib/libmyqtt-1.0.la 
 
 lib_LTLIBRARIES  = libmyqttd.la
 
