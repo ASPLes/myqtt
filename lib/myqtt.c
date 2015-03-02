@@ -893,6 +893,10 @@ axl_bool    myqtt_init_ctx (MyQttCtx * ctx)
 
 	v_return_val_if_fail (ctx, axl_false);
 
+	/* check if the library was already initialized */
+	if (myqtt_init_check (ctx)) 
+		return axl_true;
+
 	/**** myqtt_io.c: init io module */
 	myqtt_io_init (ctx);
 
