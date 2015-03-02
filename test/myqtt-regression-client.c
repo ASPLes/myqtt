@@ -2236,9 +2236,11 @@ axl_bool test_16 (void) {
 
 	/* set context path */
 	myqtt_storage_set_path (ctx, "myqtt-test-16", 128);
-	if (system ("find myqtt-test-16 -type f -exec rm {} \\;") != 0) {
-		printf ("ERROR: expected to cleanup myqtt-test-16 directory..but system() call failed..\n");
-		return axl_false;
+	if (myqtt_support_file_test ("myqtt-test-16", FILE_EXISTS)) {
+		if (system ("find myqtt-test-16 -type f -exec rm {} \\;") != 0) {
+			printf ("ERROR: expected to cleanup myqtt-test-16 directory..but system() call failed..\n");
+			return axl_false;
+		} /* end if */
 	} /* end if */
 
 	/* init storage */
