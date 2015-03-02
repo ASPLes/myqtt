@@ -70,14 +70,20 @@ MyQttCtx * init_ctx (void)
 
 axl_bool  test_00 (void) {
 
-	MyQttCtx * ctx;
+	MyQttdCtx * ctx;
 	
 	/* call to init the base library and close it */
-	ctx = myqtt_ctx_new ();
+	ctx       = myqttd_ctx_new ();
+	myqtt_ctx = myqtt_ctx_new ();
 
-	if (! myqtt_init_ctx (ctx)) {
-		printf ("Error: unable to initialize MyQtt library..\n");
-		return axl_false;
+	/* init libraries */
+	if (! myqttd_init (ctx, myqtt_ctx, config)) {
+		/* free config */
+		axl_free (config);
+
+		/* free myqttd ctx */
+		myqttd_ctx_free (ctx);
+		return -1;
 	} /* end if */
 
 	/* now close the library */
