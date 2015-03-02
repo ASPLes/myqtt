@@ -1,5 +1,8 @@
 EXTRA_DIST = myqttd-ctx-private.h
 
+etcdir = $(sysconfdir)/myqtt
+etc_DATA = myqtt.example.conf
+
 # profile a flag to enable the source to code to react agaisnt the
 # pcre inclusion.
 if ENABLE_PCRE_SUPPORT

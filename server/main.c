@@ -298,7 +298,7 @@ int main (int argc, char ** argv)
 		return 0;
 
 	/* create the myqttd and myqtt context */
-	ctx        = myqttd_ctx_new ();
+	ctx       = myqttd_ctx_new ();
 	myqtt_ctx = myqtt_ctx_new ();
 
 	/* check for child flag */
