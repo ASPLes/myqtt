@@ -279,7 +279,7 @@ void myqttd_signal_exit (MyQttdCtx * ctx, int _signal)
 		
 		/* check current termination option */
 		doc  = myqttd_config_get (ctx);
-		node = axl_doc_get (doc, "/myqttd/global-settings/on-bad-signal");
+		node = axl_doc_get (doc, "/myqtt/global-settings/on-bad-signal");
 		error ("applying configured action %s", (node && HAS_ATTR (node, "action")) ? ATTR_VALUE (node, "action") : "not defined");
 		if (HAS_ATTR_VALUE (node, "action", "ignore")) {
 			/* do notify if enabled */

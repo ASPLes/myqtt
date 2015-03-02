@@ -118,7 +118,7 @@ char * main_common_get_config_location (MyQttdCtx * ctx,
 
 	/* load main turb */
 	if (config == NULL) {
-		abort_error ("Unable to find myqttd.conf file at the default location: %s/myqttd/myqttd.conf", SYSCONFDIR);
+		abort_error ("Unable to find myqttd.conf file at the default location: %s/myqtt/myqtt.conf", SYSCONFDIR);
 		return NULL;
 	} else 
 		msg ("using configuration file: %s", config);

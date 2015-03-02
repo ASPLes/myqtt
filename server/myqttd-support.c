@@ -87,7 +87,7 @@ char          * myqttd_support_get_backtrace (MyQttdCtx * ctx, int pid)
 	int                  status;
 	char               * backtrace_file = NULL;
 
-	temp_name = axl_strdup ("/tmp/myqttd-backtrace.XXXXXX");
+	temp_name = axl_strdup ("/tmp/myqtt-backtrace.XXXXXX");
 	temp_file = mkstemp (temp_name);
 	if (temp_file == -1) {
 		error ("Bad signal found but unable to create gdb commands file to feed gdb");
@@ -118,12 +118,12 @@ char          * myqttd_support_get_backtrace (MyQttdCtx * ctx, int pid)
 	
 	/* build the command to get gdb output */
 	while (1) {
-		backtrace_file = axl_strdup_printf ("%s/myqttd-backtrace.%d.gdb", myqttd_runtime_datadir (ctx), time (NULL));
+		backtrace_file = axl_strdup_printf ("%s/myqtt-backtrace.%d.gdb", myqttd_runtime_datadir (ctx), time (NULL));
 		file_handle    = fopen (backtrace_file, "w");
 		if (file_handle == NULL) {
 			msg ("Changing path because path %s is not allowed to the current uid=%d", backtrace_file, getuid ());
 			axl_free (backtrace_file);
-			backtrace_file = axl_strdup_printf ("%s/myqttd-backtrace.%d.gdb", myqttd_runtime_tmpdir (ctx), time (NULL));
+			backtrace_file = axl_strdup_printf ("%s/myqtt-backtrace.%d.gdb", myqttd_runtime_tmpdir (ctx), time (NULL));
 		} else {
 			fclose (file_handle);
 			msg ("Checked that %s is writable/readable for the current usid=%d", backtrace_file, getuid ());
@@ -532,7 +532,7 @@ axl_bool        myqttd_support_simple_smtp_send (MyQttdCtx * ctx,
 		return axl_false;
 
 	/* find smtp mail notification conf */
-	node         = axl_doc_get (myqttd_config_get (ctx), "/myqttd/global-settings/notify-failures/smtp-server");
+	node         = axl_doc_get (myqttd_config_get (ctx), "/myqtt/global-settings/notify-failures/smtp-server");
 	default_node = NULL;
 	while (node) {
 		/* check for declaration with the smtp conf requested */

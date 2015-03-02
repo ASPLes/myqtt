@@ -52,18 +52,35 @@ MyQttCtx * init_ctx (void)
 	/* call to init the base library and close it */
 	ctx = myqtt_ctx_new ();
 
-	if (! myqtt_init_ctx (ctx)) {
-		printf ("Error: unable to initialize MyQtt library..\n");
-		return NULL;
-	} /* end if */
-
 	/* enable log if requested by the user */
 	if (test_common_enable_debug) {
 		myqtt_log_enable (ctx, axl_true);
 		myqtt_color_log_enable (ctx, axl_true);
 		myqtt_log2_enable (ctx, axl_true);
 	} /* end if */
-		
+
+	return ctx;
+}
+
+MyQttdCtx * init_ctxd (MyQttCtx * myqtt_ctx, const char * config)
+{
+	MyQttdCtx * ctx;
+
+	/* call to init the base library and close it */
+	ctx = myqttd_ctx_new ();
+
+	/* enable log if requested by the user */
+	if (test_common_enable_debug) {
+		myqttd_log_enable (ctx, axl_true);
+		myqttd_color_log_enable (ctx, axl_true);
+		myqttd_log2_enable (ctx, axl_true);
+	} /* end if */
+
+	if (! myqttd_init (ctx, myqtt_ctx, config)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return NULL;
+	} /* end if */
+
 
 	return ctx;
 }
@@ -71,23 +88,21 @@ MyQttCtx * init_ctx (void)
 axl_bool  test_00 (void) {
 
 	MyQttdCtx * ctx;
+	MyQttCtx  * myqtt_ctx;
 	
 	/* call to init the base library and close it */
-	ctx       = myqttd_ctx_new ();
-	myqtt_ctx = myqtt_ctx_new ();
-
-	/* init libraries */
-	if (! myqttd_init (ctx, myqtt_ctx, config)) {
-		/* free config */
-		axl_free (config);
-
-		/* free myqttd ctx */
-		myqttd_ctx_free (ctx);
-		return -1;
+	printf ("Test 00: init library and server engine..\n");
+	myqtt_ctx = init_ctx ();
+	ctx       = init_ctxd (myqtt_ctx, "myqtt.example.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
 	} /* end if */
 
+	printf ("Test 00: library and server engine started.. ok\n");
+
 	/* now close the library */
-	myqtt_exit_ctx (ctx, axl_true);
+	myqttd_exit (ctx, axl_true, axl_true);
 		
 	return axl_true;
 }

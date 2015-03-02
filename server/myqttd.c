@@ -79,17 +79,17 @@ void __myqttd_thread_pool_conf (MyQttdCtx * ctx)
 	int        value;
 
 	/* get max limit for the pool */
-	value = myqttd_config_get_number (ctx, "/myqttd/global-settings/thread-pool", "max-limit");
+	value = myqttd_config_get_number (ctx, "/myqtt/global-settings/thread-pool", "max-limit");
 	if (value > 0)
 		max_limit = value;
 
 	/* get step period */
-	value = myqttd_config_get_number (ctx, "/myqttd/global-settings/thread-pool", "step-period");
+	value = myqttd_config_get_number (ctx, "/myqtt/global-settings/thread-pool", "step-period");
 	if (value > 0)
 		step_period = value;
 
 	/* get step-add */
-	value = myqttd_config_get_number (ctx, "/myqttd/global-settings/thread-pool", "step-add");
+	value = myqttd_config_get_number (ctx, "/myqtt/global-settings/thread-pool", "step-add");
 	if (value > 0)
 		step_add = value;
 
@@ -107,7 +107,7 @@ void __myqttd_server_backlog (MyQttdCtx * ctx)
 	int        value;
 
 	/* get max limit for the pool */
-	value = myqttd_config_get_number (ctx, "/myqttd/global-settings/server-backlog", "value");
+	value = myqttd_config_get_number (ctx, "/myqtt/global-settings/server-backlog", "value");
 	if (value > 0)
 		backlog = value;
 
@@ -123,14 +123,14 @@ void __myqttd_acquire_limits (MyQttdCtx * ctx)
 	int        value;
 
 	/* get global child limit */
-	value = myqttd_config_get_number (ctx, "/myqttd/global-settings/global-child-limit", "value");
+	value = myqttd_config_get_number (ctx, "/myqtt/global-settings/global-child-limit", "value");
 	if (value > 0)
 		ctx->global_child_limit = value;
 	else
 		ctx->global_child_limit = 100;
 
 	/* get global child limit */
-	value = myqttd_config_get_number (ctx, "/myqttd/global-settings/max-incoming-complete-frame-limit", "value");
+	value = myqttd_config_get_number (ctx, "/myqtt/global-settings/max-incoming-complete-frame-limit", "value");
 	if (value > 0)
 		ctx->max_complete_flag_limit = value;
 	else
@@ -159,18 +159,27 @@ axl_bool  myqttd_init (MyQttdCtx   * ctx,
 		return axl_false;
 	} /* end if */
 
-	/* get current process id */
-	ctx->pid = getpid ();
-
-	/* init myqttd internals */
-	myqtt_mutex_create (&ctx->exit_mutex);
-
 	/* if a null value is received for the myqtt context, create
 	 * a new empty one */
 	if (myqtt_ctx == NULL) {
 		msg2 ("creating a new myqtt context because a null value was received..");
 		myqtt_ctx = myqtt_ctx_new ();
 	} /* end if */
+
+	/* check if the context is not started, and start it */
+	if (! myqtt_init_check (myqtt_ctx)) {
+		msg ("Calling to init MyQttCtx object (found to be uninitialized reference received");
+		if (! myqtt_init_ctx (myqtt_ctx)) {
+			abort_error ("Unable to initialize MyQtt context (for reference not initialized received)");
+			return axl_false;
+		} /* end if */
+	} /* end if */
+
+	/* get current process id */
+	ctx->pid = getpid ();
+
+	/* init myqttd internals */
+	myqtt_mutex_create (&ctx->exit_mutex);
 
 	/* configure the myqtt context created */
 	myqttd_ctx_set_myqtt_ctx (ctx, myqtt_ctx);
@@ -193,12 +202,6 @@ axl_bool  myqttd_init (MyQttdCtx   * ctx,
 
 	/* configure here back log */
 	__myqttd_server_backlog (ctx);
-
-	/*** init the myqtt library ***/
-	if (! myqtt_init_ctx (myqtt_ctx)) {
-		abort_error ("unable to start myqtt library, terminating myqttd execution..");
-		return axl_false;
-	} /* end if */
 
 	/* init myqttd-mediator.c: init this module before others
 	   to acchieve notifications and push events  */
@@ -1108,7 +1111,7 @@ const char * __myqttd_system_path (MyQttdCtx * ctx, const char * path_name)
 	if (ctx == NULL || ctx->config == NULL)
 		return NULL;
 	/* get the first node <path> */
-	node = axl_doc_get (ctx->config, "/myqttd/global-settings/system-paths/path");
+	node = axl_doc_get (ctx->config, "/myqtt/global-settings/system-paths/path");
 	if (node == NULL)
 		return NULL;
 	while (node != NULL) {
@@ -1136,8 +1139,8 @@ const char * __myqttd_system_path (MyQttdCtx * ctx, const char * path_name)
  * <b>../etc</b>. Starting from that directory is found the rest of
  * configurations:
  * 
- *  - etc/myqttd/myqttd.conf
- *  - etc/myqttd/sasl/sasl.conf
+ *  - etc/myqtt/myqtt.conf
+ *  - etc/myqtt/sasl/sasl.conf
  *
  * @param ctx The myqttd ctx with the associated configuration
  * where we are getting the sysconfdir. If NULL is provided, default
@@ -1165,7 +1168,7 @@ const char    * myqttd_sysconfdir     (MyQttdCtx * ctx)
  *
  * The MYQTTD_DATADIR points to the base root directory where data files
  * are located (mostly dtd files). Under unix system it is usually:
- * <b>/usr/share/myqttd</b>. On windows system it is usually
+ * <b>/usr/share/myqtt</b>. On windows system it is usually
  * configured to: <b>../data</b>.
  *
  * @param ctx The myqttd ctx with the associated configuration
@@ -1783,9 +1786,9 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
  *
  * Currently, accepted system paths are:
  *
- * - <b>sysconfdir</b>: base dir where myqttd.conf file will be located (${sysconfdir}/myqttd/myqttd.conf).
- * - <b>datadir</b>: base dir where static myqttd data files are located (${datadir}/myqttd).
- * - <b>runtime_datadir</b>: base directory where run time files are created (${runtime_datadir}/myqttd).
+ * - <b>sysconfdir</b>: base dir where myqttd.conf file will be located (${sysconfdir}/myqtt/myqtt.conf).
+ * - <b>datadir</b>: base dir where static myqttd data files are located (${datadir}/myqtt).
+ * - <b>runtime_datadir</b>: base directory where run time files are created (${runtime_datadir}/myqtt).
  *
  * Additionally many modules inside Myqttd and Myqtt Library find
  * configuration and data files by call to
@@ -1814,13 +1817,13 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
  *
  * It is also possible to load a set of configuration files from a
  * directory. This is useful for profile paths where all of them are
- * stored separated into /etc/myqttd/profile.d directory. That's
+ * stored separated into /etc/myqtt/profile.d directory. That's
  * why the following declaration inside <profile-path-configuration>:
  *
  * \htmlinclude include-from-dir.xml-tmp
  *
  * Previous declaration import all content from files found in
- * <b>/etc/myqttd/profile.d</b> replacing the <b>include</b> node.
+ * <b>/etc/myqtt/profile.d</b> replacing the <b>include</b> node.
  *
  * \section profile_path_expressions_examples 3.3 Profile path configuration: expression examples
  *
@@ -1925,10 +1928,10 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
  *
  *   <li>On Unix: link the module pointer .xml file like this
  *   (assuming you want to enable mod-sasl and mods available and
- *   enabled folders are located at /etc/myqttd):
+ *   enabled folders are located at /etc/myqtt):
  *
  *    \code
- *    >> ln -s /etc/myqttd/mods-enabled/mod-sasl.xml /etc/myqttd/mods-available/mod-sasl.xml
+ *    >> ln -s /etc/myqtt/mods-enabled/mod-sasl.xml /etc/myqtt/mods-available/mod-sasl.xml
  *    \endcode
  *   ..and restart myqttd.
  *   </li>
@@ -2028,9 +2031,9 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
  * and a brief help. You can use it as an official reference. A module
  * is at minimum composed by the following tree files:
  *
- * - <b>mod-test.c</b>: base module source code: \ref myqttd_mod_test_c "mod-test.c" | <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqttd/modules/mod-test/mod-test.c"><b>[TXT]</b></a>
- * - <b>Makefile.am</b>: optional automake file used to build the module: <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqttd/modules/mod-test/Makefile.am"><b>[TXT]</b></a>
- * - <b>mod-test.xml.in</b>: xml module pointer, a file that is installed at the Myqttd modules dir to load the module: <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqttd/modules/mod-test/mod-test.xml.in"><b>[TXT]</b></a>
+ * - <b>mod-test.c</b>: base module source code: \ref myqttd_mod_test_c "mod-test.c" | <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqtt/modules/mod-test/mod-test.c"><b>[TXT]</b></a>
+ * - <b>Makefile.am</b>: optional automake file used to build the module: <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqtt/modules/mod-test/Makefile.am"><b>[TXT]</b></a>
+ * - <b>mod-test.xml.in</b>: xml module pointer, a file that is installed at the Myqttd modules dir to load the module: <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqtt/modules/mod-test/mod-test.xml.in"><b>[TXT]</b></a>
  *
  * \section myqttd_developer_manual_using_tbc_mod_gen Using tbc-mod-gen to create the module (recommended)
  *
