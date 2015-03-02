@@ -54,7 +54,7 @@ void myqttd_log_init (MyQttdCtx * ctx)
 	axlNode * node;
 
 	/* check log reporting */
-	node = axl_doc_get (doc, "/myqttd/global-settings/log-reporting");
+	node = axl_doc_get (doc, "/myqtt/global-settings/log-reporting");
 	if (node == NULL) {
 		abort_error ("Unable to find log configuration <myqttd/global-settings/log-reporting>");
 		return;
@@ -434,7 +434,7 @@ axl_bool   myqttd_log_is_enabled    (MyQttdCtx * ctx)
 	
 	/* get configuration */
 	config = myqttd_config_get (ctx);
-	node   = axl_doc_get (config, "/myqttd/global-settings/log-reporting");
+	node   = axl_doc_get (config, "/myqtt/global-settings/log-reporting");
 
 	/* check value returned */
 	return myqttd_config_is_attr_positive (ctx, node, "enabled");

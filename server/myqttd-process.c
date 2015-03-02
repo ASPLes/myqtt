@@ -1574,7 +1574,7 @@ void myqttd_process_kill_childs  (MyQttdCtx * ctx)
 	int       childs;
 
 	/* get user doc */
-	node = axl_doc_get (ctx->config, "/myqttd/global-settings/kill-childs-on-exit");
+	node = axl_doc_get (ctx->config, "/myqtt/global-settings/kill-childs-on-exit");
 	if (node == NULL) {
 		error ("Unable to find kill-childs-on-exit node, doing nothing..");
 		return;

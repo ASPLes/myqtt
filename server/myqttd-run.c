@@ -62,7 +62,7 @@ axl_bool myqttd_run_check_no_load_module (MyQttdCtx * ctx,
 	int          length;
 	const char * module_name;
 
-	node = axl_doc_get (doc, "/myqttd/modules/no-load/module");
+	node = axl_doc_get (doc, "/myqtt/modules/no-load/module");
 	while (node != NULL) {
 
 		/* check module name without extension */
@@ -196,7 +196,7 @@ void myqttd_run_load_modules (MyQttdCtx * ctx, axlDoc * doc)
 	const char  * path;
 	DIR         * dirHandle;
 
-	directory = axl_doc_get (doc, "/myqttd/modules/directory");
+	directory = axl_doc_get (doc, "/myqtt/modules/directory");
 	if (directory == NULL) {
 		msg ("no module directories were configured, nothing loaded");
 		return;
@@ -249,14 +249,14 @@ axl_bool myqttd_run_config_start_listeners (MyQttdCtx * ctx, axlDoc * doc)
 		return axl_true;
 
 	/* get reference to the first listener defined */
-	listener = axl_doc_get (doc, "/myqttd/global-settings/listener");
+	listener = axl_doc_get (doc, "/myqtt/global-settings/listener");
 	while (listener != NULL) {
 
 		/* get the listener name configuration */
 		name = axl_node_get_child_called (listener, "name");
 		
 		/* get ports to be allocated */
-		port = axl_doc_get (doc, "/myqttd/global-settings/ports/port");
+		port = axl_doc_get (doc, "/myqtt/global-settings/ports/port");
 		while (port != NULL) {
 
 			/* start the listener */
@@ -342,7 +342,7 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 		return axl_false;
 
 	/* check log configuration */
-	node = axl_doc_get (doc, "/myqttd/global-settings/log-reporting");
+	node = axl_doc_get (doc, "/myqtt/global-settings/log-reporting");
 	if (HAS_ATTR_VALUE (node, "enabled", "yes")) {
 		/* init the log module */
 		myqttd_log_init (ctx);
@@ -356,7 +356,7 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 	} /* end if */
 
 	/* configure max connection settings here */
-	node       = axl_doc_get (doc, "/myqttd/global-settings/connections/max-connections");
+	node       = axl_doc_get (doc, "/myqtt/global-settings/connections/max-connections");
 
 #if defined(AXL_OS_UNIX)
 	/* NOTE: currently, myqtt_conf_set do not allows to configure
@@ -388,14 +388,14 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 	} /* end if */
 #endif 
 
-	node = axl_doc_get (doc, "/myqttd/global-settings/tls-support");
+	node = axl_doc_get (doc, "/myqtt/global-settings/tls-support");
 	if (HAS_ATTR_VALUE (node, "enabled", "yes")) {
 		/* enable sasl support */
 		/* myqttd_tls_enable (); */
 	} /* end if */
 
 	/* check features here */
-	node = axl_doc_get (doc, "/myqttd/features");
+	node = axl_doc_get (doc, "/myqtt/features");
 	if (node != NULL) {
 		
 		/* get first node posibily containing a feature */
@@ -419,7 +419,7 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 	} /* end if */
 
 	/* load search paths */
-	node = axl_doc_get (doc, "/myqttd/global-settings/system-paths/search");
+	node = axl_doc_get (doc, "/myqtt/global-settings/system-paths/search");
 	while (node) {
 		/* add search path */
 		msg ("Adding domain (%s) search path: %s", ATTR_VALUE (node, "domain"), ATTR_VALUE (node, "path"));

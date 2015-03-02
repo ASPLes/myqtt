@@ -135,7 +135,7 @@ int  main_init_exarg (int argc, char ** argv)
 		printf ("SYSCONFDIR:       %s\n", myqttd_sysconfdir (NULL));
 		printf ("MYQTTD_DATADIR:      %s\n", myqttd_datadir (NULL));
 		printf ("RUNTIME_DATADIR:  %s\n", myqttd_runtime_datadir (NULL));
-		printf ("Default configuration file: %s/myqttd/myqttd.conf", SYSCONFDIR);
+		printf ("Default configuration file: %s/myqtt/myqtt.conf", SYSCONFDIR);
 
 		/* terminates exarg */
 		exarg_end ();
