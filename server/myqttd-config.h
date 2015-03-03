@@ -73,6 +73,8 @@ axl_bool        myqttd_config_set      (MyQttdCtx * ctx,
  */
 #define MYQTTD_CONFIG_PATH(path) axl_doc_get (myqttd_config_get (ctx), path)
 
+void            myqttd_config_ensure_attr (MyQttdCtx * ctx, axlNode * node, const char * attr_name);
+
 axl_bool        myqttd_config_is_attr_positive (MyQttdCtx * ctx,
 						    axlNode       * node,
 						    const char    * attr_name);

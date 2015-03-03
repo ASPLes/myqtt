@@ -260,6 +260,14 @@ axl_bool myqttd_run_config_start_listeners (MyQttdCtx * ctx, axlDoc * doc)
 		while (port != NULL) {
 
 			/* start the listener */
+			/*** DELEGATE: this listener creation to an
+			 * external handler based on the protocol
+			 * defined by port. That is, find a handler
+			 * based on the proto and if it is not
+			 * defined, do not start the server or craete
+			 * the listener. Then, each module can
+			 * register listener creator handlers to
+			 * support different services  ***/
 			conn_listener = myqtt_listener_new (
 				/* the context where the listener will
 				 * be started */
@@ -313,6 +321,103 @@ axl_bool myqttd_run_config_start_listeners (MyQttdCtx * ctx, axlDoc * doc)
 	return axl_true;
 }
 
+void myqtt_run_load_domain (MyQttdCtx * ctx, axlDoc * doc, axlNode * node)
+{
+	/* get settings for this domain: see MyQttdDomain definition
+	 * at myqttd-types.h and myqttd-ctx-private.h */
+	const char * name     = ATTR_VALUE (node, "name");
+	const char * storage  = ATTR_VALUE (node, "storage");
+	const char * users_db = ATTR_VALUE (node, "users-db");
+
+	/* do some logging */
+	msg ("Loading domain, name=%s, storage=%s, users-db=%s", name ? name : "", storage ? storage : "", users_db ? users_db : "");
+
+	/* check definition name to be present */
+	myqttd_config_ensure_attr (ctx, node, "name");
+	myqttd_config_ensure_attr (ctx, node, "storage");
+	myqttd_config_ensure_attr (ctx, node, "users-db");
+
+	/* now ensure storage is present and initialize it */
+	if (! myqttd_domain_add (ctx, name, storage, users_db)) {
+		/* report failure */
+		error ("Unable to add domain name='%s'", name);
+
+		/* fail here because clean start is enabled? */
+	} /* end if */
+
+	return;
+}
+
+axl_bool myqttd_run_domains_load (MyQttdCtx * ctx, axlDoc * doc)
+{
+	axlNode * node;
+	node = axl_doc_get (doc, "/myqtt/myqtt-domains/domain");
+	if (node == NULL) {
+		abort_error ("Unable to find any domain declaration inside %s file, under the xml section /myqtt/myqtt-domains/domain. Without a single domain declaration this server cannot accept connections");
+		return axl_false;
+	} /* end if */
+	
+	while (node) {
+		/* record this domain into domains table for future
+		 * usage and prepare configuration */
+		myqtt_run_load_domain (ctx, doc, node);
+		
+		/* next next domain node */
+		node = axl_node_get_next_called (node, "domain");
+	} /* end if while */
+	
+	/* reached this point, everything was ok */
+	return axl_true;
+}
+
+axl_bool myqttd_run_send_connetion_to_domain (MyQttdCtx * ctx, MyQttConn * conn, MyQttdDomain * domain) {
+
+	/* enable domain and send connection in an async manner */
+	return axl_false;
+}
+
+
+MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn * conn, axlPointer user_data)
+{
+	MyQttdDomain * domain;
+	MyQttdCtx    * ctx = user_data;
+
+	/* check support for auth operations */
+	const char   * username     = myqtt_conn_get_username (conn);
+	const char   * password     = myqtt_conn_get_password (conn);
+	const char   * client_id    = myqtt_conn_get_client_id (conn);
+	const char   * server_Name  = myqtt_conn_get_server_name (conn);
+
+	/* find the domain that can handle this connection */
+	domain = myqttd_domain_find_by_indications (ctx, username, client_id, server_Name);
+	if (domain == NULL) {
+		error ("login failed for username=%s client-id=%s server-name=%s : no domain was found to handle request",
+		       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
+		return MYQTT_CONNACK_IDENTIFIER_REJECTED;
+	}
+
+	/* ok, domain found, then auth the provided username, password
+	 * and client id on the provided domain */
+	if (! myqttd_domain_do_auth (ctx, domain, username, password, client_id)) {
+		error ("login failed for username=%s client-id=%s server-name=%s : bad username or password",
+		       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
+		return MYQTT_CONNACK_BAD_USERNAME_OR_PASSWORD;
+	} /* end if */
+
+	/* reached this point, the connecting user is enabled and authenticated */
+
+	/* activate domain to have it working */
+	if (! myqttd_run_send_connetion_to_domain (ctx, conn, domain)) {
+		error ("login failed for username=%s client-id=%s server-name=%s : failed to send connection to the corresponding domain",
+		       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
+		return MYQTT_CONNACK_SERVER_UNAVAILABLE;
+	} /* end if */
+	
+	/* report connection accepted */
+	return MYQTT_CONNACK_ACCEPTED;
+} /* end if */
+
+
 /** 
  * @internal Takes current configuration, and starts all settings
  * required to run the server.
@@ -330,7 +435,6 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 	MyQttCtx         * myqtt_ctx = myqttd_ctx_get_myqtt_ctx (ctx);
 
 	/* mod myqttd dtd */
-	char             * features   = NULL;
 	char             * string_aux;
 #if defined(AXL_OS_UNIX)
 	/* required by the myqtt_conf_set hard/soft socket limit. */
@@ -388,47 +492,6 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 	} /* end if */
 #endif 
 
-	node = axl_doc_get (doc, "/myqtt/global-settings/tls-support");
-	if (HAS_ATTR_VALUE (node, "enabled", "yes")) {
-		/* enable sasl support */
-		/* myqttd_tls_enable (); */
-	} /* end if */
-
-	/* check features here */
-	node = axl_doc_get (doc, "/myqtt/features");
-	if (node != NULL) {
-		
-		/* get first node posibily containing a feature */
-		node = axl_node_get_first_child (node);
-		while (node != NULL) {
-			/* check for supported features */
-			if (NODE_CMP_NAME (node, "request-x-client-close") && HAS_ATTR_VALUE (node, "value", "yes")) {
-				string_aux = features;
-				features   = axl_concat (string_aux, string_aux ? " x-client-close" : "x-client-close");
-				axl_free (string_aux);
-				msg ("feature found: x-client-close");
-			} /* end if */
-
-			/* ENTER HERE new features */
-
-			/* process next feature */
-			node = axl_node_get_next (node);
-
-		} /* end while */
-
-	} /* end if */
-
-	/* load search paths */
-	node = axl_doc_get (doc, "/myqtt/global-settings/system-paths/search");
-	while (node) {
-		/* add search path */
-		msg ("Adding domain (%s) search path: %s", ATTR_VALUE (node, "domain"), ATTR_VALUE (node, "path"));
-		myqtt_support_add_domain_search_path (MYQTTD_MYQTT_CTX (ctx), ATTR_VALUE (node, "domain"), ATTR_VALUE (node, "path"));
-
-		/* get next search node */
-		node = axl_node_get_next_called (node, "search");
-	} /* end if */
-
 	/* now load all modules found */
 	myqttd_run_load_modules (ctx, doc);
 
@@ -438,6 +501,14 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 	/* get the first listener configuration */
 	if (! myqttd_run_config_start_listeners (ctx, doc))
 		return axl_false;
+
+	/* now, recognize domains supported */
+	if (! myqttd_run_domains_load (ctx, doc))
+		return axl_false;
+
+	/* now install auth handler to accept conections and to
+	 * redirect them to the right domain */
+	myqtt_ctx_set_on_connect (ctx->myqtt_ctx, myqttd_run_handle_on_connect, ctx);
 
 	/* myqttd started properly */
 	return axl_true;

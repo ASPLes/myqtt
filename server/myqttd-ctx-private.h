@@ -128,6 +128,9 @@ struct _MyQttdCtx {
 	
 	/*** support for proxy on parent ***/
 	MyQttdLoop     * proxy_loop;
+
+	/* reference to all domains currently supported */
+	MyQttHash      * domains;
 };
 
 /** 
@@ -145,6 +148,7 @@ struct _MyQttdChild {
 
 	int                  child_connection;
 	MyQttdLoop         * child_conn_loop;
+
 #if defined(AXL_OS_UNIX)
 	char               * socket_control_path;
 	char              ** init_string_items;
@@ -161,14 +165,16 @@ struct _MyQttdChild {
 typedef struct _MyQttdConnMgrState {
 	MyQttConn    * conn;
 	MyQttdCtx    * ctx;
-
-	/* a hash that contains the set of profiles running on this
-	 * connection and how many times */
-	axlHash          * profiles_running;
-
-	/* reference to handler ids to be removed */
-	axlPointer         added_channel_id;
-	axlPointer         removed_channel_id;
 } MyQttdConnMgrState;
+
+/** 
+ * @internal Domain definition.
+ */
+struct _MyQttdDomain {
+	char * name;
+	char * storage_path;
+	char * users_db;
+};
+
 
 #endif

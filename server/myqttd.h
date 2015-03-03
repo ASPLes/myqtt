@@ -67,6 +67,7 @@
 #include <myqttd-loop.h>
 #include <myqttd-child.h>
 #include <myqttd-process.h>
+#include <myqttd-domain.h>
 
 /** 
  * \addtogroup myqttd

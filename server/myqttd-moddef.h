@@ -166,7 +166,7 @@ typedef struct _MyQttdModDef {
 
 /** 
  * @brief Allows to prepare de module with the myqttd context (and
- * the vortex context associated).
+ * the myqtt context associated).
  *
  * This macro must be called inside the module init, before any
  * operation is done. 

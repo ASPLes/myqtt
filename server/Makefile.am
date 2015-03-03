@@ -1,4 +1,5 @@
-EXTRA_DIST = myqttd-ctx-private.h
+EXTRA_DIST = myqttd-ctx-private.h \
+	test_01.conf
 
 etcdir = $(sysconfdir)/myqtt
 etc_DATA = myqtt.example.conf
@@ -60,7 +61,8 @@ libmyqttdinclude_HEADERS    = \
 	myqttd-conn-mgr.h \
 	myqttd-loop.h \
 	myqttd-process.h \
-	myqttd-child.h
+	myqttd-child.h \
+	myqttd-domain.h
 
 libmyqttd_la_SOURCES = \
 	exarg.c \
@@ -76,7 +78,8 @@ libmyqttd_la_SOURCES = \
 	myqttd-conn-mgr.c \
 	myqttd-loop.c \
 	myqttd-process.c \
-	myqttd-child.c
+	myqttd-child.c \
+	myqttd-domain.c
 
 libmyqttd_la_LIBADD = $(AXL_LIBS)  $(PCRE_LIBS) 
 libmyqttd_la_LDFLAGS = -Wl,-export-dynamic -ldl -no-undefined -export-symbols-regex '^(myqttd|__myqttd|exarg).*'

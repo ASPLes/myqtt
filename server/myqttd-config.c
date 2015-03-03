@@ -295,6 +295,41 @@ axl_bool            myqttd_config_set      (MyQttdCtx * ctx,
 }
 
 /** 
+ * @brief Ensures that the provided attribute is defined on the
+ * provided node and to fail if it doesn't.
+ *
+ * DO NOT USE this function after having the server started. This
+ * function is meant to be used during initialization to ensure
+ * everything is ok and in place.
+ *
+ * @param ctx The context where the operation will take place.
+ *
+ * @param node The node to be checked.
+ *
+ * @param attr_name The xml node attr name to check.
+ *
+ * The function does not return anything because it takes full control
+ * of the caller in the case that if a failure is found, the function
+ * will abort. Otherwise, the caller will recover control after the
+ * function finishes.
+ */
+void            myqttd_config_ensure_attr (MyQttdCtx * ctx, axlNode * node, const char * attr_name)
+{
+	const char * value = ATTR_VALUE (node, attr_name);
+	char * dump = NULL;
+	int    size;
+
+	if (value == NULL || strlen (value) == 0) {
+		axl_node_dump (node, &dump, &size);
+		abort_error ("You must define a '%s' attribute inside the node %s", attr_name, dump);
+		axl_free (dump);
+		return;
+	} /* end if */
+
+	return;
+}
+
+/** 
  * @brief Allows to check if an xml attribute is positive, that is,
  * have 1, true or yes as value.
  *

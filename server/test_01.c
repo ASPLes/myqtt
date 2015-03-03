@@ -107,6 +107,26 @@ axl_bool  test_00 (void) {
 	return axl_true;
 }
 
+axl_bool  test_01 (void) {
+	MyQttdCtx * ctx;
+	
+	/* call to init the base library and close it */
+	printf ("Test 01: init library and server engine..\n");
+	ctx       = init_ctxd (NULL, "test_01.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 01: library and server engine started.. ok\n");
+	
+
+	/* now close the library */
+	myqttd_exit (ctx, axl_true, axl_true);
+		
+	return axl_true;
+}
+
 
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
@@ -169,6 +189,9 @@ int main (int argc, char ** argv)
 	/* run tests */
 	CHECK_TEST("test_00")
 	run_test (test_00, "Test 00: basic context initialization");
+
+	CHECK_TEST("test_01")
+	run_test (test_01, "Test 01: basic domain initialization (selecting one domain based on connection settings)");
 
 	printf ("All tests passed OK!\n");
 
