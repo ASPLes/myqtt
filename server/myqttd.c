@@ -238,6 +238,9 @@ axl_bool  myqttd_init (MyQttdCtx   * ctx,
 	/* init connection manager */
 	myqttd_conn_mgr_init (ctx);
 
+	/* init domain module */
+	myqttd_domain_init (ctx);
+
 	/* init ok */
 	return axl_true;
 } /* end if */
@@ -344,6 +347,9 @@ void myqttd_exit (MyQttdCtx * ctx,
 
 	/* free mutex */
 	myqtt_mutex_destroy (&ctx->exit_mutex);
+
+	/* cleanup domains */
+	myqttd_domain_cleanup (ctx);
 
 	/* free ctx */
 	if (free_ctx)

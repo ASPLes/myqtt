@@ -37,37 +37,29 @@
  *                        http://www.aspl.es/myqtt
  */
 
-#ifndef __MYQTTD_RUN_H__
-#define __MYQTTD_RUN_H__
+#ifndef __MYQTTD_DOMAIN_H__
+#define __MYQTTD_DOMAIN_H__
 
 #include <myqttd.h>
 
-/** 
- * \addtogroup myqttd_run
- * @{
- */
+axl_bool          myqttd_domain_init (MyQttdCtx  * ctx);
 
-int  myqttd_run_config    (MyQttdCtx * ctx);
+axl_bool          myqttd_domain_add  (MyQttdCtx  * ctx, 
+				      const char * name, 
+				      const char * storage_path, 
+				      const char * user_db);
 
-void myqttd_run_cleanup   (MyQttdCtx * ctx);
+MyQttdDomain    * myqttd_domain_find_by_indications (MyQttdCtx * ctx,
+						     const char * username,
+						     const char * client_id,
+						     const char * server_Name);
 
-/** 
- * @brief Shutdown and closes the connection.
- * @param conn The connection to shutdown and close.
- */
-#define TBC_FAST_CLOSE(conn) do{	                                           \
-	error ("shutdowing connection id=%d..", myqtt_conn_get_id (conn));  \
-        myqtt_conn_set_close_socket (conn, axl_true);                       \
-	myqtt_conn_shutdown (conn);                                         \
-	myqtt_conn_close    (conn);                                         \
-        conn = NULL;                                                               \
-	} while (0);
+axl_bool          myqttd_domain_do_auth (MyQttdCtx    * ctx,
+					MyQttdDomain * domain,
+					const char   * username, 
+					const char   * password,
+					const char   * client_id);
 
-axl_bool myqttd_run_check_no_load_module (MyQttdCtx  * ctx, 
-					  const char * module_to_check);
-
-/** 
- * @}
- */
+void              myqttd_domain_cleanup (MyQttdCtx * ctx);
 
 #endif

@@ -48,10 +48,10 @@ Copyright (C) 2015  Advanced Software Production Line, S.L.\n\n"
 
 #define POST_HEADER "\n\
 If you have question, bugs to report, patches, you can reach us\n\
-at <vortex@lists.aspl.es>."
+at <myqtt@lists.aspl.es>."
 
 void   main_common_enable_debug_options (MyQttdCtx * ctx, 
-					 MyQttCtx     * vortex_ctx);
+					 MyQttCtx  * myqtt_ctx);
 
 char * main_common_get_config_location (MyQttdCtx * ctx, 
-					MyQttCtx     * vortex_ctx);
+					MyQttCtx  * myqtt_ctx);

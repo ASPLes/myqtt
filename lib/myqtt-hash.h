@@ -47,7 +47,7 @@ MyQttHash * myqtt_hash_new_full (axlHashFunc    hash_func,
 				   axlDestroyFunc key_destroy_func,
 				   axlDestroyFunc value_destroy_func);
 
-MyQttHash * myqtt_hash_new      (axlHashFunc    hash_func,
+MyQttHash  * myqtt_hash_new      (axlHashFunc    hash_func,
 				   axlEqualFunc   key_equal_func);
 
 void         myqtt_hash_ref      (MyQttHash   * hash_table);

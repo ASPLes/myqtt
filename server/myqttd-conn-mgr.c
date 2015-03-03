@@ -102,9 +102,6 @@ void myqttd_conn_mgr_unref (axlPointer data)
 		myqtt_conn_unref ((MyQttConn*) state->conn, "myqttd-conn-mgr");
 	} /* end if */
 
-	/* finish profiles running hash */
-	axl_hash_free (state->profiles_running);
-
 	/* nullify and free */
 	memset (state, 0, sizeof (MyQttdConnMgrState));
 	axl_free (state);

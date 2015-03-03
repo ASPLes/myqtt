@@ -66,6 +66,18 @@ typedef struct _MyQttdChild  MyQttdChild;
 typedef struct _MyQttdLoop MyQttdLoop;
 
 /** 
+ * @brief Type representing a single domain which a set of
+ * configurations for a group of users.
+ * 
+ * Every domain is a logical group that provides support for a certain
+ * list of users, client id, storage and acls applied to them, as well
+ * as a set of resource limits and different rules to isolate them
+ * from other domains and to control them.
+ *
+ */
+typedef struct _MyQttdDomain MyQttdDomain;
+
+/** 
  * @brief Set of handlers that are supported by modules. This handler
  * descriptors are used by some functions to notify which handlers to
  * call: \ref myqttd_module_notify.

@@ -55,6 +55,7 @@ myqttd_child_ref
 myqttd_child_unref
 myqttd_color_log_enable
 myqttd_config_cleanup
+myqttd_config_ensure_attr
 myqttd_config_find_include_nodes
 myqttd_config_get
 myqttd_config_get_number
@@ -86,6 +87,11 @@ myqttd_ctx_set_data_full
 myqttd_ctx_set_myqtt_ctx
 myqttd_ctx_wait
 myqttd_datadir
+myqttd_domain_add
+myqttd_domain_cleanup
+myqttd_domain_do_auth
+myqttd_domain_find_by_indications
+myqttd_domain_init
 myqttd_error
 myqttd_exit
 myqttd_expr_check_negative_expr
@@ -168,8 +174,11 @@ myqttd_run_check_no_load_module
 myqttd_run_cleanup
 myqttd_run_config
 myqttd_run_config_start_listeners
+myqttd_run_domains_load
+myqttd_run_handle_on_connect
 myqttd_run_load_modules
 myqttd_run_load_modules_from_path
+myqttd_run_send_connetion_to_domain
 myqttd_runtime_datadir
 myqttd_runtime_tmpdir
 myqttd_signal_block
