@@ -46,6 +46,10 @@
 * Review and provide support for message ordering differences:
   https://groups.google.com/forum/#!msg/mqtt/UfcO0HtLq9s/cjboTzdoR64J
 
+* Review and provide support to limit that certain user or client id can 
+  publish messages in all topics while others don't.
+  https://groups.google.com/forum/#!msg/mqtt/t9a9cSfPNns/S9IyJo5GYYMJ
+
 * Some way of dynamically configuring/starting/stopping bridges, either
   via messages or via files (a directory watched by the daemon).
 
