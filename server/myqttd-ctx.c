@@ -94,6 +94,9 @@ MyQttdCtx * myqttd_ctx_new ()
 	/* init wait queue */
 	ctx->wait_queue    = myqtt_async_queue_new ();
 
+	/* init hash for auth backends */
+	ctx->auth_backends = myqtt_hash_new (axl_hash_string, axl_hash_equal_string);
+
 	/* return context created */
 	return ctx;
 }
@@ -337,6 +340,10 @@ void            myqttd_ctx_free (MyQttdCtx * ctx)
 
 	/* release wait queue */
 	myqtt_async_queue_unref (ctx->wait_queue);
+
+	/* release hash holding auth backends */
+	msg ("Releasing auth backends...");
+	myqtt_hash_unref (ctx->auth_backends);
 
 	/* include a error warning */
 	if (ctx->myqtt_ctx) {

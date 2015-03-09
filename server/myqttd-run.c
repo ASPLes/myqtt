@@ -145,14 +145,7 @@ void myqttd_run_load_modules_from_path (MyQttdCtx * ctx, const char * path, DIR 
 			goto next;
 		}
 		
-		/* now validate the file found */
-		if (! axl_dtd_validate (doc, ctx->module_dtd, &error)) {
-			wrn ("file %s does is not a valid myqttd module pointer: %s", fullpath,
-			     axl_error_get (error));
-			goto next;
-		} /* end if */
-
-		msg ("loading mod myqttd pointer: %s", fullpath);
+		msg ("Attempting to load mod myqttd pointer: %s", fullpath);
 
 		/* check module basename to be not loaded */
 		location = ATTR_VALUE (axl_doc_get_root (doc), "location");
@@ -370,10 +363,53 @@ axl_bool myqttd_run_domains_load (MyQttdCtx * ctx, axlDoc * doc)
 	return axl_true;
 }
 
+MyQttCtx * __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
+{
+	MyQttCtx * myqtt_ctx = myqtt_ctx_new ();
+
+	/* configure context here */
+
+	/* init this context */
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		myqtt_exit_ctx (myqtt_ctx, axl_true);
+		return NULL;
+	} /* end if */
+
+	/* flag domain as initialized */
+	domain->initialized = axl_true;
+
+	return myqtt_ctx;
+}
+
 axl_bool myqttd_run_send_connetion_to_domain (MyQttdCtx * ctx, MyQttConn * conn, MyQttdDomain * domain) {
 
+	/* ensure context is initialized */
+	if (! domain->initialized) {
+		/* lock and unlock */
+		myqtt_mutex_lock (&domain->mutex);
+		if (! domain->initialized) {
+			/* call to initiate context */
+			domain->myqtt_ctx = __myqttd_init_domain_context (ctx, domain);
+			if (domain->myqtt_ctx == NULL) {
+				/* unable to initializae context */
+				myqtt_mutex_unlock (&domain->mutex);
+				return axl_false;
+			} /* end if */
+		} /* end if */
+		myqtt_mutex_unlock (&domain->mutex);
+	} /* end if */
+
+	if (! domain->initialized) 
+		return axl_false;
+
+	/* un register this connection from current reader */
+	myqtt_reader_unwatch_connection (ctx->myqtt_ctx, conn);
+
+	/* register the connection into the new handler */
+	myqtt_reader_watch_connection (domain->myqtt_ctx, conn);
+
 	/* enable domain and send connection in an async manner */
-	return axl_false;
+	return axl_true;
 }
 
 
@@ -389,26 +425,20 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 	const char   * server_Name  = myqtt_conn_get_server_name (conn);
 
 	/* find the domain that can handle this connection */
-	domain = myqttd_domain_find_by_indications (ctx, username, client_id, server_Name);
+	domain = myqttd_domain_find_by_indications (ctx, conn, username, client_id, password, server_Name);
 	if (domain == NULL) {
-		error ("login failed for username=%s client-id=%s server-name=%s : no domain was found to handle request",
-		       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
+		error ("Login failed for username=%s client-id=%s server-name=%s : no domain was found to handle request",
+		       myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name));
 		return MYQTT_CONNACK_IDENTIFIER_REJECTED;
-	}
-
-	/* ok, domain found, then auth the provided username, password
-	 * and client id on the provided domain */
-	if (! myqttd_domain_do_auth (ctx, domain, username, password, client_id)) {
-		error ("login failed for username=%s client-id=%s server-name=%s : bad username or password",
-		       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
-		return MYQTT_CONNACK_BAD_USERNAME_OR_PASSWORD;
 	} /* end if */
 
 	/* reached this point, the connecting user is enabled and authenticated */
+	msg ("Connection accepted for username=%s client-id=%s server-name=%s : selected domain=%s",
+	     myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name), domain->name);
 
 	/* activate domain to have it working */
 	if (! myqttd_run_send_connetion_to_domain (ctx, conn, domain)) {
-		error ("login failed for username=%s client-id=%s server-name=%s : failed to send connection to the corresponding domain",
+		error ("Login failed for username=%s client-id=%s server-name=%s : failed to send connection to the corresponding domain",
 		       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
 		return MYQTT_CONNACK_SERVER_UNAVAILABLE;
 	} /* end if */

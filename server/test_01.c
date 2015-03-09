@@ -43,7 +43,7 @@ axl_bool test_common_enable_debug = axl_false;
 
 /* default listener location */
 const char * listener_host = "localhost";
-const char * listener_port = "1909";
+const char * listener_port = "1883";
 
 MyQttCtx * init_ctx (void)
 {
@@ -81,6 +81,11 @@ MyQttdCtx * init_ctxd (MyQttCtx * myqtt_ctx, const char * config)
 		return NULL;
 	} /* end if */
 
+	/* now run config */
+	if (! myqttd_run_config (ctx)) {
+		printf ("Failed to run current config, finishing process: %d", getpid ());
+		return NULL;
+	} /* end if */
 
 	return ctx;
 }
@@ -109,6 +114,8 @@ axl_bool  test_00 (void) {
 
 axl_bool  test_01 (void) {
 	MyQttdCtx * ctx;
+	MyQttConn * conn;
+	MyQttCtx  * myqtt_ctx;
 	
 	/* call to init the base library and close it */
 	printf ("Test 01: init library and server engine..\n");
@@ -119,9 +126,31 @@ axl_bool  test_01 (void) {
 	} /* end if */
 
 	printf ("Test 01: library and server engine started.. ok\n");
-	
 
-	/* now close the library */
+	/* create connection to local server and test domain support */
+	myqtt_ctx = init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+
+	conn = myqtt_conn_new (myqtt_ctx, "test_01", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* subscribe */
+	
+	/* push a message */
+
+	/* receive it */
+
+	/* close connection */
+	myqtt_conn_close (conn);
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+
+	/* finish server */
 	myqttd_exit (ctx, axl_true, axl_true);
 		
 	return axl_true;

@@ -564,6 +564,40 @@ axl_bool        myqttd_support_simple_smtp_send (MyQttdCtx * ctx,
 					 ATTR_VALUE (node, "server"), ATTR_VALUE (node, "port"));
 }
 
+/** 
+ * @brief Allows to get what is the check mode that should be
+ * followed. It is a pattern across myqtt implementation that the
+ * check to select a domain or to validate a username/client_id to
+ * consider them in a particular order, that is:
+ *
+ * - check mode 3: if username and client_id is defined, then check
+ *   both at the same type (check_mode 3). This means that both values
+ *   must be considered as a single unit.
+ *
+ * - check mode 2: if just client_id is defined (but not username)
+ *   then then the function will report check mode 2.
+ *
+ * - check mode 1: and finally, if just username is defined, the
+ *   function will report check mode 1.
+ *
+ * @param username Optional string representing the username
+ *
+ * @param client_id Optional string representing the client_id
+ *
+ * @return If nothing is defined, the function returns check mode 0.
+ */
+int             myqttd_support_check_mode (const char * username, const char * client_id)
+{
+	if (client_id != NULL && username != NULL && strlen (client_id) > 0 && strlen (username) > 0)
+		return 3;
+	else if (client_id != NULL && strlen (client_id) > 0)
+		return 2;
+	else if (username != NULL && strlen (username) > 0)
+		return 1;
+
+	/* report 0 username and client id is not defined */
+	return 0;
+}
 
 /** 
  * @}

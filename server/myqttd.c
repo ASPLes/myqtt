@@ -1466,6 +1466,24 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
 	return;
 }
 
+/** 
+ * @brief Ensure having a printable string from the provided
+ * reference. In the case is NULL an empty string is reported. The
+ * function is useful for printing or debuging to avoid sending NULL
+ * values to certain functions that aren't able to handle them.
+ *
+ * @param string The string to ensure it is defined.
+ *
+ * @return The same string if it is defined and has content otherwise
+ * empty string is reported.
+ */
+const char    * myqttd_ensure_str      (const char * string)
+{
+	if (string && strlen (string) > 0)
+		return string;
+	return "";
+}
+
 /* @} */
 
 /** 

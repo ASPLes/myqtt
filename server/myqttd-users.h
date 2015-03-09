@@ -37,29 +37,34 @@
  *                        http://www.aspl.es/myqtt
  */
 
-#ifndef __MYQTTD_SUPPORT_H__
-#define __MYQTTD_SUPPORT_H__
+#ifndef __MYQTTD_USERS_H__
+#define __MYQTTD_USERS_H__
 
 #include <myqttd.h>
 
-char          * myqttd_support_get_backtrace (MyQttdCtx * ctx, int pid);
+MyQttdUsers * myqttd_users_load (MyQttdCtx  * ctx, 
+				 MyQttConn  * conn,
+				 const char * path);
 
-axl_bool        myqttd_support_smtp_send (MyQttdCtx     * ctx, 
-					  const char    * mail_from,
-					  const char    * mail_to,
-					  const char    * subject,
-					  const char    * body,
-					  const char    * body_file,
-					  const char    * smtp_server,
-					  const char    * smtp_port);
+axl_bool      myqttd_users_do_auth (MyQttdCtx    * ctx,
+				    MyQttdUsers  * users,
+				    MyQttConn    * conn,
+				    const char   * username, 
+				    const char   * password,
+				    const char   * client_id);
 
-axl_bool        myqttd_support_simple_smtp_send (MyQttdCtx     * ctx,
-						 const char    * smtp_conf_id,
-						 const char    * subject,
-						 const char    * body,
-						 const char    * body_file);
+axl_bool      myqttd_users_register_backend (MyQttdCtx          * ctx,
+					     const char         * backend_type,
+					     MyQttdUsersLoadDb    loadBackend,
+					     MyQttdUsersExists    userExists,
+					     MyQttdUsersAuthUser  authUser,
+					     MyQttdUsersUnloadDb  unloadBackend,
+					     axlPointer           extensionPtr,
+					     axlPointer           extensionPtr2,
+					     axlPointer           extensionPtr3,
+					     axlPointer           extensionPtr4);
 
-int             myqttd_support_check_mode (const char * username, const char * client_id);
-					      
+void          myqttd_users_free (MyQttdUsers * users);
+					     
 
 #endif
