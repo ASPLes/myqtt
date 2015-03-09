@@ -127,10 +127,13 @@ struct _MyQttdCtx {
 	MyQttMutex          mediator_hash_mutex;
 	
 	/*** support for proxy on parent ***/
-	MyQttdLoop     * proxy_loop;
+	MyQttdLoop         * proxy_loop;
 
 	/* reference to all domains currently supported */
-	MyQttHash      * domains;
+	MyQttHash          * domains;
+
+	/* reference to authentication backends registered */
+	MyQttHash          * auth_backends;
 };
 
 /** 
@@ -171,9 +174,42 @@ typedef struct _MyQttdConnMgrState {
  * @internal Domain definition.
  */
 struct _MyQttdDomain {
-	char * name;
-	char * storage_path;
-	char * users_db;
+	MyQttdCtx    * ctx;
+	char         * name;
+	char         * storage_path;
+	char         * users_db;
+	MyQttMutex     mutex;
+
+	/* reference to the myqtt context for this domain */
+	axl_bool       initialized;
+	MyQttCtx     * myqtt_ctx;
+
+	/* reference to a users database used by this domain */
+	MyQttdUsers  * users;
+	
+};
+
+typedef struct _MyQttdUsersBackend MyQttdUsersBackend;
+struct _MyQttdUsersBackend {
+	char                 * backend_type;
+	MyQttdUsersLoadDb      load;
+	MyQttdUsersUnloadDb    unload;
+	MyQttdUsersExists      exists;
+	MyQttdUsersAuthUser    auth;
+};
+
+struct _MyQttdUsers {
+	/* reference to the context used */
+	MyQttdCtx  * ctx;
+
+	/* label to identify backend engine */
+	const char * backend_type;
+
+	/* pointer to the backend reference used */
+	axlPointer   backend_reference;
+
+	/* pointer to the backend configuration and handlers */
+	MyQttdUsersBackend * backend;
 };
 
 

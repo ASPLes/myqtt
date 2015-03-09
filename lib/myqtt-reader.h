@@ -45,10 +45,10 @@ void myqtt_reader_watch_listener              (MyQttCtx        * ctx,
 						MyQttConn * listener);
 
 void myqtt_reader_watch_connection            (MyQttCtx        * ctx,
-						MyQttConn * connection);
+					       MyQttConn * connection);
 
 void myqtt_reader_unwatch_connection          (MyQttCtx        * ctx,
-						MyQttConn * connection);
+					       MyQttConn * connection);
 
 int  myqtt_reader_connections_watched         (MyQttCtx        * ctx);
 

@@ -44,8 +44,8 @@
 
 void               myqttd_module_init        (MyQttdCtx * ctx);
 
-MyQttdModule * myqttd_module_open        (MyQttdCtx * ctx, 
-						  const char    * module);
+MyQttdModule     * myqttd_module_open        (MyQttdCtx * ctx, 
+					      const char    * module);
 
 void               myqttd_module_unload      (MyQttdCtx * ctx,
 						  const char    * module);
@@ -62,19 +62,19 @@ axl_bool           myqttd_module_register    (MyQttdModule * module);
 
 void               myqttd_module_unregister  (MyQttdModule * module);
 
-MyQttdModule * myqttd_module_open_and_register (MyQttdCtx * ctx, 
-							const char * location);
+MyQttdModule     * myqttd_module_open_and_register (MyQttdCtx * ctx, 
+						    const char * location);
 
 void               myqttd_module_skip_unmap  (MyQttdCtx * ctx, 
-						  const char * mod_name);
+					      const char * mod_name);
 
 void               myqttd_module_free        (MyQttdModule  * module);
 
 axl_bool           myqttd_module_notify      (MyQttdCtx         * ctx, 
-						  MyQttdModHandler    handler,
-						  axlPointer              data,
-						  axlPointer              data2,
-						  axlPointer              data3);
+					      MyQttdModHandler    handler,
+					      axlPointer              data,
+					      axlPointer              data2,
+					      axlPointer              data3);
 
 void               myqttd_module_notify_reload_conf (MyQttdCtx * ctx);
 

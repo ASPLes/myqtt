@@ -68,6 +68,7 @@
 #include <myqttd-child.h>
 #include <myqttd-process.h>
 #include <myqttd-domain.h>
+#include <myqttd-users.h>
 
 /** 
  * \addtogroup myqttd
@@ -267,6 +268,8 @@ axl_bool        myqttd_change_fd_perms (MyQttdCtx     * ctx,
 
 void            myqttd_sleep           (MyQttdCtx * ctx,
 					long        microseconds);
+
+const char    * myqttd_ensure_str      (const char * string);
 
 #endif
 

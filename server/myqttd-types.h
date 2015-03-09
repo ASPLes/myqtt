@@ -78,6 +78,12 @@ typedef struct _MyQttdLoop MyQttdLoop;
 typedef struct _MyQttdDomain MyQttdDomain;
 
 /** 
+ * @brief Type representing a single database of users used by the
+ * server.
+ */
+typedef struct _MyQttdUsers  MyQttdUsers;
+
+/** 
  * @brief Set of handlers that are supported by modules. This handler
  * descriptors are used by some functions to notify which handlers to
  * call: \ref myqttd_module_notify.

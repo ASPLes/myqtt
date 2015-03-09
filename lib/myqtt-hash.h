@@ -55,18 +55,18 @@ void         myqtt_hash_ref      (MyQttHash   * hash_table);
 void         myqtt_hash_unref    (MyQttHash   * hash_table);
 
 void         myqtt_hash_insert   (MyQttHash *hash_table,
-				   axlPointer  key,
-				   axlPointer  value);
+				  axlPointer  key,
+				  axlPointer  value);
 
 void         myqtt_hash_replace  (MyQttHash *hash_table,
 				   axlPointer  key,
 				   axlPointer  value);
 
 void         myqtt_hash_replace_full  (MyQttHash     * hash_table,
-					axlPointer       key,
-					axlDestroyFunc   key_destroy,
-					axlPointer       value,
-					axlDestroyFunc   value_destroy);
+				       axlPointer       key,
+				       axlDestroyFunc   key_destroy,
+				       axlPointer       value,
+				       axlDestroyFunc   value_destroy);
 
 int          myqtt_hash_size     (MyQttHash   *hash_table);
 
@@ -95,9 +95,9 @@ void         myqtt_hash_foreach  (MyQttHash         * hash_table,
 				   axlPointer           user_data);
 
 void         myqtt_hash_foreach2  (MyQttHash         * hash_table,
-				    axlHashForeachFunc2  func,
-				    axlPointer           user_data,
-				    axlPointer           user_data2);
+				   axlHashForeachFunc2  func,
+				   axlPointer           user_data,
+				   axlPointer           user_data2);
 
 void         myqtt_hash_foreach3  (MyQttHash         * hash_table,
 				    axlHashForeachFunc3  func,

@@ -101,6 +101,94 @@ typedef axl_bool (*MyQttdLoopOnRead) (MyQttdLoop   * loop,
 				      axlPointer     ptr, 
 				      axlPointer     ptr2);
 
+/** 
+ * @brief Handler used to define the set of functions that can load an
+ * user's backend from the provided path.
+ *
+ * @param ctx The context where the operation takes place
+ *
+ * @param conn The connection that triggered loading this database.
+ *
+ * @param path The Path to the users directory for a particular domain
+ * where the configuration and database files are found.
+ *
+ * @return The function must return NULL or a valid reference to the
+ * database backend to be used by the engine to complete users'
+ * operations.
+ */
+typedef axlPointer (*MyQttdUsersLoadDb) (MyQttdCtx * ctx, MyQttConn * conn, const char * path);
+
+/** 
+ * @brief Handler used to define the set of functions that allows to
+ * check if the provided user described by username+clientid or any
+ * combination of them exists in the provided backend.
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param conn The connection where the auth operation is taking
+ * place. This reference may not be defined because it is run by a
+ * tool in offline mode.
+ *
+ * @param backend Reference to the backend where the exists operation
+ * will be implemented.
+ *
+ * @param client_id Optionally the client id being checked (you must provided username+client_id or just client_id or user_name).
+ *
+ * @param user_Name Optionally the user_name being checked (you must provided username+client_id or just client_id or user_name).
+ *
+ * @return The function returns axl_true if the user_name+client_id,
+ * user_name or client_id combination is found. The function will only
+ * check for just client_id when user_name is NULL and the same
+ * happens for just checking user_name (only done when client_id is
+ * NULL).
+ */
+typedef axl_bool   (*MyQttdUsersExists) (MyQttdCtx   * ctx, 
+					 MyQttConn   * conn,
+					 axlPointer    backend, 
+					 const char  * client_id, 
+					 const char  * user_name);
+
+/** 
+ * @brief Handler used to define the set of functions that allows to
+ * implement user authentication with provided user described by
+ * username+clientid or any combination of them exists in the provided
+ * backend.
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param conn The connection where the auth operation is taking
+ * place. This reference may not be defined because it is run by a
+ * tool in offline mode.
+ *
+ * @param backend Reference to the backend where the auth operation
+ * will be implemented.
+ *
+ * @param client_id Optionally the client id being checked (you must
+ * provided username+client_id or just client_id or user_name).
+ *
+ * @param user_Name Optionally the user_name being checked (you must
+ * provided username+client_id or just client_id or user_name).
+ *
+ * @return The function returns axl_true if the user_name+client_id
+ * and password matches, or user_name+password combination is
+ * found. Othewise, axl_false is returned.
+ */
+typedef axl_bool   (*MyQttdUsersAuthUser) (MyQttdCtx  * ctx, 
+					   MyQttConn  * conn, axlPointer backend, 
+					   const char * client_id, const char * user_name, 
+					   const char * password);
+
+/** 
+ * @brief Handler used to define the set of functions that unaloads an
+ * user's backend.
+ *
+ * @param ctx The context where the operation takes place
+ *
+ * @param backend Reference to the backend to be released and closed.
+ *
+ */
+typedef void (*MyQttdUsersUnloadDb) (MyQttdCtx * ctx, axlPointer backend);
+
 #endif
 
 /**

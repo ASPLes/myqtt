@@ -360,6 +360,9 @@ lib/Makefile
 tls/Makefile
 web-socket/Makefile
 server/Makefile
+server/modules/Makefile
+server/modules/mod-auth-xml/Makefile
+server/modules/mod-auth-xml/mod-auth-xml.xml
 test/Makefile
 myqtt-1.0.pc
 myqtt-tls-1.0.pc

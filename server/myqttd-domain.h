@@ -49,16 +49,19 @@ axl_bool          myqttd_domain_add  (MyQttdCtx  * ctx,
 				      const char * storage_path, 
 				      const char * user_db);
 
-MyQttdDomain    * myqttd_domain_find_by_indications (MyQttdCtx * ctx,
+MyQttdDomain    * myqttd_domain_find_by_indications (MyQttdCtx  * ctx,
+						     MyQttConn  * conn,
 						     const char * username,
 						     const char * client_id,
+						     const char * password,
 						     const char * server_Name);
 
 axl_bool          myqttd_domain_do_auth (MyQttdCtx    * ctx,
-					MyQttdDomain * domain,
-					const char   * username, 
-					const char   * password,
-					const char   * client_id);
+					 MyQttdDomain * domain,
+					 MyQttConn    * conn,
+					 const char   * username, 
+					 const char   * password,
+					 const char   * client_id);
 
 void              myqttd_domain_cleanup (MyQttdCtx * ctx);
 
