@@ -129,6 +129,7 @@ MyQttdUsers * myqttd_users_load (MyQttdCtx  * ctx,
 	users->backend           = data->backend;
 	users->backend_type      = data->backend_type;
 	users->backend_reference = data->backend_reference;
+	users->unload            = data->backend->unload;
 
 	/* release local data and report database */
 	axl_free (data);
@@ -271,10 +272,12 @@ axl_bool      myqttd_users_register_backend (MyQttdCtx          * ctx,
  */
 void          myqttd_users_free (MyQttdUsers * users) {
 
+	if (users == NULL)
+		return;
+
 	/* call to unload */
-	if (users->backend && users->backend->unload) {
-		users->backend->unload (users->ctx, users->backend_reference);
-	}
+	if (users->backend_reference) 
+		users->unload (users->ctx, users->backend_reference);
 
 	axl_free (users);
 
