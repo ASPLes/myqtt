@@ -347,9 +347,12 @@ axl_bool          myqttd_domain_do_auth (MyQttdCtx    * ctx,
  */
 void myqttd_domain_cleanup (MyQttdCtx * ctx)
 {
-	/* release domains */
-	myqtt_hash_clear (ctx->domains);
+	MyQttHash * hash = ctx->domains;
+
 	ctx->domains = NULL;
+	/* release domains */
+	myqtt_hash_destroy (hash);
+
 
 	return;
 }

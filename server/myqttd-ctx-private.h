@@ -210,6 +210,9 @@ struct _MyQttdUsers {
 
 	/* pointer to the backend configuration and handlers */
 	MyQttdUsersBackend * backend;
+
+	/* reference to the unload backend */
+	MyQttdUsersUnloadDb    unload;
 };
 
 
