@@ -112,10 +112,23 @@ axl_bool  test_00 (void) {
 	return axl_true;
 }
 
+void queue_message_received (MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+{
+	MyQttAsyncQueue * queue = user_data;
+
+	/* push message received */
+	myqtt_msg_ref (msg);
+	myqtt_async_queue_push (queue, msg);
+	return;
+} 
+
 axl_bool  test_01 (void) {
-	MyQttdCtx * ctx;
-	MyQttConn * conn;
-	MyQttCtx  * myqtt_ctx;
+	MyQttdCtx       * ctx;
+	MyQttConn       * conn;
+	MyQttCtx        * myqtt_ctx;
+	int               sub_result;
+	MyQttAsyncQueue * queue;
+	MyQttMsg        * msg;
 	
 	/* call to init the base library and close it */
 	printf ("Test 01: init library and server engine..\n");
@@ -134,6 +147,7 @@ axl_bool  test_01 (void) {
 		return axl_false;
 	} /* end if */
 
+	printf ("Test 01: connecting to myqtt server..\n");
 	conn = myqtt_conn_new (myqtt_ctx, "test_01", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
@@ -141,10 +155,50 @@ axl_bool  test_01 (void) {
 	} /* end if */
 
 	/* subscribe */
+	printf ("Test 01: subscribe to the topic myqtt/test..\n");
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */	
+
+	printf ("Test 01: subscription completed with qos=%d\n", sub_result);
 	
+	/* register on message handler */
+	queue = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn, queue_message_received, queue);
+
 	/* push a message */
+	printf ("Test 01: publishing to the topic myqtt/test..\n");
+	if (! myqtt_conn_pub (conn, "myqtt/test", "This is test message....", 24, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message, myqtt_conn_pub() failed\n");
+		return axl_false;
+	} /* end if */
 
 	/* receive it */
+	printf ("Test 01: waiting for message myqtt/test (5 seconds)..\n");
+	msg   = myqtt_async_queue_timedpop (queue, 5000000);
+	myqtt_async_queue_unref (queue);
+	if (msg == NULL) {
+		printf ("ERROR: expected to find message from queue, but NULL was found..\n");
+		return axl_false;
+	} /* end if */
+
+	/* check content */
+	if (myqtt_msg_get_app_msg_size (msg) != 24) {
+		printf ("ERROR: expected payload size of 24 but found %d\n", myqtt_msg_get_app_msg_size (msg));
+		return axl_false;
+	} /* end if */
+
+	if (myqtt_msg_get_type (msg) != MYQTT_PUBLISH) {
+		printf ("ERROR: expected to receive PUBLISH message but found: %s\n", myqtt_msg_get_type_str (msg));
+		return axl_false;
+	} /* end if */
+
+	/* check content */
+	if (! axl_cmp ((const char *) myqtt_msg_get_app_msg (msg), "This is test message....")) {
+		printf ("ERROR: expected to find different content..\n");
+		return axl_false;
+	} /* end if */
 
 	/* close connection */
 	myqtt_conn_close (conn);

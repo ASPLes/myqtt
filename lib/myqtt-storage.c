@@ -600,6 +600,9 @@ axl_bool myqtt_storage_sub_offline      (MyQttCtx      * ctx,
 	if (! topic_filter_len)
 		return axl_false;
 
+	if (ctx == NULL || ctx->storage_path_hash_size == 0)
+		return axl_false;
+
 	/* hash topic filter */
 	hash_value = axl_strdup_printf ("%u", axl_hash_string ((axlPointer) topic_filter) % ctx->storage_path_hash_size);
 	if (hash_value == NULL)
@@ -689,6 +692,9 @@ axl_bool myqtt_storage_sub_exists_common (MyQttCtx * ctx, MyQttConn * conn, cons
 	int    topic_filter_len;
 	char * full_path;
 	char * hash_value;
+
+	if (ctx == NULL || ctx->storage_path_hash_size == 0)
+		return axl_false;
 
 	/* check input parameters */
 	topic_filter_len = __myqtt_storage_check (ctx, conn->client_identifier, axl_true, topic_filter);
@@ -1125,6 +1131,9 @@ axl_bool       myqtt_storage_retain_msg_set (MyQttCtx            * ctx,
 	if (ctx == NULL || topic_name == NULL || app_msg_size < 0)
 		return axl_false;
 
+	if (ctx == NULL || ctx->storage_path_hash_size == 0)
+		return axl_false;
+
 	/* get topic filter len */
 	topic_filter_len = strlen (topic_name);
 	if (topic_filter_len == 0)
@@ -1229,6 +1238,9 @@ void       myqtt_storage_retain_msg_release (MyQttCtx      * ctx,
 	if (ctx == NULL || topic_name == NULL)
 		return;
 
+	if (ctx == NULL || ctx->storage_path_hash_size == 0)
+		return;
+
 	/* get topic filter len */
 	topic_filter_len = strlen (topic_name);
 	if (topic_filter_len == 0)
@@ -1286,6 +1298,9 @@ axl_bool      myqtt_storage_retain_msg_recover (MyQttCtx       * ctx,
 	/* get topic filter len */
 	topic_filter_len = strlen (topic_name);
 	if (topic_filter_len == 0)
+		return axl_false;
+
+	if (ctx == NULL || ctx->storage_path_hash_size == 0)
 		return axl_false;
 	
 	/* hash topic filter */
@@ -1792,11 +1807,19 @@ finish:
  * @param storage_path The storage dir to configure. It cannot be NULL
  * or empty.
  *
+ * @param hash_size Hashing size for the storage path used. This value
+ * will be used to split internal storage in the given values.
+ * Recomended value is 4096.
+ *
  */
-void     myqtt_storage_set_path (MyQttCtx * ctx, const char * storage_path, int hash_size)
+axl_bool     myqtt_storage_set_path (MyQttCtx * ctx, const char * storage_path, int hash_size)
 {
-	if (ctx == NULL || storage_path == NULL || strlen (storage_path) == 0)
-		return;
+	if (ctx == NULL || storage_path == NULL || strlen (storage_path) == 0) {
+		printf ("..1..\n");
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to configure storage path, context is NULL(%d), or storage path is not defined (%s)",
+			   ctx, (ctx && ctx->storage_path) ? ctx->storage_path : "<undefined>");
+		return axl_false;
+	}
 
 	/* lock during operation */
 	myqtt_mutex_lock (&ctx->ref_mutex);
@@ -1812,6 +1835,6 @@ void     myqtt_storage_set_path (MyQttCtx * ctx, const char * storage_path, int 
 	/* now unlock */
 	myqtt_mutex_unlock (&ctx->ref_mutex);
 
-	return;
+	return axl_true;
 }
        
