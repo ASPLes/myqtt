@@ -584,7 +584,7 @@ void myqttd_process_send_connection_to_child (MyQttdCtx    * ctx,
 	/* unwatch the connection from the parent to avoid receiving
 	   more content which now handled by the child and unregister
 	   from connection manager */
-	myqtt_reader_unwatch_connection (CONN_CTX (conn), conn);
+	myqtt_reader_unwatch_connection (CONN_CTX (conn), conn, NULL, NULL);
 
 	/* send the socket descriptor to the child to avoid holding a
 	   bucket in the parent */
@@ -1340,7 +1340,7 @@ void myqttd_process_create_child (MyQttdCtx           * ctx,
 			/* unwatch the connection from the parent to
 			   avoid receiving more content which now
 			   handled by the child */
-			myqtt_reader_unwatch_connection (CONN_CTX (conn), conn);
+			myqtt_reader_unwatch_connection (CONN_CTX (conn), conn, NULL, NULL);
 		} /* end if */
 
 		/* update child pid and additional data */

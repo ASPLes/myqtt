@@ -371,6 +371,13 @@ void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 	/* init context */
 	domain->myqtt_ctx = myqtt_ctx_new ();
 
+	/* init this context */
+	if (! myqtt_init_ctx (domain->myqtt_ctx)) {
+		myqtt_exit_ctx (domain->myqtt_ctx, axl_true);
+		domain->myqtt_ctx = NULL;
+		return;
+	} /* end if */
+
 	/* enable debug as it is in the parent context */
 	if (myqtt_log_is_enabled (ctx->myqtt_ctx))
 		myqtt_log_enable (domain->myqtt_ctx, axl_true);
@@ -378,13 +385,6 @@ void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 		myqtt_log2_enable (domain->myqtt_ctx, axl_true);
 	if (myqtt_color_log_is_enabled (ctx->myqtt_ctx))
 		myqtt_color_log_enable (domain->myqtt_ctx, axl_true);
-
-	/* init this context */
-	if (! myqtt_init_ctx (domain->myqtt_ctx)) {
-		myqtt_exit_ctx (domain->myqtt_ctx, axl_true);
-		domain->myqtt_ctx = NULL;
-		return;
-	} /* end if */
 
 	/* configure storage path */
 	if (! myqtt_storage_set_path (domain->myqtt_ctx, domain->storage_path, 4096)) {
@@ -394,13 +394,27 @@ void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 		return;
 	} /* end if */
 
+	/* call to load local storage first (before an incoming
+	 * connection) */
+	myqtt_storage_load (domain->myqtt_ctx);
+
 	/* flag domain as initialized */
 	domain->initialized = axl_true;
 
 	return;
 }
 
-axl_bool myqttd_run_send_connetion_to_domain (MyQttdCtx * ctx, MyQttConn * conn, MyQttdDomain * domain) {
+void myqttd_run_watch_after_unwatch (MyQttCtx * ctx, MyQttConn * conn, axlPointer ptr)
+{
+	MyQttdDomain * domain = ptr;
+
+	/* register the connection into the new handler */
+	myqtt_reader_watch_connection (domain->myqtt_ctx, conn);
+
+	return;
+}
+
+axl_bool myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttConn * conn, MyQttdDomain * domain) {
 
 	/* ensure context is initialized */
 	if (! domain->initialized) {
@@ -422,11 +436,7 @@ axl_bool myqttd_run_send_connetion_to_domain (MyQttdCtx * ctx, MyQttConn * conn,
 		return axl_false;
 
 	/* un register this connection from current reader */
-	myqtt_reader_unwatch_connection (ctx->myqtt_ctx, conn);
-
-	/* register the connection into the new handler */
-	printf ("## WATCHING connection = %p, context = %p\n", conn, domain->myqtt_ctx);
-	myqtt_reader_watch_connection (domain->myqtt_ctx, conn);
+	myqtt_reader_unwatch_connection (ctx->myqtt_ctx, conn, myqttd_run_watch_after_unwatch, domain);
 
 	/* enable domain and send connection in an async manner */
 	return axl_true;
@@ -457,7 +467,7 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 	     myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name), domain->name);
 
 	/* activate domain to have it working */
-	if (! myqttd_run_send_connetion_to_domain (ctx, conn, domain)) {
+	if (! myqttd_run_send_connection_to_domain (ctx, conn, domain)) {
 		error ("Login failed for username=%s client-id=%s server-name=%s : failed to send connection to the corresponding domain",
 		       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
 		return MYQTT_CONNACK_SERVER_UNAVAILABLE;

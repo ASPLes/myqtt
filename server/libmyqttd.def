@@ -93,6 +93,7 @@ myqttd_domain_do_auth
 myqttd_domain_find_by_indications
 myqttd_domain_find_by_serverName
 myqttd_domain_find_by_username_client_id
+myqttd_domain_free
 myqttd_domain_init
 myqttd_ensure_str
 myqttd_error
@@ -181,7 +182,8 @@ myqttd_run_domains_load
 myqttd_run_handle_on_connect
 myqttd_run_load_modules
 myqttd_run_load_modules_from_path
-myqttd_run_send_connetion_to_domain
+myqttd_run_send_connection_to_domain
+myqttd_run_watch_after_unwatch
 myqttd_runtime_datadir
 myqttd_runtime_tmpdir
 myqttd_signal_block

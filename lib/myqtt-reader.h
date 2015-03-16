@@ -47,8 +47,10 @@ void myqtt_reader_watch_listener              (MyQttCtx        * ctx,
 void myqtt_reader_watch_connection            (MyQttCtx        * ctx,
 					       MyQttConn * connection);
 
-void myqtt_reader_unwatch_connection          (MyQttCtx        * ctx,
-					       MyQttConn * connection);
+void myqtt_reader_unwatch_connection          (MyQttCtx          * ctx,
+					       MyQttConn         * connection,
+					       MyQttConnUnwatch    after_unwatch,
+					       axlPointer          user_data);
 
 int  myqtt_reader_connections_watched         (MyQttCtx        * ctx);
 

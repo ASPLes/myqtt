@@ -65,18 +65,7 @@ void        myqttd_ctx_set_myqtt_ctx (MyQttdCtx * ctx,
  * 
  * @return A reference to the myqtt context associated.
  */
-#define MYQTTD_MYQTT_CTX(_tbc_ctx) (myqttd_ctx_get_myqtt_ctx (_tbc_ctx))
-
-/** 
- * @brief As oposse to MYQTTD_MYQTT_CTX, this macro returns the
- * MyQttdCtx object associated to the MyqttCtx object.
- *
- * @param _myqtt_ctx The myqtt context (MyqttCtx) which is required to return the
- * myqttd context associated.
- * 
- * @return A reference to the myqttd context associated (\ref MyQttdCtx).
- */
-#define MYQTT_MYQTTD_CTX(_myqtt_ctx) (myqtt_ctx_get_data (_myqtt_ctx, "tbc:ctx"))
+#define MYQTTD_MYQTT_CTX(_myqtt_ctx) (myqttd_ctx_get_myqtt_ctx (_myqtt_ctx))
 
 MyQttCtx     * myqttd_ctx_get_myqtt_ctx (MyQttdCtx * ctx);
 

@@ -41,7 +41,7 @@
 #include <myqttd-ctx-private.h>
 
 
-void myqtt_domain_free (axlPointer _domain)
+void myqttd_domain_free (axlPointer _domain)
 {
 	MyQttdDomain * domain = _domain;
 
@@ -51,7 +51,7 @@ void myqtt_domain_free (axlPointer _domain)
 	axl_free (domain->users_db);
 
 	/* check and stop context if it is started */
-	if (domain->initialized) 
+	if (domain->initialized)  
 		myqtt_exit_ctx (domain->myqtt_ctx, axl_true);
 
 	myqttd_users_free (domain->users);
@@ -79,7 +79,7 @@ axl_bool   myqttd_domain_init (MyQttdCtx  * ctx)
 	ctx->domains = myqtt_hash_new_full (axl_hash_string, 
 					    axl_hash_equal_string,
 					    NULL, /* name is a reference to the domain */
-					    myqtt_domain_free);
+					    myqttd_domain_free);
 	return axl_true;
 }
 
