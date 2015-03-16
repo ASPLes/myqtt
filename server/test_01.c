@@ -124,6 +124,17 @@ void queue_message_received (MyQttConn * conn, MyQttMsg * msg, axlPointer user_d
 	MyQttAsyncQueue * queue = user_data;
 
 	/* push message received */
+	printf ("Test --: queue received %p, msg=%p, msg-id=%d\n", queue, msg, myqtt_msg_get_id (msg));
+	myqtt_msg_ref (msg);
+	myqtt_async_queue_push (queue, msg);
+	return;
+} 
+
+void queue_message_received_only_one (MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+{
+	MyQttAsyncQueue * queue = user_data;
+
+	/* push message received */
 	myqtt_msg_ref (msg);
 	myqtt_async_queue_push (queue, msg);
 	return;
@@ -224,6 +235,141 @@ axl_bool  test_01 (void) {
 }
 
 
+axl_bool  test_02 (void) {
+	MyQttdCtx       * ctx;
+	MyQttCtx        * myqtt_ctx;
+	int               sub_result;
+	MyQttMsg        * msg;
+	MyQttAsyncQueue * queue;
+	MyQttConn       * conns[50];
+	int               iterator;
+	
+	/* call to init the base library and close it */
+	printf ("Test 02: init library and server engine..\n");
+	ctx       = init_ctxd (NULL, "test_02.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 02: library and server engine started.. ok (ctxd = %p, ctx = %p\n", ctx, MYQTTD_MYQTT_CTX (ctx));
+
+	/* create connection to local server and test domain support */
+	myqtt_ctx = init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+
+
+	printf ("Test 02: connecting to myqtt server (client ctx = %p, 50 connections)..\n", myqtt_ctx);
+	iterator = 0;
+	while (iterator < 50) {
+		conns[iterator] = myqtt_conn_new (myqtt_ctx, "test_02", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+		if (! myqtt_conn_is_ok (conns[iterator], axl_false)) {
+			printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+			return axl_false;
+		} /* end if */
+
+		/* next iterator */
+		iterator++;
+	} /* end while */
+
+	/* register on message handler */
+	queue = myqtt_async_queue_new ();
+
+	/* subscribe */
+	printf ("Test 02: subscribe to the topic myqtt/test (in 50 connections)..\n");
+	iterator = 0;
+	while (iterator < 50) {
+		if (! myqtt_conn_sub (conns[iterator], 10, "myqtt/test", 0, &sub_result)) {
+			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+			return axl_false;
+		} /* end if */	
+
+		myqtt_conn_set_on_msg (conns[iterator], queue_message_received_only_one, queue);
+
+		/* next iterator */
+		iterator++;
+
+	} /* end while */
+
+
+	printf ("Test 02: publishing to the topic myqtt/test (on 50 connections)..\n");
+	iterator = 0;
+	while (iterator < 50) {
+
+		/* push a message */
+		if (! myqtt_conn_pub (conns[iterator], "myqtt/test", "This is test message....", 24, MYQTT_QOS_0, axl_false, 0)) {
+			printf ("ERROR: unable to publish message, myqtt_conn_pub() failed\n");
+			return axl_false;
+		} /* end if */
+
+		/* next iterator */
+		iterator++;
+	}
+
+	printf ("Test 02: wait for 2500 messages (50 messages for each connection)\n");
+	iterator = 0;
+	while (iterator < 2500) {
+
+		/* receive it */
+		msg = myqtt_async_queue_timedpop (queue, 5000000);
+		if (msg == NULL) {
+			printf ("ERROR: expected to find message from queue, but NULL was found..\n");
+			return axl_false;
+		} /* end if */
+		
+		/* check content */
+		if (myqtt_msg_get_app_msg_size (msg) != 24) {
+			printf ("ERROR: expected payload size of 24 but found %d\n", myqtt_msg_get_app_msg_size (msg));
+			return axl_false;
+		} /* end if */
+		
+		if (myqtt_msg_get_type (msg) != MYQTT_PUBLISH) {
+			printf ("ERROR: expected to receive PUBLISH message but found: %s\n", myqtt_msg_get_type_str (msg));
+			return axl_false;
+		} /* end if */
+		
+		/* check content */
+		if (! axl_cmp ((const char *) myqtt_msg_get_app_msg (msg), "This is test message....")) {
+			printf ("ERROR: expected to find different content..\n");
+			return axl_false;
+		} /* end if */
+		
+		myqtt_msg_unref (msg);
+
+		/* next iterator */
+		iterator++;
+	}
+
+	printf ("Test 02: everything is ok, finishing context and connection (iterator=%d)..\n", iterator);
+
+	iterator = 0;
+	while (iterator < 50) {
+
+		/* close connection */
+		myqtt_conn_close (conns[iterator]);
+
+		/* next iterator */
+		iterator++;
+	}
+
+	/* receive it */
+	printf ("Test 02: releasing queue %p\n", queue);
+	myqtt_async_queue_unref (queue);
+
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+
+	printf ("Test 02: finishing MyQttdCtx..\n");
+
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+		
+	return axl_true;
+}
+
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -255,7 +401,7 @@ int main (int argc, char ** argv)
 	char * run_test_name = NULL;
 
 	printf ("** MyQtt: A high performance open source MQTT implementation\n");
-	printf ("** Copyright (C) 2014 Advanced Software Production Line, S.L.\n**\n");
+	printf ("** Copyright (C) 2015 Advanced Software Production Line, S.L.\n**\n");
 	printf ("** Regression tests: %s \n",
 		VERSION);
 	printf ("** To gather information about time performance you can use:\n**\n");
@@ -263,7 +409,7 @@ int main (int argc, char ** argv)
 	printf ("** To gather information about memory consumed (and leaks) use:\n**\n");
 	printf ("**     >> libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes --error-limit=no ./test_01 [--debug]\n**\n");
 	printf ("** Providing --run-test=NAME will run only the provided regression test.\n");
-	printf ("** Available tests: test_00\n");
+	printf ("** Available tests: test_00, test_01, test_02\n");
 	printf ("**\n");
 	printf ("** Report bugs to:\n**\n");
 	printf ("**     <myqtt@lists.aspl.es> MyQtt Mailing list\n**\n");
@@ -288,6 +434,19 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_01")
 	run_test (test_01, "Test 01: basic domain initialization (selecting one domain based on connection settings)");
+
+	CHECK_TEST("test_02")
+	run_test (test_02, "Test 02: sending 50 messages with 50 connections subscribed (2500 messages received)");
+
+	/* domain selection (working with two domains) */
+
+	/* test wrong password with right user with test_02.conf */
+
+	/* test wrong users with test_02.conf */
+
+	/* check subscriptions are isolated even in the case the are
+	 * the same, check connection numbers (3 and 4 connections
+	 * each domain) */
 
 	printf ("All tests passed OK!\n");
 
