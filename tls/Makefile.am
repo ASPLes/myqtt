@@ -26,4 +26,4 @@ libmyqtt-tls-1.0.def: update-def
 
 update-def:
 	echo "EXPORTS" > libmyqtt-tls-1.0.def
-	cat .libs/libmyqtt-tls-1.0.exp | grep -v io_waiting_poll | grep -v io_waiting_epoll | grep -v __myqtt >> libmyqtt-tls-1.1.def
+	cat .libs/libmyqtt-tls-1.0.exp | grep -v io_waiting_poll | grep -v io_waiting_epoll | grep -v __myqtt >> libmyqtt-tls-1.0.def

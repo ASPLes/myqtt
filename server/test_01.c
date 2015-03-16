@@ -81,6 +81,13 @@ MyQttdCtx * init_ctxd (MyQttCtx * myqtt_ctx, const char * config)
 		return NULL;
 	} /* end if */
 
+	/* enable log if requested by the user */
+	if (test_common_enable_debug) {
+		myqtt_log_enable (MYQTTD_MYQTT_CTX (ctx), axl_true);
+		myqtt_color_log_enable (MYQTTD_MYQTT_CTX (ctx), axl_true);
+		myqtt_log2_enable (MYQTTD_MYQTT_CTX (ctx), axl_true);
+	} /* end if */
+
 	/* now run config */
 	if (! myqttd_run_config (ctx)) {
 		printf ("Failed to run current config, finishing process: %d", getpid ());
@@ -138,7 +145,7 @@ axl_bool  test_01 (void) {
 		return axl_false;
 	} /* end if */
 
-	printf ("Test 01: library and server engine started.. ok\n");
+	printf ("Test 01: library and server engine started.. ok (ctxd = %p, ctx = %p\n", ctx, MYQTTD_MYQTT_CTX (ctx));
 
 	/* create connection to local server and test domain support */
 	myqtt_ctx = init_ctx ();
@@ -147,7 +154,7 @@ axl_bool  test_01 (void) {
 		return axl_false;
 	} /* end if */
 
-	printf ("Test 01: connecting to myqtt server..\n");
+	printf ("Test 01: connecting to myqtt server (client ctx = %p)..\n", myqtt_ctx);
 	conn = myqtt_conn_new (myqtt_ctx, "test_01", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
@@ -184,6 +191,7 @@ axl_bool  test_01 (void) {
 	} /* end if */
 
 	/* check content */
+	printf ("Test 01: received reply...checking data..\n");
 	if (myqtt_msg_get_app_msg_size (msg) != 24) {
 		printf ("ERROR: expected payload size of 24 but found %d\n", myqtt_msg_get_app_msg_size (msg));
 		return axl_false;
@@ -200,9 +208,14 @@ axl_bool  test_01 (void) {
 		return axl_false;
 	} /* end if */
 
+	printf ("Test 01: everything is ok, finishing context and connection..\n");
+	myqtt_msg_unref (msg);
+
 	/* close connection */
 	myqtt_conn_close (conn);
 	myqtt_exit_ctx (myqtt_ctx, axl_true);
+
+	printf ("Test 01: finishing MyQttdCtx..\n");
 
 	/* finish server */
 	myqttd_exit (ctx, axl_true, axl_true);

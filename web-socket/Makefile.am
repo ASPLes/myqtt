@@ -26,4 +26,4 @@ libmyqtt-web-socket-1.0.def: update-def
 
 update-def:
 	echo "EXPORTS" > libmyqtt-web-socket-1.0.def
-	cat .libs/libmyqtt-web-socket-1.0.exp | grep -v io_waiting_poll | grep -v io_waiting_epoll | grep -v __myqtt >> libmyqtt-web-socket-1.1.def
+	cat .libs/libmyqtt-web-socket-1.0.exp | grep -v io_waiting_poll | grep -v io_waiting_epoll | grep -v __myqtt >> libmyqtt-web-socket-1.0.def

@@ -650,6 +650,21 @@ typedef void (*MyQttPreRead) (MyQttCtx * ctx, MyQttConn * listener, MyQttConn * 
  * configured this handler.
  */
 typedef axl_bool (*MyQttSessionSetup) (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * opts, axlPointer user_data);
+
+/** 
+ * @internal Optional function that can be called when unwatching a
+ * connection.
+ *
+ * @param ctx The context where the operation is taking place.
+ *
+ * @param conn The connection that is being unwatched. This reference
+ * is valid during the handler execution. If you need a permanent
+ * reference, grab one reference by using \ref myqtt_conn_ref
+ *
+ * @param user_data The user defined pointer configured at the unwatch
+ * operation time.
+ */
+typedef void (*MyQttConnUnwatch) (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_data);
 				      
 #endif
 
