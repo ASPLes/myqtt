@@ -568,12 +568,18 @@ void __myqtt_reader_subscribe (MyQttCtx * ctx, const char * client_identifier, M
 	axlHash   * sub_hash;
 	axl_bool    should_release = axl_true;
 
+	printf ("## 2.1..\n");
+
 	if (ctx == NULL || topic_filter == NULL)
 		return;
+
+	printf ("## 2.2..\n");
 
 	/* if it is not an offline operation, check conn reference */
 	if (! __is_offline && conn == NULL)
 		return;
+
+	printf ("## 2.3..\n");
 
 	if (! __is_offline) {
 		/** CONNECTION REGISTRY **/
@@ -585,6 +591,8 @@ void __myqtt_reader_subscribe (MyQttCtx * ctx, const char * client_identifier, M
 			axl_hash_insert_full (conn->subs, (axlPointer) topic_filter, axl_free, INT_TO_PTR (qos), NULL);
 		myqtt_mutex_unlock (&conn->op_mutex);
 	} /* end if */
+
+	printf ("## 2.4..\n");
 
 	/** CONTEXT REGISTRY **/
 	/* now, register this connection into the hash of subscribed
@@ -601,6 +609,8 @@ void __myqtt_reader_subscribe (MyQttCtx * ctx, const char * client_identifier, M
 		hash = __is_offline ? ctx->offline_wild_subs : ctx->wild_subs;
 	else
 		hash = __is_offline ? ctx->offline_subs : ctx->subs;
+
+	printf ("## 2.5..\n");
 	
 	/* check if the hash hold connections interested in
 	 * this topic filter is already created, if not,
@@ -624,6 +634,8 @@ void __myqtt_reader_subscribe (MyQttCtx * ctx, const char * client_identifier, M
 				      sub_hash, (axlDestroyFunc) axl_hash_free);
 		myqtt_log (MYQTT_LEVEL_DEBUG, "  ..created hash for topic_filter='%s' is %p", topic_filter, sub_hash);
 	} /* end if */
+
+	printf ("## 2.6..\n");
 	
 	/* record this connection and requested qos */
 	if (__is_offline) {
@@ -633,6 +645,8 @@ void __myqtt_reader_subscribe (MyQttCtx * ctx, const char * client_identifier, M
 		myqtt_log (MYQTT_LEVEL_DEBUG, "   ..storing connection %p with qos %d on conn hash %p for topic_filter='%s'", conn, qos, sub_hash, topic_filter);
 		axl_hash_insert (sub_hash, conn, INT_TO_PTR (qos));
 	} /* end if */
+
+	printf ("## 2.7..\n");
 
 	/* release lock */
 	myqtt_mutex_unlock (&ctx->subs_m);
@@ -672,7 +686,7 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg
 
 	/* get packet id */
 	packet_id = myqtt_get_16bit (msg->payload);
-	
+
 	/* get subscriptions */
 	desp = 2;
 	while (msg->size - desp > 0) {
@@ -696,6 +710,8 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg
 			axl_free (topic_filter);
 			return;
 		} /* end if */
+
+		printf ("## handle subscripe topic_filter=%s, context = %p\n", topic_filter, ctx); 
 
 		/* increase desp */
 		desp += (strlen (topic_filter) + 2);
@@ -1183,6 +1199,7 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 
 	/* get the hash */
 	sub_hash = axl_hash_get (ctx->subs, (axlPointer) msg->topic_name);
+	printf ("## sub_hash = %p, topic = %s, context = %p\n", sub_hash, msg->topic_name, ctx);
 	if (sub_hash) {
 		/* found topic registered, now iterate over all
 		 * registered connections to send the message */
@@ -1192,6 +1209,8 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 
 			/* get connection and qos */
 			conn = axl_hash_cursor_get_key (cursor);
+
+			printf ("## conn = %p\n", conn);
 
 			/* skip connection because it is not ok */
 			if (! myqtt_conn_is_ok (conn, axl_false)) {
@@ -1257,6 +1276,8 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	int                      desp = 0;
 	unsigned char          * reply;
 
+	printf ("##..1..\n");
+
 	/* parse content received inside message */
 	msg->topic_name = __myqtt_reader_get_utf8_string (ctx, msg->payload, msg->size);
 	if (! msg->topic_name ) {
@@ -1265,6 +1286,8 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 
 		return;
 	} /* end if */
+
+	printf ("##..2..\n");
 
 	if (! myqtt_support_is_utf8 (msg->topic_name, strlen (msg->topic_name))) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received PUBLISH message wrong UTF-8 encoding on topic name closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
@@ -1289,6 +1312,8 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	myqtt_log (MYQTT_LEVEL_DEBUG, "PUBLISH: received request to publish (qos: %d, topic name: %s, packet id: %d, app msg size: %d, msg size: %d)",
 		   msg->qos, msg->topic_name, msg->packet_id, msg->app_message_size, msg->size);
 
+	printf ("##..3..\n");
+
 	/**** CLIENT HANDLING **** 
 	 * we have received a PUBLISH packet as client, we have to
 	 * notify it to the application level */
@@ -1301,8 +1326,12 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 		return;
 	} /* end if */
 
+	printf ("##..4..\n");
+
 	/* call to do publish */
 	__myqtt_reader_do_publish (ctx, conn, msg);
+
+	printf ("##..5..\n");
 
 	/* now, for QoS1 we have to reply with a puback */
 	if (msg->qos == MYQTT_QOS_1 || msg->qos == MYQTT_QOS_2) {
@@ -1327,6 +1356,8 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 		if (! myqtt_sequencer_send (conn, (msg->qos == MYQTT_QOS_1) ? MYQTT_PUBACK : MYQTT_PUBREC, reply, 4))
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send %s message, errno=%d", (msg->qos == MYQTT_QOS_1) ? "PUBACK" : "PUBREC", errno);
 	} /* end if */
+
+	printf ("##..6..\n");
 
 	return;
 }
@@ -1474,6 +1505,7 @@ void __myqtt_reader_process_socket (MyQttCtx  * ctx,
 		break;
 	case MYQTT_PUBLISH:
 		/* handle PUBLISH packet */
+		printf ("## Received publish..\n");
 		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_publish);
 		break;
 	case MYQTT_PUBACK:
@@ -2602,8 +2634,8 @@ void myqtt_reader_unwatch_connection          (MyQttCtx        * ctx,
  * Adds a new connection to be watched on myqtt reader process. This
  * function is for internal myqtt library use.
  **/
-void myqtt_reader_watch_connection (MyQttCtx        * ctx,
-				     MyQttConn * connection)
+void myqtt_reader_watch_connection (MyQttCtx    * ctx,
+				    MyQttConn   * connection)
 {
 	/* get current context */
 	MyQttReaderData * data;

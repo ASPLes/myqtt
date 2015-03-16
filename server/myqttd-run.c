@@ -363,22 +363,41 @@ axl_bool myqttd_run_domains_load (MyQttdCtx * ctx, axlDoc * doc)
 	return axl_true;
 }
 
-MyQttCtx * __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
+void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 {
-	MyQttCtx * myqtt_ctx = myqtt_ctx_new ();
+	if (domain->initialized)
+		return;
 
-	/* configure context here */
+	/* init context */
+	domain->myqtt_ctx = myqtt_ctx_new ();
+
+	/* enable debug as it is in the parent context */
+	if (myqtt_log_is_enabled (ctx->myqtt_ctx))
+		myqtt_log_enable (domain->myqtt_ctx, axl_true);
+	if (myqtt_log2_is_enabled (ctx->myqtt_ctx))
+		myqtt_log2_enable (domain->myqtt_ctx, axl_true);
+	if (myqtt_color_log_is_enabled (ctx->myqtt_ctx))
+		myqtt_color_log_enable (domain->myqtt_ctx, axl_true);
 
 	/* init this context */
-	if (! myqtt_init_ctx (myqtt_ctx)) {
-		myqtt_exit_ctx (myqtt_ctx, axl_true);
-		return NULL;
+	if (! myqtt_init_ctx (domain->myqtt_ctx)) {
+		myqtt_exit_ctx (domain->myqtt_ctx, axl_true);
+		domain->myqtt_ctx = NULL;
+		return;
+	} /* end if */
+
+	/* configure storage path */
+	if (! myqtt_storage_set_path (domain->myqtt_ctx, domain->storage_path, 4096)) {
+		error ("Unable to configure storage path at %s, myqtt_storage_set_path failed", domain->storage_path);
+		myqtt_exit_ctx (domain->myqtt_ctx, axl_true);
+		domain->myqtt_ctx = NULL;
+		return;
 	} /* end if */
 
 	/* flag domain as initialized */
 	domain->initialized = axl_true;
 
-	return myqtt_ctx;
+	return;
 }
 
 axl_bool myqttd_run_send_connetion_to_domain (MyQttdCtx * ctx, MyQttConn * conn, MyQttdDomain * domain) {
@@ -389,7 +408,7 @@ axl_bool myqttd_run_send_connetion_to_domain (MyQttdCtx * ctx, MyQttConn * conn,
 		myqtt_mutex_lock (&domain->mutex);
 		if (! domain->initialized) {
 			/* call to initiate context */
-			domain->myqtt_ctx = __myqttd_init_domain_context (ctx, domain);
+			__myqttd_init_domain_context (ctx, domain);
 			if (domain->myqtt_ctx == NULL) {
 				/* unable to initializae context */
 				myqtt_mutex_unlock (&domain->mutex);
@@ -406,6 +425,7 @@ axl_bool myqttd_run_send_connetion_to_domain (MyQttdCtx * ctx, MyQttConn * conn,
 	myqtt_reader_unwatch_connection (ctx->myqtt_ctx, conn);
 
 	/* register the connection into the new handler */
+	printf ("## WATCHING connection = %p, context = %p\n", conn, domain->myqtt_ctx);
 	myqtt_reader_watch_connection (domain->myqtt_ctx, conn);
 
 	/* enable domain and send connection in an async manner */

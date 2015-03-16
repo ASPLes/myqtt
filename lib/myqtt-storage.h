@@ -137,7 +137,7 @@ axl_bool myqtt_storage_session_recover  (MyQttCtx      * ctx,
 
 int      myqtt_storage_load             (MyQttCtx      * ctx);
 
-void     myqtt_storage_set_path         (MyQttCtx      * ctx, 
+axl_bool myqtt_storage_set_path         (MyQttCtx      * ctx, 
 					 const char    * storage_path, 
 					 int             hash_size);
 
