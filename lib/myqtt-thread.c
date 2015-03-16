@@ -975,7 +975,7 @@ MyQttAsyncQueue * myqtt_async_queue_new       (void)
  * otherwise axl_false is returned.
  */
 axl_bool           myqtt_async_queue_push      (MyQttAsyncQueue * queue,
-						 axlPointer         data)
+						axlPointer        data)
 {
 	v_return_val_if_fail (queue, axl_false);
 	v_return_val_if_fail (data, axl_false);
