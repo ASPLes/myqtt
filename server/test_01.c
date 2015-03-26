@@ -760,6 +760,11 @@ axl_bool  test_03 (void) {
 	return axl_true;
 }
 
+axl_bool  test_04 (void) {
+
+	return axl_true;
+}
+
 
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
@@ -826,7 +831,7 @@ int main (int argc, char ** argv)
 	printf ("** To gather information about memory consumed (and leaks) use:\n**\n");
 	printf ("**     >> libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes --error-limit=no ./test_01 [--debug]\n**\n");
 	printf ("** Providing --run-test=NAME will run only the provided regression test.\n");
-	printf ("** Available tests: test_00, test_01, test_02\n");
+	printf ("** Available tests: test_00, test_01, test_02, test_03, test_04\n");
 	printf ("**\n");
 	printf ("** Report bugs to:\n**\n");
 	printf ("**     <myqtt@lists.aspl.es> MyQtt Mailing list\n**\n");
@@ -857,6 +862,9 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_03")
 	run_test (test_03, "Test 03: domain selection (working with two domains based on client_id selection)");
+
+	CHECK_TEST("test_04")
+	run_test (test_04, "Test 04: domain selection (working with two domains based on user/password selection)");
 
 	/* test wrong password with right user with test_02.conf */
 
