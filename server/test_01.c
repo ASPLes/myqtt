@@ -39,6 +39,10 @@
 
 #include <myqttd.h>
 
+#ifdef AXL_OS_UNIX
+#include <signal.h>
+#endif
+
 axl_bool test_common_enable_debug = axl_false;
 
 /* default listener location */
@@ -369,13 +373,252 @@ axl_bool  test_02 (void) {
 	return axl_true;
 }
 
+axl_bool connect_send_and_check (MyQttCtx * myqtt_ctx, const char * client_id, 
+				 const char * topic, const char * message, 
+				 MyQttQos qos, axl_bool skip_error_reporting)
+{
+
+	MyQttAsyncQueue * queue;
+	MyQttConn       * conn;
+	MyQttMsg        * msg;
+	int               sub_result;
+
+	/* create connection to local server and test domain support */
+	if (myqtt_ctx == NULL) {
+		myqtt_ctx = init_ctx ();
+		if (! myqtt_init_ctx (myqtt_ctx)) {
+			if (! skip_error_reporting)
+				printf ("Error: unable to initialize MyQtt library..\n");
+			return axl_false;
+		} /* end if */
+	} /* end if */
+
+	printf ("Test --: connecting to myqtt server (client ctx = %p)..\n", myqtt_ctx);
+	
+	conn = myqtt_conn_new (myqtt_ctx, client_id, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		if (! skip_error_reporting)
+			printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+
+		myqtt_conn_close (conn);
+		myqtt_exit_ctx (myqtt_ctx, axl_true);
+
+		return axl_false;
+	} /* end if */
+
+	/* subscribe */
+	printf ("Test --: subscribe to the topic %s..\n", topic);
+	if (! myqtt_conn_sub (conn, 10, topic, 0, &sub_result)) {
+		if (! skip_error_reporting)
+			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		/* close connection */
+		myqtt_conn_close (conn);
+		myqtt_exit_ctx (myqtt_ctx, axl_true);
+
+		return axl_false;
+	} /* end if */	
+
+	printf ("Test --: subscription completed with qos=%d (requested=%d)\n", sub_result, qos);
+	
+	/* register on message handler */
+	queue = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn, queue_message_received, queue);
+
+	/* push a message */
+	printf ("Test --: publishing to the topic %s..\n", topic);
+	if (! myqtt_conn_pub (conn, topic, (const axlPointer) message, strlen (message), qos, axl_false, 0)) {
+		if (! skip_error_reporting)
+			printf ("ERROR: unable to publish message, myqtt_conn_pub() failed\n");
+
+		/* close connection */
+		myqtt_conn_close (conn);
+		myqtt_exit_ctx (myqtt_ctx, axl_true);
+
+		return axl_false;
+	} /* end if */
+
+	/* receive it */
+	printf ("Test --: waiting for message %s (5 seconds)..\n", topic);
+	msg   = myqtt_async_queue_timedpop (queue, 5000000);
+	myqtt_async_queue_unref (queue);
+	if (msg == NULL) {
+		if (! skip_error_reporting)
+			printf ("ERROR: expected to find message from queue, but NULL was found..\n");
+
+		/* close connection */
+		myqtt_conn_close (conn);
+		myqtt_exit_ctx (myqtt_ctx, axl_true);
+
+		return axl_false;
+	} /* end if */
+
+	/* check content */
+	printf ("Test --: received reply...checking data..\n");
+	if (myqtt_msg_get_app_msg_size (msg) != 24) {
+		if (! skip_error_reporting)
+			printf ("ERROR: expected payload size of 24 but found %d\n", myqtt_msg_get_app_msg_size (msg));
+
+		/* close connection */
+		myqtt_conn_close (conn);
+		myqtt_exit_ctx (myqtt_ctx, axl_true);
+
+		return axl_false;
+	} /* end if */
+
+	if (myqtt_msg_get_type (msg) != MYQTT_PUBLISH) {
+		if (! skip_error_reporting)
+			printf ("ERROR: expected to receive PUBLISH message but found: %s\n", myqtt_msg_get_type_str (msg));
+
+		/* close connection */
+		myqtt_conn_close (conn);
+		myqtt_exit_ctx (myqtt_ctx, axl_true);
+
+		return axl_false;
+	} /* end if */
+
+	/* check content */
+	if (! axl_cmp ((const char *) myqtt_msg_get_app_msg (msg), message)) {
+		if (! skip_error_reporting)
+			printf ("ERROR: expected to find different content..\n");
+
+		/* close connection */
+		myqtt_conn_close (conn);
+		myqtt_exit_ctx (myqtt_ctx, axl_true);
+
+		return axl_false;
+	} /* end if */
+
+	printf ("Test --: everything is ok, finishing context and connection..\n");
+	myqtt_msg_unref (msg);
+
+	/* close connection */
+	myqtt_conn_close (conn);
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+
+	return axl_true;
+	
+}
+
+MyQttConn * connect_and_subscribe (MyQttCtx * myqtt_ctx, const char * client_id, 
+				   const char * topic, 
+				   MyQttQos qos, axl_bool skip_error_reporting)
+{
+	MyQttConn       * conn;
+	int               sub_result;
+
+	/* create connection to local server and test domain support */
+	if (myqtt_ctx == NULL) {
+		myqtt_ctx = init_ctx ();
+		if (! myqtt_init_ctx (myqtt_ctx)) {
+			if (! skip_error_reporting)
+				printf ("Error: unable to initialize MyQtt library..\n");
+			return axl_false;
+		} /* end if */
+	} /* end if */
+
+	printf ("Test --: connecting to myqtt server (client ctx = %p)..\n", myqtt_ctx);
+	
+	conn = myqtt_conn_new (myqtt_ctx, client_id, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		if (! skip_error_reporting)
+			printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* subscribe */
+	printf ("Test --: subscribe to the topic %s..\n", topic);
+	if (! myqtt_conn_sub (conn, 10, topic, 0, &sub_result)) {
+		if (! skip_error_reporting)
+			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */	
+
+	printf ("Test --: subscription completed with qos=%d (requested=%d)\n", sub_result, qos);
+	return conn;
+}
+
+void close_conn_and_ctx (MyQttConn * conn)
+{
+	MyQttCtx * ctx = myqtt_conn_get_ctx (conn);
+	
+	printf ("Test --: releasing connection (%p)\n", conn);
+	myqtt_conn_close (conn);
+
+	/* now close the library */
+	printf ("Test --: releasing context (%p)\n", ctx);
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return;
+}
+
+axl_bool send_msg (MyQttConn * conn, const char * topic, const char * message, MyQttQos qos) {
+	/* publish message */
+	return myqtt_conn_pub (conn, topic, (const axlPointer) message, strlen (message), qos, axl_false, 0);
+}
+
+void configure_reception_queue_received (MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+{
+	MyQttAsyncQueue * queue = user_data;
+
+	/* push message received */
+	myqtt_msg_ref (msg);
+	myqtt_async_queue_push (queue, msg);
+	return;
+}
+
+MyQttAsyncQueue * configure_reception (MyQttConn * conn) {
+	MyQttAsyncQueue * queue = myqtt_async_queue_new ();
+
+	/* configure reception on queue  */
+	myqtt_conn_set_on_msg (conn, configure_reception_queue_received, queue);
+
+	return queue;
+}
+
+axl_bool receive_and_check (MyQttAsyncQueue * queue, const char * topic, const char * message, MyQttQos qos, axl_bool skip_fail_if_null)
+{
+	MyQttMsg * msg;
+
+	/* get message */
+	msg   = myqtt_async_queue_timedpop (queue, 3000000);
+	if (msg == NULL) {
+		if (skip_fail_if_null)
+			return axl_true;
+		return axl_false;
+	} /* end if */
+
+	if (! axl_cmp (message, (const char *) myqtt_msg_get_app_msg (msg))) {
+		printf ("Test --: message content mismatch received..\n");
+		myqtt_msg_unref (msg);
+		return axl_false;
+	}
+
+	if (! axl_cmp (topic, (const char *) myqtt_msg_get_topic (msg))) {
+		printf ("Test --: message topic mismatch received..\n");
+		myqtt_msg_unref (msg);
+		return axl_false;
+	}
+
+	if (qos != myqtt_msg_get_qos (msg)) {
+		printf ("Test --: message qos mismatch received..\n");
+		myqtt_msg_unref (msg);
+		return axl_false;
+	}
+
+	
+	myqtt_msg_unref (msg);
+	return axl_true;
+	
+}
+
 axl_bool  test_03 (void) {
 	MyQttdCtx       * ctx;
+
 	MyQttConn       * conn;
-	MyQttCtx        * myqtt_ctx;
-	int               sub_result;
+	MyQttConn       * conn2;
+
 	MyQttAsyncQueue * queue;
-	MyQttMsg        * msg;
+	MyQttAsyncQueue * queue2;
 	
 	/* call to init the base library and close it */
 	printf ("Test 03: init library and server engine (using test_02.conf)..\n");
@@ -387,76 +630,129 @@ axl_bool  test_03 (void) {
 
 	printf ("Test 03: library and server engine started.. ok (ctxd = %p, ctx = %p\n", ctx, MYQTTD_MYQTT_CTX (ctx));
 
-	/* create connection to local server and test domain support */
-	myqtt_ctx = init_ctx ();
-	if (! myqtt_init_ctx (myqtt_ctx)) {
-		printf ("Error: unable to initialize MyQtt library..\n");
+	if (myqttd_domain_count_enabled (ctx) != 0) {
+		printf ("Test 03: expected to find 0 domains enabled but found %d\n", myqttd_domain_count_enabled (ctx));
 		return axl_false;
 	} /* end if */
 
-	printf ("Test 03: connecting to myqtt server (client ctx = %p)..\n", myqtt_ctx);
+	/* connect and send message */
+	if (! connect_send_and_check (NULL, "test_02", "myqtt/test", "This is test message....", MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03: unable to connect and send message...\n");
+		return axl_false;
+	} /* end if */
+
+	if (myqttd_domain_count_enabled (ctx) != 1) {
+		printf ("Test 03: expected to find 1 domains enabled but found %d\n", myqttd_domain_count_enabled (ctx));
+		return axl_false;
+	} /* end if */
+
+	/* connect and send message */
+	if (! connect_send_and_check (NULL, "test_04", "myqtt/test", "This is test message....", MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03: unable to connect and send message...\n");
+		return axl_false;
+	} /* end if */
+
+	if (myqttd_domain_count_enabled (ctx) != 2) {
+		printf ("Test 03: expected to find 2 domains enabled but found %d\n", myqttd_domain_count_enabled (ctx));
+		return axl_false;
+	} /* end if */
+
+
+	printf ("Test 03: checked domain activation for both services...Ok\n");
+
+	/* connect and send message */
+	if (connect_send_and_check (NULL, "test_05", "myqtt/test", "This is test message....", MYQTT_QOS_0, axl_true)) {
+		printf ("Test 03: it should fail to connect but it connected..");
+		return axl_false;
+	} /* end if */
+
+	/* ensure connections in domain */
+	if (myqttd_domain_conn_count (myqttd_domain_find_by_name (ctx, "test_01.context")) != 0) {
+		printf ("Test 03: expected to find 0 connection but found something different..\n");
+		return axl_false;
+	}
+
+	/* connect and report connection */
+	conn = connect_and_subscribe (NULL, "test_02", "myqtt/test", MYQTT_QOS_0, axl_false);
+	if (conn == NULL) {
+		printf ("Test 03: unable to connect to the domain..\n");
+		return axl_false;
+	}
+
+	/* ensure connections in domain */
+	if (myqttd_domain_conn_count (myqttd_domain_find_by_name (ctx, "test_01.context")) != 1) {
+		printf ("Test 03: expected to find 1 connection but found something different..\n");
+		return axl_false;
+	}
+
+	/* ensure connections in domain */
+	if (myqttd_domain_conn_count (myqttd_domain_find_by_name (ctx, "test_02.context")) != 0) {
+		printf ("Test 03: expected to find 0 connection but found something different..\n");
+		return axl_false;
+	}
+
+	/* connect and report connection */
+	conn2 = connect_and_subscribe (NULL, "test_04", "myqtt/test", MYQTT_QOS_0, axl_false);
+	if (conn == NULL) {
+		printf ("Test 03: unable to connect to the domain..\n");
+		return axl_false;
+	}
+
+	/* ensure connections in domain */
+	if (myqttd_domain_conn_count (myqttd_domain_find_by_name (ctx, "test_02.context")) != 1) {
+		printf ("Test 03: expected to find 1 connection but found something different..\n");
+		return axl_false;
+	}
 	
-	conn = myqtt_conn_new (myqtt_ctx, "test_02", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
-	if (! myqtt_conn_is_ok (conn, axl_false)) {
-		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+
+	/* configure message reception */
+	queue  = configure_reception (conn);
+	queue2 = configure_reception (conn2);
+
+	/* send message for conn and check for reply */
+	if (! send_msg (conn, "myqtt/test", "This is an application message", MYQTT_QOS_0)) {
+		printf ("Test 03: unable to send message\n");
 		return axl_false;
-	} /* end if */
-
-	/* subscribe */
-	printf ("Test 01: subscribe to the topic myqtt/test..\n");
-	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+	}
+	if (! send_msg (conn2, "myqtt/test", "This is an application message (2)", MYQTT_QOS_0)) {
+		printf ("Test 03: unable to send message\n");
 		return axl_false;
-	} /* end if */	
+	}
 
-	printf ("Test 01: subscription completed with qos=%d\n", sub_result);
-	
-	/* register on message handler */
-	queue = myqtt_async_queue_new ();
-	myqtt_conn_set_on_msg (conn, queue_message_received, queue);
-
-	/* push a message */
-	printf ("Test 01: publishing to the topic myqtt/test..\n");
-	if (! myqtt_conn_pub (conn, "myqtt/test", "This is test message....", 24, MYQTT_QOS_0, axl_false, 0)) {
-		printf ("ERROR: unable to publish message, myqtt_conn_pub() failed\n");
+	/* now receive message */
+	printf ("Test 03: checking for messages received..\n");
+	if (! receive_and_check (queue, "myqtt/test", "This is an application message", MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03: expected to receive different message..\n");
 		return axl_false;
-	} /* end if */
+	}
 
-	/* receive it */
-	printf ("Test 01: waiting for message myqtt/test (5 seconds)..\n");
-	msg   = myqtt_async_queue_timedpop (queue, 5000000);
+	if (! receive_and_check (queue2, "myqtt/test", "This is an application message (2)", MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03: expected to receive different message..\n");
+		return axl_false;
+	}
+
+	printf ("Test 03: now check if we don't receive messages from different domains (4 seconds waiting)..\n");
+	if (myqtt_async_queue_timedpop (queue, 2000000)) {
+		printf ("Test 03: expected to not receive any message over this connection..\n");
+		return axl_false;
+	}
+	if (myqtt_async_queue_timedpop (queue2, 2000000)) {
+		printf ("Test 03: expected to not receive any message over this connection..\n");
+		return axl_false;
+	}
+
+	/* release queue */
 	myqtt_async_queue_unref (queue);
-	if (msg == NULL) {
-		printf ("ERROR: expected to find message from queue, but NULL was found..\n");
-		return axl_false;
-	} /* end if */
+	myqtt_async_queue_unref (queue2);
 
-	/* check content */
-	printf ("Test 01: received reply...checking data..\n");
-	if (myqtt_msg_get_app_msg_size (msg) != 24) {
-		printf ("ERROR: expected payload size of 24 but found %d\n", myqtt_msg_get_app_msg_size (msg));
-		return axl_false;
-	} /* end if */
 
-	if (myqtt_msg_get_type (msg) != MYQTT_PUBLISH) {
-		printf ("ERROR: expected to receive PUBLISH message but found: %s\n", myqtt_msg_get_type_str (msg));
-		return axl_false;
-	} /* end if */
+	/* close connection and context */
+	close_conn_and_ctx (conn);
+	close_conn_and_ctx (conn2);
 
-	/* check content */
-	if (! axl_cmp ((const char *) myqtt_msg_get_app_msg (msg), "This is test message....")) {
-		printf ("ERROR: expected to find different content..\n");
-		return axl_false;
-	} /* end if */
 
-	printf ("Test 01: everything is ok, finishing context and connection..\n");
-	myqtt_msg_unref (msg);
-
-	/* close connection */
-	myqtt_conn_close (conn);
-	myqtt_exit_ctx (myqtt_ctx, axl_true);
-
-	printf ("Test 01: finishing MyQttdCtx..\n");
+	printf ("Test --: finishing MyQttdCtx..\n");
+	
 
 	/* finish server */
 	myqttd_exit (ctx, axl_true, axl_true);
@@ -488,12 +784,38 @@ int run_test (MyQttTestHandler function, const char * message) {
 	return 0;
 }
 
+
+#ifdef AXL_OS_UNIX
+void __block_test (int value) 
+{
+	MyQttAsyncQueue * queue;
+
+	printf ("******\n");
+	printf ("****** Received a signal (the regression test is failing): pid %d..locking..!!!\n", myqtt_getpid ());
+	printf ("******\n");
+
+	/* block the caller */
+	queue = myqtt_async_queue_new ();
+	myqtt_async_queue_pop (queue);
+
+	return;
+}
+#endif
+
+
 /** 
  * @brief General regression test to check all features inside myqtt
  */
 int main (int argc, char ** argv)
 {
 	char * run_test_name = NULL;
+
+	/* install default handling to get notification about
+	 * segmentation faults */
+#ifdef AXL_OS_UNIX
+	signal (SIGSEGV, __block_test);
+	signal (SIGABRT, __block_test);
+#endif
 
 	printf ("** MyQtt: A high performance open source MQTT implementation\n");
 	printf ("** Copyright (C) 2015 Advanced Software Production Line, S.L.\n**\n");
@@ -534,7 +856,7 @@ int main (int argc, char ** argv)
 	run_test (test_02, "Test 02: sending 50 messages with 50 connections subscribed (2500 messages received)");
 
 	CHECK_TEST("test_03")
-	run_test (test_03, "Test 03: domain selection (working with two domains)");
+	run_test (test_03, "Test 03: domain selection (working with two domains based on client_id selection)");
 
 	/* test wrong password with right user with test_02.conf */
 
