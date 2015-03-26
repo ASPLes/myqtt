@@ -39,6 +39,7 @@
 
 #include <myqttd-domain.h>
 #include <myqttd-ctx-private.h>
+#include <myqtt-ctx-private.h>
 
 
 void myqttd_domain_free (axlPointer _domain)
@@ -128,6 +129,24 @@ axl_bool   myqttd_domain_add  (MyQttdCtx  * ctx,
 	
 	/* report added */
 	return axl_true;
+}
+
+/** 
+ * @brief Allows to find a domain by name (label configured at
+ * configuration file).
+ *
+ * @param ctx The context where the operation takes place
+ *
+ * @param name The domain name that is being looked for (<domain name='' />).
+ */
+MyQttdDomain    * myqttd_domain_find_by_name (MyQttdCtx   * ctx,
+					      const char  * name)
+{
+	if (ctx == NULL || name == NULL)
+		return NULL;
+
+	/* report domain found */
+	return myqtt_hash_lookup (ctx->domains, (axlPointer) name);
 }
 
 /** 
@@ -275,7 +294,6 @@ MyQttdDomain    * myqttd_domain_find_by_indications (MyQttdCtx  * ctx,
 	MyQttdDomain * domain;
 
 	/* find the domain by cache serverName */
-	
 
 	/* find the domain by cache username + client_id */
 
@@ -340,6 +358,55 @@ axl_bool          myqttd_domain_do_auth (MyQttdCtx    * ctx,
 		return axl_true; /* authentication done */
 
 	return axl_false;
+}
+
+axl_bool __myqttd_domain_count_foreach (axlPointer _name, axlPointer _domain, axlPointer user_data)
+{
+	/* item received */
+	MyQttdDomain           * domain  = _domain;
+	int                    * count   = user_data;
+
+	/* check if the domain is initialized */
+	if (domain->initialized)
+		(*count) ++;
+	return axl_false; /* don't stop searching */
+}
+
+/** 
+ * @brief Allows to get the number of domains that are enabled right
+ * now.
+ *
+ * @param ctx The context where the operation is taking place.
+ *
+ * @return Number of domains now enabled.
+ */
+int               myqttd_domain_count_enabled (MyQttdCtx * ctx)
+{
+	int count = 0;
+	if (ctx == NULL || ctx->domains == NULL)
+		return 0; /* no domains enabled */
+
+	myqtt_hash_foreach (ctx->domains, __myqttd_domain_count_foreach, &count);
+	return count;
+}
+
+/** 
+ * @brief Allows to get the amount of connections the provide domain
+ * have (users connected at this moment).
+ *
+ * @param domain The domain that is being checked for number of connections.
+ *
+ * @return Number of connections.
+ */
+int               myqttd_domain_conn_count (MyQttdDomain * domain)
+{
+	if (domain == NULL)
+		return 0;
+	if (! domain->initialized)
+		return 0;
+
+	/* list of connections currently watched */
+	return axl_list_length (domain->myqtt_ctx->conn_list);
 }
 
 /** 
