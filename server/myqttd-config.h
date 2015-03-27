@@ -49,9 +49,9 @@ void            myqttd_config_cleanup  (MyQttdCtx * ctx);
 axlDoc        * myqttd_config_get      (MyQttdCtx * ctx);
 
 axl_bool        myqttd_config_set      (MyQttdCtx * ctx,
-					    const char    * path,
-					    const char    * attr_name,
-					    const char    * attr_value);
+					const char    * path,
+					const char    * attr_name,
+					const char    * attr_value);
 
 /** 
  * @brief Allows to get the node associated on a particular path on
@@ -76,15 +76,15 @@ axl_bool        myqttd_config_set      (MyQttdCtx * ctx,
 void            myqttd_config_ensure_attr (MyQttdCtx * ctx, axlNode * node, const char * attr_name);
 
 axl_bool        myqttd_config_is_attr_positive (MyQttdCtx * ctx,
-						    axlNode       * node,
-						    const char    * attr_name);
+						axlNode       * node,
+						const char    * attr_name);
 
 axl_bool        myqttd_config_is_attr_negative (MyQttdCtx * ctx,
 						    axlNode       * node,
 						    const char    * attr_name);
 
 int             myqttd_config_get_number (MyQttdCtx * ctx, 
-					      const char    * path,
-					      const char    * attr_name);
+					  const char    * path,
+					  const char    * attr_name);
 
 #endif

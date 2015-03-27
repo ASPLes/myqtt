@@ -121,6 +121,11 @@ struct _MyQttdCtx {
 	/*** on publish handlers ***/
 	/* protected by data_mutex */
 	axlList            * on_publish_handlers;
+
+	/* store for domain settings */
+	MyQttHash            * domain_settings;
+	MyQttdDomainSetting  * default_setting;
+
 };
 
 /** 
@@ -173,6 +178,10 @@ struct _MyQttdDomain {
 
 	/* reference to a users database used by this domain */
 	MyQttdUsers  * users;
+
+	/* reference to settings */
+	const char          * use_settings;
+	MyQttdDomainSetting * settings;
 	
 };
 
@@ -211,5 +220,22 @@ struct _MyQttdOnPublishData {
 	axlPointer       user_data;
 };
 
+
+
+struct _MyQttdDomainSetting {
+
+	/* operational limits or configurations */
+	axl_bool   require_auth;
+	axl_bool   restrict_ids;
+
+	/* connections and messages */
+	int        conn_limit;
+	int        message_size_limit;
+
+	/* storage ilmits */
+	int        storage_messages_limit;
+	int        storage_quota_limit;
+	
+};
 
 #endif

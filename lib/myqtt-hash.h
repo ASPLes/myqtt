@@ -68,27 +68,27 @@ void         myqtt_hash_replace_full  (MyQttHash     * hash_table,
 				       axlPointer       value,
 				       axlDestroyFunc   value_destroy);
 
-int          myqtt_hash_size     (MyQttHash   *hash_table);
+int          myqtt_hash_size     (MyQttHash   * hash_table);
 
-axlPointer   myqtt_hash_lookup   (MyQttHash   *hash_table,
-				   axlPointer    key);
+axlPointer   myqtt_hash_lookup   (MyQttHash   * hash_table,
+				  axlPointer    key);
 
-axl_bool     myqtt_hash_exists   (MyQttHash   *hash_table,
-				   axlPointer    key);
+axl_bool     myqtt_hash_exists   (MyQttHash   * hash_table,
+				  axlPointer    key);
 
 axlPointer   myqtt_hash_lookup_and_clear   (MyQttHash   *hash_table,
-					     axlPointer    key);
+					    axlPointer   key);
 
-int          myqtt_hash_lock_until_changed (MyQttHash   *hash_table,
-					     long          wait_microseconds);
+int          myqtt_hash_lock_until_changed (MyQttHash   * hash_table,
+					    long          wait_microseconds);
 
-axl_bool     myqtt_hash_remove   (MyQttHash   *hash_table,
-				   axlPointer    key);
+axl_bool     myqtt_hash_remove   (MyQttHash   * hash_table,
+				  axlPointer    key);
 
 void         myqtt_hash_destroy  (MyQttHash *hash_table);
 
-axl_bool     myqtt_hash_delete   (MyQttHash   *hash_table,
-				   axlPointer    key);
+axl_bool     myqtt_hash_delete   (MyQttHash   * hash_table,
+				  axlPointer    key);
 
 void         myqtt_hash_foreach  (MyQttHash         * hash_table,
 				   axlHashForeachFunc   func,

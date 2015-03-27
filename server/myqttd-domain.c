@@ -98,7 +98,8 @@ axl_bool   myqttd_domain_init (MyQttdCtx  * ctx)
 axl_bool   myqttd_domain_add  (MyQttdCtx  * ctx, 
 			       const char * name, 
 			       const char * storage_path, 
-			       const char * user_db)
+			       const char * user_db,
+			       const char * use_settings)
 {
 	MyQttdDomain * domain;
 
@@ -122,6 +123,13 @@ axl_bool   myqttd_domain_add  (MyQttdCtx  * ctx,
 	domain->name         = axl_strdup (name);
 	domain->storage_path = axl_strdup (storage_path);
 	domain->users_db     = axl_strdup (user_db);
+	domain->use_settings = use_settings;
+	/* reference to the settings configured */
+	if (use_settings) {
+		error ("ERROR: failed failed settings (%s)", use_settings);
+		domain->settings = myqtt_hash_lookup (ctx->domain_settings, (axlPointer) use_settings);
+	} /* end if */
+
 	myqtt_mutex_create (&domain->mutex);
 
 	/* add it into the domain hashes */

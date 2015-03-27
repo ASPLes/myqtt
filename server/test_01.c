@@ -884,6 +884,79 @@ axl_bool  test_05 (void) {
 	return axl_true;
 }
 
+axl_bool  test_06 (void) {
+
+	MyQttdCtx           * ctx;
+	MyQttdDomainSetting * setting;
+
+	/* call to init the base library and close it */
+	printf ("Test 06: init library and server engine (using test_02.conf)..\n");
+	ctx       = init_ctxd (NULL, "test_02.conf");
+	if (ctx == NULL) {
+		printf ("Test --: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 06: checking loaded settings..\n");
+	if (ctx->default_setting == NULL) {
+		printf ("Test --: default settings wheren't loaded..\n");
+		return axl_false;
+	} /* end if */
+
+	if (! ctx->default_setting->require_auth) {
+		printf ("Test --: default settings wheren't loaded for require auth..\n");
+		return axl_false;
+	} /* end if */
+
+	if (! ctx->default_setting->restrict_ids) {
+		printf ("Test --: default settings wheren't loaded for restrict ids..\n");
+		return axl_false;
+	} /* end if */
+
+	/* now get settings by name */
+	setting = myqtt_hash_lookup (ctx->domain_settings, "basic");
+	if (setting == NULL) {
+		printf ("ERROR: we should've found setting but NULL was found..\n"); 
+		return axl_false;
+	}
+
+	printf ("Test --: check basic settings\n");
+	if (setting->conn_limit != 5 ||
+	    setting->message_size_limit != 32768 ||
+	    setting->storage_messages_limit != 10000 ||
+	    setting->storage_quota_limit != 102400) {
+		printf ("ERROR: expected different values (basic)...\n");
+		return axl_false;
+	}
+
+	/* now get settings by name */
+	setting = myqtt_hash_lookup (ctx->domain_settings, "standard");
+	if (setting == NULL) {
+		printf ("ERROR: we should've found setting but NULL was found..\n"); 
+		return axl_false;
+	}
+
+	printf ("Test --: check standard settings\n");
+	if (setting->conn_limit != 10 ||
+	    setting->message_size_limit != 65536 ||
+	    setting->storage_messages_limit != 20000 ||
+	    setting->storage_quota_limit != 204800) {
+		printf ("ERROR: expected different values (standard)...\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test --: settings ok\n");
+
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+
+	return axl_true;
+}
+
+axl_bool  test_07 (void) {
+	
+	return axl_true;
+}
 
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
@@ -987,6 +1060,12 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_05")
 	run_test (test_05, "Test 05: domain selection (testing right users with wrong passwords)");
+
+	CHECK_TEST("test_06")
+	run_test (test_06, "Test 06: check loading domain settings");
+
+	CHECK_TEST("test_07")
+	run_test (test_07, "Test 07: testing connection limits to a domain");
 
 	/* test connection limits to a domain */
 

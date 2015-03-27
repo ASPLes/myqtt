@@ -50,6 +50,11 @@
  */
 
 /** 
+ * @brief Myqttd domain settings.
+ */
+typedef struct _MyQttdDomainSetting MyQttdDomainSetting;
+
+/** 
  * @brief Myqttd execution context.
  */
 typedef struct _MyQttdCtx MyQttdCtx;
