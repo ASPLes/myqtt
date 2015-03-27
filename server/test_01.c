@@ -38,6 +38,7 @@
  */
 
 #include <myqttd.h>
+#include <myqttd-ctx-private.h>
 
 #ifdef AXL_OS_UNIX
 #include <signal.h>
@@ -373,15 +374,19 @@ axl_bool  test_02 (void) {
 	return axl_true;
 }
 
-axl_bool connect_send_and_check (MyQttCtx * myqtt_ctx, const char * client_id, 
-				 const char * topic, const char * message, 
-				 MyQttQos qos, axl_bool skip_error_reporting)
+axl_bool connect_send_and_check (MyQttCtx   * myqtt_ctx, 
+				 const char * client_id, const char * user, const char * password,
+				 const char * topic,     const char * message, 
+				 const char * check_reply,
+				 MyQttQos qos, 
+				 axl_bool skip_error_reporting)
 {
 
 	MyQttAsyncQueue * queue;
 	MyQttConn       * conn;
 	MyQttMsg        * msg;
 	int               sub_result;
+	MyQttConnOpts   * opts = NULL;
 
 	/* create connection to local server and test domain support */
 	if (myqtt_ctx == NULL) {
@@ -394,8 +399,14 @@ axl_bool connect_send_and_check (MyQttCtx * myqtt_ctx, const char * client_id,
 	} /* end if */
 
 	printf ("Test --: connecting to myqtt server (client ctx = %p)..\n", myqtt_ctx);
+
+	/* configure user and password */
+	if (user && password) {
+		opts = myqtt_conn_opts_new ();
+		myqtt_conn_opts_set_auth (opts, user, password);
+	} /* end if */
 	
-	conn = myqtt_conn_new (myqtt_ctx, client_id, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	conn = myqtt_conn_new (myqtt_ctx, client_id, axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		if (! skip_error_reporting)
 			printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
@@ -454,9 +465,12 @@ axl_bool connect_send_and_check (MyQttCtx * myqtt_ctx, const char * client_id,
 
 	/* check content */
 	printf ("Test --: received reply...checking data..\n");
-	if (myqtt_msg_get_app_msg_size (msg) != 24) {
+	if (myqtt_msg_get_app_msg_size (msg) != strlen (check_reply ? check_reply : message)) {
 		if (! skip_error_reporting)
-			printf ("ERROR: expected payload size of 24 but found %d\n", myqtt_msg_get_app_msg_size (msg));
+			printf ("ERROR: expected payload size of %d but found %d\nContent found: %s\n", 
+				(int) strlen (check_reply ? check_reply : message),
+				myqtt_msg_get_app_msg_size (msg),
+				(const char *) myqtt_msg_get_app_msg (msg));
 
 		/* close connection */
 		myqtt_conn_close (conn);
@@ -477,7 +491,7 @@ axl_bool connect_send_and_check (MyQttCtx * myqtt_ctx, const char * client_id,
 	} /* end if */
 
 	/* check content */
-	if (! axl_cmp ((const char *) myqtt_msg_get_app_msg (msg), message)) {
+	if (! axl_cmp ((const char *) myqtt_msg_get_app_msg (msg), check_reply ? check_reply : message)) {
 		if (! skip_error_reporting)
 			printf ("ERROR: expected to find different content..\n");
 
@@ -636,7 +650,7 @@ axl_bool  test_03 (void) {
 	} /* end if */
 
 	/* connect and send message */
-	if (! connect_send_and_check (NULL, "test_02", "myqtt/test", "This is test message....", MYQTT_QOS_0, axl_false)) {
+	if (! connect_send_and_check (NULL, "test_02", NULL, NULL, "myqtt/test", "This is test message....", NULL, MYQTT_QOS_0, axl_false)) {
 		printf ("Test 03: unable to connect and send message...\n");
 		return axl_false;
 	} /* end if */
@@ -647,7 +661,7 @@ axl_bool  test_03 (void) {
 	} /* end if */
 
 	/* connect and send message */
-	if (! connect_send_and_check (NULL, "test_04", "myqtt/test", "This is test message....", MYQTT_QOS_0, axl_false)) {
+	if (! connect_send_and_check (NULL, "test_04", NULL, NULL, "myqtt/test", "This is test message....", NULL, MYQTT_QOS_0, axl_false)) {
 		printf ("Test 03: unable to connect and send message...\n");
 		return axl_false;
 	} /* end if */
@@ -661,7 +675,7 @@ axl_bool  test_03 (void) {
 	printf ("Test 03: checked domain activation for both services...Ok\n");
 
 	/* connect and send message */
-	if (connect_send_and_check (NULL, "test_05", "myqtt/test", "This is test message....", MYQTT_QOS_0, axl_true)) {
+	if (connect_send_and_check (NULL, "test_05", NULL, NULL, "myqtt/test", "This is test message....", NULL, MYQTT_QOS_0, axl_true)) {
 		printf ("Test 03: it should fail to connect but it connected..");
 		return axl_false;
 	} /* end if */
@@ -760,7 +774,67 @@ axl_bool  test_03 (void) {
 	return axl_true;
 }
 
+MyQttPublishCodes test_04_handle_publish (MyQttdCtx * ctx,       MyQttdDomain * domain,  
+					  MyQttCtx  * myqtt_ctx, MyQttConn    * conn, 
+					  MyQttMsg  * msg,       axlPointer user_data)
+{
+	printf ("Test 04: received message on server (topic: %s)\n", myqtt_msg_get_topic (msg));
+	if (axl_cmp ("get-context", myqtt_msg_get_topic (msg))) {
+		printf ("Test --: publish received on domain: %s\n", domain->name);
+
+		if (! myqtt_conn_pub (conn, "get-context", domain->name, (int) strlen (domain->name), MYQTT_QOS_0, axl_false, 0))
+			printf ("ERROR: failed to publish message in reply..\n");
+		return MYQTT_PUBLISH_DISCARD;
+	}
+
+	return MYQTT_PUBLISH_OK;
+}
+
 axl_bool  test_04 (void) {
+
+	MyQttdCtx       * ctx;
+
+	/* call to init the base library and close it */
+	printf ("Test 04: init library and server engine (using test_02.conf)..\n");
+	ctx       = init_ctxd (NULL, "test_02.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 04: library and server engine started.. ok (ctxd = %p, ctx = %p\n", ctx, MYQTTD_MYQTT_CTX (ctx));
+
+	/* configure the on publish */
+	myqttd_ctx_add_on_publish (ctx, test_04_handle_publish, NULL);
+
+	/* connect and send message */
+	printf ("Test 04: checking context activation based or user/password/clientid (test_01.context)\n");
+	if (! connect_send_and_check (NULL, 
+				      /* client id, user and password */
+				      "test_02", "user-test-02", "test1234", 
+				      "get-context", "get-context", "test_01.context", MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03: unable to connect and send message...\n");
+		return axl_false;
+	} /* end if */
+
+	/* connect and send message */
+	printf ("Test 04: checking context activation based or user/password/clientid (test_01.context)\n");
+	if (! connect_send_and_check (NULL, 
+				      /* client id, user and password */
+				      "test_02", "user-test-02", "differentpass", 
+				      "get-context", "get-context", "test_02.context", MYQTT_QOS_0, axl_false)) {
+		printf ("Test 04: unable to connect and send message...\n");
+		return axl_false;
+	} /* end if */
+	
+	printf ("Test --: finishing MyQttdCtx..\n");
+	
+
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+		
+	return axl_true;
+
 
 	return axl_true;
 }
@@ -877,6 +951,8 @@ int main (int argc, char ** argv)
 	/* test message size limit to a domain */
 
 	/* test message global quota limit to a domain */
+
+	/* test message filtering (by topic and by message) (it contains, it is equal) */
 
 	/* check subscriptions are isolated even in the case the are
 	 * the same, check connection numbers (3 and 4 connections

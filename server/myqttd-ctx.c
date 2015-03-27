@@ -97,6 +97,9 @@ MyQttdCtx * myqttd_ctx_new ()
 	/* init hash for auth backends */
 	ctx->auth_backends = myqtt_hash_new (axl_hash_string, axl_hash_equal_string);
 
+	/* init on publish handlers and mutex associated */
+	ctx->on_publish_handlers  = axl_list_new (axl_list_always_return_1, axl_free);
+
 	/* return context created */
 	return ctx;
 }
@@ -117,7 +120,6 @@ void           myqttd_ctx_reinit (MyQttdCtx * ctx, MyQttdChild * child)
 
 	/* re-init mutex */
 	myqtt_mutex_create (&ctx->exit_mutex);
-	myqtt_mutex_create (&ctx->db_list_mutex);
 	myqtt_mutex_create (&ctx->data_mutex);
 	myqtt_mutex_create (&ctx->registered_modules_mutex);
 
@@ -150,6 +152,41 @@ void            myqttd_ctx_set_myqtt_ctx (MyQttdCtx * ctx,
 
 	/* configure reference on myqtt ctx */
 	myqtt_ctx_set_data (myqtt_ctx, "tbc:ctx", ctx);
+
+	return;
+}
+
+/** 
+ * @brief Allows to configure (add) a new onPublish handler that will
+ * be called everything a publish operation is received.
+ *
+ * @param ctx The context where the onpublish handler is configured.
+ *
+ * @param on_publish The on publish handler to be configured.
+ *
+ * @param user_data A user defined pointer that will be passed in to
+ * the handler.
+ */
+void            myqttd_ctx_add_on_publish (MyQttdCtx       * ctx, 
+					   MyQttdOnPublish   on_publish, 
+					   axlPointer        user_data)
+{
+	MyQttdOnPublishData * data;
+
+	if (ctx == NULL || on_publish == NULL)
+		return;
+
+	/* add the reference */
+	data = axl_new (MyQttdOnPublishData, 1);
+	if (data == NULL)
+		return;
+	data->on_publish = on_publish;
+	data->user_data  = user_data;
+
+	/* add the handler */
+	myqtt_mutex_lock (&ctx->data_mutex);
+	axl_list_append (ctx->on_publish_handlers, data);
+	myqtt_mutex_unlock (&ctx->data_mutex);
 
 	return;
 }
@@ -361,6 +398,9 @@ void            myqttd_ctx_free (MyQttdCtx * ctx)
 	 * mapped into modules address which is usable until the last
 	 * time.  */
 	myqttd_module_cleanup (ctx); 
+
+	/* release publish handlers */
+	axl_list_free (ctx->on_publish_handlers);
 
 	/* release the node itself */
 	msg ("Finishing MyQttdCtx (%p)", ctx);

@@ -189,6 +189,41 @@ typedef axl_bool   (*MyQttdUsersAuthUser) (MyQttdCtx  * ctx,
  */
 typedef void (*MyQttdUsersUnloadDb) (MyQttdCtx * ctx, axlPointer backend);
 
+/** 
+ * @brief Async notification handler that gets called once a PUBLISH
+ * message is received on a listener connection. This handler allows
+ * to control message publication to currently registered connection
+ * with general options and/or to implement especific actions upon
+ * message reception.
+ *
+ * It's important to note that this handler is called before any
+ * publish/relay operation takes place. 
+ *
+ * This handler is used by:
+ *
+ * - \ref myqttd_ctx_add_on_publish
+ *
+ * @param ctx The MyQttdCtx context (not the MyQttCtx) where the operation is taking place.
+ *
+ * @param domain The MyQttdDomain  domain where the operation is taking place.
+ *
+ * @param myqtt_ctx The context where the operation takes place (the
+ * MyQttCtx engine started for this domain).
+ *
+ * @param conn The connection where the PUBLISH message was received.
+ *
+ * @param msg The message received. The handler must not release message received. It can acquire references to it. 
+ *
+ * @param user_data User defined pointer passed in into the function once it gets called.
+ * 
+ * @return The function must report the publish code to the engine so it can act upon it.
+ *
+ */
+typedef MyQttPublishCodes (*MyQttdOnPublish) (MyQttdCtx * ctx,       MyQttdDomain * domain, 
+					      MyQttCtx  * myqtt_ctx, MyQttConn    * conn, 
+					      MyQttMsg  * msg,       axlPointer     user_data);
+
+
 #endif
 
 /**

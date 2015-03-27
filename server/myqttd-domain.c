@@ -213,8 +213,9 @@ axl_bool __myqttd_domain_find_by_username_client_id_foreach (axlPointer _name,
 
 	/* reached this point, domain has a users database backend
 	   loaded, now check if this domain recognizes */
-	msg ("Attempting to autenticate: %s, username=%s, client_id=%s", name, myqttd_ensure_str (username), myqttd_ensure_str (client_id));
 	if (myqttd_domain_do_auth (ctx, domain, conn, username, password, client_id)) {
+		msg ("Authentication: %s, username=%s, client_id=%s : login ok", 
+		     name, myqttd_ensure_str (username), myqttd_ensure_str (client_id));
 		/* report domain to the caller */
 		data->result = domain;
 		return axl_true; /* domain found, report it to the caller */

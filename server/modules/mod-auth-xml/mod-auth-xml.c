@@ -157,9 +157,10 @@ axl_bool     __mod_auth_xml_auth_user (MyQttdCtx  * ctx,
 	while (node) {
 		switch (check_mode) {
 		case 3:
-			/* user and client id */
+			/* user and client id (and password) */
 			if (axl_cmp (client_id, ATTR_VALUE (node, "id")) && 
-			    axl_cmp (user_name, ATTR_VALUE (node, "username")))
+			    axl_cmp (user_name, ATTR_VALUE (node, "username")) &&
+			    axl_cmp (password, ATTR_VALUE (node, "password")))
 				return axl_true;
 			break;
 		case 2:
