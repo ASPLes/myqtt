@@ -62,33 +62,24 @@ struct _MyQttdCtx {
 	/* wait queue: this queue is used by myqttd_ctx_wait to
 	 * implement wait blocking wait without allocatting every time
 	 * a custom wait is required */
-	MyQttAsyncQueue   * wait_queue;
+	MyQttAsyncQueue    * wait_queue;
 
 	/* MyQttd current pid (process identifier) */
 	int                  pid;
 	/* if the following is NULL this is the main process,
 	 * otherwise it points to the child process */
-	MyQttdChild    * child;
+	MyQttdChild        * child;
 	
 	/* some variables used to terminate myqttd. */
 	axl_bool             is_exiting;
-	MyQttMutex          exit_mutex;
+	MyQttMutex           exit_mutex;
 	
-	/* Mutex to protect the list of db list opened. */
-	MyQttMutex          db_list_mutex;
-	
-	/* List of already opened db list, used to implement automatic
-	 * features such automatic closing on myqttd exit,
-	 * automatic reloading.. */
-	axlList            * db_list_opened;
-	axlDtd             * db_list_dtd;
-
 	/*** myqttd log module ***/
 	int                  general_log;
 	int                  error_log;
 	int                  myqtt_log;
 	int                  access_log;
-	MyQttdLoop     * log_manager;
+	MyQttdLoop         * log_manager;
 	axl_bool             use_syslog;
 
 	/*** myqttd config module ***/
@@ -97,35 +88,27 @@ struct _MyQttdCtx {
 
 	/* myqttd loading modules module */
 	axlList            * registered_modules;
-	MyQttMutex          registered_modules_mutex;
+	MyQttMutex           registered_modules_mutex;
 
 	/* myqttd connection manager module */
-	MyQttMutex          conn_mgr_mutex;
+	MyQttMutex           conn_mgr_mutex;
 	axlHash            * conn_mgr_hash; 
 
 	/* myqttd stored data */
 	axlHash            * data;
-	MyQttMutex          data_mutex;
+	MyQttMutex           data_mutex;
 
 	/* used to signal if the server was started */
 	axl_bool             started;
-
-	/* DTd used by the myqttd-run module to validate module
-	 * pointers */
-	axlDtd             * module_dtd;
 
 	/* several limits */
 	int                  global_child_limit;
 	int                  max_complete_flag_limit;
 
 	/*** myqttd process module ***/
-	axlHash                 * child_process;
-	MyQttMutex               child_process_mutex;
+	axlHash            * child_process;
+	MyQttMutex           child_process_mutex;
 
-	/*** myqttd mediator module ***/
-	axlHash            * mediator_hash;
-	MyQttMutex          mediator_hash_mutex;
-	
 	/*** support for proxy on parent ***/
 	MyQttdLoop         * proxy_loop;
 
@@ -134,6 +117,10 @@ struct _MyQttdCtx {
 
 	/* reference to authentication backends registered */
 	MyQttHash          * auth_backends;
+
+	/*** on publish handlers ***/
+	/* protected by data_mutex */
+	axlList            * on_publish_handlers;
 };
 
 /** 
@@ -213,6 +200,15 @@ struct _MyQttdUsers {
 
 	/* reference to the unload backend */
 	MyQttdUsersUnloadDb    unload;
+};
+
+/** 
+ * @internal Type that represents an on publish operation.
+ */
+typedef struct _MyQttdOnPublishData MyQttdOnPublishData;
+struct _MyQttdOnPublishData {
+	MyQttdOnPublish  on_publish;
+	axlPointer       user_data;
 };
 
 

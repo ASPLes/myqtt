@@ -4603,9 +4603,22 @@ void                   myqtt_conn_set_default_io_handler (MyQttConn * connection
  * @brief Allows to configure the on message handler for the provided connection.
  *
  * This handler will be called each time a PUBLISH message is received
- * on the provided connection.  See \ref MyQttOnMsgReceived for more
- * information about the handler and the signature you have to
- * provide.
+ * on the provided connection (when acting as a client).  See \ref
+ * MyQttOnMsgReceived for more information about the handler and the
+ * signature you have to provide.
+ *
+ * If you want to set a handler to get a notification at the server
+ * side (acting as a broker) for every message received see \ref
+ * myqtt_ctx_set_on_publish
+ *
+ * The handler configured on this function will take precedence over
+ * that configured using myqtt_ctx_set_on_msg (which applies to all
+ * connections that do not have a handler configured myqtt_conn_set_on_msg).
+ *
+ * You can only configure one handler at time. Calling to configure a
+ * handler twice will replace previous one.
+ *
+ * See also \ref myqtt_ctx_set_on_msg
  *
  * @param conn The connection that is going to be configured with the
  * handler. Only one handler can be configured. Every call to this

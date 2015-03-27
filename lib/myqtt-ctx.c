@@ -127,9 +127,16 @@ MyQttCtx * myqtt_ctx_new (void)
 /** 
  * @brief Allows to install a \ref MyQttOnPublish handler on the
  * provided context. This is a server side handler (broker). Clients
- * publishing messages does not get this handler called.
+ * publishing messages does not get this handler called. 
+ *
+ * See \ref myqtt_ctx_set_on_msg and \ref myqtt_conn_set_on_msg for
+ * more information about getting notifications for when acting as a
+ * MQTT client.
  *
  * See \ref MyQttOnPublish for more information.
+ *
+ * You can only configure one handler at time. Calling to configure a
+ * handler twice will replace previous one.
  *
  * @param ctx The context where the operation will take place.
  *
@@ -137,7 +144,26 @@ MyQttCtx * myqtt_ctx_new (void)
  *
  * @param user_data User defined pointer to be passed in into the
  * handler every time it gets called.
+ * 
+ * <b>EXAMPLE 1: Discarding a message to reply to a message (request-reply pattern)
  *
+ * The following example shows how to use this handler to block
+ * received message so the engine will discard it, but, because you
+ * are in control of the connection and the message received, you can
+ * reply to it:
+ *
+ * \code
+ * // get current client identifier 
+ * if (axl_cmp ("myqtt/admin/get-client-identifier", myqtt_msg_get_topic (msg))) {
+ *
+ *		// found administrative request, report this information and block publication 
+ *		client_id = myqtt_conn_get_client_id (conn);
+ *		if (! myqtt_conn_pub (conn, "myqtt/admin/get-client-identifier", 
+ *                                   (axlPointer) client_id, strlen (client_id), MYQTT_QOS_0, axl_false, 0)) 
+ *			printf ("ERROR: failed to publish get-client-identifier..\n");
+ *		return MYQTT_PUBLISH_DISCARD; // report received PUBLISH should be discarded 
+ *	} // end if 
+ * \endcode
  */
 void        myqtt_ctx_set_on_publish            (MyQttCtx                       * ctx,
 						 MyQttOnPublish                   on_publish,
@@ -160,9 +186,18 @@ void        myqtt_ctx_set_on_publish            (MyQttCtx                       
  *
  * The handler configured here affects to all client connections
  * receiving messages on this context that do not have a particular on
- * message \ref myqtt_conn_set_on_msg
+ * message \ref myqtt_conn_set_on_msg when this connection is acting
+ * as a client (not a MQTT broker).
  *
- * Note that the handler configured at \ref myqtt_conn_set_on_msg is called first, and if defined, makes the handler configured on this function (\ref myqtt_ctx_set_on_msg) to be not called).
+ * Note that the handler configured at \ref myqtt_conn_set_on_msg is
+ * called first, and if defined, makes the handler configured on this
+ * function (\ref myqtt_ctx_set_on_msg) to be not called).
+ *
+ * If you want to set a handler to get a notification at the server
+ * side (acting as a broker) for every message received see \ref myqtt_ctx_set_on_publish
+ *
+ * You can only configure one handler at time. Calling to configure a
+ * handler twice will replace previous one.
  *
  * @param ctx The context where the handler will be configured.
  *

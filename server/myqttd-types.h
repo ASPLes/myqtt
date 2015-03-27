@@ -50,6 +50,11 @@
  */
 
 /** 
+ * @brief Myqttd execution context.
+ */
+typedef struct _MyQttdCtx MyQttdCtx;
+
+/** 
  * @brief Type that represents a myqttd module.
  */
 typedef struct _MyQttdModule MyQttdModule;

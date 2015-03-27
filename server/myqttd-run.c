@@ -363,6 +363,39 @@ axl_bool myqttd_run_domains_load (MyQttdCtx * ctx, axlDoc * doc)
 	return axl_true;
 }
 
+/** 
+ * @internal Function to handle on publish messages at MyQttd (server)
+ * level.
+ */
+MyQttPublishCodes __myqttd_run_on_publish_msg (MyQttCtx * myqtt_ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _domain)
+{
+	MyQttdDomain        * domain   = _domain;
+	MyQttdCtx           * ctx      = domain->ctx;
+	int                   iterator = 0;
+	MyQttdOnPublishData * data;
+	MyQttPublishCodes     code;
+
+	while (iterator < axl_list_length (ctx->on_publish_handlers)) {
+		/* next data */
+		data = axl_list_get_nth (ctx->on_publish_handlers, iterator);
+		if (data != NULL && data->on_publish != NULL) {
+			/* get the code reported by this on publish */
+			code = data->on_publish (domain->ctx, domain, myqtt_ctx, conn, msg, data->user_data);
+			if (code == MYQTT_PUBLISH_DISCARD) {
+				/* discard message because one of the handlers discarded the message */
+				return code;
+			} /* end if */
+
+			/* rest of codes for now, ignored */
+		} /* end if */
+
+		/* next iterator */
+		iterator++;
+	} /* end while */
+	
+	return MYQTT_PUBLISH_OK; /* allow publish */
+}
+
 void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 {
 	if (domain->initialized)
@@ -397,6 +430,9 @@ void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 	/* call to load local storage first (before an incoming
 	 * connection) */
 	myqtt_storage_load (domain->myqtt_ctx);
+
+	/* configure on publish msg */
+	myqtt_ctx_set_on_publish (domain->myqtt_ctx, __myqttd_run_on_publish_msg, domain);
 
 	/* flag domain as initialized */
 	domain->initialized = axl_true;
@@ -579,9 +615,6 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
  */
 void myqttd_run_cleanup (MyQttdCtx * ctx)
 {
-	/* cleanup module dtd */
-	axl_dtd_free (ctx->module_dtd);
-	ctx->module_dtd = NULL;
 	return;
 }
 

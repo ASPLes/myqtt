@@ -46,11 +46,6 @@
  * @{
  */
 
-/** 
- * @brief Myqttd execution context.
- */
-typedef struct _MyQttdCtx MyQttdCtx;
-
 MyQttdCtx * myqttd_ctx_new           (void);
 
 void        myqttd_ctx_set_myqtt_ctx (MyQttdCtx * ctx, 
@@ -66,6 +61,10 @@ void        myqttd_ctx_set_myqtt_ctx (MyQttdCtx * ctx,
  * @return A reference to the myqtt context associated.
  */
 #define MYQTTD_MYQTT_CTX(_myqtt_ctx) (myqttd_ctx_get_myqtt_ctx (_myqtt_ctx))
+
+void            myqttd_ctx_add_on_publish (MyQttdCtx       * ctx, 
+					   MyQttdOnPublish   on_publish, 
+					   axlPointer        user_data); 
 
 MyQttCtx     * myqttd_ctx_get_myqtt_ctx (MyQttdCtx * ctx);
 
