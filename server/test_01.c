@@ -998,9 +998,14 @@ int main (int argc, char ** argv)
 
 	/* test message filtering (by topic and by message) (it contains, it is equal) */
 
-	/* check subscriptions are isolated even in the case the are
-	 * the same, check connection numbers (3 and 4 connections
-	 * each domain) */
+	/* domain activation when connected with WebSocket/WebSocketTLS when
+	   providing same hostname as domain name */
+
+	/* domain activation when connected with TLS MQTT when
+	   providing same hostname as domain name */
+
+	/* test support for port sharing (running MQTT, MQTT-tls,
+	   WebSocket-MQTT..etc over the same port) */
 
 	printf ("All tests passed OK!\n");
 
