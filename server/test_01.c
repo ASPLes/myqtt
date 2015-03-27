@@ -778,7 +778,7 @@ MyQttPublishCodes test_04_handle_publish (MyQttdCtx * ctx,       MyQttdDomain * 
 					  MyQttCtx  * myqtt_ctx, MyQttConn    * conn, 
 					  MyQttMsg  * msg,       axlPointer user_data)
 {
-	printf ("Test 04: received message on server (topic: %s)\n", myqtt_msg_get_topic (msg));
+	printf ("Test --: received message on server (topic: %s)\n", myqtt_msg_get_topic (msg));
 	if (axl_cmp ("get-context", myqtt_msg_get_topic (msg))) {
 		printf ("Test --: publish received on domain: %s\n", domain->name);
 
@@ -813,17 +813,17 @@ axl_bool  test_04 (void) {
 				      /* client id, user and password */
 				      "test_02", "user-test-02", "test1234", 
 				      "get-context", "get-context", "test_01.context", MYQTT_QOS_0, axl_false)) {
-		printf ("Test 03: unable to connect and send message...\n");
+		printf ("Test --: unable to connect and send message...\n");
 		return axl_false;
 	} /* end if */
 
 	/* connect and send message */
-	printf ("Test 04: checking context activation based or user/password/clientid (test_01.context)\n");
+	printf ("Test 04: checking context activation based or user/password/clientid (test_02.context)\n");
 	if (! connect_send_and_check (NULL, 
 				      /* client id, user and password */
 				      "test_02", "user-test-02", "differentpass", 
 				      "get-context", "get-context", "test_02.context", MYQTT_QOS_0, axl_false)) {
-		printf ("Test 04: unable to connect and send message...\n");
+		printf ("Test --: unable to connect and send message...\n");
 		return axl_false;
 	} /* end if */
 	
@@ -834,8 +834,53 @@ axl_bool  test_04 (void) {
 	myqttd_exit (ctx, axl_true, axl_true);
 		
 	return axl_true;
+}
 
 
+axl_bool  test_05 (void) {
+
+	MyQttdCtx       * ctx;
+
+	/* call to init the base library and close it */
+	printf ("Test 05: init library and server engine (using test_02.conf)..\n");
+	ctx       = init_ctxd (NULL, "test_02.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 05: library and server engine started.. ok (ctxd = %p, ctx = %p\n", ctx, MYQTTD_MYQTT_CTX (ctx));
+
+	/* connect and send message */
+	printf ("Test 05: checking context is not activated based or user/password/clientid (test_01.context)\n");
+	if (connect_send_and_check (NULL, 
+				      /* client id, user and password */
+				      "test_02", "user-test-02", "test1234-5", 
+				      "get-context", "get-context", "test_01.context", MYQTT_QOS_0, axl_true)) {
+		printf ("ERROR: it shouldn't work it does...\n");
+		return axl_false;
+	} /* end if */
+
+	/* connect and send message */
+	printf ("Test 05: checking context is not activated based or user/password/clientid (test_02.context)\n");
+	if (connect_send_and_check (NULL, 
+				      /* client id, user and password */
+				      "test_02", "user-test-02", "differentpass-5", 
+				      "get-context", "get-context", "test_02.context", MYQTT_QOS_0, axl_true)) {
+		printf ("ERROR: it shouldn't work it does...\n");
+		return axl_false;
+	} /* end if */
+	
+	printf ("Test --: finishing MyQttdCtx..\n");
+	
+	if (myqttd_domain_count_enabled (ctx) != 0) {
+		printf ("Test --: expected to find 0 domains enabled but found %d\n", myqttd_domain_count_enabled (ctx));
+		return axl_false;
+	} /* end if */
+
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+		
 	return axl_true;
 }
 
@@ -940,9 +985,8 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_04")
 	run_test (test_04, "Test 04: domain selection (working with two domains based on user/password selection)");
 
-	/* test wrong password with right user with test_02.conf */
-
-	/* test wrong users with test_02.conf */
+	CHECK_TEST("test_05")
+	run_test (test_05, "Test 05: domain selection (testing right users with wrong passwords)");
 
 	/* test connection limits to a domain */
 
