@@ -870,6 +870,14 @@ int main (int argc, char ** argv)
 
 	/* test wrong users with test_02.conf */
 
+	/* test connection limits to a domain */
+
+	/* test message limits to a domain */
+
+	/* test message size limit to a domain */
+
+	/* test message global quota limit to a domain */
+
 	/* check subscriptions are isolated even in the case the are
 	 * the same, check connection numbers (3 and 4 connections
 	 * each domain) */
