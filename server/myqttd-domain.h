@@ -47,7 +47,8 @@ axl_bool          myqttd_domain_init (MyQttdCtx  * ctx);
 axl_bool          myqttd_domain_add  (MyQttdCtx  * ctx, 
 				      const char * name, 
 				      const char * storage_path, 
-				      const char * user_db);
+				      const char * user_db,
+				      const char * use_settings);
 
 MyQttdDomain    * myqttd_domain_find_by_name (MyQttdCtx   * ctx,
 					      const char  * name);

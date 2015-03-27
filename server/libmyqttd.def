@@ -182,6 +182,7 @@ myqttd_run_check_no_load_module
 myqttd_run_cleanup
 myqttd_run_config
 myqttd_run_config_start_listeners
+myqttd_run_domain_settings_load
 myqttd_run_domains_load
 myqttd_run_handle_on_connect
 myqttd_run_load_modules

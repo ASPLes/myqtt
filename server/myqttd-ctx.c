@@ -402,6 +402,10 @@ void            myqttd_ctx_free (MyQttdCtx * ctx)
 	/* release publish handlers */
 	axl_list_free (ctx->on_publish_handlers);
 
+	/* release settings */
+	axl_free (ctx->default_setting);
+	myqtt_hash_destroy (ctx->domain_settings);
+
 	/* release the node itself */
 	msg ("Finishing MyQttdCtx (%p)", ctx);
 	axl_free (ctx);

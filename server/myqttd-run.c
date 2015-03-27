@@ -318,12 +318,14 @@ void myqtt_run_load_domain (MyQttdCtx * ctx, axlDoc * doc, axlNode * node)
 {
 	/* get settings for this domain: see MyQttdDomain definition
 	 * at myqttd-types.h and myqttd-ctx-private.h */
-	const char * name     = ATTR_VALUE (node, "name");
-	const char * storage  = ATTR_VALUE (node, "storage");
-	const char * users_db = ATTR_VALUE (node, "users-db");
+	const char * name         = ATTR_VALUE (node, "name");
+	const char * storage      = ATTR_VALUE (node, "storage");
+	const char * users_db     = ATTR_VALUE (node, "users-db");
+	const char * use_settings = ATTR_VALUE (node, "use-settings");
 
 	/* do some logging */
-	msg ("Loading domain, name=%s, storage=%s, users-db=%s", name ? name : "", storage ? storage : "", users_db ? users_db : "");
+	msg ("Loading domain, name=%s, storage=%s, users-db=%s, use-settings=%s", 
+	     name ? name : "", storage ? storage : "", users_db ? users_db : "", use_settings ? use_settings : "");
 
 	/* check definition name to be present */
 	myqttd_config_ensure_attr (ctx, node, "name");
@@ -331,7 +333,7 @@ void myqtt_run_load_domain (MyQttdCtx * ctx, axlDoc * doc, axlNode * node)
 	myqttd_config_ensure_attr (ctx, node, "users-db");
 
 	/* now ensure storage is present and initialize it */
-	if (! myqttd_domain_add (ctx, name, storage, users_db)) {
+	if (! myqttd_domain_add (ctx, name, storage, users_db, use_settings)) {
 		/* report failure */
 		error ("Unable to add domain name='%s'", name);
 
@@ -513,6 +515,114 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 	return MYQTT_CONNACK_ACCEPTED;
 } /* end if */
 
+void __myqttd_run_get_value_from_node (MyQttdCtx * ctx, axlNode * node, const char * _type, int * value, int _default)
+{
+	/* set default value */
+	(*value)       = _default;
+	if (node) {
+		if (axl_cmp (_type, "boolean"))
+			(*value) = myqttd_config_is_attr_positive (ctx, node, "value");
+		if (axl_cmp (_type, "int"))
+			(*value) = myqtt_support_strtod (ATTR_VALUE (node, "value"), NULL);
+	}
+	return;
+}
+
+void __myqttd_run_get_value (MyQttdCtx * ctx, axlDoc * doc, const char * const_path, const char * _type, int * value, int _default)
+{
+	axlNode * node = axl_doc_get (doc, const_path);
+
+	/* set default value */
+	__myqttd_run_get_value_from_node (ctx, node, _type, value, _default);
+	return;
+}
+
+void __myqttd_run_get_value_by_node (MyQttdCtx * ctx, axlNode * node, const char * child_name, const char * _type, int * value, int _default)
+{
+	axlNode * _node = axl_node_get_child_called (node, child_name);
+
+	/* set default value */
+	__myqttd_run_get_value_from_node (ctx, _node, _type, value, _default);
+	return;
+}
+
+axl_bool myqttd_run_domain_settings_load (MyQttdCtx * ctx, axlDoc * doc)
+{
+	axlNode             * node;
+	MyQttdDomainSetting * setting;
+	const char          * name;
+
+	/* default settings */
+	if (! ctx->default_setting)
+		ctx->default_setting = axl_new (MyQttdDomainSetting, 1);
+	if (! ctx->domain_settings)
+		ctx->domain_settings = myqtt_hash_new (axl_hash_string, axl_hash_equal_string);
+
+	/* require auth */
+	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/require-auth", "boolean", &(ctx->default_setting->require_auth), axl_true);
+	/* restrict-ids */
+	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/restrict-ids", "boolean", &(ctx->default_setting->restrict_ids), axl_false);
+	/* conn-limit */
+	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/conn-limit", "int", &(ctx->default_setting->conn_limit), -1);
+	/* message-size-limit */
+	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/message-size-limit", "int", &(ctx->default_setting->message_size_limit), -1);
+	/* storage-messages-limit */
+	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/storage-messages-limit", "int", &(ctx->default_setting->storage_messages_limit), -1);
+	/* storage-quota-limit */
+	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/storage-quota-limit", "int", &(ctx->default_setting->storage_quota_limit), -1);
+
+	/* get first definition */
+	node = axl_doc_get (doc, "/myqtt/domain-settings/domain-setting");
+	while (node != NULL) {
+
+		/* ensure it has name and value */
+		name = ATTR_VALUE (node, "name");
+		if (! name || strlen (name) == 0) {
+			/* get next module */
+			node = axl_node_get_next_called (node, "domain-setting");
+			continue;
+		} /* end if */
+
+		/* get name and store this setting */
+		setting = (MyQttdDomainSetting *) myqtt_hash_lookup (ctx->domain_settings, (axlPointer) name);
+
+		/* create setting storage */
+		if (setting == NULL) {
+			/* create node */
+			setting = axl_new (MyQttdDomainSetting, 1);
+			if (setting == NULL)
+				break;
+
+			/* save setting into hash */
+			myqtt_hash_replace_full (ctx->domain_settings, (axlPointer) name, NULL, setting, axl_free);
+		} /* end if */
+
+		/* require auth */
+		__myqttd_run_get_value_by_node (ctx, node, "require-auth", "boolean", &(setting->require_auth),
+						ctx->default_setting->require_auth);
+		/* restrict-ids */
+		__myqttd_run_get_value_by_node (ctx, node, "restrict-ids", "boolean", &(setting->restrict_ids),
+						ctx->default_setting->restrict_ids);
+		/* conn-limit */
+		__myqttd_run_get_value_by_node (ctx, node, "conn-limit", "int", &(setting->conn_limit),
+						ctx->default_setting->conn_limit);
+		/* message-size-limit */
+		__myqttd_run_get_value_by_node (ctx, node, "message-size-limit", "int", &(setting->message_size_limit),
+						ctx->default_setting->message_size_limit);
+		/* storage-messages-limit */
+		__myqttd_run_get_value_by_node (ctx, node, "storage-messages-limit", "int", &(setting->storage_messages_limit),
+						ctx->default_setting->storage_messages_limit);
+		/* storage-quota-limit */
+		__myqttd_run_get_value_by_node (ctx, node, "storage-quota-limit", "int", &(setting->storage_quota_limit),
+						ctx->default_setting->storage_quota_limit);
+
+		/* get next module */
+		node = axl_node_get_next_called (node, "domain-setting");
+	} /* end while */
+
+	return axl_true; /* domains loaded */
+}
+
 
 /** 
  * @internal Takes current configuration, and starts all settings
@@ -596,6 +706,10 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 
 	/* get the first listener configuration */
 	if (! myqttd_run_config_start_listeners (ctx, doc))
+		return axl_false;
+
+	/* load domain settings */
+	if (! myqttd_run_domain_settings_load (ctx, doc))
 		return axl_false;
 
 	/* now, recognize domains supported */
