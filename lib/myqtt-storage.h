@@ -113,6 +113,12 @@ int      myqtt_storage_queued_messages_offline (MyQttCtx   * ctx,
 int      myqtt_storage_queued_messages         (MyQttCtx   * ctx, 
 						MyQttConn  * conn);
 
+int      myqtt_storage_queued_messages_quota_offline   (MyQttCtx   * ctx, 
+							const char * client_identifier);
+
+int      myqtt_storage_queued_messages_quota   (MyQttCtx   * ctx, 
+						MyQttConn  * conn);
+
 void      myqtt_storage_queued_flush            (MyQttCtx   * ctx,
 						 MyQttConn  * conn);
 

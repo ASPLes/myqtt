@@ -41,6 +41,21 @@
 #include <myqtt-ctx-private.h>
 #include <dirent.h>
 
+int __myqtt_storage_strpos (MyQttCtx * ctx, const char * string, char item)
+{
+	int iterator = 0;
+	while (string && string[iterator]) {
+
+		if (string[iterator] == item)
+			return iterator;
+
+		/* next position */
+		iterator++;
+	}
+
+	return -1;
+}
+
 int __myqtt_storage_check (MyQttCtx * ctx, const char * client_identifier, axl_bool check_tp, const char * topic_filter)
 {
 	int topic_filter_len = 0;
@@ -1031,7 +1046,6 @@ axlPointer myqtt_storage_store_msg_offline (MyQttCtx      * ctx,
 	} /* end if */
 
 	/* message saved */
-
 	fclose (handle);
 	return full_path;	
 }
@@ -1331,6 +1345,8 @@ axl_bool      myqtt_storage_retain_msg_recover (MyQttCtx       * ctx,
  *
  * @param client_identifier The client identifier to select the right
  * local session according to its client identifier.
+ *
+ * @return Amount of messages stored on the provided client_identifier.
  */
 int      myqtt_storage_queued_messages_offline (MyQttCtx   * ctx, 
 						const char * client_identifier)
@@ -1398,6 +1414,9 @@ int      myqtt_storage_queued_messages_offline (MyQttCtx   * ctx,
  *
  * @param conn Connection reference to select the right local session
  * according to its client identifier.
+ *
+ * @return Number of queued messages associated to the client id
+ * running the provided connection or -1 if it fails
  */
 int      myqtt_storage_queued_messages         (MyQttCtx   * ctx, 
 						MyQttConn  * conn)
@@ -1406,6 +1425,102 @@ int      myqtt_storage_queued_messages         (MyQttCtx   * ctx,
 		return -1;
 
 	return myqtt_storage_queued_messages_offline (ctx, conn->client_identifier);
+}
+
+/** 
+ * @brief Allows to get current storage quota used by queued messages
+ * pending to be redelivered on next connection.
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param client_identifier The client identifier to select the right
+ * local session according to its client identifier.
+ *
+ * @return Quota used by the storage selected by the provided client_identifier.
+ */
+int      myqtt_storage_queued_messages_quota_offline   (MyQttCtx   * ctx, 
+							const char * client_identifier)
+{
+	char            * full_path;
+	DIR             * sub_dir;
+	int               count;
+	struct dirent   * entry;
+	int               pos;
+#if !defined(_DIRENT_HAVE_D_TYPE)
+	char            * aux_path;
+#endif
+
+	/* check input values:
+	 *
+	 * don't check here for (pkg_id > 65536) because we use values
+	 * over that to store QoS0 messages that do not need a valid
+	 * pkg_id but we need a different value to store them */
+	if (ctx == NULL || client_identifier == NULL || strlen (client_identifier) == 0)
+		return 0;
+
+	/* build path */
+	full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, "msgs", NULL);
+	if (! full_path) 
+		return 0;
+
+	/* open directory */
+	sub_dir = opendir (full_path);
+	if (sub_dir == NULL)  {
+		axl_free (full_path);
+		return 0;
+	} /* end if */
+	
+	/* count files inside messages directory */
+	count = 0;
+	entry = readdir (sub_dir);
+	while (entry) {
+#if defined(_DIRENT_HAVE_D_TYPE)
+		if ((entry->d_type & DT_REG) == DT_REG)  {
+			pos = __myqtt_storage_strpos (ctx, entry->d_name, '-');
+			printf ("ADDING: size %d (from %s, pos %d)\n", 
+				__myqtt_storage_get_size_from_file_name (ctx, entry->d_name + pos + 1, NULL), entry->d_name, pos);
+			count += __myqtt_storage_get_size_from_file_name (ctx, entry->d_name + pos + 1, NULL);
+		}
+#else 
+		aux_path = myqtt_support_build_filename (full_path, entry->d_name, NULL);
+		if (myqtt_support_file_test (aux_path, FILE_EXISTS | FILE_IS_REGULAR)) {
+			/* count subscriptions */
+			pos = __myqtt_storage_strpos (ctx, aux_path, '-');
+			printf ("ADDING: size %d (from %s, pos %d)\n", 
+				__myqtt_storage_get_size_from_file_name (ctx, aux_path + pos + 1, NULL), aux_path, pos);
+			count += __myqtt_storage_get_size_from_file_name (ctx, aux_path + pos + 1, NULL);
+		}
+		axl_free (aux_path);
+#endif
+
+		/* get next entry */
+		entry = readdir (sub_dir);
+	}
+	axl_free (full_path);
+
+	closedir (sub_dir);
+
+	return count;	
+}
+
+/** 
+ * @brief Allows to get current storage quota used by queued messages
+ * pending to be redelivered on next connection.
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param conn Connection reference to select the right local session
+ * according to its client identifier.
+ *
+ * @return Number of queued messages associated to the client id
+ * running the provided connection.
+ */
+int      myqtt_storage_queued_messages_quota   (MyQttCtx   * ctx, 
+						MyQttConn  * conn)
+{
+	if (conn == NULL)
+		return -1;
+	return myqtt_storage_queued_messages_quota_offline (ctx, conn->client_identifier);
 }
 
 void myqtt_storage_queued_flush_work (MyQttCtx * ctx, MyQttConn * conn)
