@@ -38,7 +38,14 @@
  */
 
 #include <myqttd.h>
+
+/* these includes are prohibited in a production ready code. They are
+   just used to check various internal aspects of the MyQtt
+   implementation. If you need your code to use them to work keep in
+   mind you are referencing internal structures and definition that
+   may change at any time */
 #include <myqttd-ctx-private.h>
+#include <myqtt-ctx-private.h>
 
 #ifdef AXL_OS_UNIX
 #include <signal.h>
@@ -953,7 +960,144 @@ axl_bool  test_06 (void) {
 	return axl_true;
 }
 
+MyQttPublishCodes test_07_handle_publish (MyQttdCtx * ctx,       MyQttdDomain * domain,  
+					  MyQttCtx  * myqtt_ctx, MyQttConn    * conn, 
+					  MyQttMsg  * msg,       axlPointer user_data)
+{
+	char * result;
+
+	printf ("Test --: received message on server (topic: %s)\n", myqtt_msg_get_topic (msg));
+	if (axl_cmp ("get-connections", myqtt_msg_get_topic (msg))) {
+		printf ("Test --: publish received on domain: %s\n", domain->name);
+
+		/* get current connections */
+		result = axl_strdup_printf ("%d", axl_list_length (myqtt_ctx->conn_list) + axl_list_length (myqtt_ctx->srv_list));
+
+		printf ("Test --: current connections are: %s\n", result);
+
+		if (! myqtt_conn_pub (conn, "get-connections", result, (int) strlen (result), MYQTT_QOS_0, axl_false, 0))
+			printf ("ERROR: failed to publish message in reply..\n");
+		axl_free (result);
+		return MYQTT_PUBLISH_DISCARD;
+	}
+
+	return MYQTT_PUBLISH_OK;
+}
+
+
 axl_bool  test_07 (void) {
+	
+	MyQttdCtx       * ctx;
+	MyQttCtx        * myqtt_ctx;
+	MyQttConn       * conns[50];
+	int               iterator;
+
+	/* call to init the base library and close it */
+	printf ("Test 07: init library and server engine (using test_02.conf)..\n");
+	ctx       = init_ctxd (NULL, "test_02.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	myqtt_ctx = init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+	
+	/* connect to test_01.context and create more than 5 connections */
+	printf ("Test 07: creating five connections..\n");
+	iterator = 0;
+	while (iterator < 5) {
+		conns[iterator] = myqtt_conn_new (myqtt_ctx, "test_02", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+		if (! myqtt_conn_is_ok (conns[iterator], axl_false)) {
+			printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+			return axl_false;
+		} /* end if */
+
+		/* next iterator */
+		iterator++;
+	} /* end while */
+
+	/* check connections */
+	myqttd_ctx_add_on_publish (ctx, test_07_handle_publish, NULL);
+
+	/* connect and send message */
+	printf ("Test 07: requesting number of connections remotely..\n");
+	if (! connect_send_and_check (NULL, 
+				      /* client id, user and password */
+				      "test_02", "user-test-02", "test1234", 
+				      /* we've got 6 connections because we have 5 plus the
+					 connection that is being requesting the get-connections */
+				      "get-connections", "", "6", MYQTT_QOS_0, axl_false)) {
+		printf ("Test --: unable to connect and send message...\n");
+		return axl_false;
+	} /* end if */
+	
+	/* check limits */
+	conns[iterator] = myqtt_conn_new (myqtt_ctx, "test_02", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (myqtt_conn_is_ok (conns[iterator], axl_false)) {
+		printf ("ERROR: it worked and it shouldn't...connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conns[iterator]);
+
+	iterator = 0;
+	while (iterator < 5) {
+		/* close connection */
+		myqtt_conn_close (conns[iterator]);
+		/* next iterator */
+		iterator++;
+	} /* end while */
+
+	/* connect to test_01.context and create more than 5 connections */
+	printf ("Test 07: creating 10 connections (standard sensting)..\n");
+	iterator = 0;
+	while (iterator < 10) {
+		conns[iterator] = myqtt_conn_new (myqtt_ctx, "test_04", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+		if (! myqtt_conn_is_ok (conns[iterator], axl_false)) {
+			printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+			return axl_false;
+		} /* end if */
+
+		/* next iterator */
+		iterator++;
+	} /* end while */
+
+	/* connect and send message */
+	printf ("Test 07: requesting number of connections remotely..\n");
+	if (! connect_send_and_check (NULL, 
+				      /* client id, user and password */
+				      "test_04", NULL, NULL,
+				      /* we've got 6 connections because we have 5 plus the
+					 connection that is being requesting the get-connections */
+				      "get-connections", "", "11", MYQTT_QOS_0, axl_false)) {
+		printf ("Test --: unable to connect and send message...\n");
+		return axl_false;
+	} /* end if */
+
+	/* check limits */
+	conns[iterator] = myqtt_conn_new (myqtt_ctx, "test_04", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (myqtt_conn_is_ok (conns[iterator], axl_false)) {
+		printf ("ERROR: it worked and it shouldn't...connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conns[iterator]);
+
+	iterator = 0;
+	while (iterator < 10) {
+		/* close connection */
+		myqtt_conn_close (conns[iterator]);
+		/* next iterator */
+		iterator++;
+	} /* end while */
+
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+	printf ("Test 07: finishing MyQttdCtx..\n");
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+	
 	
 	return axl_true;
 }

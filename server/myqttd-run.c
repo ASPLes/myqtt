@@ -40,6 +40,7 @@
 
 #include <myqttd.h>
 #include <myqttd-ctx-private.h>
+#include <myqtt-ctx-private.h>
 
 /** 
  * \defgroup myqttd_run MyQttd runtime: runtime checkings 
@@ -436,6 +437,9 @@ void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 	/* configure on publish msg */
 	myqtt_ctx_set_on_publish (domain->myqtt_ctx, __myqttd_run_on_publish_msg, domain);
 
+	/* get reference to the domain settings (if any) */
+	domain->settings = myqtt_hash_lookup (ctx->domain_settings, (axlPointer) domain->use_settings);
+
 	/* flag domain as initialized */
 	domain->initialized = axl_true;
 
@@ -492,6 +496,9 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 	const char   * client_id    = myqtt_conn_get_client_id (conn);
 	const char   * server_Name  = myqtt_conn_get_server_name (conn);
 
+	/* conn limits */
+	int            connections;
+
 	/* find the domain that can handle this connection */
 	domain = myqttd_domain_find_by_indications (ctx, conn, username, client_id, password, server_Name);
 	if (domain == NULL) {
@@ -500,9 +507,31 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 		return MYQTT_CONNACK_IDENTIFIER_REJECTED;
 	} /* end if */
 
+	if (domain->initialized && domain->use_settings) {
+		if (domain->settings) {
+			/* get current connections (plus 1, as we are simulating handling it) */
+			connections = axl_list_length (domain->myqtt_ctx->conn_list) + axl_list_length (domain->myqtt_ctx->srv_list) + 1;
+			/* msg ("Connections: %d/%d (%s -- %p)", connections, domain->settings->conn_limit,
+			   domain->use_settings, domain->settings); */
+
+			/* checking limits */
+			if (connections > domain->settings->conn_limit) {
+				wrn ("Connection rejected for username=%s client-id=%s server-name=%s domain=%s settings=%s : connection limit reached %d/%d",
+				     myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name), domain->name, 
+				     domain->use_settings, connections, domain->settings->conn_limit);
+				return MYQTT_CONNACK_REFUSED;
+			} /* end if */
+		} else {
+			/* report failure in configuration */
+			wrn ("Found domain %s with settings configured %s but it wasn't found (did you miss to define it or to point to it properly)",
+			     domain->name, domain->use_settings);
+		} /* end if */
+	} /* end if */
+
 	/* reached this point, the connecting user is enabled and authenticated */
 	msg ("Connection accepted for username=%s client-id=%s server-name=%s : selected domain=%s",
 	     myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name), domain->name);
+	
 
 	/* activate domain to have it working */
 	if (! myqttd_run_send_connection_to_domain (ctx, conn, domain)) {
