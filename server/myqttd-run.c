@@ -399,6 +399,24 @@ MyQttPublishCodes __myqttd_run_on_publish_msg (MyQttCtx * myqtt_ctx, MyQttConn *
 	return MYQTT_PUBLISH_OK; /* allow publish */
 }
 
+axl_bool __myqttd_run_on_header_msg (MyQttCtx * myqtt_ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _domain)
+{
+	MyQttdDomain        * domain   = _domain;
+	MyQttdCtx           * ctx      = domain->ctx;
+	
+	/* check if domain has settings and message limit */
+	if (domain->initialized && domain->use_settings) {
+		if (domain->settings && domain->settings->message_size_limit > 0) {
+			if (myqtt_msg_get_payload_size (msg) > domain->settings->message_size_limit) {
+				error ("Message size limit exceeded (%d > %d) : closing connection", myqtt_msg_get_payload_size (msg), domain->settings->message_size_limit);
+				return axl_false; /* avoid message reception and close connection */
+			} /* end if */
+		} /* end if */
+	} /* end if */
+
+	return axl_true; /* report message accepted */
+}
+
 void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 {
 	if (domain->initialized)
@@ -436,6 +454,9 @@ void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 
 	/* configure on publish msg */
 	myqtt_ctx_set_on_publish (domain->myqtt_ctx, __myqttd_run_on_publish_msg, domain);
+
+	/* configure on header msg */
+	myqtt_ctx_set_on_header (domain->myqtt_ctx, __myqttd_run_on_header_msg, domain);
 
 	/* get reference to the domain settings (if any) */
 	domain->settings = myqtt_hash_lookup (ctx->domain_settings, (axlPointer) domain->use_settings);

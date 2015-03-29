@@ -134,6 +134,7 @@ myqtt_ctx_set_data_full
 myqtt_ctx_set_idle_handler
 myqtt_ctx_set_on_connect
 myqtt_ctx_set_on_finish
+myqtt_ctx_set_on_header
 myqtt_ctx_set_on_msg
 myqtt_ctx_set_on_publish
 myqtt_ctx_unref

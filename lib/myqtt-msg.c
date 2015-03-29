@@ -714,6 +714,16 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	/* update message size */
 	msg->size = remaining;
 
+	if (ctx->on_header) {
+		/* call defined on header */
+		if (! ctx->on_header (ctx, connection, msg, ctx->on_header_data)) {
+			myqtt_conn_report_and_close (connection, "On header rejected message, closing connection");
+			axl_free (msg);
+			return NULL;
+		} /* end if */
+		/* message accepted by on header */
+	} /* end if */
+
 	/* acquire a reference to the context */
 	myqtt_ctx_ref2 (ctx, "new msg");
 

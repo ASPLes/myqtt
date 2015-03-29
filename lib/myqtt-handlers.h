@@ -82,6 +82,8 @@ typedef void (*MyQttListenerReady)           (const char   * host,
  * @brief Async notification handler called to notify a new message
  * received (\ref MyQttMsg) due to a PUBLISH packet.
  *
+ * @param ctx The context where the operation is taking place.
+ *
  * @param conn The connection where the application message was received.
  *
  * @param msg The message received. This reference is stable during
@@ -92,10 +94,35 @@ typedef void (*MyQttListenerReady)           (const char   * host,
  *
  * @param user_data User pointer passed in into the function.
  */
-typedef void (*MyQttOnMsgReceived) (MyQttConn * conn,
+typedef void (*MyQttOnMsgReceived) (MyQttCtx  * ctx,
+				    MyQttConn * conn,
 				    MyQttMsg  * msg, 
 				    axlPointer  user_data);
 
+/** 
+ * @brief Async notification handler called when the message header is
+ * received (and before receiving the rest of the message).
+ *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param conn The connection where the operation is taking place.
+ *
+ * @param msg The message that contains hearder information. Keep in
+ * mind that this reference is still not well defined (for example, it
+ * doesn't have the entire message yet, but it contains all the header
+ * indications like type, qos, dup, retain and size.
+ *
+ * @param user_data User data pointer defined at the time this handler was configured.
+ *
+ * @return axl_true to allow accepting the message. Return axl_false
+ * to cause the message to be not accepted and to close the connection
+ * that sent the message (there is no way to communicate sending party
+ * that the message is not going to be accepted).
+ */
+typedef axl_bool (*MyQttOnHeaderReceived) (MyQttCtx * ctx,
+					   MyQttConn * conn,
+					   MyQttMsg  * msg, 
+					   axlPointer  user_data);
 
 /** 
  * @brief Async notification for connection creation process.

@@ -237,6 +237,10 @@ struct _MyQttCtx {
 	MyQttOnMsgReceived          on_msg;
 	axlPointer                  on_msg_data;
 
+	/** on header */
+	MyQttOnHeaderReceived       on_header;
+	axlPointer                  on_header_data;
+
 	/*** hash of subscriptions ***/
 	/* subs is a hash where key is the topic filter and it points
 	 * to a hash that contains the connection = > qos:

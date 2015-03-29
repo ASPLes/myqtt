@@ -1306,9 +1306,9 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	if (conn->role == MyQttRoleInitiator) {
 		/* call to notify message */
 		if (conn->on_msg)
-			conn->on_msg (conn, msg, conn->on_msg_data);
+			conn->on_msg (ctx, conn, msg, conn->on_msg_data);
 		else if (ctx->on_msg)
-			ctx->on_msg (conn, msg, ctx->on_msg_data);
+			ctx->on_msg (ctx, conn, msg, ctx->on_msg_data);
 		return;
 	} /* end if */
 

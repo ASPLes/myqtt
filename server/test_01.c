@@ -131,7 +131,7 @@ axl_bool  test_00 (void) {
 	return axl_true;
 }
 
-void queue_message_received (MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+void queue_message_received (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 {
 	MyQttAsyncQueue * queue = user_data;
 
@@ -142,7 +142,7 @@ void queue_message_received (MyQttConn * conn, MyQttMsg * msg, axlPointer user_d
 	return;
 } 
 
-void queue_message_received_only_one (MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+void queue_message_received_only_one (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 {
 	MyQttAsyncQueue * queue = user_data;
 
@@ -577,7 +577,7 @@ axl_bool send_msg (MyQttConn * conn, const char * topic, const char * message, M
 	return myqtt_conn_pub (conn, topic, (const axlPointer) message, strlen (message), qos, axl_false, 0);
 }
 
-void configure_reception_queue_received (MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+void configure_reception_queue_received (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 {
 	MyQttAsyncQueue * queue = user_data;
 
@@ -929,7 +929,7 @@ axl_bool  test_06 (void) {
 
 	printf ("Test --: check basic settings\n");
 	if (setting->conn_limit != 5 ||
-	    setting->message_size_limit != 32768 ||
+	    setting->message_size_limit != 256 ||
 	    setting->storage_messages_limit != 10000 ||
 	    setting->storage_quota_limit != 102400) {
 		printf ("ERROR: expected different values (basic)...\n");
@@ -1102,6 +1102,72 @@ axl_bool  test_07 (void) {
 	return axl_true;
 }
 
+axl_bool  test_08 (void) {
+	
+	MyQttdCtx       * ctx;
+	MyQttCtx        * myqtt_ctx;
+	MyQttConn       * conn;
+	MyQttAsyncQueue * queue;
+	const char      * message;
+	int               sub_result;
+
+	/* call to init the base library and close it */
+	printf ("Test 08: init library and server engine (using test_02.conf)..\n");
+	ctx       = init_ctxd (NULL, "test_02.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	myqtt_ctx = init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+	
+	/* connect to test_01.context and create more than 5 connections */
+	printf ("Test 08: attempting to send a message bigger than configured allowed sizes\n");
+	conn = myqtt_conn_new (myqtt_ctx, "test_02", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* subscribe to the topic to get notifications */
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */	
+
+	/* configure asyncqueue reception */
+	queue  = configure_reception (conn);
+
+	message = "ksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jy";
+
+	if (! myqtt_conn_pub (conn, "myqtt/test", (axlPointer) message, (int) strlen (message), MYQTT_QOS_0, axl_false, 0))
+		printf ("ERROR: failed to publish message in reply..\n");
+
+	printf ("Test --: we shouldn't receive a totification for this message (waiting 3 seconds)\n");
+	if (myqtt_async_queue_timedpop (queue, 3000000)) {
+		printf ("Test --: expected to not receive any message over this connection..\n");
+		return axl_false;
+	}
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
+	myqtt_async_queue_unref (queue);
+
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+	printf ("Test 08: finishing MyQttdCtx..\n");
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+	
+	return axl_true;
+}
+
+
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -1211,11 +1277,13 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_07")
 	run_test (test_07, "Test 07: testing connection limits to a domain");
 
-	/* test connection limits to a domain */
-
-	/* test message limits to a domain */
+	CHECK_TEST("test_08")
+	run_test (test_08, "Test 08: test message size limit to a domain");
 
 	/* test message size limit to a domain */
+
+	/* test message limits to a domain (it must reset day by day,
+	   month by month) */
 
 	/* test message global quota limit to a domain */
 

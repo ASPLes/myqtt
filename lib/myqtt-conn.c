@@ -4655,7 +4655,7 @@ void __myqtt_conn_get_next_on_close (MyQttConn * conn, axlPointer data)
 	return;
 }
 
-void __myqtt_conn_queue_msgs (MyQttConn * conn, MyQttMsg * msg, axlPointer data)
+void __myqtt_conn_queue_msgs (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer data)
 {
 	MyQttAsyncQueue * queue = data;
 
