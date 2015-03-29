@@ -700,7 +700,7 @@ axl_bool test_02 (void) {
 	return axl_true;
 }
 
-void test_03_on_message (MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+void test_03_on_message (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 {
 	MyQttAsyncQueue * queue = user_data;
 
@@ -710,7 +710,7 @@ void test_03_on_message (MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 	return;
 } 
 
-void test_03_fail (MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+void test_03_fail (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 {
 	printf ("ERROR: this handler shouldn't be called because this connection has no subscriptions..\n");
 	return;
@@ -1095,13 +1095,13 @@ axl_bool test_07 (void) {
 	return axl_true;
 }
 
-void test_08_should_not_receive (MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+void test_08_should_not_receive (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 {
 	printf ("ERROR: received a message on a handler that shouldn't have been called\n");
 	return;
 }
 
-void test_08_should_receive (MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+void test_08_should_receive (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 {
 
 	printf ("Test 08: received will..\n");

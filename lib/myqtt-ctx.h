@@ -67,6 +67,10 @@ void        myqtt_ctx_set_on_msg                (MyQttCtx             * ctx,
 						 MyQttOnMsgReceived     on_msg,
 						 axlPointer             on_msg_data);
 
+void        myqtt_ctx_set_on_header             (MyQttCtx               * ctx,
+						 MyQttOnHeaderReceived    on_header,
+						 axlPointer               on_header_data);
+
 void        myqtt_ctx_set_idle_handler          (MyQttCtx                       * ctx,
 						 MyQttIdleHandler                 idle_handler,
 						 long                              max_idle_period,
