@@ -1280,12 +1280,10 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_08")
 	run_test (test_08, "Test 08: test message size limit to a domain");
 
-	/* test message size limit to a domain */
+	/* test message global quota limit to a domain */
 
 	/* test message limits to a domain (it must reset day by day,
 	   month by month) */
-
-	/* test message global quota limit to a domain */
 
 	/* test message filtering (by topic and by message) (it contains, it is equal) */
 

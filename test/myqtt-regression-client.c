@@ -1794,6 +1794,7 @@ axl_bool test_14 (void) {
 	int               iterator;
 	int               sub_result;
 	MyQttAsyncQueue * queue; 
+	int               value;
 
 	if (! ctx)
 		return axl_false;
@@ -1821,6 +1822,13 @@ axl_bool test_14 (void) {
 	if (myqtt_storage_queued_messages_offline (ctx, "test14@identifier.com") != 3) {
 		printf ("ERROR: expected to find 3 queued messages (waiting to be sent on next connection..) but found: %d..\n", 
 			myqtt_storage_queued_messages_offline (ctx, "test14@identifier.com"));
+		return axl_false;
+	}
+
+	/* get quota used */
+	value = myqtt_storage_queued_messages_quota_offline (ctx, "test14@identifier.com");
+	if (value != 204) {
+		printf ("ERROR: expected to find different quota size, but found: %d\n", value);
 		return axl_false;
 	}
 
