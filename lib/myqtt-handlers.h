@@ -692,6 +692,54 @@ typedef axl_bool (*MyQttSessionSetup) (MyQttCtx * ctx, MyQttConn * conn, MyQttCo
  * operation time.
  */
 typedef void (*MyQttConnUnwatch) (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_data);
+
+/** 
+ * @brief Optional handler that is called by the engine to allow or
+ * deny storing the provided message.
+ *
+ * @param ctx The context where the operation is taking place.
+ *
+ * @param client_identifier The client identifier for which the
+ * message is being stored.
+ *
+ * @param packet_id The packet id associated to the message stored.
+ *
+ * @param qos The QoS for the message stored.
+ *
+ * @param app_msg_size The message size to be stored.
+ *
+ * @param app_msg The message requested to be stored.
+ *
+ * @return axl_true to allow message to be stored otherwise, axl_false
+ * must be returned to deny it.
+ */
+typedef axl_bool (*MyQttOnStoreMsg) (MyQttCtx * ctx, const char * client_identifier, 
+				     int packet_id, MyQttQos qos, 
+				     unsigned char * app_msg, int app_msg_size);
+
+/** 
+ * @brief Optional handler that is called by the engine to notify a
+ * message is being released.
+ *
+ * @param ctx The context where the operation is taking place.
+ *
+ * @param client_identifier The client identifier for which the
+ * message is being stored.
+ *
+ * @param packet_id The packet id associated to the message stored.
+ *
+ * @param qos The QoS for the message stored.
+ *
+ * @param app_msg The message requested to be stored.
+ *
+ * @param app_msg_size The message size to be stored.
+ *
+ * @return axl_true to allow message to be stored otherwise, axl_false
+ * must be returned to deny it.
+ */
+typedef void  (*MyQttOnReleaseMsg) (MyQttCtx * ctx, const char * client_identifier,
+				    int packaet_id, MyQttQos qos,
+				    unsigned char * app_msg, int app_msg_size);
 				      
 #endif
 

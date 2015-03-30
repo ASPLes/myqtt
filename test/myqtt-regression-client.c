@@ -1830,7 +1830,7 @@ axl_bool test_14 (void) {
 	if (value != 204) {
 		printf ("ERROR: expected to find different quota size, but found: %d\n", value);
 		return axl_false;
-	}
+	} /* end if */
 
 	/* now connect with a different client id and subscribe to previous messages */
 	/* client_identifier -> "test13@identifier.com", clean_session -> axl_false */

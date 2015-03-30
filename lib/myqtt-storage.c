@@ -1015,6 +1015,12 @@ axlPointer myqtt_storage_store_msg_offline (MyQttCtx      * ctx,
 	if (ctx == NULL || client_identifier == NULL || strlen (client_identifier) == 0 || packet_id < 0 || app_msg_size <= 0 || app_msg == NULL)
 		return NULL;
 
+	if (ctx->on_store) {
+		/* call to check if we can store the message */
+		if (! ctx->on_store (ctx, client_identifier, packet_id, qos, app_msg, app_msg_size))
+			return NULL;
+	} /* end if */
+
 	/* call to init message store */
 	if (! myqtt_storage_init_offline (ctx, client_identifier, MYQTT_STORAGE_MSGS))
 		return NULL;
@@ -1086,11 +1092,23 @@ axlPointer myqtt_storage_store_msg   (MyQttCtx * ctx, MyQttConn * conn, int pack
  *
  * @param handle Reference to the message as returned by \ref myqtt_storage_store_msg
  *
+ * @param app_msg The application message to be released.
+ *
+ * @param app_msg_size Application message size to be released.
+ *
  * @return axl_true if the message was successfully stored, otherwise
  * axl_false is returned.
  */
-axl_bool myqtt_storage_release_msg   (MyQttCtx * ctx, MyQttConn * conn, axlPointer handle)
+axl_bool myqtt_storage_release_msg   (MyQttCtx      * ctx, 
+				      MyQttConn     * conn, 
+				      axlPointer      handle,
+				      unsigned char * app_msg,
+				      int             app_msg_size)
 {
+	MyQttQos qos;
+	int      packet_id;
+	int      pos;
+
 	/* check input values */
 	if (ctx == NULL || conn == NULL)
 		return axl_false;
@@ -1101,6 +1119,23 @@ axl_bool myqtt_storage_release_msg   (MyQttCtx * ctx, MyQttConn * conn, axlPoint
 
 	/* release the message */
 	if (handle) {
+		/* check and call on release message */
+		if (ctx->on_release) {
+			/* get packet id */
+			packet_id = __myqtt_storage_get_size_from_file_name (ctx, handle, NULL);
+			pos       = __myqtt_storage_strpos (ctx, handle, '-');
+
+			/* get next post to skip over app msg size */
+			pos       = __myqtt_storage_strpos (ctx, handle + pos + 1, '-');
+
+			/* get qos */
+			qos       = __myqtt_storage_get_size_from_file_name (ctx, handle + pos + 1, NULL);
+
+			/* call to notify release */
+			ctx->on_release (ctx, conn->client_identifier, packet_id, qos, app_msg, app_msg_size);
+
+		} /* end if */
+
 		unlink ((const char *) handle);
 		axl_free ((char *) handle);
 	} /* end if */
@@ -1477,8 +1512,6 @@ int      myqtt_storage_queued_messages_quota_offline   (MyQttCtx   * ctx,
 #if defined(_DIRENT_HAVE_D_TYPE)
 		if ((entry->d_type & DT_REG) == DT_REG)  {
 			pos = __myqtt_storage_strpos (ctx, entry->d_name, '-');
-			printf ("ADDING: size %d (from %s, pos %d)\n", 
-				__myqtt_storage_get_size_from_file_name (ctx, entry->d_name + pos + 1, NULL), entry->d_name, pos);
 			count += __myqtt_storage_get_size_from_file_name (ctx, entry->d_name + pos + 1, NULL);
 		}
 #else 
@@ -1486,8 +1519,6 @@ int      myqtt_storage_queued_messages_quota_offline   (MyQttCtx   * ctx,
 		if (myqtt_support_file_test (aux_path, FILE_EXISTS | FILE_IS_REGULAR)) {
 			/* count subscriptions */
 			pos = __myqtt_storage_strpos (ctx, aux_path, '-');
-			printf ("ADDING: size %d (from %s, pos %d)\n", 
-				__myqtt_storage_get_size_from_file_name (ctx, aux_path + pos + 1, NULL), aux_path, pos);
 			count += __myqtt_storage_get_size_from_file_name (ctx, aux_path + pos + 1, NULL);
 		}
 		axl_free (aux_path);

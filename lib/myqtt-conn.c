@@ -1934,7 +1934,7 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 		/* only release message if it was stored */
 		if (! skip_storage) {
 			/* release message */
-			myqtt_storage_release_msg (ctx, conn, handle);
+			myqtt_storage_release_msg (ctx, conn, handle, msg, size);
 			handle = NULL; /* nullify handle now we have
 					* released message stored */
 		} /* end if */
@@ -1968,16 +1968,18 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 				   reply, reply ? myqtt_msg_get_type_str (reply) : "UNKNOWN", reply ? reply->packet_id : -1, packet_id);
 			result = axl_false; /* signal that publication didn't work */
 		} /* end if */
+
+		/* release reply */
 		myqtt_msg_unref (reply);
 
 		/* in any case, remove message from local storage */
 		if (! skip_storage) {
 			/* release message */
-			myqtt_storage_release_msg (ctx, conn, handle);
+			myqtt_storage_release_msg (ctx, conn, handle, msg, size);
 			handle = NULL; /* nullify handle now we have
 					* released message stored */
 		} /* end if */
-		
+
 		/* check status to not continue in case of failure */
 		if (! result) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to continue with QoS2 publication, PUBREC failed");
@@ -2036,7 +2038,7 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 
 	if (! skip_storage) {
 		/* release message */
-		myqtt_storage_release_msg (ctx, conn, handle);
+		myqtt_storage_release_msg (ctx, conn, handle, msg, size);
 	} /* end if */
 	
 	/* report final result */

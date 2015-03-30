@@ -137,6 +137,7 @@ myqtt_ctx_set_on_finish
 myqtt_ctx_set_on_header
 myqtt_ctx_set_on_msg
 myqtt_ctx_set_on_publish
+myqtt_ctx_set_on_store
 myqtt_ctx_unref
 myqtt_ctx_unref2
 myqtt_errno_get_error
