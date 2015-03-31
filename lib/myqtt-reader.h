@@ -85,11 +85,15 @@ void               myqtt_reader_foreach_offline (MyQttCtx           * ctx,
 
 void               myqtt_reader_restart (MyQttCtx * ctx);
 
+
+/*** private API ***/
 void               __myqtt_reader_subscribe (MyQttCtx   * ctx, 
 					     const char * client_identifier,
 					     MyQttConn  * conn, 
 					     char       * topic_filter, 
 					     MyQttQos     qos,
 					     axl_bool     __is_offline);
+
+void __myqtt_reader_move_offline_to_online  (MyQttCtx * ctx, MyQttConn * conn);
 
 #endif

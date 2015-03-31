@@ -56,6 +56,7 @@
 
 /* local include */
 #include <myqttd-ctx-private.h>
+#include <myqtt-ctx-private.h>
 
 #if defined(__COMPILING_MYQTTD__) && defined(__GNUC__)
 /* make happy gcc compiler */
@@ -165,6 +166,10 @@ axl_bool  myqttd_init (MyQttdCtx   * ctx,
 		msg2 ("creating a new myqtt context because a null value was received..");
 		myqtt_ctx = myqtt_ctx_new ();
 	} /* end if */
+
+	/* configure skip storage initialization because this handled
+	   at every domain */
+	myqtt_ctx->skip_storage_init = axl_true;
 
 	/* check if the context is not started, and start it */
 	if (! myqtt_init_check (myqtt_ctx)) {

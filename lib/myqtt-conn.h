@@ -230,8 +230,8 @@ axl_bool            myqtt_conn_set_sock_block         (MYQTT_SOCKET socket,
 							      axl_bool      enable);
 
 void                myqtt_conn_set_data               (MyQttConn * conn,
-							const char       * key,
-							axlPointer         value);
+						       const char       * key,
+						       axlPointer         value);
 
 void                myqtt_conn_set_data_full          (MyQttConn * conn,
 						       char             * key,

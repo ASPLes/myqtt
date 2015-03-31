@@ -260,13 +260,16 @@ axl_bool __myqtt_reader_check_client_id (MyQttCtx * ctx, MyQttConn * conn, MyQtt
 
 	/* init storage if it has session */
 	if (! conn->clean_session) {
-		if (! myqtt_storage_init (ctx, conn, MYQTT_STORAGE_ALL)) {
-			/* client id found, reject it */
-			(*response) = MYQTT_CONNACK_SERVER_UNAVAILABLE;
-
-			myqtt_mutex_unlock (&ctx->client_ids_m);
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to init storage service for provided client identifier '%s', unable to accept connection", conn->client_identifier);
-			return axl_false; /* reject CONNECT */
+		/* skip storage init if flagged */
+		if (! ctx->skip_storage_init) {
+			if (! myqtt_storage_init (ctx, conn, MYQTT_STORAGE_ALL)) {
+				/* client id found, reject it */
+				(*response) = MYQTT_CONNACK_SERVER_UNAVAILABLE;
+				
+				myqtt_mutex_unlock (&ctx->client_ids_m);
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to init storage service for provided client identifier '%s', unable to accept connection", conn->client_identifier);
+				return axl_false; /* reject CONNECT */
+			} /* end if */
 		} /* end if */
 	} /* end if */
 
@@ -486,18 +489,17 @@ connect_send_reply:
 
 	/* session recovery: connection accepted, if it has session recover */
 	if (! conn->clean_session && response == MYQTT_CONNACK_ACCEPTED) {
-		/* move subscriptions from offline to online */
-		if (! myqtt_storage_session_recover (ctx, conn)) {
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to recover session for the provided connection, unable to accept connection");
-			response = MYQTT_CONNACK_SERVER_UNAVAILABLE;
-		} else {
-			
-			/* session recovered, now remove offline subscriptions */
-			__myqtt_reader_move_offline_to_online (ctx, conn);
-
+		if (! ctx->skip_storage_init) {
+			/* move subscriptions from offline to online */
+			if (! myqtt_storage_session_recover (ctx, conn)) {
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to recover session for the provided connection, unable to accept connection");
+				response = MYQTT_CONNACK_SERVER_UNAVAILABLE;
+			} else {
+				/* session recovered, now remove offline subscriptions */
+				__myqtt_reader_move_offline_to_online (ctx, conn);
+				
+			} /* end if */
 		} /* end if */
-
-
 	} /* end if */
 
 	/* rest of cases, reply with the response */
@@ -1903,6 +1905,8 @@ void       __myqtt_reader_remove_conn_from_hash (MyQttConn * conn, axlHashCursor
 		topic_filter = axl_hash_cursor_get_key (cursor);
 		if (! topic_filter) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to find topic filter value but found NULL [internal engine error]");
+			/* get next */
+			axl_hash_cursor_next (cursor);
 			continue;
 		} /* end if */
 		
@@ -1911,6 +1915,8 @@ void       __myqtt_reader_remove_conn_from_hash (MyQttConn * conn, axlHashCursor
 		if (! sub_hash) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to find connection hash under the topic %s but found NULL reference [internal engine error]..", 
 				   topic_filter);
+			/* get next */
+			axl_hash_cursor_next (cursor);
 			continue;
 		} /* end if */
 

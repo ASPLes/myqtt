@@ -75,6 +75,10 @@ void        myqtt_ctx_set_on_store              (MyQttCtx               * ctx,
 						 MyQttOnStoreMsg          on_store,
 						 axlPointer               on_store_data);
 
+void        myqtt_ctx_set_on_release            (MyQttCtx               * ctx,
+						 MyQttOnReleaseMsg        on_release,
+						 axlPointer               on_release_data);
+
 void        myqtt_ctx_set_idle_handler          (MyQttCtx                       * ctx,
 						 MyQttIdleHandler                 idle_handler,
 						 long                              max_idle_period,

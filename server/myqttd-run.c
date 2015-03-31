@@ -41,6 +41,7 @@
 #include <myqttd.h>
 #include <myqttd-ctx-private.h>
 #include <myqtt-ctx-private.h>
+#include <myqtt-conn-private.h>
 
 /** 
  * \defgroup myqttd_run MyQttd runtime: runtime checkings 
@@ -417,8 +418,78 @@ axl_bool __myqttd_run_on_header_msg (MyQttCtx * myqtt_ctx, MyQttConn * conn, MyQ
 	return axl_true; /* report message accepted */
 }
 
+axl_bool __myqttd_run_on_store_msg (MyQttCtx * myqtt_ctx, MyQttConn * conn, 
+				    const char * client_identifier, 
+				    int packet_id, MyQttQos qos, 
+				    unsigned char * app_msg, int app_msg_size, axlPointer _domain)
+{
+	MyQttdDomain        * domain   = _domain;
+	MyQttdCtx           * ctx      = domain->ctx;
+	int                   value    = 0;
+	char                * key;
+	
+	/* check if domain has settings and message limit */
+	if (domain->initialized && domain->use_settings) {
+		if (domain->settings && domain->settings->storage_quota_limit > 0) {
+
+			key   = axl_strdup_printf ("%s_str:qt", client_identifier);
+			value = PTR_TO_INT (myqtt_conn_get_data (conn, key));
+
+			/* get current storage quota used */
+			if (value == 0) 
+				value = myqtt_storage_queued_messages_quota_offline (myqtt_ctx, client_identifier);
+			if (value + app_msg_size > domain->settings->storage_quota_limit) {
+				error ("Quota exceeded (%d > %d) : rejecting storing message for %s",
+				       value + app_msg_size, domain->settings->storage_quota_limit);
+				return axl_false;
+			} /* end if */
+
+			/* save values */
+			value += app_msg_size;
+			myqtt_conn_set_data_full (conn, key, INT_TO_PTR (value), axl_free, NULL);
+			
+			/* store operation allowed */
+		} /* end if */
+	} /* end if */
+
+	return axl_true; /* store operation allowed */
+}
+
+void __myqttd_run_on_release_msg (MyQttCtx * myqtt_ctx, MyQttConn * conn, 
+				  const char * client_identifier, 
+				  int packet_id, MyQttQos qos, 
+				  unsigned char * app_msg, int app_msg_size, axlPointer _domain)
+{
+	MyQttdDomain        * domain   = _domain;
+	int                   value    = 0;
+	char                * key;
+	
+	/* check if domain has settings and message limit */
+	if (domain->initialized && domain->use_settings) {
+		if (domain->settings && domain->settings->storage_quota_limit > 0) {
+
+			/* get key and value */
+			key   = axl_strdup_printf ("%s_str:qt", client_identifier);
+			value = PTR_TO_INT (myqtt_conn_get_data (conn, key));
+
+			/* get current storage quota used */
+			value = myqtt_storage_queued_messages_quota_offline (myqtt_ctx, client_identifier);
+
+			/* save values */
+			value -= app_msg_size;
+			myqtt_conn_set_data_full (conn, key, INT_TO_PTR (value), axl_free, NULL);
+			
+			/* release operation accounted */
+		} /* end if */
+	} /* end if */
+
+	return;
+}
+
 void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 {
+	int subs;
+
 	if (domain->initialized)
 		return;
 
@@ -441,6 +512,7 @@ void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 		myqtt_color_log_enable (domain->myqtt_ctx, axl_true);
 
 	/* configure storage path */
+	msg ("Setting storage path=%s for domain=%s", domain->storage_path, domain->name);
 	if (! myqtt_storage_set_path (domain->myqtt_ctx, domain->storage_path, 4096)) {
 		error ("Unable to configure storage path at %s, myqtt_storage_set_path failed", domain->storage_path);
 		myqtt_exit_ctx (domain->myqtt_ctx, axl_true);
@@ -450,13 +522,19 @@ void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 
 	/* call to load local storage first (before an incoming
 	 * connection) */
-	myqtt_storage_load (domain->myqtt_ctx);
+	msg ("Loading storage myqtt_ctx=%p", domain->myqtt_ctx);
+	subs = myqtt_storage_load (domain->myqtt_ctx);
+	msg ("Finished, found %d client ids recovered...", subs);
 
 	/* configure on publish msg */
 	myqtt_ctx_set_on_publish (domain->myqtt_ctx, __myqttd_run_on_publish_msg, domain);
 
 	/* configure on header msg */
 	myqtt_ctx_set_on_header (domain->myqtt_ctx, __myqttd_run_on_header_msg, domain);
+
+	/* configure store and release */
+	myqtt_ctx_set_on_store (domain->myqtt_ctx, __myqttd_run_on_store_msg, domain);
+	myqtt_ctx_set_on_release (domain->myqtt_ctx, __myqttd_run_on_release_msg, domain);
 
 	/* get reference to the domain settings (if any) */
 	domain->settings = myqtt_hash_lookup (ctx->domain_settings, (axlPointer) domain->use_settings);
@@ -467,9 +545,9 @@ void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 	return;
 }
 
-void myqttd_run_watch_after_unwatch (MyQttCtx * ctx, MyQttConn * conn, axlPointer ptr)
+void myqttd_run_watch_after_unwatch (MyQttCtx * _ctx, MyQttConn * conn, axlPointer ptr)
 {
-	MyQttdDomain * domain = ptr;
+	MyQttdDomain * domain     = ptr;
 
 	/* register the connection into the new handler */
 	myqtt_reader_watch_connection (domain->myqtt_ctx, conn);
@@ -477,7 +555,11 @@ void myqttd_run_watch_after_unwatch (MyQttCtx * ctx, MyQttConn * conn, axlPointe
 	return;
 }
 
-axl_bool myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttConn * conn, MyQttdDomain * domain) {
+MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttConn * conn, 
+							MyQttCtx  * myqtt_ctx, MyQttdDomain * domain,
+							const char * username, const char * client_id, const char * server_Name) {
+
+	int connections;
 
 	/* ensure context is initialized */
 	if (! domain->initialized) {
@@ -496,38 +578,9 @@ axl_bool myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttConn * conn
 	} /* end if */
 
 	if (! domain->initialized) 
-		return axl_false;
+		return MYQTT_CONNACK_SERVER_UNAVAILABLE;
 
-	/* un register this connection from current reader */
-	myqtt_reader_unwatch_connection (ctx->myqtt_ctx, conn, myqttd_run_watch_after_unwatch, domain);
-
-	/* enable domain and send connection in an async manner */
-	return axl_true;
-}
-
-
-MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn * conn, axlPointer user_data)
-{
-	MyQttdDomain * domain;
-	MyQttdCtx    * ctx = user_data;
-
-	/* check support for auth operations */
-	const char   * username     = myqtt_conn_get_username (conn);
-	const char   * password     = myqtt_conn_get_password (conn);
-	const char   * client_id    = myqtt_conn_get_client_id (conn);
-	const char   * server_Name  = myqtt_conn_get_server_name (conn);
-
-	/* conn limits */
-	int            connections;
-
-	/* find the domain that can handle this connection */
-	domain = myqttd_domain_find_by_indications (ctx, conn, username, client_id, password, server_Name);
-	if (domain == NULL) {
-		error ("Login failed for username=%s client-id=%s server-name=%s : no domain was found to handle request",
-		       myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name));
-		return MYQTT_CONNACK_IDENTIFIER_REJECTED;
-	} /* end if */
-
+	/*** PHASE 1: check connections to the domain ***/
 	if (domain->initialized && domain->use_settings) {
 		if (domain->settings) {
 			/* get current connections (plus 1, as we are simulating handling it) */
@@ -549,17 +602,84 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 		} /* end if */
 	} /* end if */
 
+	/*** PHASE 2: init session storage for the connection (if any) ***/
+	/* init storage if it has session */
+	if (! conn->clean_session) {
+		if (! myqtt_storage_init (domain->myqtt_ctx, conn, MYQTT_STORAGE_ALL)) {
+			error ("Unable to init storage service for provided client identifier '%s', unable to accept connection", conn->client_identifier);
+			return MYQTT_CONNACK_SERVER_UNAVAILABLE;
+		} /* end if */
+
+		if (! myqtt_storage_session_recover (domain->myqtt_ctx, conn)) {
+			error ("Failed to recover session for the provided connection, unable to accept connection");
+			return MYQTT_CONNACK_SERVER_UNAVAILABLE;
+		} /* end if */
+
+		/* session recovered, now remove offline subscriptions */
+		__myqtt_reader_move_offline_to_online (domain->myqtt_ctx, conn);
+	} /* end if */
+
+	/*** PHASE 3: update client id hashes ***/
+	/* register client identifier */
+	myqtt_mutex_lock (&domain->myqtt_ctx->client_ids_m);
+	if (axl_hash_get (domain->myqtt_ctx->client_ids, conn->client_identifier)) {
+		/* client id found, reject it */
+		myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
+		error ("Rejected CONNECT request because client id %s is already in use, denying connect", conn->client_identifier);
+		return MYQTT_CONNACK_IDENTIFIER_REJECTED;
+	} /* end if */
+
+	axl_hash_insert_full (domain->myqtt_ctx->client_ids, 
+			      axl_strdup (conn->client_identifier), axl_free,
+			      conn, NULL);
+	myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
+
+	/* remove registry from parent context */
+	myqtt_mutex_lock (&myqtt_ctx->client_ids_m);
+	axl_hash_remove (myqtt_ctx->client_ids, conn->client_identifier);
+	myqtt_mutex_unlock (&myqtt_ctx->client_ids_m);
+
+	/* un register this connection from current reader */
+	myqtt_reader_unwatch_connection (ctx->myqtt_ctx, conn, myqttd_run_watch_after_unwatch, domain);
+
+	/* enable domain and send connection in an async manner */
+	return MYQTT_CONNACK_ACCEPTED;
+}
+
+
+MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn * conn, axlPointer user_data)
+{
+	MyQttdDomain * domain;
+	MyQttdCtx    * ctx = user_data;
+
+	/* check support for auth operations */
+	const char   * username     = myqtt_conn_get_username (conn);
+	const char   * password     = myqtt_conn_get_password (conn);
+	const char   * client_id    = myqtt_conn_get_client_id (conn);
+	const char   * server_Name  = myqtt_conn_get_server_name (conn);
+
+	/* conn limits */
+	MyQttConnAckTypes    codes;
+
+	/* find the domain that can handle this connection */
+	domain = myqttd_domain_find_by_indications (ctx, conn, username, client_id, password, server_Name);
+	if (domain == NULL) {
+		error ("Login failed for username=%s client-id=%s server-name=%s : no domain was found to handle request",
+		       myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name));
+		return MYQTT_CONNACK_IDENTIFIER_REJECTED;
+	} /* end if */
+
+	/* activate domain to have it working */
+	codes = myqttd_run_send_connection_to_domain (ctx, conn, myqtt_ctx, domain, username, client_id, server_Name);
+	if (codes != MYQTT_CONNACK_ACCEPTED) {
+		error ("Login failed for username=%s client-id=%s server-name=%s : failed to send connection to the corresponding domain",
+		       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
+		return codes;
+	} /* end if */
+
 	/* reached this point, the connecting user is enabled and authenticated */
 	msg ("Connection accepted for username=%s client-id=%s server-name=%s : selected domain=%s",
 	     myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name), domain->name);
-	
-
-	/* activate domain to have it working */
-	if (! myqttd_run_send_connection_to_domain (ctx, conn, domain)) {
-		error ("Login failed for username=%s client-id=%s server-name=%s : failed to send connection to the corresponding domain",
-		       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
-		return MYQTT_CONNACK_SERVER_UNAVAILABLE;
-	} /* end if */
 	
 	/* report connection accepted */
 	return MYQTT_CONNACK_ACCEPTED;

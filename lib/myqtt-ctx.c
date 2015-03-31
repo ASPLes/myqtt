@@ -294,6 +294,41 @@ void        myqtt_ctx_set_on_store              (MyQttCtx               * ctx,
 }
 
 /** 
+ * @brief Allows to configure the on release handler at context level.
+ *
+ * The handler configured here affects to all client connections
+ * storing messages on this context.
+ *
+ * You can only configure one handler at time. Calling to configure a
+ * handler twice will replace previous one.
+ *
+ * This handler is called when a message is released and removed from
+ * the storage associated . This is a notification.
+ *
+ * @param ctx The context where the handler will be configured.
+ *
+ * @param on_release The handler to be configured.
+ *
+ * @param on_release_data User defined pointer to be passed in into the
+ * on_msg when called.
+ */
+void        myqtt_ctx_set_on_release            (MyQttCtx               * ctx,
+						 MyQttOnReleaseMsg        on_release,
+						 axlPointer               on_release_data)
+{
+	if (ctx == NULL)
+		return;
+
+	/* configure handlers */
+	myqtt_mutex_lock (&ctx->ref_mutex);
+	ctx->on_release_data = on_release_data;
+	ctx->on_release      = on_release;
+	myqtt_mutex_unlock (&ctx->ref_mutex);
+
+	return;
+}
+
+/** 
  * @brief Allows to configure a finish handler which is called once
  * the process (myqtt reader) detects no more pending connections are
  * available.

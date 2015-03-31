@@ -699,6 +699,8 @@ typedef void (*MyQttConnUnwatch) (MyQttCtx * ctx, MyQttConn * conn, axlPointer u
  *
  * @param ctx The context where the operation is taking place.
  *
+ * @param conn The connection where the operation is taking place.
+ *
  * @param client_identifier The client identifier for which the
  * message is being stored.
  *
@@ -710,12 +712,16 @@ typedef void (*MyQttConnUnwatch) (MyQttCtx * ctx, MyQttConn * conn, axlPointer u
  *
  * @param app_msg The message requested to be stored.
  *
+ * @param user_data User defined pointer.
+ *
  * @return axl_true to allow message to be stored otherwise, axl_false
  * must be returned to deny it.
  */
-typedef axl_bool (*MyQttOnStoreMsg) (MyQttCtx * ctx, const char * client_identifier, 
+typedef axl_bool (*MyQttOnStoreMsg) (MyQttCtx * ctx, MyQttConn * conn,
+				     const char * client_identifier, 
 				     int packet_id, MyQttQos qos, 
-				     unsigned char * app_msg, int app_msg_size);
+				     unsigned char * app_msg, int app_msg_size,
+				     axlPointer user_data);
 
 /** 
  * @brief Optional handler that is called by the engine to notify a
@@ -723,6 +729,8 @@ typedef axl_bool (*MyQttOnStoreMsg) (MyQttCtx * ctx, const char * client_identif
  *
  * @param ctx The context where the operation is taking place.
  *
+ * @param conn The connection where the operation is taking place.
+ *
  * @param client_identifier The client identifier for which the
  * message is being stored.
  *
@@ -734,12 +742,16 @@ typedef axl_bool (*MyQttOnStoreMsg) (MyQttCtx * ctx, const char * client_identif
  *
  * @param app_msg_size The message size to be stored.
  *
+ * @param user_data User defined pointer.
+ *
  * @return axl_true to allow message to be stored otherwise, axl_false
  * must be returned to deny it.
  */
-typedef void  (*MyQttOnReleaseMsg) (MyQttCtx * ctx, const char * client_identifier,
+typedef void  (*MyQttOnReleaseMsg) (MyQttCtx * ctx, MyQttConn * conn, 
+				    const char * client_identifier,
 				    int packaet_id, MyQttQos qos,
-				    unsigned char * app_msg, int app_msg_size);
+				    unsigned char * app_msg, int app_msg_size,
+				    axlPointer user_data);
 				      
 #endif
 
