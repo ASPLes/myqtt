@@ -126,8 +126,9 @@ axl_bool   myqttd_domain_add  (MyQttdCtx  * ctx,
 	domain->use_settings = use_settings;
 	/* reference to the settings configured */
 	if (use_settings) {
-		error ("ERROR: failed failed settings (%s)", use_settings);
 		domain->settings = myqtt_hash_lookup (ctx->domain_settings, (axlPointer) use_settings);
+		if (! domain->settings)
+			error ("ERROR: failed to find settings (%s)", use_settings);
 	} /* end if */
 
 	myqtt_mutex_create (&domain->mutex);

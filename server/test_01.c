@@ -1166,6 +1166,77 @@ axl_bool  test_08 (void) {
 	return axl_true;
 }
 
+axl_bool  test_09 (void) {
+	
+	MyQttdCtx       * ctx;
+	MyQttCtx        * myqtt_ctx;
+	MyQttConn       * conn;
+	const char      * message;
+	int               sub_result;
+	int               iterator;
+
+	/* call to init the base library and close it */
+	printf ("Test 09: init library and server engine (using test_02.conf)..\n");
+	ctx       = init_ctxd (NULL, "test_02.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	myqtt_ctx = init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+	
+	/* connect and subscribe */
+	conn = myqtt_conn_new (myqtt_ctx, "test_05", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* subscribe to the topic to get notifications */
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */	
+
+	/* now close connection to overload quota */
+	myqtt_conn_close (conn);
+
+	/* now connect again to publish messages */
+	conn = myqtt_conn_new (myqtt_ctx, "test_06", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* a 1K message (1024 bytes) */
+	message = "ksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyj2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyj2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4m";
+	iterator = 0;
+	while (iterator < 10) {
+		printf ("Test 09: sending message...(iterator=%d, message=%d)\n", iterator, (int) strlen (message));
+		if (! myqtt_conn_pub (conn, "myqtt/test", (axlPointer) message, (int) strlen (message), MYQTT_QOS_2, axl_false, 10))
+			printf ("ERROR: failed to publish message in reply..\n");
+
+		/* next iterator */
+		iterator++;
+	} /* end while */
+
+	/* close message */
+	printf ("Test 09: closing connection..\n");
+	myqtt_conn_close (conn);
+
+
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+	printf ("Test 09: finishing MyQttdCtx..\n");
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+	
+	return axl_true;
+}
+
 
 
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
@@ -1279,6 +1350,14 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_08")
 	run_test (test_08, "Test 08: test message size limit to a domain");
+
+	CHECK_TEST("test_09")
+	run_test (test_09, "Test 09: check storage quota enforcement (amount of messages that can be saved on disk)");
+
+	/* check client ids registered in all contexts */
+
+	/* check connection has storage initialized after connecting
+	   to its domain */
 
 	/* test message global quota limit to a domain */
 

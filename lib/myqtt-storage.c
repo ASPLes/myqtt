@@ -325,7 +325,6 @@ axl_bool myqtt_storage_init (MyQttCtx * ctx, MyQttConn * conn, MyQttStorage stor
 		/* record storage was initilized */
 		conn->myqtt_storage_init |= storage;
 	} /* end if */
-
 	/* release */
 	myqtt_mutex_unlock (&conn->op_mutex);
 	
@@ -437,7 +436,7 @@ axl_bool __myqtt_storage_sub_exists (MyQttCtx         * ctx,
 
 	sub_dir = opendir (full_path);
 	if (sub_dir == NULL) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to open directory %s for inspection, error was: %s", full_path, myqtt_errno_get_error (errno));
+		/* myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to open directory %s for inspection, error was: %s", full_path, myqtt_errno_get_error (errno)); */
 		return axl_false;
 	} /* end if */
 
@@ -866,7 +865,7 @@ int __myqtt_storage_iteration (MyQttCtx * ctx, const char * client_identifier, M
 
 	/* check input parameters */
 	if (! __myqtt_storage_check (ctx, client_identifier, axl_false, NULL))
-		return 0;
+		return axl_false;
 
 	/* get full path to subscriptions */
 	full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, "subs", NULL);
@@ -1015,12 +1014,6 @@ axlPointer myqtt_storage_store_msg_offline (MyQttCtx      * ctx,
 	if (ctx == NULL || client_identifier == NULL || strlen (client_identifier) == 0 || packet_id < 0 || app_msg_size <= 0 || app_msg == NULL)
 		return NULL;
 
-	if (ctx->on_store) {
-		/* call to check if we can store the message */
-		if (! ctx->on_store (ctx, client_identifier, packet_id, qos, app_msg, app_msg_size))
-			return NULL;
-	} /* end if */
-
 	/* call to init message store */
 	if (! myqtt_storage_init_offline (ctx, client_identifier, MYQTT_STORAGE_MSGS))
 		return NULL;
@@ -1079,6 +1072,12 @@ axlPointer myqtt_storage_store_msg   (MyQttCtx * ctx, MyQttConn * conn, int pack
 	if (conn == NULL)
 		return axl_false; 
 
+	if (ctx->on_store) {
+		/* call to check if we can store the message */
+		if (! ctx->on_store (ctx, conn, conn->client_identifier, packet_id, qos, app_msg, app_msg_size, ctx->on_store_data))
+			return NULL;
+	} /* end if */
+
 	return myqtt_storage_store_msg_offline (ctx, conn->client_identifier, packet_id, qos, app_msg, app_msg_size);
 }
 
@@ -1132,7 +1131,7 @@ axl_bool myqtt_storage_release_msg   (MyQttCtx      * ctx,
 			qos       = __myqtt_storage_get_size_from_file_name (ctx, handle + pos + 1, NULL);
 
 			/* call to notify release */
-			ctx->on_release (ctx, conn->client_identifier, packet_id, qos, app_msg, app_msg_size);
+			ctx->on_release (ctx, conn, conn->client_identifier, packet_id, qos, app_msg, app_msg_size, ctx->on_release_data);
 
 		} /* end if */
 
@@ -1851,8 +1850,6 @@ void     myqtt_storage_release_pkgid (MyQttCtx * ctx, MyQttConn * conn, int pkg_
  */
 axl_bool myqtt_storage_session_recover (MyQttCtx * ctx, MyQttConn * conn)
 {
-	
-
 	/* call to iterate and count */
 	return __myqtt_storage_iteration (ctx, conn->client_identifier, conn, /* register */ axl_true, /* offline */ axl_false);
 }
@@ -1872,7 +1869,7 @@ int     myqtt_storage_load             (MyQttCtx      * ctx)
 	int             entries = 0;
 
 	if (ctx == NULL || ! ctx->storage_path) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to load local storage becaues context (%p) is not defined or storage path is empty: %s",
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to load local storage because context (%p) is not defined or storage path is empty: %s",
 			   ctx, ctx->storage_path ? ctx->storage_path : "<not defined>");
 		return 0;
 	} /* end if */
@@ -1961,7 +1958,6 @@ finish:
 axl_bool     myqtt_storage_set_path (MyQttCtx * ctx, const char * storage_path, int hash_size)
 {
 	if (ctx == NULL || storage_path == NULL || strlen (storage_path) == 0) {
-		printf ("..1..\n");
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to configure storage path, context is NULL(%d), or storage path is not defined (%s)",
 			   ctx, (ctx && ctx->storage_path) ? ctx->storage_path : "<undefined>");
 		return axl_false;

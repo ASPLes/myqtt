@@ -182,7 +182,6 @@ struct _MyQttdDomain {
 	/* reference to settings */
 	const char          * use_settings;
 	MyQttdDomainSetting * settings;
-	
 };
 
 typedef struct _MyQttdUsersBackend MyQttdUsersBackend;
@@ -233,8 +232,10 @@ struct _MyQttdDomainSetting {
 	int        message_size_limit;
 
 	/* storage ilmits */
-	int        storage_messages_limit;
-	int        storage_quota_limit;
+	int         storage_messages_limit;
+
+	/* storage quota per user */
+	int         storage_quota_limit;
 	
 };
 

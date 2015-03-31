@@ -59,6 +59,8 @@ struct _MyQttCtx {
 	 */
 	axl_bool             myqtt_initialized;
 
+	axl_bool             skip_storage_init;
+
 	/* global mutex */
 	MyQttMutex           msg_id_mutex;
 	MyQttMutex           connection_id_mutex;

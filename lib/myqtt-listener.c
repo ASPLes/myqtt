@@ -647,7 +647,8 @@ axlPointer __myqtt_listener_new (MyQttListenerData * data)
 	axl_free (data);
 
 	/* call to load local storage first (before an incoming connection) */
-	myqtt_storage_load (ctx);
+	if (! ctx->skip_storage_init)
+		myqtt_storage_load (ctx);
 
 	if (reuse_socket < 0) {
 		/* allocate listener, try to guess IPv6 support */

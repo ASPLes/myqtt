@@ -1,0 +1,4 @@
+<myqtt-users password-format="plain">
+  <user id="test_05" />
+  <user id="test_06" />
+</myqtt-users>
