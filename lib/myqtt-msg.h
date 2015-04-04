@@ -78,7 +78,9 @@ void          myqtt_msg_unref                 (MyQttMsg * msg);
 
 int           myqtt_msg_ref_count             (MyQttMsg * msg);
 
-void          myqtt_msg_free                  (MyQttMsg * msg);
+#define myqtt_msg_free(msg) _myqtt_msg_free (msg, __func__)
+
+void          _myqtt_msg_free                 (MyQttMsg * msg, const char * caller);
 
 int           myqtt_msg_get_id                (MyQttMsg * msg);
 

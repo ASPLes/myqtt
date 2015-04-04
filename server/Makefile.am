@@ -39,7 +39,7 @@ myqttd_LDFLAGS = -Wl,-export-dynamic -ldl
 myqttd_LDADD = $(AXL_LIBS) libmyqttd.la $(top_builddir)/lib/libmyqtt-1.0.la 
 
 # test_01
-test_01_SOURCES = test_01.c
+test_01_SOURCES = test_01.c test_01.h
 
 test_01_LDFLAGS = -Wl,-export-dynamic -ldl
 
