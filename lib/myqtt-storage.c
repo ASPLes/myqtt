@@ -1014,6 +1014,12 @@ axlPointer myqtt_storage_store_msg_offline (MyQttCtx      * ctx,
 	if (ctx == NULL || client_identifier == NULL || strlen (client_identifier) == 0 || packet_id < 0 || app_msg_size <= 0 || app_msg == NULL)
 		return NULL;
 
+	if (ctx->on_store && !(qos && MYQTT_QOS_SKIP_STOREAGE_NOTIFY)) {
+		/* call to check if we can store the message */
+		if (! ctx->on_store (ctx, NULL, client_identifier, packet_id, qos, app_msg, app_msg_size, ctx->on_store_data))
+			return NULL;
+	} /* end if */
+
 	/* call to init message store */
 	if (! myqtt_storage_init_offline (ctx, client_identifier, MYQTT_STORAGE_MSGS))
 		return NULL;
@@ -1078,7 +1084,7 @@ axlPointer myqtt_storage_store_msg   (MyQttCtx * ctx, MyQttConn * conn, int pack
 			return NULL;
 	} /* end if */
 
-	return myqtt_storage_store_msg_offline (ctx, conn->client_identifier, packet_id, qos, app_msg, app_msg_size);
+	return myqtt_storage_store_msg_offline (ctx, conn->client_identifier, packet_id, qos | MYQTT_QOS_SKIP_STOREAGE_NOTIFY, app_msg, app_msg_size);
 }
 
 /** 

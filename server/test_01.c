@@ -51,13 +51,16 @@
 #include <signal.h>
 #endif
 
+/* local test header */
+#include <test_01.h>
+
 axl_bool test_common_enable_debug = axl_false;
 
 /* default listener location */
 const char * listener_host = "localhost";
 const char * listener_port = "1883";
 
-MyQttCtx * init_ctx (void)
+MyQttCtx * common_init_ctx (void)
 {
 	MyQttCtx * ctx;
 
@@ -74,7 +77,7 @@ MyQttCtx * init_ctx (void)
 	return ctx;
 }
 
-MyQttdCtx * init_ctxd (MyQttCtx * myqtt_ctx, const char * config)
+MyQttdCtx * common_init_ctxd (MyQttCtx * myqtt_ctx, const char * config)
 {
 	MyQttdCtx * ctx;
 
@@ -116,8 +119,8 @@ axl_bool  test_00 (void) {
 	
 	/* call to init the base library and close it */
 	printf ("Test 00: init library and server engine..\n");
-	myqtt_ctx = init_ctx ();
-	ctx       = init_ctxd (myqtt_ctx, "myqtt.example.conf");
+	myqtt_ctx = common_init_ctx ();
+	ctx       = common_init_ctxd (myqtt_ctx, "myqtt.example.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
 		return axl_false;
@@ -131,7 +134,7 @@ axl_bool  test_00 (void) {
 	return axl_true;
 }
 
-void queue_message_received (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+void common_queue_message_received (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 {
 	MyQttAsyncQueue * queue = user_data;
 
@@ -142,7 +145,7 @@ void queue_message_received (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, a
 	return;
 } 
 
-void queue_message_received_only_one (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+void common_queue_message_received_only_one (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 {
 	MyQttAsyncQueue * queue = user_data;
 
@@ -162,7 +165,7 @@ axl_bool  test_01 (void) {
 	
 	/* call to init the base library and close it */
 	printf ("Test 01: init library and server engine..\n");
-	ctx       = init_ctxd (NULL, "test_01.conf");
+	ctx       = common_init_ctxd (NULL, "test_01.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
 		return axl_false;
@@ -171,7 +174,7 @@ axl_bool  test_01 (void) {
 	printf ("Test 01: library and server engine started.. ok (ctxd = %p, ctx = %p\n", ctx, MYQTTD_MYQTT_CTX (ctx));
 
 	/* create connection to local server and test domain support */
-	myqtt_ctx = init_ctx ();
+	myqtt_ctx = common_init_ctx ();
 	if (! myqtt_init_ctx (myqtt_ctx)) {
 		printf ("Error: unable to initialize MyQtt library..\n");
 		return axl_false;
@@ -195,7 +198,7 @@ axl_bool  test_01 (void) {
 	
 	/* register on message handler */
 	queue = myqtt_async_queue_new ();
-	myqtt_conn_set_on_msg (conn, queue_message_received, queue);
+	myqtt_conn_set_on_msg (conn, common_queue_message_received, queue);
 
 	/* push a message */
 	printf ("Test 01: publishing to the topic myqtt/test..\n");
@@ -255,10 +258,11 @@ axl_bool  test_02 (void) {
 	MyQttAsyncQueue * queue;
 	MyQttConn       * conns[50];
 	int               iterator;
+	char            * client_id;
 	
 	/* call to init the base library and close it */
 	printf ("Test 02: init library and server engine..\n");
-	ctx       = init_ctxd (NULL, "test_02.conf");
+	ctx       = common_init_ctxd (NULL, "test_02.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
 		return axl_false;
@@ -267,7 +271,7 @@ axl_bool  test_02 (void) {
 	printf ("Test 02: library and server engine started.. ok (ctxd = %p, ctx = %p\n", ctx, MYQTTD_MYQTT_CTX (ctx));
 
 	/* create connection to local server and test domain support */
-	myqtt_ctx = init_ctx ();
+	myqtt_ctx = common_init_ctx ();
 	if (! myqtt_init_ctx (myqtt_ctx)) {
 		printf ("Error: unable to initialize MyQtt library..\n");
 		return axl_false;
@@ -277,11 +281,13 @@ axl_bool  test_02 (void) {
 	printf ("Test 02: connecting to myqtt server (client ctx = %p, 50 connections)..\n", myqtt_ctx);
 	iterator = 0;
 	while (iterator < 50) {
-		conns[iterator] = myqtt_conn_new (myqtt_ctx, "test_02", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+		client_id       = axl_strdup_printf ("test_02_%d", iterator);
+		conns[iterator] = myqtt_conn_new (myqtt_ctx, client_id, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
 		if (! myqtt_conn_is_ok (conns[iterator], axl_false)) {
 			printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
 			return axl_false;
 		} /* end if */
+		axl_free (client_id);
 
 		/* next iterator */
 		iterator++;
@@ -299,7 +305,7 @@ axl_bool  test_02 (void) {
 			return axl_false;
 		} /* end if */	
 
-		myqtt_conn_set_on_msg (conns[iterator], queue_message_received_only_one, queue);
+		myqtt_conn_set_on_msg (conns[iterator], common_queue_message_received_only_one, queue);
 
 		/* next iterator */
 		iterator++;
@@ -381,12 +387,12 @@ axl_bool  test_02 (void) {
 	return axl_true;
 }
 
-axl_bool connect_send_and_check (MyQttCtx   * myqtt_ctx, 
-				 const char * client_id, const char * user, const char * password,
-				 const char * topic,     const char * message, 
-				 const char * check_reply,
-				 MyQttQos qos, 
-				 axl_bool skip_error_reporting)
+axl_bool common_connect_send_and_check (MyQttCtx   * myqtt_ctx, 
+					const char * client_id, const char * user, const char * password,
+					const char * topic,     const char * message, 
+					const char * check_reply,
+					MyQttQos qos, 
+					axl_bool skip_error_reporting)
 {
 
 	MyQttAsyncQueue * queue;
@@ -397,7 +403,7 @@ axl_bool connect_send_and_check (MyQttCtx   * myqtt_ctx,
 
 	/* create connection to local server and test domain support */
 	if (myqtt_ctx == NULL) {
-		myqtt_ctx = init_ctx ();
+		myqtt_ctx = common_init_ctx ();
 		if (! myqtt_init_ctx (myqtt_ctx)) {
 			if (! skip_error_reporting)
 				printf ("Error: unable to initialize MyQtt library..\n");
@@ -440,7 +446,7 @@ axl_bool connect_send_and_check (MyQttCtx   * myqtt_ctx,
 	
 	/* register on message handler */
 	queue = myqtt_async_queue_new ();
-	myqtt_conn_set_on_msg (conn, queue_message_received, queue);
+	myqtt_conn_set_on_msg (conn, common_queue_message_received, queue);
 
 	/* push a message */
 	printf ("Test --: publishing to the topic %s..\n", topic);
@@ -520,16 +526,16 @@ axl_bool connect_send_and_check (MyQttCtx   * myqtt_ctx,
 	
 }
 
-MyQttConn * connect_and_subscribe (MyQttCtx * myqtt_ctx, const char * client_id, 
-				   const char * topic, 
-				   MyQttQos qos, axl_bool skip_error_reporting)
+MyQttConn * common_connect_and_subscribe (MyQttCtx * myqtt_ctx, const char * client_id, 
+					  const char * topic, 
+					  MyQttQos qos, axl_bool skip_error_reporting)
 {
 	MyQttConn       * conn;
 	int               sub_result;
 
 	/* create connection to local server and test domain support */
 	if (myqtt_ctx == NULL) {
-		myqtt_ctx = init_ctx ();
+		myqtt_ctx = common_init_ctx ();
 		if (! myqtt_init_ctx (myqtt_ctx)) {
 			if (! skip_error_reporting)
 				printf ("Error: unable to initialize MyQtt library..\n");
@@ -558,7 +564,7 @@ MyQttConn * connect_and_subscribe (MyQttCtx * myqtt_ctx, const char * client_id,
 	return conn;
 }
 
-void close_conn_and_ctx (MyQttConn * conn)
+void common_close_conn_and_ctx (MyQttConn * conn)
 {
 	MyQttCtx * ctx = myqtt_conn_get_ctx (conn);
 	
@@ -572,12 +578,12 @@ void close_conn_and_ctx (MyQttConn * conn)
 	return;
 }
 
-axl_bool send_msg (MyQttConn * conn, const char * topic, const char * message, MyQttQos qos) {
+axl_bool common_send_msg (MyQttConn * conn, const char * topic, const char * message, MyQttQos qos) {
 	/* publish message */
 	return myqtt_conn_pub (conn, topic, (const axlPointer) message, strlen (message), qos, axl_false, 0);
 }
 
-void configure_reception_queue_received (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+void common_configure_reception_queue_received (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 {
 	MyQttAsyncQueue * queue = user_data;
 
@@ -587,16 +593,16 @@ void configure_reception_queue_received (MyQttCtx * ctx, MyQttConn * conn, MyQtt
 	return;
 }
 
-MyQttAsyncQueue * configure_reception (MyQttConn * conn) {
+MyQttAsyncQueue * common_configure_reception (MyQttConn * conn) {
 	MyQttAsyncQueue * queue = myqtt_async_queue_new ();
 
 	/* configure reception on queue  */
-	myqtt_conn_set_on_msg (conn, configure_reception_queue_received, queue);
+	myqtt_conn_set_on_msg (conn, common_configure_reception_queue_received, queue);
 
 	return queue;
 }
 
-axl_bool receive_and_check (MyQttAsyncQueue * queue, const char * topic, const char * message, MyQttQos qos, axl_bool skip_fail_if_null)
+axl_bool common_receive_and_check (MyQttAsyncQueue * queue, const char * topic, const char * message, MyQttQos qos, axl_bool skip_fail_if_null)
 {
 	MyQttMsg * msg;
 
@@ -605,6 +611,7 @@ axl_bool receive_and_check (MyQttAsyncQueue * queue, const char * topic, const c
 	if (msg == NULL) {
 		if (skip_fail_if_null)
 			return axl_true;
+		printf ("ERROR: NULL message received...when expected to receive something..\n");
 		return axl_false;
 	} /* end if */
 
@@ -643,7 +650,7 @@ axl_bool  test_03 (void) {
 	
 	/* call to init the base library and close it */
 	printf ("Test 03: init library and server engine (using test_02.conf)..\n");
-	ctx       = init_ctxd (NULL, "test_02.conf");
+	ctx       = common_init_ctxd (NULL, "test_02.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
 		return axl_false;
@@ -657,7 +664,7 @@ axl_bool  test_03 (void) {
 	} /* end if */
 
 	/* connect and send message */
-	if (! connect_send_and_check (NULL, "test_02", NULL, NULL, "myqtt/test", "This is test message....", NULL, MYQTT_QOS_0, axl_false)) {
+	if (! common_connect_send_and_check (NULL, "test_02", NULL, NULL, "myqtt/test", "This is test message....", NULL, MYQTT_QOS_0, axl_false)) {
 		printf ("Test 03: unable to connect and send message...\n");
 		return axl_false;
 	} /* end if */
@@ -668,7 +675,7 @@ axl_bool  test_03 (void) {
 	} /* end if */
 
 	/* connect and send message */
-	if (! connect_send_and_check (NULL, "test_04", NULL, NULL, "myqtt/test", "This is test message....", NULL, MYQTT_QOS_0, axl_false)) {
+	if (! common_connect_send_and_check (NULL, "test_04", NULL, NULL, "myqtt/test", "This is test message....", NULL, MYQTT_QOS_0, axl_false)) {
 		printf ("Test 03: unable to connect and send message...\n");
 		return axl_false;
 	} /* end if */
@@ -682,7 +689,7 @@ axl_bool  test_03 (void) {
 	printf ("Test 03: checked domain activation for both services...Ok\n");
 
 	/* connect and send message */
-	if (connect_send_and_check (NULL, "test_05", NULL, NULL, "myqtt/test", "This is test message....", NULL, MYQTT_QOS_0, axl_true)) {
+	if (common_connect_send_and_check (NULL, "test_05", NULL, NULL, "myqtt/test", "This is test message....", NULL, MYQTT_QOS_0, axl_true)) {
 		printf ("Test 03: it should fail to connect but it connected..");
 		return axl_false;
 	} /* end if */
@@ -694,7 +701,7 @@ axl_bool  test_03 (void) {
 	}
 
 	/* connect and report connection */
-	conn = connect_and_subscribe (NULL, "test_02", "myqtt/test", MYQTT_QOS_0, axl_false);
+	conn = common_connect_and_subscribe (NULL, "test_02", "myqtt/test", MYQTT_QOS_0, axl_false);
 	if (conn == NULL) {
 		printf ("Test 03: unable to connect to the domain..\n");
 		return axl_false;
@@ -713,7 +720,7 @@ axl_bool  test_03 (void) {
 	}
 
 	/* connect and report connection */
-	conn2 = connect_and_subscribe (NULL, "test_04", "myqtt/test", MYQTT_QOS_0, axl_false);
+	conn2 = common_connect_and_subscribe (NULL, "test_04", "myqtt/test", MYQTT_QOS_0, axl_false);
 	if (conn == NULL) {
 		printf ("Test 03: unable to connect to the domain..\n");
 		return axl_false;
@@ -727,27 +734,27 @@ axl_bool  test_03 (void) {
 	
 
 	/* configure message reception */
-	queue  = configure_reception (conn);
-	queue2 = configure_reception (conn2);
+	queue  = common_configure_reception (conn);
+	queue2 = common_configure_reception (conn2);
 
 	/* send message for conn and check for reply */
-	if (! send_msg (conn, "myqtt/test", "This is an application message", MYQTT_QOS_0)) {
+	if (! common_send_msg (conn, "myqtt/test", "This is an application message", MYQTT_QOS_0)) {
 		printf ("Test 03: unable to send message\n");
 		return axl_false;
 	}
-	if (! send_msg (conn2, "myqtt/test", "This is an application message (2)", MYQTT_QOS_0)) {
+	if (! common_send_msg (conn2, "myqtt/test", "This is an application message (2)", MYQTT_QOS_0)) {
 		printf ("Test 03: unable to send message\n");
 		return axl_false;
 	}
 
 	/* now receive message */
 	printf ("Test 03: checking for messages received..\n");
-	if (! receive_and_check (queue, "myqtt/test", "This is an application message", MYQTT_QOS_0, axl_false)) {
+	if (! common_receive_and_check (queue, "myqtt/test", "This is an application message", MYQTT_QOS_0, axl_false)) {
 		printf ("Test 03: expected to receive different message..\n");
 		return axl_false;
 	}
 
-	if (! receive_and_check (queue2, "myqtt/test", "This is an application message (2)", MYQTT_QOS_0, axl_false)) {
+	if (! common_receive_and_check (queue2, "myqtt/test", "This is an application message (2)", MYQTT_QOS_0, axl_false)) {
 		printf ("Test 03: expected to receive different message..\n");
 		return axl_false;
 	}
@@ -768,8 +775,8 @@ axl_bool  test_03 (void) {
 
 
 	/* close connection and context */
-	close_conn_and_ctx (conn);
-	close_conn_and_ctx (conn2);
+	common_close_conn_and_ctx (conn);
+	common_close_conn_and_ctx (conn2);
 
 
 	printf ("Test --: finishing MyQttdCtx..\n");
@@ -803,7 +810,7 @@ axl_bool  test_04 (void) {
 
 	/* call to init the base library and close it */
 	printf ("Test 04: init library and server engine (using test_02.conf)..\n");
-	ctx       = init_ctxd (NULL, "test_02.conf");
+	ctx       = common_init_ctxd (NULL, "test_02.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
 		return axl_false;
@@ -816,7 +823,7 @@ axl_bool  test_04 (void) {
 
 	/* connect and send message */
 	printf ("Test 04: checking context activation based or user/password/clientid (test_01.context)\n");
-	if (! connect_send_and_check (NULL, 
+	if (! common_connect_send_and_check (NULL, 
 				      /* client id, user and password */
 				      "test_02", "user-test-02", "test1234", 
 				      "get-context", "get-context", "test_01.context", MYQTT_QOS_0, axl_false)) {
@@ -826,7 +833,7 @@ axl_bool  test_04 (void) {
 
 	/* connect and send message */
 	printf ("Test 04: checking context activation based or user/password/clientid (test_02.context)\n");
-	if (! connect_send_and_check (NULL, 
+	if (! common_connect_send_and_check (NULL, 
 				      /* client id, user and password */
 				      "test_02", "user-test-02", "differentpass", 
 				      "get-context", "get-context", "test_02.context", MYQTT_QOS_0, axl_false)) {
@@ -850,7 +857,7 @@ axl_bool  test_05 (void) {
 
 	/* call to init the base library and close it */
 	printf ("Test 05: init library and server engine (using test_02.conf)..\n");
-	ctx       = init_ctxd (NULL, "test_02.conf");
+	ctx       = common_init_ctxd (NULL, "test_02.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
 		return axl_false;
@@ -860,7 +867,7 @@ axl_bool  test_05 (void) {
 
 	/* connect and send message */
 	printf ("Test 05: checking context is not activated based or user/password/clientid (test_01.context)\n");
-	if (connect_send_and_check (NULL, 
+	if (common_connect_send_and_check (NULL, 
 				      /* client id, user and password */
 				      "test_02", "user-test-02", "test1234-5", 
 				      "get-context", "get-context", "test_01.context", MYQTT_QOS_0, axl_true)) {
@@ -870,7 +877,7 @@ axl_bool  test_05 (void) {
 
 	/* connect and send message */
 	printf ("Test 05: checking context is not activated based or user/password/clientid (test_02.context)\n");
-	if (connect_send_and_check (NULL, 
+	if (common_connect_send_and_check (NULL, 
 				      /* client id, user and password */
 				      "test_02", "user-test-02", "differentpass-5", 
 				      "get-context", "get-context", "test_02.context", MYQTT_QOS_0, axl_true)) {
@@ -898,7 +905,7 @@ axl_bool  test_06 (void) {
 
 	/* call to init the base library and close it */
 	printf ("Test 06: init library and server engine (using test_02.conf)..\n");
-	ctx       = init_ctxd (NULL, "test_02.conf");
+	ctx       = common_init_ctxd (NULL, "test_02.conf");
 	if (ctx == NULL) {
 		printf ("Test --: failed to start library and server engine..\n");
 		return axl_false;
@@ -994,13 +1001,13 @@ axl_bool  test_07 (void) {
 
 	/* call to init the base library and close it */
 	printf ("Test 07: init library and server engine (using test_02.conf)..\n");
-	ctx       = init_ctxd (NULL, "test_02.conf");
+	ctx       = common_init_ctxd (NULL, "test_02.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
 		return axl_false;
 	} /* end if */
 
-	myqtt_ctx = init_ctx ();
+	myqtt_ctx = common_init_ctx ();
 	if (! myqtt_init_ctx (myqtt_ctx)) {
 		printf ("Error: unable to initialize MyQtt library..\n");
 		return axl_false;
@@ -1025,7 +1032,7 @@ axl_bool  test_07 (void) {
 
 	/* connect and send message */
 	printf ("Test 07: requesting number of connections remotely..\n");
-	if (! connect_send_and_check (NULL, 
+	if (! common_connect_send_and_check (NULL, 
 				      /* client id, user and password */
 				      "test_02", "user-test-02", "test1234", 
 				      /* we've got 6 connections because we have 5 plus the
@@ -1067,7 +1074,7 @@ axl_bool  test_07 (void) {
 
 	/* connect and send message */
 	printf ("Test 07: requesting number of connections remotely..\n");
-	if (! connect_send_and_check (NULL, 
+	if (! common_connect_send_and_check (NULL, 
 				      /* client id, user and password */
 				      "test_04", NULL, NULL,
 				      /* we've got 6 connections because we have 5 plus the
@@ -1113,13 +1120,13 @@ axl_bool  test_08 (void) {
 
 	/* call to init the base library and close it */
 	printf ("Test 08: init library and server engine (using test_02.conf)..\n");
-	ctx       = init_ctxd (NULL, "test_02.conf");
+	ctx       = common_init_ctxd (NULL, "test_02.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
 		return axl_false;
 	} /* end if */
 
-	myqtt_ctx = init_ctx ();
+	myqtt_ctx = common_init_ctx ();
 	if (! myqtt_init_ctx (myqtt_ctx)) {
 		printf ("Error: unable to initialize MyQtt library..\n");
 		return axl_false;
@@ -1140,7 +1147,7 @@ axl_bool  test_08 (void) {
 	} /* end if */	
 
 	/* configure asyncqueue reception */
-	queue  = configure_reception (conn);
+	queue  = common_configure_reception (conn);
 
 	message = "ksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jyksljg0823io2j135lknmwegoij2346oi24jtoi4mg4ylk34jy";
 
@@ -1166,6 +1173,64 @@ axl_bool  test_08 (void) {
 	return axl_true;
 }
 
+MyQttPublishCodes test_09_handle_publish (MyQttdCtx * ctx,       MyQttdDomain * domain,  
+					  MyQttCtx  * myqtt_ctx, MyQttConn    * conn, 
+					  MyQttMsg  * msg,       axlPointer user_data)
+{
+	axlHashCursor    * cursor;
+	const char       * topic;
+	char             * result = NULL;
+	char             * aux;
+	const char       * label;
+
+	printf ("Test --: received message on server (topic: %s)\n", myqtt_msg_get_topic (msg));
+	if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg)) || axl_cmp ("get-offline-subscriptions", myqtt_msg_get_topic (msg))) {
+ 		printf ("Test --: reported subscriptions in: %s\n", domain->name);
+		
+		if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg))) {
+			cursor = axl_hash_cursor_new (myqtt_ctx->subs);
+			label  = "ON-LINE";
+		} else if (axl_cmp ("get-offline-subscriptions", myqtt_msg_get_topic (msg))) {
+			cursor = axl_hash_cursor_new (myqtt_ctx->offline_subs);
+			label  = "OFF-LINE";
+		} else {
+			printf ("Test --: ERROR: received unsupported request..\n");
+			return MYQTT_PUBLISH_OK;
+		}
+		axl_hash_cursor_first (cursor);
+		
+		while (axl_hash_cursor_has_item (cursor)) {
+
+			/* get topic */
+			topic = axl_hash_cursor_get_key (cursor);
+			if (result) {
+				aux = result;
+				result = axl_strdup_printf ("%s\n%s", result, topic);
+				axl_free (aux);
+			} else {
+				result = axl_strdup (topic);
+			} /* end if */
+
+			/* next position */
+			axl_hash_cursor_next (cursor);
+		} /* end if */
+
+		axl_hash_cursor_free (cursor);
+		
+		printf ("Test --: sending current subscriptions (%s): %s\n", label, result);
+
+		if (! myqtt_conn_pub (conn, myqtt_msg_get_topic (msg), result, (int) strlen (result), MYQTT_QOS_0, axl_false, 0))
+			printf ("ERROR: failed to publish message in reply..\n");
+
+		/* free result */
+		axl_free (result);
+		return MYQTT_PUBLISH_DISCARD;
+	}
+
+	return MYQTT_PUBLISH_OK;
+}
+
+
 axl_bool  test_09 (void) {
 	
 	MyQttdCtx       * ctx;
@@ -1174,16 +1239,26 @@ axl_bool  test_09 (void) {
 	const char      * message;
 	int               sub_result;
 	int               iterator;
+	MyQttAsyncQueue * queue;
+	MyQttdDomain    * domain;
+	int               quota;
+	int               value;
+
+	/* do some cleanup */
+	if (system ("find reg-test-03/storage/test_05 -type f -exec rm {} \\;") != 0) {
+		printf ("ERROR: failed to initialize test..\n");
+		return axl_false;
+	}
 
 	/* call to init the base library and close it */
 	printf ("Test 09: init library and server engine (using test_02.conf)..\n");
-	ctx       = init_ctxd (NULL, "test_02.conf");
+	ctx       = common_init_ctxd (NULL, "test_02.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
 		return axl_false;
 	} /* end if */
 
-	myqtt_ctx = init_ctx ();
+	myqtt_ctx = common_init_ctx ();
 	if (! myqtt_init_ctx (myqtt_ctx)) {
 		printf ("Error: unable to initialize MyQtt library..\n");
 		return axl_false;
@@ -1202,13 +1277,44 @@ axl_bool  test_09 (void) {
 		return axl_false;
 	} /* end if */	
 
+	/* checking that the subscription is recorded at the remote server */
+	printf ("Test 09: checking subscription in domain selected..\n");
+	myqttd_ctx_add_on_publish (ctx, test_09_handle_publish, NULL);
+
+	/* configure reception */
+	queue = common_configure_reception (conn);
+	if (! common_send_msg (conn, "get-subscriptions", "---", MYQTT_QOS_0)) {
+		printf ("ERROR: unable to send get-subscriptions message..\n");
+		return axl_false;
+	} /* end if */
+
+	/* now get result */
+	if (! common_receive_and_check (queue, "get-subscriptions", "myqtt/test", MYQTT_QOS_0, axl_false)) {
+		printf ("ERROR: expected different content..\n");
+		return axl_false;
+	} /* end if */
+
 	/* now close connection to overload quota */
+	myqtt_async_queue_unref (queue);
 	myqtt_conn_close (conn);
+
+	/* checking that the subscription is recorded at the remote server at the offline storage */
+	printf ("Test 09: checking subscription in domain selected (offline storage)..\n");
+	if (! common_connect_send_and_check (NULL, "test_05", NULL, NULL, "get-offline-subscriptions", "--", "myqtt/test", MYQTT_QOS_0, axl_false)) {
+		printf ("ERROR: expected to find different offline subscriptions..\n");
+		return axl_false;
+	} /* end if */
 
 	/* now connect again to publish messages */
 	conn = myqtt_conn_new (myqtt_ctx, "test_06", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	domain = myqttd_domain_find_by_name (ctx, "test_03.context");
+	if (domain == NULL || myqtt_storage_queued_messages_quota_offline (domain->myqtt_ctx, "test_05")) {
+		printf ("ERROR: expected to find domain (test_03.context) or quota used by test_05 to be 0 but some of them have different values..\n");
 		return axl_false;
 	} /* end if */
 
@@ -1224,10 +1330,127 @@ axl_bool  test_09 (void) {
 		iterator++;
 	} /* end while */
 
+	/* check quotas here */
+	quota = myqtt_storage_queued_messages_quota_offline (domain->myqtt_ctx, "test_05");
+	printf ("Test 09: used quota so fat..by test_05 (%d)\n", quota);
+	if (quota != 10390) {
+		printf ("ERROR: expected to find quota=10390 but found %d\n", quota);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 09: sending a bit more of messages..\n");
+	iterator = 0;
+	while (iterator < 8) {
+		printf ("Test 09: sending message...(iterator=%d, message=%d)\n", iterator, (int) strlen (message));
+		if (! myqtt_conn_pub (conn, "myqtt/test", (axlPointer) message, (int) strlen (message), MYQTT_QOS_2, axl_false, 10))
+			printf ("ERROR: failed to publish message in reply..\n");
+
+		/* next iterator */
+		iterator++;
+	} /* end while */
+
+	/* check quotas here */
+	quota = myqtt_storage_queued_messages_quota_offline (domain->myqtt_ctx, "test_05");
+	printf ("Test 09: used quota so fat..by test_05 (%d)\n", quota);
+	if (quota != 18702) {
+		printf ("ERROR: expected to find quota=18702 but found %d\n", quota);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 09: sending a bit more of messages (we should reach quota allowed know)..\n");
+	iterator = 0;
+	while (iterator < 10) {
+		printf ("Test 09: sending message...(iterator=%d, message=%d)\n", iterator, (int) strlen (message));
+		if (! myqtt_conn_pub (conn, "myqtt/test", (axlPointer) message, (int) strlen (message), MYQTT_QOS_2, axl_false, 10))
+			printf ("ERROR: failed to publish message in reply..\n");
+
+		/* next iterator */
+		iterator++;
+	} /* end while */
+
+	/* check quotas here */
+	quota = myqtt_storage_queued_messages_quota_offline (domain->myqtt_ctx, "test_05");
+	printf ("Test 09: used quota so fat..by test_05 (%d)\n", quota);
+	if (quota != 19741) {
+		printf ("ERROR: expected to find quota=19741 but found %d\n", quota);
+		return axl_false;
+	} /* end if */
+
+	value = PTR_TO_INT (myqtt_ctx_get_data (domain->myqtt_ctx, "test_05_str:qt"));
+	printf ("Test 09: stored cached value for test_05 is: %d\n", value);
+
 	/* close message */
 	printf ("Test 09: closing connection..\n");
 	myqtt_conn_close (conn);
 
+	/* connect again with test_05 identifier */
+	queue = myqtt_async_queue_new ();
+	myqtt_ctx_set_on_msg (myqtt_ctx, common_queue_message_received, queue);
+	conn = myqtt_conn_new (myqtt_ctx, "test_05", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* check client id subscribed in main context and in the domain activated */
+	iterator = 0;
+	while (iterator < 19) {
+		/* check and receive */
+		if (! common_receive_and_check (queue, "myqtt/test", message, MYQTT_QOS_0, axl_false)) {
+			printf ("ERROR: expected to receive a message but something failed..\n");
+			return axl_false;
+		} /* end if */
+
+		iterator++;
+	} /* end while */
+
+	/* check quotas here */
+	iterator = 0;
+	while (iterator < 10) {
+		iterator++;
+
+		quota = myqtt_storage_queued_messages_quota_offline (domain->myqtt_ctx, "test_05");
+		printf ("Test 09: used quota so fat..by test_05 (%d)\n", quota);
+		if (quota != 0) {
+			/* wait a bit..*/
+			if (iterator < 10) {
+				myqtt_async_queue_timedpop (queue, 100000);
+		
+				continue;
+			} /* end if */
+
+			printf ("ERROR: expected to find quota=0 but found %d\n", quota);
+			return axl_false;
+		} /* end if */
+
+
+	}
+
+	iterator = 0;
+	while (iterator < 10) {
+		iterator++;
+
+		value = PTR_TO_INT (myqtt_ctx_get_data (domain->myqtt_ctx, (axlPointer) "test_05_str:qt"));
+		printf ("Test 09: stored cached value for test_05 after removing is: %d\n", value);
+		if (value != 0) {
+			/* wait a bit..*/
+			if (iterator < 10) {
+				myqtt_async_queue_timedpop (queue, 100000);
+		
+				continue;
+			} /* end if */
+
+			printf ("ERROR: expected to find stored value of 0 after recovering all messages.. but found %d\n",
+				value);
+			return axl_false;
+		} /* end if */
+	} /* end if */
+
+
+	myqtt_conn_close (conn);
+
+	/* release queue */
+	myqtt_async_queue_unref (queue);
 
 	myqtt_exit_ctx (myqtt_ctx, axl_true);
 	printf ("Test 09: finishing MyQttdCtx..\n");
@@ -1264,18 +1487,28 @@ int run_test (MyQttTestHandler function, const char * message) {
 
 
 #ifdef AXL_OS_UNIX
-void __block_test (int value) 
+void __block_test (int _signal) 
 {
 	MyQttAsyncQueue * queue;
+	char * cmd;
+	int    _value; 
+
+	signal (_signal, __block_test);
 
 	printf ("******\n");
-	printf ("****** Received a signal (the regression test is failing): pid %d..locking..!!!\n", myqtt_getpid ());
+	printf ("****** Received a signal=%d (the regression test is failing): pid %d..locking..!!!\n", _signal, myqtt_getpid ());
 	printf ("******\n");
 
 	/* block the caller */
 	queue = myqtt_async_queue_new ();
 	myqtt_async_queue_pop (queue);
-
+	
+	
+	cmd = axl_strdup_printf ("gdb -ex \"attach %d\"", (int) myqtt_getpid ());
+	_value = system (cmd);
+	printf ("Gdb finished with %d\n", _value);
+	axl_free (cmd); 
+	signal (_signal, __block_test);
 	return;
 }
 #endif
@@ -1353,6 +1586,13 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_09")
 	run_test (test_09, "Test 09: check storage quota enforcement (amount of messages that can be saved on disk)");
+
+	/* reject same client_id to the same domain, allow same
+	 * client_id to different domains. Allow to control what to do
+	 * when connecting with different connections with the same
+	 * client id. According to MQTT standard ([MQTT-3.1.4-2], page
+	 * 12, section 3.1.4 response, it states that by default the
+	 * server must disconnect previous  */
 
 	/* check client ids registered in all contexts */
 

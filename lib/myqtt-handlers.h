@@ -699,7 +699,9 @@ typedef void (*MyQttConnUnwatch) (MyQttCtx * ctx, MyQttConn * conn, axlPointer u
  *
  * @param ctx The context where the operation is taking place.
  *
- * @param conn The connection where the operation is taking place.
+ * @param conn The connection where the operation is taking
+ * place. Keep in mind this connection reference might not be defined
+ * because this is an offline store operation.
  *
  * @param client_identifier The client identifier for which the
  * message is being stored.

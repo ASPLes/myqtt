@@ -1100,13 +1100,17 @@ int           myqtt_msg_ref_count             (MyQttMsg * msg)
  *
  * @param msg The msg to free.
  **/
-void          myqtt_msg_free (MyQttMsg * msg)
+void          _myqtt_msg_free (MyQttMsg * msg, const char * caller)
 {
 #if defined(ENABLE_MYQTT_LOG)
 	MyQttCtx * ctx;
 #endif
+	axlPointer ref;
+
 	if (msg == NULL)
 		return;
+
+	/* printf ("%s : releasing %p\n", caller, msg); */
 
 	/* log a msg deallocated message */
 #if defined(ENABLE_MYQTT_LOG)
@@ -1116,14 +1120,24 @@ void          myqtt_msg_free (MyQttMsg * msg)
 
 	/* free msg payload (first checking for content, and, if not
 	 * defined, then payload) */
-	if (msg->buffer != NULL)
-		axl_free (msg->buffer);
-	else if (msg->payload != NULL)
-		axl_free ((char *) msg->payload);
+	if (msg->buffer != NULL) {
+		ref = (axlPointer) msg->buffer;
+		msg->buffer = NULL;
+		axl_free (ref);
+	} else {
+		if (msg->payload != NULL) {
+			ref = (axlPointer) msg->payload;
+			msg->payload = NULL;
+			axl_free (ref);
+		}
+	} /* end if */
 
 	/* release topic name if defined */
-	if (msg->topic_name)
-		axl_free (msg->topic_name);
+	if (msg->topic_name) {
+		ref = msg->topic_name;
+		msg->topic_name = NULL;
+		axl_free (ref);
+	}
 
 	/* release reference to the context */
 	myqtt_ctx_unref2 (&msg->ctx, "end msg");

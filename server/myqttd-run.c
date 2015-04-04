@@ -427,26 +427,28 @@ axl_bool __myqttd_run_on_store_msg (MyQttCtx * myqtt_ctx, MyQttConn * conn,
 	MyQttdCtx           * ctx      = domain->ctx;
 	int                   value    = 0;
 	char                * key;
-	
+
 	/* check if domain has settings and message limit */
 	if (domain->initialized && domain->use_settings) {
 		if (domain->settings && domain->settings->storage_quota_limit > 0) {
 
 			key   = axl_strdup_printf ("%s_str:qt", client_identifier);
-			value = PTR_TO_INT (myqtt_conn_get_data (conn, key));
+			value = PTR_TO_INT (myqtt_ctx_get_data (myqtt_ctx, key));
 
 			/* get current storage quota used */
 			if (value == 0) 
 				value = myqtt_storage_queued_messages_quota_offline (myqtt_ctx, client_identifier);
-			if (value + app_msg_size > domain->settings->storage_quota_limit) {
-				error ("Quota exceeded (%d > %d) : rejecting storing message for %s",
-				       value + app_msg_size, domain->settings->storage_quota_limit);
+			if (value + app_msg_size > (domain->settings->storage_quota_limit * 1024)) {
+				error ("Quota exceeded (%d > %d) qos %d, app_msg_size %d, packet_id %d : rejecting storing message for %s (domain %s)",
+				       value + app_msg_size, domain->settings->storage_quota_limit * 1024,
+				       qos, app_msg_size, packet_id, client_identifier, domain->name);
+				axl_free (key);
 				return axl_false;
 			} /* end if */
 
 			/* save values */
 			value += app_msg_size;
-			myqtt_conn_set_data_full (conn, key, INT_TO_PTR (value), axl_free, NULL);
+			myqtt_ctx_set_data_full (myqtt_ctx, key, INT_TO_PTR (value), axl_free, NULL);
 			
 			/* store operation allowed */
 		} /* end if */
@@ -470,14 +472,24 @@ void __myqttd_run_on_release_msg (MyQttCtx * myqtt_ctx, MyQttConn * conn,
 
 			/* get key and value */
 			key   = axl_strdup_printf ("%s_str:qt", client_identifier);
-			value = PTR_TO_INT (myqtt_conn_get_data (conn, key));
+			value = PTR_TO_INT (myqtt_ctx_get_data (myqtt_ctx, key));
 
-			/* get current storage quota used */
-			value = myqtt_storage_queued_messages_quota_offline (myqtt_ctx, client_identifier);
+			if (value == 0) {
+				/* get current storage quota used of nothing was found cached */
+				value = myqtt_storage_queued_messages_quota_offline (myqtt_ctx, client_identifier);
+			} /* end if */
 
 			/* save values */
 			value -= app_msg_size;
-			myqtt_conn_set_data_full (conn, key, INT_TO_PTR (value), axl_free, NULL);
+			if (value > 0) {
+				/* update stored valued */
+				myqtt_ctx_set_data_full (myqtt_ctx, key, INT_TO_PTR (value), axl_free, NULL);
+			} else {
+				/* delete key because it is not going
+				 * to be stored */
+				myqtt_hash_remove (myqtt_ctx->data, key);
+				axl_free (key);
+			}
 			
 			/* release operation accounted */
 		} /* end if */
@@ -552,6 +564,12 @@ void myqttd_run_watch_after_unwatch (MyQttCtx * _ctx, MyQttConn * conn, axlPoint
 	/* register the connection into the new handler */
 	myqtt_reader_watch_connection (domain->myqtt_ctx, conn);
 
+	/* resend messages queued */
+	if (myqtt_storage_queued_messages (domain->myqtt_ctx, conn) > 0) {
+		/* we have pending messages, order to deliver them */
+		myqtt_storage_queued_flush (domain->myqtt_ctx, conn);
+	} /* end if */
+
 	return;
 }
 
@@ -622,7 +640,12 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttCo
 	/*** PHASE 3: update client id hashes ***/
 	/* register client identifier */
 	myqtt_mutex_lock (&domain->myqtt_ctx->client_ids_m);
-	if (axl_hash_get (domain->myqtt_ctx->client_ids, conn->client_identifier)) {
+
+	/* init client ids hashes if it wasn't */
+	if (domain->myqtt_ctx->client_ids == NULL)
+		domain->myqtt_ctx->client_ids = axl_hash_new (axl_hash_string, axl_hash_equal_string);
+
+	if (axl_hash_exists (domain->myqtt_ctx->client_ids, conn->client_identifier)) {
 		/* client id found, reject it */
 		myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
 		error ("Rejected CONNECT request because client id %s is already in use, denying connect", conn->client_identifier);
@@ -682,7 +705,7 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 	     myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name), domain->name);
 	
 	/* report connection accepted */
-	return MYQTT_CONNACK_ACCEPTED;
+	return codes;
 } /* end if */
 
 void __myqttd_run_get_value_from_node (MyQttdCtx * ctx, axlNode * node, const char * _type, int * value, int _default)

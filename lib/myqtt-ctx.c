@@ -431,10 +431,10 @@ void        myqtt_ctx_set_data_full (MyQttCtx       * ctx,
 
 	/* store the data */
 	myqtt_hash_replace_full (ctx->data, 
-				  /* key and function */
-				  (axlPointer) key, key_destroy,
-				  /* value and function */
-				  value, value_destroy);
+				 /* key and function */
+				 (axlPointer) key, key_destroy,
+				 /* value and function */
+				 value, value_destroy);
 	return;
 }
 

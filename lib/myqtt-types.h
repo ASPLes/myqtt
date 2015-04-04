@@ -641,6 +641,15 @@ typedef enum {
 	MYQTT_QOS_SKIP_STORAGE = 127,
 
 	/** 
+	 * @brief Combinable flag for myqtt_storage_store_msg_offline
+	 * to avoid having that function notifying on_store
+	 * handler. This is very rare unless you know what you are
+	 * doing. 
+	 */
+	MYQTT_QOS_SKIP_STOREAGE_NOTIFY = 126,
+	
+
+	/** 
 	 * @brief This is Qos 0. The message is delivered according to
 	 * the capabilities of the underlying network. No response is
 	 * sent by the receiver and no retry is performed by the
