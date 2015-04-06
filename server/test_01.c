@@ -582,7 +582,7 @@ void common_close_conn_and_ctx (MyQttConn * conn)
 
 axl_bool common_send_msg (MyQttConn * conn, const char * topic, const char * message, MyQttQos qos) {
 	/* publish message */
-	return myqtt_conn_pub (conn, topic, (const axlPointer) message, strlen (message), qos, axl_false, 0);
+	return myqtt_conn_pub (conn, topic, (const axlPointer) message, strlen (message), qos, axl_false, 10);
 }
 
 void common_configure_reception_queue_received (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
@@ -1470,6 +1470,85 @@ axl_bool  test_09 (void) {
 	return axl_true;
 }
 
+axl_bool  test_10 (void) {
+	
+	MyQttdCtx       * ctx;
+	MyQttCtx        * myqtt_ctx;
+	MyQttConn       * conn;
+	MyQttConn       * conn2;
+	MyQttdDomain    * domain;
+
+	/* call to init the base library and close it */
+	printf ("Test 10: init library and server engine (using test_02.conf)..\n");
+	ctx       = common_init_ctxd (NULL, "test_10.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	myqtt_ctx = common_init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+	
+	/* connect and subscribe */
+	conn = myqtt_conn_new (myqtt_ctx, "test_05", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	conn2 = myqtt_conn_new (myqtt_ctx, "test_05", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (myqtt_conn_is_ok (conn2, axl_false)) {
+		printf ("ERROR: it shouldn't have connected but it did connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn2);
+
+	if (! common_send_msg (conn, "this/is/a/test", "test", MYQTT_QOS_0)) {
+		printf ("ERROR: expected to be able to send a message but it failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* now get domain where this user was enabled */
+	domain = myqttd_domain_find_by_name (ctx, "test_03.context");
+	if (domain == NULL) {
+		printf ("ERROR: unable to find test_03.context domain, mqyttd_domain_find_by_name ()..\n");
+		return axl_false;
+	} /* end if */
+
+	/* change settings dinamically */
+	printf ("Test 10: change settings to drop previous connections..\n");
+	domain->settings->drop_conn_same_client_id = axl_true;
+
+	conn2 = myqtt_conn_new (myqtt_ctx, "test_05", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn2, axl_false)) {
+		printf ("ERROR: it SHOULD have connected but it didn't connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	if (! common_send_msg (conn2, "this/is/a/test", "test", MYQTT_QOS_0)) {
+		printf ("ERROR: expected to be able to send a message but it failed (conn2)..\n");
+		return axl_false;
+	} /* end if */
+
+	if (common_send_msg (conn, "this/is/a/test", "test", MYQTT_QOS_2)) {
+		printf ("ERROR: expected to NOT be able to send a message but it did (conn)..\n");
+		return axl_false;
+	} /* end if */
+
+	myqtt_conn_close (conn);
+	myqtt_conn_close (conn2);
+
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+	printf ("Test 10: finishing MyQttdCtx..\n");
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+	
+	return axl_true;
+}
+
 
 
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
@@ -1597,12 +1676,8 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_09")
 	run_test (test_09, "Test 09: check storage quota enforcement (amount of messages that can be saved on disk)");
 
-	/* reject same client_id to the same domain, allow same
-	 * client_id to different domains. Allow to control what to do
-	 * when connecting with different connections with the same
-	 * client id. According to MQTT standard ([MQTT-3.1.4-2], page
-	 * 12, section 3.1.4 response, it states that by default the
-	 * server must disconnect previous  */
+	CHECK_TEST("test_10")
+	run_test (test_10, "Test 10: checking client id (<drop-conn-same-client-id value=\"no\" />)");
 
 	/* check client ids registered in all contexts */
 
@@ -1624,6 +1699,11 @@ int main (int argc, char ** argv)
 
 	/* test support for port sharing (running MQTT, MQTT-tls,
 	   WebSocket-MQTT..etc over the same port) */
+
+	/* test wildcard subscribe */
+
+	/* reload running service when received SIGHUP without
+	   dropping any connection */
 
 	printf ("All tests passed OK!\n");
 

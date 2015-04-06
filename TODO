@@ -18,6 +18,10 @@
 
 --== things that should be reviewed ==--
 
+* Post a reference as a comment on the following page about 
+  <drop-conn-same-client-id value="yes" /> to implement the standard
+  (even though it makes no sense):  http://2lemetry.com/2014/10/24/avoiding-mqtt-pitfalls/
+
 * Remove references to ppath concept inside myqttd
 
 * Limit subscription size somehow. It could be a memory problem.

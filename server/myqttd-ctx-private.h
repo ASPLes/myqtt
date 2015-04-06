@@ -226,6 +226,7 @@ struct _MyQttdDomainSetting {
 	/* operational limits or configurations */
 	axl_bool   require_auth;
 	axl_bool   restrict_ids;
+	axl_bool   drop_conn_same_client_id;
 
 	/* connections and messages */
 	int        conn_limit;
