@@ -214,6 +214,13 @@ MyQttPublishCodes on_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, 
 		return MYQTT_PUBLISH_DISCARD; /* report received PUBLISH should be discarded */
 	} /* end if */
 
+	/* get current user con */
+	if (axl_cmp ("close/conn", myqtt_msg_get_topic (msg))) {
+		printf ("Closing connection received as requested by the caller..\n");
+		myqtt_conn_shutdown (conn);
+		return MYQTT_PUBLISH_DISCARD; /* report received PUBLISH should be discarded */
+	} /* end if */
+
 	/* by default allow all publish operations */
 	return MYQTT_PUBLISH_OK;
 }

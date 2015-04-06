@@ -1033,8 +1033,9 @@ void __myqtt_reader_handle_unsubscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttM
 		/* now get connection hash handling that topic */
 		sub_hash = axl_hash_get (ctx->subs, (axlPointer) topic_filter);
 		if (! sub_hash) {
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to find connection hash under the topic %s but found NULL reference [internal engine error]..", 
-				   topic_filter);
+			/* not finding the subhash isn't an error any more */
+			/* myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to find connection hash under the topic %s but found NULL reference [internal engine error]..", 
+			   topic_filter); */
 			/* release lock */
 			myqtt_mutex_unlock (&ctx->subs_m);
 			continue;
@@ -1718,6 +1719,16 @@ void        __myqtt_reader_prepare_wait_reply (MyQttConn * conn, int packet_id)
 	return;
 }
 
+void __myqtt_reader_get_reply_on_close (MyQttConn * conn, axlPointer data)
+{
+	MyQttAsyncQueue * queue = data;
+
+	/* notify connection close */
+	myqtt_async_queue_push (queue, INT_TO_PTR (-1));
+
+	return;
+}
+
 /** 
  * @internal Function that allows to wait for a specific packet id
  * reply on the provided connection.
@@ -1732,7 +1743,7 @@ void        __myqtt_reader_prepare_wait_reply (MyQttConn * conn, int packet_id)
 MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, int timeout)
 {
 	MyQttAsyncQueue * queue;
-	MyQttMsg        * msg;
+	MyQttMsg        * msg = NULL;
 	MyQttCtx        * ctx;
 
 	if (conn == NULL)
@@ -1754,12 +1765,22 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 			   packet_id, conn->id);
 		return NULL;
 	} /* end if */
+	
+	/* install a connection on close handler before calling to wait */
+	myqtt_conn_set_on_close (conn, axl_false, __myqtt_reader_get_reply_on_close, queue);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		/* call to wait for message */
+		if (timeout > 0)
+			msg = myqtt_async_queue_pop (queue);
+		else
+			msg = myqtt_async_queue_timedpop (queue, timeout * 1000);
+	} /* end if */
 
-	/* call to wait for message */
-	if (timeout > 0)
-		msg = myqtt_async_queue_pop (queue);
-	else
-		msg = myqtt_async_queue_timedpop (queue, timeout * 1000);
+	/* remove connection close after finishing wait */
+	myqtt_conn_remove_on_close (conn, __myqtt_reader_get_reply_on_close, queue);
+
+	if (PTR_TO_INT (msg) == -1) 
+		msg = NULL;
 
 	/* null reference received, try to remove the queue but first
 	 * we have to acquire the reference */
