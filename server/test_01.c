@@ -1,27 +1,29 @@
 /* 
  *  MyQtt: A high performance open source MQTT implementation
- *  Copyright (C) 2014 Advanced Software Production Line, S.L.
+ *  Copyright (C) 2015 Advanced Software Production Line, S.L.
  *
  *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU Lesser General Public License
- *  as published by the Free Software Foundation; either version 2.1
- *  of the License, or (at your option) any later version.
+ *  modify it under the terms of the GNU General Public License as
+ *  published by the Free Software Foundation; either version 2 of the
+ *  License, or (at your option) any later version.
+ *
+ *  This program is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License as
+ *  published by the Free Software Foundation version 2.0 of the
+ *  License
  *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *  Lesser General Public License for more details.
+ *  General Public License for more details.
  *
- *  You should have received a copy of the GNU Lesser General Public
- *  License along with this program; if not, write to the Free
- *  Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
- *  02111-1307 USA
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ *  02110-1301, USA.
  *  
  *  You may find a copy of the license under this software is released
- *  at COPYING file. This is LGPL software: you are welcome to develop
- *  proprietary applications using this library without any royalty or
- *  fee but returning back any change, improvement or addition in the
- *  form of source code, project image, documentation patches, etc.
+ *  at COPYING file. This is GPL software 
  *
  *  For commercial support on build MQTT enabled solutions contact us:
  *          
@@ -36,7 +38,6 @@
  *         info@aspl.es - http://www.aspl.es/mqtt
  *                        http://www.aspl.es/myqtt
  */
-
 #include <myqttd.h>
 
 /* these includes are prohibited in a production ready code. They are
@@ -1549,6 +1550,56 @@ axl_bool  test_10 (void) {
 	return axl_true;
 }
 
+axl_bool  test_11 (void) {
+	
+	MyQttdCtx       * ctx;
+	MyQttCtx        * myqtt_ctx;
+	MyQttConn       * conn;
+
+	MyQttdDomain    * domain;
+
+	/* call to init the base library and close it */
+	printf ("Test 10: init library and server engine (using test_02.conf)..\n");
+	ctx       = common_init_ctxd (NULL, "test_10.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	myqtt_ctx = common_init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+	
+	/* disable verification */
+	opts = myqtt_conn_opts_new ();
+	myqtt_tls_opts_ssl_peer_verify (opts, axl_false);
+
+	/* do a simple connection */
+	conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_tls_port);
+		return axl_false;
+	} /* end if */
+
+	if (! common_send_msg (conn, "this/is/a/test", "test", MYQTT_QOS_0)) {
+		printf ("ERROR: expected to be able to send a message but it failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* send more messages here */
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+	printf ("Test 11: finishing MyQttdCtx..\n");
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+	
+	return axl_true;
+}
 
 
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
@@ -1626,7 +1677,8 @@ int main (int argc, char ** argv)
 	printf ("** To gather information about memory consumed (and leaks) use:\n**\n");
 	printf ("**     >> libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes --error-limit=no ./test_01 [--debug]\n**\n");
 	printf ("** Providing --run-test=NAME will run only the provided regression test.\n");
-	printf ("** Available tests: test_00, test_01, test_02, test_03, test_04\n");
+	printf ("** Available tests: test_00, test_01, test_02, test_03, test_04, test_05\n");
+	printf ("**                  test_06, test_07, test_08, test_09, test_10, test_11\n");
 	printf ("**\n");
 	printf ("** Report bugs to:\n**\n");
 	printf ("**     <myqtt@lists.aspl.es> MyQtt Mailing list\n**\n");
@@ -1679,6 +1731,12 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_10")
 	run_test (test_10, "Test 10: checking client id (<drop-conn-same-client-id value=\"no\" />)");
 
+	CHECK_TEST("test_11")
+	run_test (test_11, "Test 11: checking domain activation when connected with TLS (hostname == domain name)");
+
+	/* domain activation when connected with TLS MQTT when
+	   providing same hostname as domain name */
+
 	/* check client ids registered in all contexts */
 
 	/* check connection has storage initialized after connecting
@@ -1692,9 +1750,6 @@ int main (int argc, char ** argv)
 	/* test message filtering (by topic and by message) (it contains, it is equal) */
 
 	/* domain activation when connected with WebSocket/WebSocketTLS when
-	   providing same hostname as domain name */
-
-	/* domain activation when connected with TLS MQTT when
 	   providing same hostname as domain name */
 
 	/* test support for port sharing (running MQTT, MQTT-tls,
