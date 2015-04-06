@@ -180,7 +180,6 @@ void __myqtt_reader_async_run (MyQttConn * conn, MyQttMsg * msg, MyQttReaderHand
 
 	if (! myqtt_conn_ref (conn, "async-run-proxy")) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to handle incoming request, failed to acquire connection refere");
-
 		myqtt_msg_unref (msg);
 		myqtt_ctx_unref (&ctx);
 		return;
@@ -200,9 +199,9 @@ void __myqtt_reader_async_run (MyQttConn * conn, MyQttMsg * msg, MyQttReaderHand
 	} /* end if */
 
 	/* pack all data and call function */
-	data->conn = conn;
-	data->msg  = msg;
-	data->func = func;
+	data->conn    = conn;
+	data->msg     = msg;
+	data->func    = func;
 	data->blocked = block_io_during_op;
 
 	/* block io if requested by the caller */
@@ -1955,6 +1954,7 @@ void __myqtt_reader_check_and_trigger_will (MyQttCtx * ctx, MyQttConn * conn)
 	msg->type      = MYQTT_PUBLISH;
 	msg->qos       = conn->will_qos;
 	msg->ref_count = 1;
+	myqtt_mutex_create (&(msg->mutex));
 	msg->id        = __myqtt_msg_get_next_id (ctx, "get-next");
 	msg->ctx       = ctx;
 

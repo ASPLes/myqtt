@@ -1341,6 +1341,8 @@ int                myqtt_async_queue_ref_count (MyQttAsyncQueue * queue)
  */
 void               myqtt_async_queue_unref     (MyQttAsyncQueue * queue)
 {
+	axl_bool release;
+
 	v_return_if_fail (queue);
 
 	/* get the mutex */
@@ -1348,10 +1350,13 @@ void               myqtt_async_queue_unref     (MyQttAsyncQueue * queue)
 
 	/* update reference */
 	queue->reference--;
+	release = (queue->reference == 0);
+
+	/* unlock the mutex */
+	myqtt_mutex_unlock (&queue->mutex);
 
 	/* check reference couting */
-	if (queue->reference == 0) {
-
+	if (release) {
 		/* free the list */
 		axl_list_free (queue->data);
 		queue->data = NULL;
@@ -1367,12 +1372,7 @@ void               myqtt_async_queue_unref     (MyQttAsyncQueue * queue)
 
 		/* free the node itself */
 		axl_free (queue);
-
-		return;
 	} /* end if */
-
-	/* unlock the mutex */
-	myqtt_mutex_unlock (&queue->mutex);
 	
 	return;
 }

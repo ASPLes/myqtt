@@ -689,12 +689,16 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	myqtt_log (MYQTT_LEVEL_DEBUG, "New packet received, header size indication is: %d (iterator=%d)", remaining, iterator);
 	
 	/* create a msg */
-	msg       = axl_new (MyQttMsg, 1);
+	msg = axl_new (MyQttMsg, 1);
 	if (msg == NULL) {
 		__myqtt_conn_shutdown_and_record_error (
 			connection, MyQttMemoryFail, "Failed to allocate memory for msg");
 		return NULL;
 	} /* end if */
+
+	/* set initial ref count */
+	msg->ref_count = 1;
+	myqtt_mutex_create (&(msg->mutex));
 
 	/* report the message type and qos */
 	msg->type    = (header[0] & 0xf0) >> 4;
@@ -707,6 +711,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	/* check qos value here */
 	if (msg->qos < MYQTT_QOS_0 || msg->qos > MYQTT_QOS_2) {
 		myqtt_conn_report_and_close (connection, "Received a message with an unsupported QoS. It is not 0, 1 nor 2");
+		myqtt_mutex_destroy (&(msg->mutex));
 		axl_free (msg);
 		return NULL;
 	} /* end if */
@@ -718,6 +723,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 		/* call defined on header */
 		if (! ctx->on_header (ctx, connection, msg, ctx->on_header_data)) {
 			myqtt_conn_report_and_close (connection, "On header rejected message, closing connection");
+			myqtt_mutex_destroy (&(msg->mutex));
 			axl_free (msg);
 			return NULL;
 		} /* end if */
@@ -726,9 +732,6 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 
 	/* acquire a reference to the context */
 	myqtt_ctx_ref2 (ctx, "new msg");
-
-	/* set initial ref count */
-	msg->ref_count = 1;
 
 	/* associate the next msg id available */
 	msg->id   = __myqtt_msg_get_next_id (ctx, "get-next");
@@ -1022,6 +1025,7 @@ axl_bool             myqtt_msg_send_raw     (MyQttConn * connection, const unsig
  */
 axl_bool           myqtt_msg_ref                   (MyQttMsg * msg)
 {
+	int result;
 
 	/* check reference received */
 	v_return_val_if_fail (msg, axl_false);
@@ -1030,10 +1034,11 @@ axl_bool           myqtt_msg_ref                   (MyQttMsg * msg)
 
 	/* increase the msg counting */
 	msg->ref_count++;
+	result = msg->ref_count;
 
 	myqtt_mutex_unlock (&msg->mutex);
 
-	return axl_true;
+	return (result > 1);
 }
 
 /** 
@@ -1046,6 +1051,8 @@ axl_bool           myqtt_msg_ref                   (MyQttMsg * msg)
  */
 void          myqtt_msg_unref                 (MyQttMsg * msg)
 {
+	axl_bool release;
+
 	if (msg == NULL)
 		return;
 
@@ -1053,13 +1060,13 @@ void          myqtt_msg_unref                 (MyQttMsg * msg)
 	
 	/* decrease reference counting */
 	msg->ref_count--;
+	release = (msg->ref_count == 0);
 
 	myqtt_mutex_unlock (&msg->mutex);
 
 	/* check and dealloc */
-	if (msg->ref_count == 0) {
+	if (release) 
 		myqtt_msg_free (msg);
-	}
 	
 	return;
 }

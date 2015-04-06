@@ -2312,7 +2312,6 @@ axl_bool            myqtt_conn_offline_pub     (MyQttCtx            * ctx,
 	default:
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Wrong QoS value received=%d, unable to publish message", qos);
 		return axl_false;
-		break;
 	}
 
 	/* check reported values */
