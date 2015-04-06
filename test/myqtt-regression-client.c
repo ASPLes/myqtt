@@ -2725,6 +2725,96 @@ axl_bool test_20 (void) {
 }
 #endif
 
+axl_bool test_21 (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+
+	struct timeval    stop;
+	struct timeval    start;
+	struct timeval    diff;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 21: checking connection close after PUBLISH..\n");
+
+	/* create first a noPoll connection, for that we need to
+	   create a context */
+	conn = myqtt_conn_new (ctx, "test_01", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_websocket_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 21: pushing messages\n");
+
+	/* publish a message */
+	printf ("Test 21: testing (QOS2)...\n");
+	gettimeofday (&start, NULL);
+	if (myqtt_conn_pub (conn, "close/conn", "Test message 1", 14, MYQTT_QOS_2, axl_true, 10)) {
+		printf ("ERROR: it shouldn't work, but it did .. myqtt_conn_pub () worked..\n");
+		return axl_false;
+	} /* end if */
+	gettimeofday (&stop, NULL);
+	myqtt_timeval_substract (&stop, &start, &diff);
+
+	printf ("Test 21: wait for failing pub was %d,%.2f ms..\n", 
+		(int) diff.tv_sec, 
+		(double) ((double)diff.tv_usec / (double) 1000));
+	if (diff.tv_sec > 2) {
+		printf ("ERROR: expected to find no more of 2 seconds of wait but found %d\n", (int) diff.tv_sec);
+		return axl_false;
+	} /* end if */
+
+	/* publish a message */
+	printf ("Test 21: testing (QOS1)...\n");
+	gettimeofday (&start, NULL);
+	if (myqtt_conn_pub (conn, "close/conn", "Test message 1", 14, MYQTT_QOS_1, axl_true, 10)) {
+		printf ("ERROR: it shouldn't work, but it did .. myqtt_conn_pub () worked..\n");
+		return axl_false;
+	} /* end if */
+	gettimeofday (&stop, NULL);
+	myqtt_timeval_substract (&stop, &start, &diff);
+
+	printf ("Test 21: wait for failing pub was %d,%.2f ms..\n", 
+		(int) diff.tv_sec, 
+		(double) ((double)diff.tv_usec / (double) 1000));
+	if (diff.tv_sec > 2) {
+		printf ("ERROR: expected to find no more of 2 seconds of wait but found %d\n", (int) diff.tv_sec);
+		return axl_false;
+	} /* end if */
+
+	/* publish a message */
+	printf ("Test 21: testing (QOS0)...\n");
+	gettimeofday (&start, NULL);
+	if (myqtt_conn_pub (conn, "close/conn", "Test message 1", 14, MYQTT_QOS_0, axl_true, 10)) {
+		printf ("ERROR: it shouldn't work, but it did .. myqtt_conn_pub () worked..\n");
+		return axl_false;
+	} /* end if */
+	gettimeofday (&stop, NULL);
+	myqtt_timeval_substract (&stop, &start, &diff);
+
+	printf ("Test 21: wait for failing pub was %d,%.2f ms..\n", 
+		(int) diff.tv_sec, 
+		(double) ((double)diff.tv_usec / (double) 1000));
+	if (diff.tv_sec > 2) {
+		printf ("ERROR: expected to find no more of 2 seconds of wait but found %d\n", (int) diff.tv_sec);
+		return axl_false;
+	} /* end if */
+
+	/* close connection (this already closes the provided
+	   connection) */
+	myqtt_conn_close (conn);
+
+	/* release context (this already closes provided noPollCtx
+	   (nopoll_ctx) */
+	printf ("Test 21: releasing context\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -2860,14 +2950,16 @@ int main (int argc, char ** argv)
 	run_test (test_20, "Test 20: check WebSocket support (basic MQTT over ws://)"); 
 #endif
 
+	/* test close connection after publish... */
+	CHECK_TEST("test_21")
+	run_test (test_21, "Test 21: connection close after PUBLISH (qos 0, qos 1 and qos 2)"); 
+
 	/* support for message retention when subscribed with a wild
 	   card topic filter that matches different topic names */
 
 	/* test will support with autentication */
 
 	/* publish empty mesasage */
-
-	/* test close connection after subscribing... */
 
 	/* test reconnect (after closing) */
 
@@ -2880,8 +2972,6 @@ int main (int argc, char ** argv)
 	/* test connection lost on subscription sent */
 
 	/* test connection lost on unsubscribe sent */
-
-	/* test connection lost on publish sent with QOS 1 and QOS 2 */
 
 	/* test sending header, and then message */
 
