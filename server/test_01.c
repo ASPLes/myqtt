@@ -691,8 +691,8 @@ axl_bool  test_03 (void) {
 	printf ("Test 03: checked domain activation for both services...Ok\n");
 
 	/* connect and send message */
-	if (common_connect_send_and_check (NULL, "test_05", NULL, NULL, "myqtt/test", "This is test message....", NULL, MYQTT_QOS_0, axl_true)) {
-		printf ("Test 03: it should fail to connect but it connected..");
+	if (common_connect_send_and_check (NULL, "test_05_wrong", NULL, NULL, "myqtt/test", "This is test message....", NULL, MYQTT_QOS_0, axl_true)) {
+		printf ("Test 03: it should fail to connect but it connected (using test_05_wrong)..\n");
 		return axl_false;
 	} /* end if */
 
@@ -734,7 +734,6 @@ axl_bool  test_03 (void) {
 		return axl_false;
 	}
 	
-
 	/* configure message reception */
 	queue  = common_configure_reception (conn);
 	queue2 = common_configure_reception (conn2);
@@ -1000,6 +999,7 @@ axl_bool  test_07 (void) {
 	MyQttCtx        * myqtt_ctx;
 	MyQttConn       * conns[50];
 	int               iterator;
+	char            * client_id;
 
 	/* call to init the base library and close it */
 	printf ("Test 07: init library and server engine (using test_02.conf)..\n");
@@ -1019,7 +1019,11 @@ axl_bool  test_07 (void) {
 	printf ("Test 07: creating five connections..\n");
 	iterator = 0;
 	while (iterator < 5) {
-		conns[iterator] = myqtt_conn_new (myqtt_ctx, "test_02", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+		/* call to get client id */
+		client_id       = axl_strdup_printf ("test_02_%d", iterator);
+		conns[iterator] = myqtt_conn_new (myqtt_ctx, client_id, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+		axl_free (client_id);
+
 		if (! myqtt_conn_is_ok (conns[iterator], axl_false)) {
 			printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
 			return axl_false;
@@ -1064,7 +1068,11 @@ axl_bool  test_07 (void) {
 	printf ("Test 07: creating 10 connections (standard sensting)..\n");
 	iterator = 0;
 	while (iterator < 10) {
-		conns[iterator] = myqtt_conn_new (myqtt_ctx, "test_04", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+		/* create connection */
+		client_id = axl_strdup_printf ("test_04_%d", iterator);
+		conns[iterator] = myqtt_conn_new (myqtt_ctx, client_id, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+		axl_free (client_id);
+
 		if (! myqtt_conn_is_ok (conns[iterator], axl_false)) {
 			printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
 			return axl_false;

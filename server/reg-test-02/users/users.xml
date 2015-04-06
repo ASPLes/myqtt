@@ -1,6 +1,16 @@
 <myqtt-users password-format="plain">
   <user id="test_01" />
   <user id="test_04" />
+  <user id="test_04_0" />
+  <user id="test_04_1" />
+  <user id="test_04_2" />
+  <user id="test_04_3" />
+  <user id="test_04_4" />
+  <user id="test_04_5" />
+  <user id="test_04_6" />
+  <user id="test_04_7" />
+  <user id="test_04_8" />
+  <user id="test_04_9" />
   <user id="test_02" username="user-test-02" password="differentpass" />
   <user id="another-id-03" username="username-03" password="differentpass" />
 </myqtt-users>
