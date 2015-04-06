@@ -40,6 +40,11 @@
  */
 #include <myqttd.h>
 
+#if defined(ENABLE_TLS_SUPPORT)
+/* include tls support */
+#include <myqtt-tls.h>
+#endif
+
 /* these includes are prohibited in a production ready code. They are
    just used to check various internal aspects of the MyQtt
    implementation. If you need your code to use them to work keep in
@@ -60,6 +65,8 @@ axl_bool test_common_enable_debug = axl_false;
 /* default listener location */
 const char * listener_host = "localhost";
 const char * listener_port = "1883";
+const char * listener_tls_port = "8883";
+const char * listener_websocket_port = "9001";
 
 MyQttCtx * common_init_ctx (void)
 {
@@ -1555,8 +1562,8 @@ axl_bool  test_11 (void) {
 	MyQttdCtx       * ctx;
 	MyQttCtx        * myqtt_ctx;
 	MyQttConn       * conn;
-
-	MyQttdDomain    * domain;
+	MyQttConnOpts   * opts;
+	/* MyQttdDomain    * domain;*/
 
 	/* call to init the base library and close it */
 	printf ("Test 10: init library and server engine (using test_02.conf)..\n");
@@ -1577,7 +1584,7 @@ axl_bool  test_11 (void) {
 	myqtt_tls_opts_ssl_peer_verify (opts, axl_false);
 
 	/* do a simple connection */
-	conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
+	conn = myqtt_tls_conn_new (myqtt_ctx, NULL, axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_tls_port);
 		return axl_false;

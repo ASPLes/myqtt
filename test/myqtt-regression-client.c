@@ -2653,6 +2653,68 @@ axl_bool test_19 (void) {
 
 	return axl_true;
 }
+
+axl_bool test_19a (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	MyQttConnOpts   * opts;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 19-a: checking TLS support (SNI indication)\n");
+
+	/* disable verification */
+	opts = myqtt_conn_opts_new ();
+	myqtt_tls_opts_ssl_peer_verify (opts, axl_false);
+
+	/* do a simple connection */
+	conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_tls_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 19-a: pushing messages\n");
+
+	/* publish a message with retention */
+	if (! myqtt_conn_pub (conn, "this/is/a/test/18", "Test message 1", 14, MYQTT_QOS_2, axl_true, 10)) {
+		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* publish a message with retention */
+	if (! myqtt_conn_pub (conn, "this/is/a/test/18", "Test message 2", 14, MYQTT_QOS_2, axl_true, 10)) {
+		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 19-a: checking connection\n");
+
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 19-a: closing connection..\n");
+	if (! myqtt_tls_is_on (conn)) {
+		printf ("ERROR: expected to find TLS enabled connection but found it isn't\n");
+		return axl_false;
+	} /* end if */
+
+	/* check here announced server name at the remote side */
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
+	/* release context */
+	printf ("Test 19-a: releasing context\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
+
 #endif
 
 #if defined(ENABLE_WEBSOCKET_SUPPORT)
@@ -2943,6 +3005,10 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_19")
 	run_test (test_19, "Test 19: check TLS support (server side certificate auth: common CA)"); 
+
+	/* test SNI indication */
+	CHECK_TEST("test_19a")
+	run_test (test_19a, "Test 19-a: check TLS SNI support (announcing "); 
 #endif
 
 #if defined(ENABLE_WEBSOCKET_SUPPORT)

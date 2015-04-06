@@ -229,7 +229,7 @@ void           myqtt_tls_set_ssl_context_creator (MyQttCtx                * ctx,
 	return;
 }
 
-SSL_CTX * __myqtt_conn_get_ssl_context (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * opts, axl_bool is_client)
+SSL_CTX * __myqtt_tls_conn_get_ssl_context (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * opts, axl_bool is_client)
 {
 	/* call to user defined function if the context creator is defined */
 	if (ctx && ctx->context_creator) 
@@ -434,7 +434,7 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 	} /* end if */
 
 	/* found TLS connection request, enable it */
-	conn->ssl_ctx  = __myqtt_conn_get_ssl_context (ctx, conn, options, axl_true);
+	conn->ssl_ctx  = __myqtt_tls_conn_get_ssl_context (ctx, conn, options, axl_true);
 	if (conn->ssl_ctx == NULL) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create SSL context (__myqtt_conn_get_ssl_context failed)");
 		return axl_false;
@@ -452,6 +452,15 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 	conn->ssl      = SSL_new (conn->ssl_ctx);       
 	if (conn->ssl)
 		myqtt_conn_set_data_full (conn, "__my:co:ssl", conn->ssl, NULL, (axlDestroyFunc) SSL_free);
+
+	/* configure here SNI indication or used suplied form by
+	   calling API */
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Setting SNI indication to serverName=%s", conn->host);
+	if (! SSL_set_tlsext_host_name (conn->ssl, conn->host)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to configure SNI client indication (SSL_set_tlsext_ (conn->ssl_ctx=%p, conn->ssl=%p)",
+			    conn->ssl_ctx, conn->ssl);
+		goto fail_ssl_connection;
+	}
 
 	if (conn->ssl_ctx == NULL || conn->ssl == NULL) {
 		myqtt_log ( MYQTT_LEVEL_CRITICAL, "Unable to create SSL context internal references are null (conn->ssl_ctx=%p, conn->ssl=%p)",
@@ -857,6 +866,18 @@ axl_bool        myqtt_tls_opts_set_ssl_certs    (MyQttConnOpts * opts,
 }
 
 
+int __myqtt_tls_server_sni_callback (SSL * ssl, int *ad, void *arg)
+{
+	MyQttConn  * conn       = (MyQttConn *) arg;
+	MyQttCtx   * ctx        = CONN_CTX (conn);
+	const char * serverName = SSL_get_servername (ssl, TLSEXT_NAMETYPE_host_name);
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Received SNI server side notification with serverName=%s", serverName);
+	
+
+	return SSL_TLSEXT_ERR_OK;
+}
+
 /** 
  * @internal Function that prepares the TLS/SSL negotiation for every
  * incoming connection accepted.
@@ -988,12 +1009,16 @@ void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttC
 		chainCertificate = opts->chain_certificate;
 	
 	/* create ssl context */
-	conn->ssl_ctx  = __myqtt_conn_get_ssl_context (ctx, conn, listener->opts, axl_false);
+	conn->ssl_ctx  = __myqtt_tls_conn_get_ssl_context (ctx, conn, listener->opts, axl_false);
 	if (conn->ssl_ctx == NULL) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create SSL context (__myqtt_conn_get_ssl_context failed)");
 		return;
 	} /* end if */
 	myqtt_conn_set_data_full (conn, "__my:co:ssl-ctx", conn->ssl_ctx, NULL, (axlDestroyFunc) SSL_CTX_free);
+
+	/* configure SNI callback */
+	SSL_CTX_set_tlsext_servername_callback (conn->ssl_ctx, __myqtt_tls_server_sni_callback);	
+	SSL_CTX_set_tlsext_servername_arg      (conn->ssl_ctx, conn);	
 	
 	/* Configure ca certificate in the case it is defined */
 	if (opts && opts->ca_certificate) {
@@ -1002,7 +1027,6 @@ void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttC
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to configure CA certificate (%s), SSL_CTX_load_verify_locations () failed", opts->ca_certificate);
 			return;
 		} /* end if */
-		
 	} /* end if */
 	
 	/* enable default verification paths */
