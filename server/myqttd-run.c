@@ -577,7 +577,8 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttCo
 							MyQttCtx  * myqtt_ctx, MyQttdDomain * domain,
 							const char * username, const char * client_id, const char * server_Name) {
 
-	int connections;
+	int         connections;
+	MyQttConn * conn2;
 
 	/* ensure context is initialized */
 	if (! domain->initialized) {
@@ -645,11 +646,27 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttCo
 	if (domain->myqtt_ctx->client_ids == NULL)
 		domain->myqtt_ctx->client_ids = axl_hash_new (axl_hash_string, axl_hash_equal_string);
 
-	if (axl_hash_exists (domain->myqtt_ctx->client_ids, conn->client_identifier)) {
-		/* client id found, reject it */
-		myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
-		error ("Rejected CONNECT request because client id %s is already in use, denying connect", conn->client_identifier);
-		return MYQTT_CONNACK_IDENTIFIER_REJECTED;
+	/** Ensure that no client connects with same id unless
+	    drop_conn_same_client_id is enabled. According to MQTT
+	    standard ([MQTT-3.1.4-2], page * 12, section 3.1.4
+	    response, it states that by default the * server must
+	    disconnect previous. */
+	conn2 = axl_hash_get (domain->myqtt_ctx->client_ids, (axlPointer) conn->client_identifier);
+	if (conn2) {
+		/* connection with same client identifier found, now
+		   check if we have to reply */
+		if (! domain->settings->drop_conn_same_client_id) {
+			/* client id found, reject it */
+			myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
+			error ("Rejected CONNECT request because client id %s is already in use, denying connect", conn->client_identifier);
+			return MYQTT_CONNACK_IDENTIFIER_REJECTED;
+		} /* end if */
+
+		/* reached this point, we have to drop previous
+		   connection */
+		wrn ("Replacing conn-id=%d by conn-id=%d because client id %s was found, dropping old connection", 
+		     conn2->id, conn->id, conn->client_identifier);
+		myqtt_conn_shutdown (conn2);
 	} /* end if */
 
 	axl_hash_insert_full (domain->myqtt_ctx->client_ids, 
@@ -701,8 +718,8 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 	} /* end if */
 
 	/* reached this point, the connecting user is enabled and authenticated */
-	msg ("Connection accepted for username=%s client-id=%s server-name=%s : selected domain=%s",
-	     myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name), domain->name);
+	msg ("Connection accepted for username=%s client-id=%s server-name=%s conn-id=%d : selected domain=%s",
+	     myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name), conn->id, domain->name);
 	
 	/* report connection accepted */
 	return codes;
@@ -755,6 +772,10 @@ axl_bool myqttd_run_domain_settings_load (MyQttdCtx * ctx, axlDoc * doc)
 	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/require-auth", "boolean", &(ctx->default_setting->require_auth), axl_true);
 	/* restrict-ids */
 	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/restrict-ids", "boolean", &(ctx->default_setting->restrict_ids), axl_false);
+
+	/* restrict-ids */
+	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/drop-conn-same-client-id", "boolean", &(ctx->default_setting->drop_conn_same_client_id), axl_false);
+
 	/* conn-limit */
 	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/conn-limit", "int", &(ctx->default_setting->conn_limit), -1);
 	/* message-size-limit */
@@ -796,6 +817,9 @@ axl_bool myqttd_run_domain_settings_load (MyQttdCtx * ctx, axlDoc * doc)
 		/* restrict-ids */
 		__myqttd_run_get_value_by_node (ctx, node, "restrict-ids", "boolean", &(setting->restrict_ids),
 						ctx->default_setting->restrict_ids);
+		/* drop-conn-same-client-id */
+		__myqttd_run_get_value_by_node (ctx, node, "drop-conn-same-client-id", "boolean", &(setting->drop_conn_same_client_id),
+						ctx->default_setting->drop_conn_same_client_id);
 		/* conn-limit */
 		__myqttd_run_get_value_by_node (ctx, node, "conn-limit", "int", &(setting->conn_limit),
 						ctx->default_setting->conn_limit);
