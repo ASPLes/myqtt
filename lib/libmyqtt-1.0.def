@@ -2,6 +2,7 @@ EXPORTS
 _myqtt_log
 _myqtt_log2
 _myqtt_log_common
+_myqtt_msg_free
 myqtt_async_queue_foreach
 myqtt_async_queue_items
 myqtt_async_queue_length
@@ -227,7 +228,6 @@ myqtt_log_set_prepare_log
 myqtt_msg_build
 myqtt_msg_decode_remaining_length
 myqtt_msg_encode_remaining_length
-myqtt_msg_free
 myqtt_msg_free_build
 myqtt_msg_get_app_msg
 myqtt_msg_get_app_msg_size

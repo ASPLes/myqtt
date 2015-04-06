@@ -150,7 +150,9 @@ void common_queue_message_received_only_one (MyQttCtx * ctx, MyQttConn * conn, M
 	MyQttAsyncQueue * queue = user_data;
 
 	/* push message received */
-	myqtt_msg_ref (msg);
+	if (! myqtt_msg_ref (msg)) 
+		printf ("ERROR: failed to acquire msg reference, ref count is: %d (pointer %p)\n", 
+			myqtt_msg_ref_count (msg), msg);
 	myqtt_async_queue_push (queue, msg);
 	return;
 } 
@@ -354,7 +356,7 @@ axl_bool  test_02 (void) {
 			printf ("ERROR: expected to find different content..\n");
 			return axl_false;
 		} /* end if */
-		
+
 		myqtt_msg_unref (msg);
 
 		/* next iterator */
