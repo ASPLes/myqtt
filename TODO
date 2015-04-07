@@ -10,6 +10,8 @@
 
 * Add support for SNI (continue with test_19a). Then continue with
   integration at test_11 (myqttd).
+  http://www.opensource.apple.com/source/OpenSSL098/OpenSSL098-32/src/apps/s_server.c
+  http://stackoverflow.com/questions/5113333/how-to-implement-server-name-indication-sni
 
 * Add wildcard support (for message retention too).
 
