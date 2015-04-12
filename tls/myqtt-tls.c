@@ -47,9 +47,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-/* some keys to store creation handlers and its associate data */
-#define CTX_CREATION      "tls:ctx-creation"
-#define CTX_CREATION_DATA "tls:ctx-creation:data"
+/* some keys to store handlers and its associate data */
 #define POST_CHECK        "tls:post-checks"
 #define POST_CHECK_DATA   "tls:post-checks:data"
 #define TLS_CTX           "tls:ctx"
@@ -95,10 +93,6 @@ typedef struct _MyQttTlsCtx {
 	MyQttTlsCertificateFileLocator      tls_certificate_handler;
 	MyQttTlsPrivateKeyFileLocator       tls_private_key_handler;
 	MyQttTlsChainCertificateFileLocator tls_chain_handler;
-
-	/* default ctx creation */
-	MyQttTlsCtxCreation                 tls_default_ctx_creation;
-	axlPointer                          tls_default_ctx_creation_user_data;
 
 	/* default post check */
 	MyQttTlsPostCheck                   tls_default_post_check;
@@ -1306,105 +1300,6 @@ axl_bool           myqtt_tls_is_on                      (MyQttConn            * 
 	if (conn == NULL)
 		return axl_false;
 	return conn->tls_on;
-}
-
-/** 
- * @brief Allows to configure the SSL context creation function.
- *
- * See \ref MyQttTlsCtxCreation for more information.
- *
- * If you want to configure a global handler to be called for all
- * connections, you can use the default handler: \ref
- * myqtt_tls_set_default_ctx_creation.
- *
- * <i>NOTE: Using this function for the server side, will disable the
- * following handlers, (provided at the \ref myqtt_tls_accept_negotiation):
- * 
- *  - certificate_handler (\ref MyQttTlsCertificateFileLocator)
- *  - private_key_handler (\ref MyQttTlsPrivateKeyFileLocator)
- *
- * This is because providing a function to create the SSL context
- * (SSL_CTX) assumes the application layer on top of MyQtt Library
- * takes control over the SSL configuration process. This ensures
- * MyQtt Library will not do any additional configuration once
- * created the SSL context (SSL_CTX).
- *
- * </i>
- * 
- * @param connection The connection where TLS is going to be activated.
- *
- * @param ctx_creation The handler to be called once required a
- * SSL_CTX object.
- *
- * @param user_data User defined data, that is passed to the handler
- * provided (ctx_creation).
- */
-void               myqtt_tls_set_ctx_creation           (MyQttConn     * connection,
-							  MyQttTlsCtxCreation   ctx_creation, 
-							  axlPointer             user_data)
-{
-	/* check parameters received */
-	if (connection == NULL || ctx_creation == NULL)
-		return;
-
-	/* configure the handler */
-	myqtt_conn_set_data (connection, CTX_CREATION,      ctx_creation);
-	myqtt_conn_set_data (connection, CTX_CREATION_DATA, user_data);
-
-	return;
-}
-
-/** 
- * @brief Allows to configure the default SSL context creation
- * function to be called when it is required a SSL_CTX object.
- *
- * See \ref MyQttTlsCtxCreation for more information.
- *
- * If you want to configure a per-connection handler you can use the
- * following: \ref myqtt_tls_set_ctx_creation.
- *
- * <i>NOTE: Using this function for the server side, will disable the
- * following handlers, (provided at the \ref myqtt_tls_accept_negotiation):
- * 
- *  - certificate_handler (\ref MyQttTlsCertificateFileLocator)
- *  - private_key_handler (\ref MyQttTlsPrivateKeyFileLocator)
- *
- * This is because providing a function to create the SSL context
- * (SSL_CTX) assumes the application layer on top of MyQtt Library
- * takes control over the SSL configuration process. This ensures
- * MyQtt Library will not do any additional configure operation once
- * created the SSL context (SSL_CTX).
- *
- * </i>
- * 
- * @param ctx The context where the operation will be performed.
- * 
- * @param ctx_creation The handler to be called once required a
- * SSL_CTX object.
- *
- * @param user_data User defined data, that is passed to the handler
- * provided (ctx_creation).
- */
-void               myqtt_tls_set_default_ctx_creation   (MyQttCtx            * ctx, 
-							  MyQttTlsCtxCreation   ctx_creation, 
-							  axlPointer             user_data)
-{
-	MyQttTlsCtx * tls_ctx;
-
-	/* check parameters received */
-	if (ctx == NULL || ctx_creation == NULL)
-		return;
-
-	/* check if the tls ctx was created */
-	tls_ctx = myqtt_ctx_get_data (ctx, TLS_CTX);
-	if (tls_ctx == NULL) 
-		return;
-
-	/* configure the handler */
-	tls_ctx->tls_default_ctx_creation           = ctx_creation;
-	tls_ctx->tls_default_ctx_creation_user_data = user_data;
-
-	return;
 }
 
 /** 

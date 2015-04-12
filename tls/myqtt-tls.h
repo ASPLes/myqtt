@@ -146,91 +146,6 @@ typedef char  * (* MyQttTlsChainCertificateFileLocator) (MyQttConn   * connectio
 							 const char  * serverName);
 
 /** 
- * @brief Handler definition used by the TLS profile, to allow the
- * application level to provide the function that must be executed to
- * create an (SSL_CTX *) object, used to perform the TLS activation.
- *
- * This handler is used by: 
- *  - \ref myqtt_tls_set_ctx_creation
- *  - \ref myqtt_tls_set_default_ctx_creation
- *
- * By default the MyQtt TLS implementation will use its own code to
- * create the SSL_CTX object if not provided the handler. However,
- * such code is too general, so it is recomended to provide your own
- * context creation.
- *
- * Inside this function you must configure all your stuff to tweak the
- * OpenSSL behaviour. Here is an example:
- * 
- * \code
- * axlPointer * __ctx_creation (MyQttConn * conection,
- *                              axlPointer         user_data)
- * {
- *     SSL_CTX * ctx;
- *
- *     // create the context using the TLS method (for client side)
- *     ctx = SSL_CTX_new (TLSv1_method ());
- *
- *     // configure the root CA and its directory to perform verifications
- *     if (SSL_CTX_load_verify_locations (ctx, "your-ca-file.pem", "you-ca-directory")) {
- *         // failed to configure SSL_CTX context 
- *         SSL_CTX_free (ctx);
- *         return NULL;
- *     }
- *     if (SSL_CTX_set_default_verify_paths () != 1) {
- *         // failed to configure SSL_CTX context 
- *         SSL_CTX_free (ctx);
- *         return NULL;
- *     }
- *
- *     // configure the client certificate (public key)
- *     if (SSL_CTX_use_certificate_chain_file (ctx, "your-client-certificate.pem")) {
- *         // failed to configure SSL_CTX context 
- *         SSL_CTX_free (ctx);
- *         return NULL;
- *     }
- *
- *     // configure the client private key 
- *     if (SSL_CTX_use_PrivateKey_file (ctx, "your-client-private-key.rpm", SSL_FILETYPE_PEM)) {
- *         // failed to configure SSL_CTX context 
- *         SSL_CTX_free (ctx);
- *         return NULL;
- *     }
- *
- *     // set the verification level for the client side
- *     SSL_CTX_set_verify (ctx, SSL_VERIFY_PEER, NULL);
- *     SSL_CTX_set_verify_depth(ctx, 4);
- *
- *     // our ctx is configured
- *     return ctx;
- * }
- * \endcode
- *
- * For the server side, the previous example mostly works, but you
- * must reconfigure the call to SSL_CTX_set_verify, providing
- * something like this:
- * 
- * \code
- *    SSL_CTX_set_verify (ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
- * \endcode
- *
- * See OpenSSL documenation for SSL_CTX_set_verify and SSL_CTX_set_verify_depth.
- * 
- * @param conn The connection that has been requested to be
- * activated the TLS profile, for which a new SSL_CTX must be created. 
- * 
- * @param user_data An optional user pointer defined at either \ref
- * myqtt_tls_set_default_ctx_creation and \ref
- * myqtt_tls_set_ctx_creation.
- * 
- * @return You must return a newly allocated SSL_CTX or NULL if the
- * handler must signal that the TLS activation must not be performed.
- */
-typedef axlPointer (* MyQttTlsCtxCreation) (MyQttConn * conn,
-					    axlPointer        user_data);
-
-
-/** 
  * @brief Allows to configure a post-condition function to be executed
  * to perform additional checkings.
  *
@@ -305,12 +220,12 @@ typedef void      (*MyQttTlsFailureHandler) (MyQttConn   * conn,
  * connection created. Do not reuse unless you know what you are
  * doing.
  *
- * A very bare implementation for this context creation will be:
+ * A very bare implementation for this context creator will be:
  *
  * \code 
  * SSL_CTX * my_ssl_ctx_creator (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * opts, axl_bool is_client, axlPointer user_data)
  * {
- *        // very basic context creation using default settings provided by OpenSSL
+ *        // very basic context creator using default settings provided by OpenSSL
  *        return SSL_CTX_new (is_client ? TLSv1_client_method () : TLSv1_server_method ()); 
  * }
  * \endcode
@@ -458,14 +373,6 @@ axl_bool           myqtt_tls_set_certificate            (MyQttConn  * listener,
 							 const char * chain_file);
 	
 axl_bool           myqtt_tls_is_on                      (MyQttConn            * conn);
-
-void               myqtt_tls_set_ctx_creation           (MyQttConn            * connection,
-							 MyQttTlsCtxCreation    ctx_creation, 
-							 axlPointer             user_data);
-
-void               myqtt_tls_set_default_ctx_creation   (MyQttCtx              * ctx,
-							  MyQttTlsCtxCreation    ctx_creation, 
-							  axlPointer             user_data);
 
 void               myqtt_tls_set_post_check             (MyQttConn             * connection,
 							  MyQttTlsPostCheck      post_check,
