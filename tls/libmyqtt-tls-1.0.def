@@ -19,8 +19,6 @@ myqtt_tls_opts_set_ssl_certs
 myqtt_tls_opts_ssl_peer_verify
 myqtt_tls_set_certificate
 myqtt_tls_set_common_data
-myqtt_tls_set_ctx_creation
-myqtt_tls_set_default_ctx_creation
 myqtt_tls_set_default_post_check
 myqtt_tls_set_failure_handler
 myqtt_tls_set_post_check
