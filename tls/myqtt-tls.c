@@ -964,12 +964,81 @@ axl_bool __myqtt_tls_prepare_certificates (MyQttConn     * conn,
 
 int __myqtt_tls_server_sni_callback (SSL * ssl, int *ad, void *arg)
 {
-	MyQttConn  * conn       = (MyQttConn *) arg;
-	MyQttCtx   * ctx        = CONN_CTX (conn);
-	const char * serverName = SSL_get_servername (ssl, TLSEXT_NAMETYPE_host_name);
+	MyQttConn   * conn       = (MyQttConn *) arg;
+	MyQttConn   * listener;
+	MyQttCtx    * ctx        = CONN_CTX (conn);
+	const char  * serverName = SSL_get_servername (ssl, TLSEXT_NAMETYPE_host_name);
+	MyQttTlsCtx * tls_ctx;
+	SSL_CTX     * old_context;
 
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Received SNI server side notification with serverName=%s", serverName);
-	
+	/* additional variables */
+	char        * certificate = NULL;
+	char        * key         = NULL;
+	char        * chain       = NULL;
+
+	if (serverName) {
+		/* notify on serverName notified to let application level
+		   handling this: maybe he/she does not want to accept this
+		   serverName.  */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Received SNI server side notification with serverName=%s", serverName);
+
+		
+		/* now try to locate a certificate with the provided name */
+		tls_ctx = myqtt_ctx_get_data (ctx, TLS_CTX);
+		if (tls_ctx == NULL) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to accept SNI indication, TLS MyQtt api seems to be disabled, myqtt_ctx_get_data () reported NULL");
+			return SSL_TLSEXT_ERR_NOACK;
+		} /* end if */
+		
+		if (tls_ctx && tls_ctx->tls_certificate_handler) 
+			certificate = tls_ctx->tls_certificate_handler (conn, serverName);
+		if (tls_ctx && tls_ctx->tls_private_key_handler) 
+			key         = tls_ctx->tls_private_key_handler (conn, serverName);
+		if (tls_ctx && tls_ctx->tls_chain_handler) 
+			chain       = tls_ctx->tls_chain_handler (conn, serverName);
+
+		if (certificate && key && chain) {
+			/* get reference to old context */
+			old_context = conn->ssl_ctx;
+
+			/* create new ssl context to switch to */
+			listener       = myqtt_conn_get_listener (conn);
+			conn->ssl_ctx  = __myqtt_tls_conn_get_ssl_context (ctx, conn, listener ? listener->opts : NULL, axl_false);
+			if (conn->ssl_ctx == NULL) {
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create SSL context (__myqtt_conn_get_ssl_context failed)");
+				conn->ssl_ctx = old_context;
+				myqtt_conn_shutdown (conn);
+				return SSL_TLSEXT_ERR_NOACK;
+			} /* end if */
+
+			if (! __myqtt_tls_prepare_certificates (conn, listener ? listener->opts : NULL, certificate, key, chain, NULL)) {
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Prepare certificates failed (__myqtt_tls_prepare_certificates), skiping connection accept");
+				conn->ssl_ctx = old_context;
+				myqtt_conn_shutdown (conn);
+				return SSL_TLSEXT_ERR_NOACK;
+			} /* end if */
+
+			/* everything went ok, update references */
+			SSL_set_SSL_CTX (conn->ssl, conn->ssl_ctx);
+			
+			/* release previous context by setting the new */
+			myqtt_conn_set_data_full (conn, "__my:co:ssl-ctx", conn->ssl_ctx, NULL, (axlDestroyFunc) SSL_CTX_free);
+
+			axl_free (certificate);
+			axl_free (key);
+			axl_free (chain);
+			
+		}
+
+		/* check if the serverName requested already matches
+		   with common name provided in certificate. In such
+		   case, nothing has to be changed */
+
+		/* for now, set the serverName for this connection */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Calling to update connection's serverName to: %s", serverName);
+		myqtt_conn_set_server_name (conn, serverName);
+	} /* end if */
+		
 
 	return SSL_TLSEXT_ERR_OK;
 }

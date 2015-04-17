@@ -68,6 +68,10 @@ struct _MyQttConn {
 	char * username;
 	char * password;
 
+	/* serverName: indication available only when using MQTT under
+	   certain protocols (TLS and WebSocket) */
+	char * serverName;
+
 	/** 
 	 * @brief Host name this connection is actually connected to.
 	 */

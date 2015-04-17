@@ -147,6 +147,16 @@ MyQttPublishCodes on_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, 
 	char            * aux;
 	axlHashCursor   * cursor;        
 
+	/* get current client identifier */
+	if (axl_cmp ("myqtt/admin/get-server-name", myqtt_msg_get_topic (msg))) {
+		/* send back serverName indicated */
+		aux = (char *) myqtt_conn_get_server_name (conn);
+		if (aux == NULL)
+			aux = "";
+		if (! myqtt_conn_pub (conn, "myqtt/admin/get-server-name", (axlPointer) aux, strlen (aux), MYQTT_QOS_0, axl_false, 0)) 
+			printf ("ERROR: failed to publish get-server-name..\n");
+		return MYQTT_PUBLISH_DISCARD; /* report received PUBLISH should be discarded */
+	} /* end if */
 
 	/* get current client identifier */
 	if (axl_cmp ("myqtt/admin/get-client-identifier", myqtt_msg_get_topic (msg))) {

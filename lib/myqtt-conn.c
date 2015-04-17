@@ -3562,6 +3562,7 @@ void               myqtt_conn_free (MyQttConn * connection)
 	axl_free (connection->username);
 	axl_free (connection->will_topic);
 	axl_free (connection->will_msg);
+	axl_free (connection->serverName);
 
 	/* sending package ids */
 	axl_list_free (connection->sent_pkgids);
@@ -4463,8 +4464,12 @@ MyQttConn  * myqtt_conn_get_listener           (MyQttConn * connection)
  */
 const char        * myqtt_conn_get_server_name        (MyQttConn * conn)
 {
+	/* check input connection */
+	if (! conn)
+		return NULL;
+
 	/* still not implemented */
-	return NULL;
+	return conn->serverName;
 }
 
 /** 
@@ -4477,7 +4482,14 @@ const char        * myqtt_conn_get_server_name        (MyQttConn * conn)
  */
 void                myqtt_conn_set_server_name        (MyQttConn * conn, const char * serverName)
 {
-	/* still not implemented */
+	char * temp;
+	if (conn == NULL || serverName == NULL)
+		return;
+
+	/* save serverName */
+	temp = conn->serverName;
+	conn->serverName = axl_strdup (serverName);
+	axl_free (temp);
 	return;
 }
 
