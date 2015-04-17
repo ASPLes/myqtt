@@ -2659,6 +2659,7 @@ axl_bool test_19a (void) {
 	MyQttCtx        * ctx = init_ctx ();
 	MyQttConn       * conn;
 	MyQttConnOpts   * opts;
+	MyQttMsg        * msg;
 
 	if (! ctx)
 		return axl_false;
@@ -2676,22 +2677,6 @@ axl_bool test_19a (void) {
 		return axl_false;
 	} /* end if */
 
-	printf ("Test 19-a: pushing messages\n");
-
-	/* publish a message with retention */
-	if (! myqtt_conn_pub (conn, "this/is/a/test/18", "Test message 1", 14, MYQTT_QOS_2, axl_true, 10)) {
-		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
-		return axl_false;
-	} /* end if */
-
-	/* publish a message with retention */
-	if (! myqtt_conn_pub (conn, "this/is/a/test/18", "Test message 2", 14, MYQTT_QOS_2, axl_true, 10)) {
-		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
-		return axl_false;
-	} /* end if */
-
-	printf ("Test 19-a: checking connection\n");
-
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_port);
 		return axl_false;
@@ -2703,7 +2688,30 @@ axl_bool test_19a (void) {
 		return axl_false;
 	} /* end if */
 
-	/* check here announced server name at the remote side */
+	printf ("Test 19-a: getting announced SNI value at the server side\n");
+
+	/* call to get client identifier */
+	if (! myqtt_conn_pub (conn, "myqtt/admin/get-server-name", "", 0, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message to get client identifier..\n");
+		return axl_false;
+	} /* end if */
+
+	/* push a message to ask for clientid identifier */
+	msg   = myqtt_conn_get_next (conn, 10000);
+	if (msg == NULL) {
+		printf ("ERROR: expected to find message reply...but nothing was found..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 19-a: checking serverName...\n");
+	if (! axl_cmp (myqtt_msg_get_app_msg (msg), "localhost")) {
+		printf ("ERROR: expected localhost, but found: %s\n", (const char*) myqtt_msg_get_app_msg (msg));
+		return axl_false;
+	}
+	printf ("Test 19-a: found announced serverName: %s\n", (const char*) myqtt_msg_get_app_msg (msg));
+
+	/* release message */
+	myqtt_msg_unref (msg);
 
 	/* close connection */
 	myqtt_conn_close (conn);
