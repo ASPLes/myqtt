@@ -859,6 +859,108 @@ axl_bool        myqtt_tls_opts_set_ssl_certs    (MyQttConnOpts * opts,
 	return axl_true;
 }
 
+axl_bool __myqtt_tls_prepare_certificates (MyQttConn     * conn, 
+					   MyQttConnOpts * opts, 
+					   const char    * certificate, 
+					   const char    * key, 
+					   const char    * chain_certificate,
+					   const char    * ca_certificate)
+{
+	MyQttCtx   * ctx = CONN_CTX (conn);
+	const char * __ca_certificate = NULL;
+	
+	/* select the ca certificate from input or from options */
+	if (ca_certificate)
+		__ca_certificate = ca_certificate;
+	if (! __ca_certificate && opts && opts->ca_certificate)
+		__ca_certificate = opts->ca_certificate;
+
+	if (__ca_certificate) {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Setting up CA certificate: %s", __ca_certificate);
+		if (SSL_CTX_load_verify_locations (conn->ssl_ctx, __ca_certificate, NULL) != 1) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to configure CA certificate (%s), SSL_CTX_load_verify_locations () failed", 
+				   __ca_certificate);
+
+			/* dump error stack */
+			myqtt_conn_shutdown (conn);
+
+			return axl_false;
+		} /* end if */
+	} /* end if */
+	
+	/* enable default verification paths */
+	if (SSL_CTX_set_default_verify_paths (conn->ssl_ctx) != 1) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to configure default verification paths, SSL_CTX_set_default_verify_paths () failed");
+
+		/* dump error stack */
+		myqtt_conn_shutdown (conn);
+		return axl_false;
+	} /* end if */
+	
+	/* configure chain certificate */
+	if (chain_certificate) {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Setting up chain certificate: %s", chain_certificate);
+		if (SSL_CTX_use_certificate_chain_file (conn->ssl_ctx, chain_certificate) != 1) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to configure chain certificate (%s), SSL_CTX_use_certificate_chain_file () failed", 
+				   chain_certificate);
+
+			/* dump error stack */
+			myqtt_conn_shutdown (conn);
+
+			return axl_false;
+		} /* end if */
+	} /* end if */
+	
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Using certificate file: %s (with ssl context ref: %p)", certificate, conn->ssl_ctx);
+	if (conn->ssl_ctx == NULL || SSL_CTX_use_certificate_chain_file (conn->ssl_ctx, certificate) != 1) {
+		/* drop an error log */
+		if (conn->ssl_ctx == NULL)
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to accept incoming connection, failed to create SSL context. Context creator returned NULL pointer");
+		else 
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "there was an error while setting certificate file into the SSL context, unable to start TLS profile. Failure found at SSL_CTX_use_certificate_file function. Tried certificate file: %s", 
+				   certificate);
+		
+		/* dump error stack */
+		myqtt_conn_shutdown (conn);
+		
+		return axl_false;
+	} /* end if */
+	
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Using certificate key: %s", key);
+	if (SSL_CTX_use_PrivateKey_file (conn->ssl_ctx, key, SSL_FILETYPE_PEM) != 1) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, 
+			   "there was an error while setting private file into the SSl context, unable to start TLS profile. Failure found at SSL_CTX_use_PrivateKey_file function. Tried private file: %s", 
+			   key);
+		/* dump error stack */
+		myqtt_conn_shutdown (conn);
+
+		return axl_false;
+	}
+	
+	/* check for private key and certificate file to match. */
+	if (! SSL_CTX_check_private_key (conn->ssl_ctx)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, 
+			   "seems that certificate file and private key doesn't match!, unable to start TLS profile. Failure found at SSL_CTX_check_private_key function. Used certificate %s, and key: %s",
+			   certificate, key);
+		/* dump error stack */
+		myqtt_conn_shutdown (conn);
+		
+		return axl_false;
+	} /* end if */
+	
+	if (opts != NULL && ! opts->disable_ssl_verify) {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Enabling certificate client peer verification from server");
+		/** really, really ugly hack to let
+		 * __myqtt_tls_ssl_verify_callback to be able to get
+		 * access to the context required to drop some logs */
+		__myqtt_tls_ssl_ctx_debug = ctx;
+		SSL_CTX_set_verify (conn->ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, __myqtt_tls_ssl_verify_callback); 
+		SSL_CTX_set_verify_depth (conn->ssl_ctx, 5);
+	} /* end if */
+
+	return axl_true;
+}
+
 
 int __myqtt_tls_server_sni_callback (SSL * ssl, int *ad, void *arg)
 {
@@ -1015,77 +1117,11 @@ void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttC
 	SSL_CTX_set_tlsext_servername_arg      (conn->ssl_ctx, conn);	
 	
 	/* Configure ca certificate in the case it is defined */
-	if (opts && opts->ca_certificate) {
-		myqtt_log (MYQTT_LEVEL_DEBUG, "Setting up CA certificate: %s", opts->ca_certificate);
-		if (SSL_CTX_load_verify_locations (conn->ssl_ctx, opts->ca_certificate, NULL) != 1) {
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to configure CA certificate (%s), SSL_CTX_load_verify_locations () failed", opts->ca_certificate);
-			return;
-		} /* end if */
-	} /* end if */
-	
-	/* enable default verification paths */
-	if (SSL_CTX_set_default_verify_paths (conn->ssl_ctx) != 1) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to configure default verification paths, SSL_CTX_set_default_verify_paths () failed");
+	if (! __myqtt_tls_prepare_certificates (conn, opts, certificateFile, privateKey, chainCertificate, NULL)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Prepare certificates failed (__myqtt_tls_prepare_certificates), skiping connection accept");
 		return;
 	} /* end if */
-	
-	/* configure chain certificate */
-	if (chainCertificate) {
-		myqtt_log (MYQTT_LEVEL_DEBUG, "Setting up chain certificate: %s", chainCertificate);
-		if (SSL_CTX_use_certificate_chain_file (conn->ssl_ctx, chainCertificate) != 1) {
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to configure chain certificate (%s), SSL_CTX_use_certificate_chain_file () failed", chainCertificate);
-			return;
-		} /* end if */
-	} /* end if */
-	
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Using certificate file: %s (with ssl context ref: %p)", certificateFile, conn->ssl_ctx);
-	if (conn->ssl_ctx == NULL || SSL_CTX_use_certificate_chain_file (conn->ssl_ctx, certificateFile) != 1) {
-		/* drop an error log */
-		if (conn->ssl_ctx == NULL)
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to accept incoming connection, failed to create SSL context. Context creator returned NULL pointer");
-		else 
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "there was an error while setting certificate file into the SSl context, unable to start TLS profile. Failure found at SSL_CTX_use_certificate_file function. Tried certificate file: %s", 
-				    certificateFile);
-		
-		/* dump error stack */
-		myqtt_conn_shutdown (conn);
-		
-		return;
-	} /* end if */
-	
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Using certificate key: %s", privateKey);
-	if (SSL_CTX_use_PrivateKey_file (conn->ssl_ctx, privateKey, SSL_FILETYPE_PEM) != 1) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, 
-			    "there was an error while setting private file into the SSl context, unable to start TLS profile. Failure found at SSL_CTX_use_PrivateKey_file function. Tried private file: %s", 
-			    privateKey);
-		/* dump error stack */
-		myqtt_conn_shutdown (conn);
 
-		return;
-	}
-	
-	/* check for private key and certificate file to match. */
-	if (! SSL_CTX_check_private_key (conn->ssl_ctx)) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, 
-			    "seems that certificate file and private key doesn't match!, unable to start TLS profile. Failure found at SSL_CTX_check_private_key function. Used certificate %s, and key: %s",
-			    certificateFile, privateKey);
-		/* dump error stack */
-		myqtt_conn_shutdown (conn);
-		
-		return;
-	} /* end if */
-	
-	if (opts != NULL && ! opts->disable_ssl_verify) {
-		myqtt_log (MYQTT_LEVEL_DEBUG, "Enabling certificate client peer verification from server");
-		/** really, really ugly hack to let
-		 * __myqtt_tls_ssl_verify_callback to be able to get
-		 * access to the context required to drop some logs */
-		__myqtt_tls_ssl_ctx_debug = ctx;
-		SSL_CTX_set_verify (conn->ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, __myqtt_tls_ssl_verify_callback); 
-		SSL_CTX_set_verify_depth (conn->ssl_ctx, 5);
-	} /* end if */
-	
-	
 	/* create SSL context */
 	conn->ssl = SSL_new (conn->ssl_ctx);       
 	if (conn->ssl == NULL) {
