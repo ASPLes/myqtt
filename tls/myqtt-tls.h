@@ -75,7 +75,7 @@ typedef enum {
  * file. The function will receive the connection where the TLS is
  * being request to be activated and the serverName value which hold a
  * optional host name value requesting to act as the server configured
- * by this value.
+ * by this value if SNI indication is received.
  * 
  * The function must return a path to the certificate using a
  * dynamically allocated value or the content of the certificate
@@ -101,6 +101,8 @@ typedef enum {
  *   platform/directory-structure independent as possible. The same
  *   function works on every installation, the only question to be
  *   configured are the search paths to lookup.
+ *
+ * @param ctx The context where the operation is taking place.
  * 
  * @param connection The connection where the TLS negotiation was
  * received.
@@ -109,12 +111,16 @@ typedef enum {
  * <b>serverName</b>. This value is supposed to be used to select the
  * right certificate file (according to the common value stored on
  * it).
+ *
+ * @param user_data Optional reference to user data configured at \ref myqtt_tls_listener_set_certificate_handlers
  * 
  * @return A newly allocated value containing the path to the
  * certificate file or the certificate content to be used.
  */
-typedef char  * (* MyQttTlsCertificateFileLocator) (MyQttConn    * connection,
-						    const char   * serverName);
+typedef char  * (* MyQttTlsCertificateFileLocator) (MyQttCtx     * ctx,
+						    MyQttConn    * connection,
+						    const char   * serverName,
+						    axlPointer     user_data);
 
 /** 
  * @brief Handler definition for those functions that allows to locate
@@ -123,12 +129,22 @@ typedef char  * (* MyQttTlsCertificateFileLocator) (MyQttConn    * connection,
  * See \ref MyQttTlsCertificateFileLocator handler for more
  * information. This handler allows to define how is located the
  * private key file used for the session TLS activation.
+ *
+ * @param ctx The context where the operation is taking place.
+ *
+ * @param connection The connection where the operation is taking place.
+ *
+ * @param serverName The serverName was has been announced.
+ *
+ * @param user_data Optional reference to user data configured at \ref myqtt_tls_listener_set_certificate_handlers
  * 
  * @return A newly allocated value containing the path to the private
  * key file or the private key content to be used.
  */
-typedef char  * (* MyQttTlsPrivateKeyFileLocator) (MyQttConn   * connection,
-						   const char  * serverName);
+typedef char  * (* MyQttTlsPrivateKeyFileLocator) (MyQttCtx    * ctx,
+						   MyQttConn   * connection,
+						   const char  * serverName,
+						   axlPointer    user_data);
 
 /** 
  * @brief Handler definition for those functions that allows to locate
@@ -138,12 +154,23 @@ typedef char  * (* MyQttTlsPrivateKeyFileLocator) (MyQttConn   * connection,
  * See \ref MyQttTlsCertificateFileLocator handler for more
  * information. This handler allows to define how is located the
  * private key file used for the session TLS activation.
+ *
+ *
+ * @param ctx The context where the operation is taking place.
+ *
+ * @param connection The connection where the operation is taking place.
+ *
+ * @param serverName The serverName was has been announced.
+ *
+ * @param user_data Optional reference to user data configured at \ref myqtt_tls_listener_set_certificate_handlers
  * 
  * @return A newly allocated value containing the path to the private
  * key file or the private key content to be used.
  */
-typedef char  * (* MyQttTlsChainCertificateFileLocator) (MyQttConn   * connection,
-							 const char  * serverName);
+typedef char  * (* MyQttTlsChainCertificateFileLocator) (MyQttCtx    * ctx,
+							 MyQttConn   * connection,
+							 const char  * serverName,
+							 axlPointer    user_data);
 
 /** 
  * @brief Allows to configure a post-condition function to be executed
@@ -343,7 +370,8 @@ MyQttConn        * myqtt_tls_conn_new6                  (MyQttCtx       * ctx,
 void              myqtt_tls_listener_set_certificate_handlers (MyQttCtx                            * ctx,
 							       MyQttTlsCertificateFileLocator        certificate_handler,
 							       MyQttTlsPrivateKeyFileLocator         private_key_handler,
-							       MyQttTlsChainCertificateFileLocator   chain_handler);
+							       MyQttTlsChainCertificateFileLocator   chain_handler,
+							       axlPointer                            user_data);
 
 void               myqtt_tls_opts_ssl_peer_verify        (MyQttConnOpts * opts, axl_bool verify);
 

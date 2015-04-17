@@ -89,10 +89,11 @@ int myqtt_tls_log_ssl (MyQttCtx * ctx)
 typedef struct _MyQttTlsCtx {
 
 	/* @internal Internal default handlers used to define the TLS
-	 * profile support. */
+	 * support. */
 	MyQttTlsCertificateFileLocator      tls_certificate_handler;
 	MyQttTlsPrivateKeyFileLocator       tls_private_key_handler;
 	MyQttTlsChainCertificateFileLocator tls_chain_handler;
+	axlPointer                          tls_handler_data;
 
 	/* default post check */
 	MyQttTlsPostCheck                   tls_default_post_check;
@@ -555,12 +556,12 @@ axl_bool __myqtt_tls_was_init = axl_false;
 /** 
  * @brief Initialize TLS library.
  * 
- * All client applications using TLS profile must call to this
- * function in order to ensure TLS profile engine can be used.
+ * All client applications using TLS must call to this
+ * function in order to ensure TLS engine can be used.
  *
  * @param ctx The context where the operation will be performed.
  *
- * @return axl_true if the TLS profile was initialized. Otherwise
+ * @return axl_true if the TLS was initialized. Otherwise
  * axl_false is returned. If the function returns axl_false, TLS is
  * not available and any call to operate with the TLS api will fail.
  */
@@ -743,7 +744,17 @@ MyQttConn        * myqtt_tls_conn_new6                  (MyQttCtx       * ctx,
 
 /** 
  * @brief Allows to configure the set of functions that will help the
- * engine to find the appropriate certificate/key/chain for each case.
+ * engine to find the appropriate certificate/key/chain according to
+ * the serverName announced by the SNI indication.
+ *
+ * By default, certificates set \ref myqtt_tls_set_certificate or \ref
+ * myqtt_tls_opts_set_ssl_certs are used. 
+ *
+ * However, in the case SNI indication is received, you can use this
+ * function to install a set of handlers that are called to find the
+ * right certificate according to the serverName. If these handlers
+ * aren't configured and a SNI indication is received, the serverName
+ * is attached to the connection to be used by \ref myqtt_conn_get_server_name
  *
  * @param ctx The context that is going to be configured.
  *
@@ -756,11 +767,15 @@ MyQttConn        * myqtt_tls_conn_new6                  (MyQttCtx       * ctx,
  * @param chain_handler Optiona handler that allows to find the
  * suitable file or content according to the serverName to provide the
  * chain certificate.
+ *
+ * @param user_data User defined pointer that is passed to all
+ * handlers configured at this function.
  */
 void              myqtt_tls_listener_set_certificate_handlers (MyQttCtx                            * ctx,
 							       MyQttTlsCertificateFileLocator        certificate_handler,
 							       MyQttTlsPrivateKeyFileLocator         private_key_handler,
-							       MyQttTlsChainCertificateFileLocator   chain_handler)
+							       MyQttTlsChainCertificateFileLocator   chain_handler,
+							       axlPointer                            user_data)
 {
 	MyQttTlsCtx * tls_ctx;
 
@@ -779,6 +794,7 @@ void              myqtt_tls_listener_set_certificate_handlers (MyQttCtx         
 	tls_ctx->tls_certificate_handler = certificate_handler;
 	tls_ctx->tls_private_key_handler = private_key_handler;
 	tls_ctx->tls_chain_handler       = chain_handler;
+	tls_ctx->tls_handler_data        = user_data;
 
 	return;
 }
@@ -917,7 +933,7 @@ axl_bool __myqtt_tls_prepare_certificates (MyQttConn     * conn,
 		if (conn->ssl_ctx == NULL)
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to accept incoming connection, failed to create SSL context. Context creator returned NULL pointer");
 		else 
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "there was an error while setting certificate file into the SSL context, unable to start TLS profile. Failure found at SSL_CTX_use_certificate_file function. Tried certificate file: %s", 
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "there was an error while setting certificate file into the SSL context, unable to start TLS. Failure found at SSL_CTX_use_certificate_file function. Tried certificate file: %s", 
 				   certificate);
 		
 		/* dump error stack */
@@ -929,7 +945,7 @@ axl_bool __myqtt_tls_prepare_certificates (MyQttConn     * conn,
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Using certificate key: %s", key);
 	if (SSL_CTX_use_PrivateKey_file (conn->ssl_ctx, key, SSL_FILETYPE_PEM) != 1) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, 
-			   "there was an error while setting private file into the SSl context, unable to start TLS profile. Failure found at SSL_CTX_use_PrivateKey_file function. Tried private file: %s", 
+			   "there was an error while setting private file into the SSl context, unable to start TLS. Failure found at SSL_CTX_use_PrivateKey_file function. Tried private file: %s", 
 			   key);
 		/* dump error stack */
 		myqtt_conn_shutdown (conn);
@@ -940,7 +956,7 @@ axl_bool __myqtt_tls_prepare_certificates (MyQttConn     * conn,
 	/* check for private key and certificate file to match. */
 	if (! SSL_CTX_check_private_key (conn->ssl_ctx)) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, 
-			   "seems that certificate file and private key doesn't match!, unable to start TLS profile. Failure found at SSL_CTX_check_private_key function. Used certificate %s, and key: %s",
+			   "seems that certificate file and private key doesn't match!, unable to start TLS. Failure found at SSL_CTX_check_private_key function. Used certificate %s, and key: %s",
 			   certificate, key);
 		/* dump error stack */
 		myqtt_conn_shutdown (conn);
@@ -991,13 +1007,13 @@ int __myqtt_tls_server_sni_callback (SSL * ssl, int *ad, void *arg)
 		} /* end if */
 		
 		if (tls_ctx && tls_ctx->tls_certificate_handler) 
-			certificate = tls_ctx->tls_certificate_handler (conn, serverName);
+			certificate = tls_ctx->tls_certificate_handler (ctx, conn, serverName, tls_ctx->tls_handler_data);
 		if (tls_ctx && tls_ctx->tls_private_key_handler) 
-			key         = tls_ctx->tls_private_key_handler (conn, serverName);
+			key         = tls_ctx->tls_private_key_handler (ctx, conn, serverName, tls_ctx->tls_handler_data);
 		if (tls_ctx && tls_ctx->tls_chain_handler) 
-			chain       = tls_ctx->tls_chain_handler (conn, serverName);
+			chain       = tls_ctx->tls_chain_handler (ctx, conn, serverName, tls_ctx->tls_handler_data);
 
-		if (certificate && key && chain) {
+		if (certificate && key) {
 			/* get reference to old context */
 			old_context = conn->ssl_ctx;
 
@@ -1027,16 +1043,12 @@ int __myqtt_tls_server_sni_callback (SSL * ssl, int *ad, void *arg)
 			axl_free (certificate);
 			axl_free (key);
 			axl_free (chain);
-			
-		}
-
-		/* check if the serverName requested already matches
-		   with common name provided in certificate. In such
-		   case, nothing has to be changed */
+		} /* end if */
 
 		/* for now, set the serverName for this connection */
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Calling to update connection's serverName to: %s", serverName);
 		myqtt_conn_set_server_name (conn, serverName);
+
 	} /* end if */
 		
 
@@ -1879,7 +1891,7 @@ typedef struct _MyQttTlsSyncResult {
  * @param connection The connection with a TLS session activated.
  * 
  * @return The SSL object reference or NULL if not defined. The
- * function returns NULL if TLS profile is not activated or was not
+ * function returns NULL if TLS is not activated or was not
  * activated on the connection.
  */
 axlPointer         myqtt_tls_get_ssl_object             (MyQttConn * connection)

@@ -52,6 +52,38 @@
 #include <signal.h>
 #endif
 
+
+#if defined(ENABLE_TLS_SUPPORT)
+char * __certificate_handler (MyQttCtx * ctx,
+			      MyQttConn * conn,
+			      const char * serverName,
+			      axlPointer   user_data)
+{
+	if (axl_cmp (serverName, "localhost"))
+		return axl_strdup ("localhost-server.crt");
+
+	return NULL;
+}
+
+char * __private_handler  (MyQttCtx * ctx,
+			   MyQttConn * conn,
+			   const char * serverName,
+			   axlPointer   user_data)
+{
+	if (axl_cmp (serverName, "localhost"))
+		return axl_strdup ("localhost-server.key");
+
+	return NULL;
+}
+char * __chain_handler  (MyQttCtx * ctx,
+			 MyQttConn * conn,
+			 const char * serverName,
+			 axlPointer   user_data)
+{
+	return NULL;
+}
+#endif
+
 /** 
  * IMPORTANT NOTE: do not include this header and any other header
  * that includes "private". They are used for internal definitions and
@@ -348,6 +380,14 @@ int main (int argc, char ** argv)
 		printf ("ERROR: failed to start TLS listener at: %s:%s..\n", listener_host, "1911");
 		exit (-1);
 	} /* end if */
+
+	/* set certificate handlers */
+	myqtt_tls_listener_set_certificate_handlers (ctx, 
+						     __certificate_handler,
+						     __private_handler,
+						     __chain_handler,
+						     NULL);
+
 #endif
 
 #if defined(ENABLE_WEBSOCKET_SUPPORT)
@@ -371,6 +411,8 @@ int main (int argc, char ** argv)
 	} /* end if */
 
 #endif
+
+	
 
 	/* install on publish handler */
 	myqtt_ctx_set_on_publish (ctx, on_publish, NULL);
