@@ -76,6 +76,7 @@ myqttd_conn_mgr_setup_proxy_on_parent
 myqttd_conn_mgr_shutdown_connections
 myqttd_conn_mgr_unref
 myqttd_create_dir
+myqttd_ctx_add_listener_activator
 myqttd_ctx_add_on_publish
 myqttd_ctx_free
 myqttd_ctx_get_data

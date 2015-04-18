@@ -124,6 +124,9 @@ struct _MyQttdCtx {
 	/* protected by data_mutex */
 	axlList            * on_publish_handlers;
 
+	/*** on listener activators ***/
+	MyQttHash          * listener_activators;
+
 	/* store for domain settings */
 	MyQttHash            * domain_settings;
 	MyQttdDomainSetting  * default_setting;
@@ -221,6 +224,14 @@ struct _MyQttdOnPublishData {
 	axlPointer       user_data;
 };
 
+/** 
+ * @internal Type structure.
+ */       
+typedef struct _MyQttdListenerActivatorData MyQttdListenerActivatorData;
+struct _MyQttdListenerActivatorData {
+	MyQttdListenerActivator  listener_activator;
+	axlPointer               user_data;
+};
 
 
 struct _MyQttdDomainSetting {

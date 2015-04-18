@@ -224,6 +224,37 @@ typedef MyQttPublishCodes (*MyQttdOnPublish) (MyQttdCtx * ctx,       MyQttdDomai
 					      MyQttCtx  * myqtt_ctx, MyQttConn    * conn, 
 					      MyQttMsg  * msg,       axlPointer     user_data);
 
+/** 
+ * @brief Handler definition for the set of functions that allows
+ * MyQttd server to startup listeners.
+ *
+ * This handlers are used by the myqttd engine to star listeners
+ * according to the protocol declared or defaults values. See \ref myqttd_ctx_add_listener_activator
+ *
+ * @param ctx The context where the operation is taking place 
+ *
+ * @param my_ctx The MyQttCtx context where the operation is taking place.
+ *
+ * @param port_node A reference to the xml node in the configuration
+ * file. This is useful in the case the handler needs additional
+ * information are is configured in the node.
+ *
+ * @param bind_addr Declared name value at the configuration in the xml
+ * node. This might not be defined.
+ *
+ * @param port Declared port value at the configuration in the xml
+ * node. This is always defined.
+ *
+ * @param user_data User defined pointer received on this handler and
+ * defined at \ref myqttd_ctx_add_listener_activator.
+ */
+typedef MyQttConn * (*MyQttdListenerActivator) (MyQttdCtx  * ctx, 
+						MyQttCtx   * my_ctx, 
+						axlNode    * port_node, 
+						const char * bind_addr, 
+						const char * port, 
+						axlPointer   user_data);
+
 
 #endif
 

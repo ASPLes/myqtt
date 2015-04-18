@@ -99,6 +99,9 @@ MyQttdCtx * myqttd_ctx_new ()
 	/* init hash for auth backends */
 	ctx->auth_backends = myqtt_hash_new (axl_hash_string, axl_hash_equal_string);
 
+	/* init listener activators */
+	ctx->listener_activators = myqtt_hash_new (axl_hash_string, axl_hash_equal_string);
+
 	/* init on publish handlers and mutex associated */
 	ctx->on_publish_handlers  = axl_list_new (axl_list_always_return_1, axl_free);
 
@@ -189,6 +192,48 @@ void            myqttd_ctx_add_on_publish (MyQttdCtx       * ctx,
 	myqtt_mutex_lock (&ctx->data_mutex);
 	axl_list_append (ctx->on_publish_handlers, data);
 	myqtt_mutex_unlock (&ctx->data_mutex);
+
+	return;
+}
+
+/** 
+ * @brief Allows to register a new listener activator, a handler that
+ * is called to startup a MQTT listener running a particular protocol
+ * (or maybe user defined behaviour).
+ *
+ * @param ctx The context where the handler is being registered
+ *
+ * @param proto The protocol label that will identify this
+ * handler. This protocol label will be used by system administrator
+ * while configuring ports this myqttd server instance will listen
+ * to. See /etc/myqtt/myqtt.conf (inside /global-settings/ports/port).
+ *
+ * @param listener_activator The listener activator that will be
+ * called if the proto label matches.
+ *
+ * @param user_data User defined pointer that will be passed in into
+ * the listener activator handler.
+ *
+ */
+void            myqttd_ctx_add_listener_activator (MyQttdCtx               * ctx,
+						   const char              * proto,
+						   MyQttdListenerActivator   listener_activator,
+						   axlPointer                user_data)
+{
+	MyQttdListenerActivatorData * data;
+
+	if (ctx == NULL || proto == NULL || listener_activator == NULL)
+		return;
+
+	/* add the reference */
+	data = axl_new (MyQttdListenerActivatorData, 1);
+	if (data == NULL)
+		return;
+	data->listener_activator = listener_activator;
+	data->user_data          = user_data;
+
+	/* add listener activator */
+	myqtt_hash_replace_full (ctx->listener_activators, axl_strdup(proto), axl_free, data, axl_free);
 
 	return;
 }
@@ -407,6 +452,7 @@ void            myqttd_ctx_free (MyQttdCtx * ctx)
 	/* release settings */
 	axl_free (ctx->default_setting);
 	myqtt_hash_destroy (ctx->domain_settings);
+	myqtt_hash_destroy (ctx->listener_activators);
 
 	/* release the node itself */
 	msg ("Finishing MyQttdCtx (%p)", ctx);
