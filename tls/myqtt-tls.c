@@ -224,6 +224,34 @@ void           myqtt_tls_set_ssl_context_creator (MyQttCtx                * ctx,
 	return;
 }
 
+/** 
+ * @brief Allows to set the serverName indication (SNI) that is going
+ * to be used by the client connection created using the provided
+ * connection options object.
+ *
+ * This function allows to configure the serverName indication
+ * that is sent at TLS connection time.
+ *
+ * @param opts The connection options that will be configured.
+ *
+ * @param serverName the serverName to configure. Keep in mind that
+ * the remote side may deny accepting the connection under the
+ * serverName requested.
+ */
+void               myqtt_tls_opts_set_server_name        (MyQttConnOpts * opts,
+							  const char    * serverName)
+{
+	char * temp;
+	if (opts == NULL || serverName == NULL)
+		return;
+	/* configure value */
+	temp = opts->serverName;
+	opts->serverName = axl_strdup (serverName);
+	axl_free (temp);
+
+	return;
+}
+
 SSL_CTX * __myqtt_tls_conn_get_ssl_context (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * opts, axl_bool is_client)
 {
 	/* call to user defined function if the context creator is defined */
@@ -405,13 +433,14 @@ int __myqtt_tls_send (MyQttConn * conn, const unsigned char * buffer, int buffer
 
 
 
-axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * options, axlPointer user_data)
+axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * opts, axlPointer user_data)
 {
 	int        iterator;
 	int        ssl_error;
 	X509     * server_cert;
 	int        d_timeout = myqtt_conn_get_connect_timeout (ctx);
 	axlError * err = NULL;
+	char     * serverName;
 
 	if (! myqtt_tls_init (ctx)) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create TLS session, myqtt_tls_init() initialization failed");
@@ -429,7 +458,7 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 	} /* end if */
 
 	/* found TLS connection request, enable it */
-	conn->ssl_ctx  = __myqtt_tls_conn_get_ssl_context (ctx, conn, options, axl_true);
+	conn->ssl_ctx  = __myqtt_tls_conn_get_ssl_context (ctx, conn, opts, axl_true);
 	if (conn->ssl_ctx == NULL) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create SSL context (__myqtt_conn_get_ssl_context failed)");
 		return axl_false;
@@ -437,7 +466,7 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 	myqtt_conn_set_data_full (conn, "__my:co:ssl-ctx", conn->ssl_ctx, NULL, (axlDestroyFunc) SSL_CTX_free);
 
 	/* check for client side SSL configuration */
-	if (! __myqtt_conn_set_ssl_client_options (ctx, conn, options)) {
+	if (! __myqtt_conn_set_ssl_client_options (ctx, conn, opts)) {
 		myqtt_log ( MYQTT_LEVEL_CRITICAL, "Unable to configure additional SSL options, unable to continue",
 			    conn->ssl_ctx, conn->ssl);
 		goto fail_ssl_connection;
@@ -450,8 +479,9 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 
 	/* configure here SNI indication or used suplied form by
 	   calling API */
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Setting SNI indication to serverName=%s", conn->host);
-	if (! SSL_set_tlsext_host_name (conn->ssl, conn->host)) {
+	serverName = (opts && opts->serverName) ? opts->serverName : conn->host;
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Setting SNI indication to serverName=%s", serverName);
+	if (! SSL_set_tlsext_host_name (conn->ssl, serverName)) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to configure SNI client indication (SSL_set_tlsext_ (conn->ssl_ctx=%p, conn->ssl=%p)",
 			    conn->ssl_ctx, conn->ssl);
 		goto fail_ssl_connection;
@@ -1898,7 +1928,9 @@ axlPointer         myqtt_tls_get_ssl_object             (MyQttConn * connection)
 {
 	/* return the ssl object which is stored under the key:
 	 * ssl-data:ssl */
-	return myqtt_conn_get_data (connection, "ssl-data:ssl");
+	if (connection == NULL)
+		return NULL;
+	return connection->ssl;
 }
 
 /** 
@@ -1932,14 +1964,13 @@ char             * myqtt_tls_get_peer_ssl_digest        (MyQttConn           * c
 
 	/* get ssl object */
 	ssl = myqtt_tls_get_ssl_object (connection);
-	if (ssl == NULL)
+	if (ssl == NULL) 
 		return NULL;
 
 	/* get remote peer */
 	peer_cert = SSL_get_peer_certificate (ssl);
-	if (peer_cert == NULL) {
+	if (peer_cert == NULL) 
 		return NULL;
-	}
 
 	/* configure method digest */
 	switch (method) {
@@ -1966,14 +1997,17 @@ char             * myqtt_tls_get_peer_ssl_digest        (MyQttConn           * c
 	for (iterator = 0; iterator < message_size; iterator++) {
 #if defined(AXL_OS_WIN32)  && ! defined(__GNUC__)
 		sprintf_s (result + (iterator * 3), (message_size * 3), "%02X%s", 
-			       message [iterator], 
-			       (iterator + 1 != message_size) ? ":" : "");
+			   message [iterator], 
+			   (iterator + 1 != message_size) ? ":" : "");
 #else
 		sprintf (result + (iterator * 3), "%02X%s", 
-			     message [iterator], 
-			     (iterator + 1 != message_size) ? ":" : "");
+			 message [iterator], 
+			 (iterator + 1 != message_size) ? ":" : "");
 #endif
 	}
+
+	/* release certificate */
+	X509_free (peer_cert);
 
 	return result;
 }
@@ -1989,7 +2023,7 @@ char             * myqtt_tls_get_peer_ssl_digest        (MyQttConn           * c
  * @return A hash value that represents the string provided.
  */
 char             * myqtt_tls_get_digest                 (MyQttDigestMethod   method,
-							  const char         * string)
+							 const char         * string)
 {
 	/* use sized version */
 	return myqtt_tls_get_digest_sized (method, string, strlen (string));
@@ -2013,8 +2047,8 @@ char             * myqtt_tls_get_digest                 (MyQttDigestMethod   met
  * @return A hash value that represents the string provided.
  */
 char             * myqtt_tls_get_digest_sized           (MyQttDigestMethod   method,
-							  const char         * content,
-							  int                  content_size)
+							 const char         * content,
+							 int                  content_size)
 {
 	char          * result = NULL;
 	unsigned char   buffer[EVP_MAX_MD_SIZE];

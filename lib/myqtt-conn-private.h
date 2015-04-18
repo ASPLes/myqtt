@@ -345,6 +345,8 @@ struct _MyQttConnOpts {
 	char * ca_certificate;
 
 	axl_bool  disable_ssl_verify;
+	
+	char * serverName;
 };
 
 axl_bool               myqtt_conn_ref_internal           (MyQttConn   * conn, 

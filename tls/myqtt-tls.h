@@ -381,6 +381,9 @@ axl_bool           myqtt_tls_opts_set_ssl_certs          (MyQttConnOpts * opts,
 							  const char     * chain_certificate,
 							  const char     * ca_certificate);
 
+void               myqtt_tls_opts_set_server_name        (MyQttConnOpts * opts,
+							  const char    * serverName);
+
 MyQttConn        * myqtt_tls_listener_new                (MyQttCtx             * ctx,
 							  const char           * host, 
 							  const char           * port, 

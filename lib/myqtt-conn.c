@@ -3047,6 +3047,7 @@ void                myqtt_conn_opts_free     (MyQttConnOpts  * opts)
 	axl_free (opts->private_key);
 	axl_free (opts->chain_certificate);
 	axl_free (opts->ca_certificate);
+	axl_free (opts->serverName);
 
 	axl_free (opts);
 	return;
