@@ -2658,8 +2658,11 @@ axl_bool test_19a (void) {
 
 	MyQttCtx        * ctx = init_ctx ();
 	MyQttConn       * conn;
+	MyQttConn       * conn2;
 	MyQttConnOpts   * opts;
 	MyQttMsg        * msg;
+	char            * fingerprint;
+	const char      * ref;
 
 	if (! ctx)
 		return axl_false;
@@ -2681,6 +2684,16 @@ axl_bool test_19a (void) {
 		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_port);
 		return axl_false;
 	} /* end if */
+
+	/* get finger print */
+	fingerprint = myqtt_tls_get_peer_ssl_digest (conn, MYQTT_SHA1);
+	printf ("Test 19-a: ssl certificate fingerprint found: %s\n", fingerprint);
+
+	if (!axl_cmp (fingerprint, "5B:94:2B:0C:25:DA:DA:22:B3:D7:54:52:1D:D1:94:63:A0:E7:E2:A4")) {
+		printf ("ERROR: expected different finger print...\n");
+		return axl_false;
+	}
+	axl_free (fingerprint);
 
 	printf ("Test 19-a: closing connection..\n");
 	if (! myqtt_tls_is_on (conn)) {
@@ -2713,8 +2726,69 @@ axl_bool test_19a (void) {
 	/* release message */
 	myqtt_msg_unref (msg);
 
+	/* disable verification */
+	opts = myqtt_conn_opts_new ();
+	myqtt_tls_opts_ssl_peer_verify (opts, axl_false);
+
+	printf ("Test 19-a: now connect requesting serverName: test19a.localhost\n");
+	myqtt_tls_opts_set_server_name (opts, "test19a.localhost");
+
+	/* do a simple connection */
+	conn2 = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn2, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_tls_port);
+		return axl_false;
+	} /* end if */
+
+	/* get finger print */
+	fingerprint = myqtt_tls_get_peer_ssl_digest (conn2, MYQTT_SHA1);
+	printf ("Test 19-a: ssl certificate fingerprint found: %s\n", fingerprint);
+
+	ref = "EE:A8:D6:4B:25:C0:E7:24:6E:F5:2D:59:B2:DF:47:22:7D:E6:FC:BC";
+	if (!axl_cmp (fingerprint, ref)) {
+		printf ("ERROR: expected different finger: %s\n", ref);
+		printf ("ERROR:              but received: %s\n", fingerprint);
+		return axl_false;
+	}
+	axl_free (fingerprint); 
+
+	if (! myqtt_conn_is_ok (conn2, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 19-a: checking connection has tls on..\n");
+	if (! myqtt_tls_is_on (conn2)) {
+		printf ("ERROR: expected to find TLS enabled connection but found it isn't\n");
+		return axl_false;
+	} /* end if */
+
+	/* call to get client identifier */
+	if (! myqtt_conn_pub (conn2, "myqtt/admin/get-server-name", "", 0, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message to get client identifier..\n");
+		return axl_false;
+	} /* end if */
+
+	/* push a message to ask for clientid identifier */
+	msg   = myqtt_conn_get_next (conn2, 10000);
+	if (msg == NULL) {
+		printf ("ERROR: expected to find message reply...but nothing was found..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 19-a: checking serverName...\n");
+	if (! axl_cmp (myqtt_msg_get_app_msg (msg), "test19a.localhost")) {
+		printf ("ERROR: expected localhost, but found: %s\n", (const char*) myqtt_msg_get_app_msg (msg));
+		return axl_false;
+	}
+	printf ("Test 19-a: found announced serverName: %s\n", (const char*) myqtt_msg_get_app_msg (msg));
+
+	/* release message */
+	myqtt_msg_unref (msg);
+
 	/* close connection */
 	myqtt_conn_close (conn);
+	myqtt_conn_close (conn2);
 
 	/* release context */
 	printf ("Test 19-a: releasing context\n");

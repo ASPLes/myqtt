@@ -15,6 +15,7 @@ myqtt_tls_listener_new6
 myqtt_tls_listener_set_certificate_handlers
 myqtt_tls_log_ssl
 myqtt_tls_notify_failure_handler
+myqtt_tls_opts_set_server_name
 myqtt_tls_opts_set_ssl_certs
 myqtt_tls_opts_ssl_peer_verify
 myqtt_tls_set_certificate

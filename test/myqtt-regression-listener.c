@@ -62,6 +62,10 @@ char * __certificate_handler (MyQttCtx * ctx,
 	if (axl_cmp (serverName, "localhost"))
 		return axl_strdup ("localhost-server.crt");
 
+	if (axl_cmp (serverName, "test19a.localhost"))
+		return axl_strdup ("test19a-localhost-server.crt");
+
+
 	return NULL;
 }
 
@@ -72,6 +76,8 @@ char * __private_handler  (MyQttCtx * ctx,
 {
 	if (axl_cmp (serverName, "localhost"))
 		return axl_strdup ("localhost-server.key");
+	if (axl_cmp (serverName, "test19a.localhost"))
+		return axl_strdup ("test19a-localhost-server.key");
 
 	return NULL;
 }
