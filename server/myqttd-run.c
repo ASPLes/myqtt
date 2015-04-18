@@ -231,88 +231,107 @@ void myqttd_run_load_modules (MyQttdCtx * ctx, axlDoc * doc)
 	return;
 }
 
+MyQttConn * __myqttd_run_start_mqtt_listener (MyQttdCtx * ctx, MyQttCtx * my_ctx, axlNode * port_node, 
+					      const char * bind_addr, const char * port, axlPointer user_data)
+{
+	return myqtt_listener_new (
+		 /* the context where the listener will
+		  * be started */
+		  my_ctx,
+		  /* listener name */
+		  bind_addr ? bind_addr : "0.0.0.0",
+		  /* port to use */
+		  port,
+		  /* opts */
+		  NULL,
+		  /* on ready callbacks */
+		  NULL, NULL);
+}
+
+
 axl_bool myqttd_run_config_start_listeners (MyQttdCtx * ctx, axlDoc * doc)
 {
-	axlNode          * listener;
 	axl_bool           at_least_one_listener = axl_false;
-	axlNode          * name;
 	axlNode          * port;
 	MyQttConn        * conn_listener;
 	MyQttCtx         * myqtt_ctx = myqttd_ctx_get_myqtt_ctx (ctx);
+	const char       * proto;
+	const char       * bind_addr;
+	int                port_val;
+
+	/* refrence to the listener activator */
+	MyQttdListenerActivatorData * activator;
 
 	/* check if this is a child process (it has no listeners, only
 	 * master process do) */
 	if (ctx->child)
 		return axl_true;
 
-	/* get reference to the first listener defined */
-	listener = axl_doc_get (doc, "/myqtt/global-settings/listener");
-	while (listener != NULL) {
+	/* add default listener activator */
+	myqttd_ctx_add_listener_activator (ctx, "mqtt", __myqttd_run_start_mqtt_listener, NULL);
 
-		/* get the listener name configuration */
-		name = axl_node_get_child_called (listener, "name");
+	/* get ports to be allocated */
+	port = axl_doc_get (doc, "/myqtt/global-settings/ports/port");
+	while (port != NULL) {
+
+		/* get bind addr */
+		bind_addr = ATTR_VALUE (port, "bind-addr");
+		/* check protocol that must be running in the declared port */
+		proto     = ATTR_VALUE (port, "proto");
+		port_val  = myqtt_support_strtod (axl_node_get_content (port, NULL), NULL);
+
+		if (proto == NULL) {
+			/* No 'proto' declaration, try to figure out which protocol we should run here. 
+			   For now, declare protocol as default */
+			proto = "mqtt";
+			if (port_val == 1883)
+				proto = "mqtt"; /* this is not needed, but for completeness */
+			else if (port_val == 8883)
+				proto = "mqtt-tls";
+		} /* end if */
 		
-		/* get ports to be allocated */
-		port = axl_doc_get (doc, "/myqtt/global-settings/ports/port");
-		while (port != NULL) {
+		/* check if proto is defined in the list of
+		   listener activators */
+		activator = myqtt_hash_lookup (ctx->listener_activators, (axlPointer) proto);
+		if (activator == NULL) {
+			error ("No listener activator was found for proto %s, skipping starting listener at %s:%d",
+			       proto, bind_addr ? bind_addr : "", port_val);
+			goto next;
+		} /* end if */
 
-			/* start the listener */
-			/*** DELEGATE: this listener creation to an
-			 * external handler based on the protocol
-			 * defined by port. That is, find a handler
-			 * based on the proto and if it is not
-			 * defined, do not start the server or craete
-			 * the listener. Then, each module can
-			 * register listener creator handlers to
-			 * support different services  ***/
-			conn_listener = myqtt_listener_new (
-				/* the context where the listener will
-				 * be started */
-				myqtt_ctx,
-				/* listener name */
-				axl_node_get_content (name, NULL),
-				/* port to use */
-				axl_node_get_content (port, NULL),
-				/* opts */
-				NULL,
-				/* on ready callbacks */
-				NULL, NULL);
-			
-			/* check the listener started */
-			if (! myqtt_conn_is_ok (conn_listener, axl_false)) {
-				/* unable to start the server configuration */
-				error ("unable to start listener at %s:%s...", 
-				       /* server name */
-				       axl_node_get_content (name, NULL),
-				       /* server port */
-				       axl_node_get_content (port, NULL));
-
-				goto next;
-			} /* end if */
-
-			msg ("started listener at %s:%s (id: %d, socket: %d)...",
-			     axl_node_get_content (name, NULL),
-			     axl_node_get_content (port, NULL),
-			     myqtt_conn_get_id (conn_listener), myqtt_conn_get_socket (conn_listener));
-
-			/* flag that at least one listener was
-			 * created */
-			at_least_one_listener = axl_true;
-		next:
-			/* get the next port */
-			port = axl_node_get_next_called (port, "port");
-			
-		} /* end while */
+		/* call to activate listener */
+		conn_listener = activator->listener_activator (ctx, myqtt_ctx, port, bind_addr, axl_node_get_content (port, NULL), activator->user_data);
 		
-		/* get the next listener */
-		listener = axl_node_get_next_called (listener, "listener");
-
-	} /* end if */
-
+		/* check the listener started */
+		if (! myqtt_conn_is_ok (conn_listener, axl_false)) {
+			/* unable to start the server configuration */
+			error ("unable to start listener at %s:%s...", 
+			       /* server name */
+			       bind_addr,
+			       /* server port */
+			       axl_node_get_content (port, NULL));
+			
+			goto next;
+		} /* end if */
+		
+		msg ("started listener at %s:%s (id: %d, socket: %d, proto: %s)...",
+		     bind_addr,
+		     axl_node_get_content (port, NULL),
+		     myqtt_conn_get_id (conn_listener), myqtt_conn_get_socket (conn_listener), proto);
+		
+		/* flag that at least one listener was
+		 * created */
+		at_least_one_listener = axl_true;
+	next:
+		/* get the next port */
+		port = axl_node_get_next_called (port, "port");
+		
+	} /* end while */
+	
 	if (! at_least_one_listener) {
 		error ("Unable to start myqttd, no listener configuration was started, either due to configuration error or to startup problems. Terminating..");
 		return axl_false;
-	}
+	} /* end if */
 
 	/* listeners ok */
 	return axl_true;

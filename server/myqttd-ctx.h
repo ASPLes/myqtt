@@ -68,6 +68,12 @@ void            myqttd_ctx_add_on_publish (MyQttdCtx       * ctx,
 					   MyQttdOnPublish   on_publish, 
 					   axlPointer        user_data); 
 
+void            myqttd_ctx_add_listener_activator (MyQttdCtx               * ctx,
+						   const char              * proto,
+						   MyQttdListenerActivator   listener_activator,
+						   axlPointer                user_data);
+						   
+
 MyQttCtx     * myqttd_ctx_get_myqtt_ctx (MyQttdCtx * ctx);
 
 void            myqttd_ctx_set_data       (MyQttdCtx * ctx,

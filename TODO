@@ -4,14 +4,25 @@
   context into the same process or the provide client or server
   support to an existing application.
 
+* Modular and extensible design that allows extending the ready to
+  user server (myqttd) by providing plugins or to integreated libmyqtt
+  into your application to create MQTT client or server solutions.
+
 * It is multi-threaded.
+
+* Has support for TLS SNI and a particular design to easily allow
+  integration of different certificates according to the serverName
+  provided.
+
+
+* MyQttd server provides an extensible and plugable auth backend which
+  allows having different authoration engines running at the same
+  time. Default auth backend provided is not built-in but provided by
+  a module.
 
 --== roadmap ==--
 
-* Add support for SNI (continue with test_19a). Then continue with
-  integration at test_11 (myqttd).
-  http://www.opensource.apple.com/source/OpenSSL098/OpenSSL098-32/src/apps/s_server.c
-  http://stackoverflow.com/questions/5113333/how-to-implement-server-name-indication-sni
+* Add support for SNI continue with integration at test_11 (myqttd).
 
 * Add wildcard support (for message retention too).
 
@@ -90,3 +101,10 @@
 
 
 
+--== release names ==--
+
+Disculpad mi osadia
+I against I 
+Todos duermen ya
+Jugar al azar
+Al corriente enseña el caminio hacia el mar
