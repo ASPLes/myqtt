@@ -365,6 +365,8 @@ server/modules/mod-auth-xml/Makefile
 server/modules/mod-auth-xml/mod-auth-xml.xml
 server/modules/mod-ssl/Makefile
 server/modules/mod-ssl/mod-ssl.xml
+server/modules/mod-web-socket/Makefile
+server/modules/mod-web-socket/mod-web-socket.xml
 test/Makefile
 myqtt-1.0.pc
 myqtt-tls-1.0.pc

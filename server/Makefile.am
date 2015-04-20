@@ -23,6 +23,11 @@ INCLUDE_TLS_FLAGS=-DENABLE_TLS_SUPPORT $(TLS_CFLAGS) -I$(top_srcdir)/tls
 INCLUDE_TLS_LIBS=$(TLS_LIBS) $(top_builddir)/tls/libmyqtt-tls-1.0.la 
 endif
 
+if ENABLE_WEBSOCKET_SUPPORT
+INCLUDE_WEBSOCKET_FLAGS=-DENABLE_WEBSOCKET_SUPPORT $(NOPOLL_CFLAGS) -I$(top_srcdir)/web-socket
+INCLUDE_WEBSOCKET_LIBS=$(NOPOLL_LIBS) $(top_builddir)/web-socket/libmyqtt-web-socket-1.0.la 
+endif
+
 INCLUDES = $(compiler_options) -DCOMPILATION_DATE=`date +%s` -D__COMPILING_MYQTTD__ -D_POSIX_C_SOURCE  \
 	   -DMYQTT_VERSION=\"$(MYQTT_VERSION)\" -DVERSION=\"$(MYQTT_VERSION)\" -DAXL_VERSION=\"$(AXL_VERSION)\" -I$(top_srcdir)/lib \
 	   -DSYSCONFDIR=\""$(sysconfdir)"\" -DDEFINE_CHROOT_PROTO -DDEFINE_KILL_PROTO -DDEFINE_MKSTEMP_PROTO \
@@ -30,7 +35,7 @@ INCLUDES = $(compiler_options) -DCOMPILATION_DATE=`date +%s` -D__COMPILING_MYQTT
 	   -DMYQTTD_RUNTIME_DATADIR=\""$(runtimedatadir)"\" \
 	   -DMYQTTD_DATADIR=\""$(datadir)"\" $(INCLUDE_PCRE_SUPPORT) $(PCRE_CFLAGS) $(INCLUDE_TERMIOS) $(EXARG_FLAGS) \
 	   -D__MYQTTD_ENABLE_DEBUG_CODE__ \
-	   $(AXL_CFLAGS)  -g -Wall -Werror -Wstrict-prototypes $(INCLUDE_TLS_FLAGS)
+	   $(AXL_CFLAGS)  -g -Wall -Werror -Wstrict-prototypes $(INCLUDE_TLS_FLAGS) $(INCLUDE_WEBSOCKET_FLAGS)
 
 bin_PROGRAMS = myqttd 
 
@@ -49,7 +54,7 @@ test_01_SOURCES = test_01.c test_01.h
 
 test_01_LDFLAGS = -Wl,-export-dynamic -ldl
 
-test_01_LDADD = $(AXL_LIBS) $(INCLUDE_TLS_LIBS) libmyqttd.la $(top_builddir)/lib/libmyqtt-1.0.la 
+test_01_LDADD = $(AXL_LIBS) $(INCLUDE_TLS_LIBS) $(INCLUDE_WEBSOCKET_LIBS) libmyqttd.la $(top_builddir)/lib/libmyqtt-1.0.la 
 
 lib_LTLIBRARIES  = libmyqttd.la
 
