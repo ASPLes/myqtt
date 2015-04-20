@@ -43,9 +43,11 @@
 #if defined(ENABLE_TLS_SUPPORT)
 /* include tls support */
 #include <myqtt-tls.h>
-#include <openssl/x509v3.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
+#endif
+
+#if defined(ENABLE_WEBSOCKET_SUPPORT)
+/* include web socket support */
+#include <myqtt-web-socket.h>
 #endif
 
 /* these includes are prohibited in a production ready code. They are
@@ -68,8 +70,14 @@ axl_bool test_common_enable_debug = axl_false;
 /* default listener location */
 const char * listener_host = "localhost";
 const char * listener_port = "1883";
+
+#if defined(ENABLE_TLS_SUPPORT)
 const char * listener_tls_port = "8883";
+#endif
+
+#if defined(ENABLE_WEBSOCKET_SUPPORT)
 const char * listener_websocket_port = "9001";
+#endif
 
 MyQttCtx * common_init_ctx (void)
 {
@@ -1560,6 +1568,7 @@ axl_bool  test_10 (void) {
 	return axl_true;
 }
 
+#if defined(ENABLE_TLS_SUPPORT)
 axl_bool  test_11 (void) {
 	
 	MyQttAsyncQueue * queue;
@@ -1573,7 +1582,7 @@ axl_bool  test_11 (void) {
 	/* MyQttdDomain    * domain;*/
 
 	/* call to init the base library and close it */
-	printf ("Test 10: init library and server engine (using test_02.conf)..\n");
+	printf ("Test 11: init library and server engine (using test_02.conf)..\n");
 	ctx       = common_init_ctxd (NULL, "test_10.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
@@ -1662,8 +1671,6 @@ axl_bool  test_11 (void) {
 		return axl_false;
 	}
 
-	
-
 	/* release queue */
 	myqtt_async_queue_unref (queue);
 	myqtt_async_queue_unref (queue2);
@@ -1679,7 +1686,76 @@ axl_bool  test_11 (void) {
 	
 	return axl_true;
 }
+#endif
 
+#if defined(ENABLE_WEBSOCKET_SUPPORT)
+axl_bool  test_12 (void) {
+	
+	MyQttAsyncQueue * queue;
+	MyQttdCtx       * ctx;
+	MyQttCtx        * myqtt_ctx;
+	MyQttConn       * conn;
+	noPollConn      * nopoll_conn;
+	noPollCtx       * nopoll_ctx;
+	/* MyQttdDomain    * domain;*/
+
+	/* call to init the base library and close it */
+	printf ("Test 12: init library and server engine (using test_02.conf)..\n");
+	ctx       = common_init_ctxd (NULL, "test_10.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	myqtt_ctx = common_init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+	
+	/* create first a noPoll connection, for that we need to
+	   create a context */
+	nopoll_ctx   = nopoll_ctx_new ();
+	nopoll_conn  = nopoll_conn_new (nopoll_ctx, listener_host, listener_websocket_port, "test_01.context", NULL, NULL, NULL);
+	if (! nopoll_conn_is_ok (nopoll_conn)) {
+		printf ("ERROR: failed to connect remote host through WebSocket..\n");
+		return nopoll_false;
+	} /* end if */
+
+	/* now create MQTT connection using already working noPoll connection */
+	conn = myqtt_web_socket_conn_new (myqtt_ctx, NULL, axl_false, 30, nopoll_conn, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_websocket_port);
+		return axl_false;
+	} /* end if */
+
+	/* create queue */
+	queue  = common_configure_reception (conn);
+
+	if (! common_send_msg (conn, "get-context", "test", MYQTT_QOS_0)) {
+		printf ("ERROR: expected to be able to send a message but it failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* check message */
+	if (! common_receive_and_check (queue, "get-context", "test_01.context", MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03: expected to receive different message (test_01.context)..\n");
+		return axl_false;
+	}
+
+	/* release queue */
+	myqtt_async_queue_unref (queue);
+
+	myqtt_conn_close (conn);
+
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+	printf ("Test 12: finishing MyQttdCtx..\n");
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+	
+	return axl_true;
+}
+#endif
 
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
@@ -1758,6 +1834,7 @@ int main (int argc, char ** argv)
 	printf ("** Providing --run-test=NAME will run only the provided regression test.\n");
 	printf ("** Available tests: test_00, test_01, test_02, test_03, test_04, test_05\n");
 	printf ("**                  test_06, test_07, test_08, test_09, test_10, test_11\n");
+	printf ("**                  test_12\n");
 	printf ("**\n");
 	printf ("** Report bugs to:\n**\n");
 	printf ("**     <myqtt@lists.aspl.es> MyQtt Mailing list\n**\n");
@@ -1810,11 +1887,15 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_10")
 	run_test (test_10, "Test 10: checking client id (<drop-conn-same-client-id value=\"no\" />)");
 
+#if defined(ENABLE_TLS_SUPPORT)
 	CHECK_TEST("test_11")
 	run_test (test_11, "Test 11: checking domain activation when connected with TLS (hostname == domain name)");
+#endif
 
-	/* domain activation when connected with TLS MQTT when
-	   providing same hostname as domain name */
+#if defined(ENABLE_WEBSOCKET_SUPPORT)
+	CHECK_TEST("test_12")
+	run_test (test_12, "Test 12: checking domain activation when connected with WebSocket (hostname == domain name)");
+#endif
 
 	/* check client ids registered in all contexts */
 
