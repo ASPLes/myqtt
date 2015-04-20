@@ -99,9 +99,15 @@ MyQttConn * __mod_ssl_start_listener (MyQttdCtx * ctx, MyQttCtx * my_ctx, axlNod
 
 	/* configure default certificates from store */
 	node = __mod_ssl_get_default_certificate (ctx, my_ctx);
+	if (node) {
+		/* configure certificates */
+		if (! myqtt_tls_set_certificate (listener, ATTR_VALUE (node, "crt"), ATTR_VALUE (node, "key"), NULL)) {
+			error ("unable to configure certificates for TLS mqtt (myqtt_tls_set_certificate failed)..");
+			return NULL;
+		} /* end if */
+	} /* end if */
 
-	
-	
+	return listener; /* basic configuration done */
 }
 
 /** 
@@ -118,21 +124,23 @@ static int  mod_ssl_init (MyQttdCtx * _ctx)
 	/* configure the module */
 	MYQTTD_MOD_PREPARE (_ctx);
 
+	/* add default location if the document wasn't found */
+	myqtt_support_add_domain_search_path_ref (MYQTTD_MYQTT_CTX(ctx), axl_strdup ("ssl"),
+						  myqtt_support_build_filename (myqttd_sysconfdir (ctx), "myqtt", "ssl", NULL));
 	config = myqtt_support_domain_find_data_file (MYQTTD_MYQTT_CTX (_ctx), "ssl", "ssl.conf");
 	if (config == NULL) {
-		error ("Unable to find ssl.conf file under expected locations, failed to activate TLS profile (try checking %s/turbulence/ssl/tls.conf)",
+		error ("Unable to find ssl.conf file under expected locations, failed to activate TLS support (try checking %s/myqtt/ssl/ssl.conf)",
 		       myqttd_sysconfdir (ctx));
 		return axl_false;
 	} /* end if */
 
 	/* try to load configuration */
 	conf = axl_doc_parse_from_file (config, &err);
-	axl_free (config);
 	if (config == NULL) {
 		error ("Unable to load configuration from %s, axl_doc_parse_from_file failed: %s",
 		       config, axl_error_get (err));
 		axl_free (config);
-		axl_error_free (error);
+		axl_error_free (err);
 		return axl_false;
 	} /* end if */
 	axl_free (config);
@@ -142,10 +150,6 @@ static int  mod_ssl_init (MyQttdCtx * _ctx)
 	myqttd_ctx_add_listener_activator (ctx, "tls", __mod_ssl_start_listener, NULL);
 	myqttd_ctx_add_listener_activator (ctx, "ssl", __mod_ssl_start_listener, NULL);
 	myqttd_ctx_add_listener_activator (ctx, "mqtt-ssl", __mod_ssl_start_listener, NULL);
-
-
-	
-
 	
 	return axl_true;
 }

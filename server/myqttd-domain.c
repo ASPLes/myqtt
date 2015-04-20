@@ -171,8 +171,7 @@ MyQttdDomain    * myqttd_domain_find_by_name (MyQttdCtx   * ctx,
  */
 MyQttdDomain * myqttd_domain_find_by_serverName (MyQttdCtx * ctx, const char * server_Name)
 {
-	/* for now, not implemented */
-	return NULL;
+	return myqttd_domain_find_by_name (ctx, server_Name);
 }
 
 typedef struct __MyQttdDomainFindData {
@@ -316,6 +315,7 @@ MyQttdDomain    * myqttd_domain_find_by_indications (MyQttdCtx  * ctx,
 	/* reached this point, the item wasn't found by taking a lookt
 	   at the different caches, try to find by the data */
 	if (server_Name && strlen (server_Name) > 0) {
+		msg ("Finding domain by serverName=%s", server_Name ? server_Name : "");
 		/* get domain by serverName indicated */
 		domain = myqttd_domain_find_by_serverName (ctx, server_Name);
 		if (domain) 
