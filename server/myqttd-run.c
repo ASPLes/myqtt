@@ -315,7 +315,7 @@ axl_bool myqttd_run_config_start_listeners (MyQttdCtx * ctx, axlDoc * doc)
 		} /* end if */
 		
 		msg ("started listener at %s:%s (id: %d, socket: %d, proto: %s)...",
-		     bind_addr,
+		     bind_addr ? bind_addr : "0.0.0.0",
 		     axl_node_get_content (port, NULL),
 		     myqtt_conn_get_id (conn_listener), myqtt_conn_get_socket (conn_listener), proto);
 		

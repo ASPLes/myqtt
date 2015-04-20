@@ -43,6 +43,9 @@
 #if defined(ENABLE_TLS_SUPPORT)
 /* include tls support */
 #include <myqtt-tls.h>
+#include <openssl/x509v3.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 #endif
 
 /* these includes are prohibited in a production ready code. They are
@@ -1559,10 +1562,14 @@ axl_bool  test_10 (void) {
 
 axl_bool  test_11 (void) {
 	
+	MyQttAsyncQueue * queue;
+	MyQttAsyncQueue * queue2;
 	MyQttdCtx       * ctx;
 	MyQttCtx        * myqtt_ctx;
 	MyQttConn       * conn;
+	MyQttConn       * conn2;
 	MyQttConnOpts   * opts;
+	int               sub_result;
 	/* MyQttdDomain    * domain;*/
 
 	/* call to init the base library and close it */
@@ -1583,6 +1590,9 @@ axl_bool  test_11 (void) {
 	opts = myqtt_conn_opts_new ();
 	myqtt_tls_opts_ssl_peer_verify (opts, axl_false);
 
+	/* configure the announced SNI */
+	myqtt_tls_opts_set_server_name (opts, "test_01.context");
+
 	/* do a simple connection */
 	conn = myqtt_tls_conn_new (myqtt_ctx, NULL, axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
@@ -1590,15 +1600,77 @@ axl_bool  test_11 (void) {
 		return axl_false;
 	} /* end if */
 
-	if (! common_send_msg (conn, "this/is/a/test", "test", MYQTT_QOS_0)) {
+	/* create queue */
+	queue  = common_configure_reception (conn);
+
+	/* subscribe to the topic to get notifications */
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */	
+
+	if (! common_send_msg (conn, "myqtt/test", "test", MYQTT_QOS_0)) {
 		printf ("ERROR: expected to be able to send a message but it failed..\n");
 		return axl_false;
 	} /* end if */
 
-	/* send more messages here */
+	/* check message */
+	if (! common_receive_and_check (queue, "myqtt/test", "test", MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03: expected to receive different message..\n");
+		return axl_false;
+	}
+
+	printf ("Test 11: checking context activated.. (it should be test_01.context)\n");
+	/* configure the on publish */
+	myqttd_ctx_add_on_publish (ctx, test_04_handle_publish, NULL);
+	if (! common_send_msg (conn, "get-context", "test", MYQTT_QOS_0)) {
+		printf ("ERROR: expected to be able to send a message but it failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* check message */
+	if (! common_receive_and_check (queue, "get-context", "test_01.context", MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03: expected to receive different message (test_01.context)..\n");
+		return axl_false;
+	}
+
+	/* disable verification */
+	opts = myqtt_conn_opts_new ();
+	myqtt_tls_opts_ssl_peer_verify (opts, axl_false);
+
+	/* configure the announced SNI */
+	myqtt_tls_opts_set_server_name (opts, "test_02.context");
+
+	/* do a simple connection */
+	conn2 = myqtt_tls_conn_new (myqtt_ctx, NULL, axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn2, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_tls_port);
+		return axl_false;
+	} /* end if */
+
+	/* create queue */
+	queue2  = common_configure_reception (conn2);
+
+	if (! common_send_msg (conn2, "get-context", "test", MYQTT_QOS_0)) {
+		printf ("ERROR: expected to be able to send a message but it failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* check message */
+	if (! common_receive_and_check (queue2, "get-context", "test_02.context", MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03: expected to receive different message (test_01.context)..\n");
+		return axl_false;
+	}
+
+	
+
+	/* release queue */
+	myqtt_async_queue_unref (queue);
+	myqtt_async_queue_unref (queue2);
 
 	/* close connection */
 	myqtt_conn_close (conn);
+	myqtt_conn_close (conn2);
 
 	myqtt_exit_ctx (myqtt_ctx, axl_true);
 	printf ("Test 11: finishing MyQttdCtx..\n");

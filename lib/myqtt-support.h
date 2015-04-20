@@ -49,18 +49,18 @@
 void     myqtt_support_free                       (int  params, ...);
 
 axl_bool myqtt_support_check_search_path          (MyQttCtx  * ctx,
-						    const char * domain,
-						    const char * path);
+						   const char * domain,
+						   const char * path);
 
 void     myqtt_support_add_search_path            (MyQttCtx  * ctx,
-						    const char * path);
+						   const char * path);
 
 void     myqtt_support_add_search_path_ref        (MyQttCtx * ctx, 
-						    char      * path);
+						   char      * path);
 
 void     myqtt_support_add_domain_search_path     (MyQttCtx  * ctx,
-						    const char * domain, 
-						    const char * path);
+						   const char * domain, 
+						   const char * path);
 
 void     myqtt_support_add_domain_search_path_ref (MyQttCtx  * ctx,
 						    char       * domain, 
