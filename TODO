@@ -34,6 +34,9 @@
 
 --== things that should be reviewed ==--
 
+* Add support for certificate revocation list and to reload it on real
+  time if it is updated.
+
 * Post a reference as a comment on the following page about 
   <drop-conn-same-client-id value="yes" /> to implement the standard
   (even though it makes no sense):  http://2lemetry.com/2014/10/24/avoiding-mqtt-pitfalls/
@@ -83,7 +86,9 @@
 * More hooks to implement via plugin system, hook on store messages,
   hook on send message, hook on receive message.
 
-* External storage like some kind of "casssandra connector"
+* External storage connector with  "casssandra"
+
+* External storage connector with "mongodb"
 
 * Think handling load is key for the IoT ....if we can get say 250 000
   concurrent connections on a single server that would really help - 500 000
