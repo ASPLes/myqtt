@@ -77,13 +77,27 @@ axlNode * __mod_web_socket_get_default_certificate (MyQttdCtx * ctx, MyQttCtx * 
 }
 
 
-MyQttConn * __mod_web_socket_start_listener (MyQttdCtx * ctx, MyQttCtx * my_ctx, axlNode * port_node, 
-				      const char * bind_addr, const char * port, axlPointer user_data)
+MyQttConn * __mod_web_socket_start_listener (MyQttdCtx  * ctx, MyQttCtx * my_ctx, axlNode * port_node, 
+					     const char * bind_addr, const char * port, axlPointer user_data)
 {
-	MyQttConn * listener = NULL;
-	/* axlNode   * node; */
+	const char * mode     = ATTR_VALUE (port_node, "proto");
+	noPollCtx  * nopoll_ctx;
+	noPollConn * nopoll_listener = NULL;
 
-	return listener; /* basic configuration done */
+	/* enable context */
+	nopoll_ctx      = nopoll_ctx_new ();
+	if (axl_cmp (mode, "mqtt-ws") || axl_cmp (mode, "ws")) {
+		/* enable listener without SSL */
+		nopoll_listener = nopoll_listener_new (nopoll_ctx, bind_addr, port);
+		if (! nopoll_conn_is_ok (nopoll_listener)) {
+			printf ("ERROR: failed to start WebSocket listener at %s:%s..\n", bind_addr, port);
+			return nopoll_false;
+		} /* end if */
+	} else { 
+		/* WebSocket TLS: still not implemented */
+	}
+	/* now start listener */
+	return myqtt_web_socket_listener_new (my_ctx, nopoll_listener, NULL, NULL, NULL);
 }
 
 /** 
