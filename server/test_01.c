@@ -48,6 +48,12 @@
 #if defined(ENABLE_WEBSOCKET_SUPPORT)
 /* include web socket support */
 #include <myqtt-web-socket.h>
+
+/* default listener location */
+const char * listener_ws_host = "localhost";
+const char * listener_ws_port = "1181";
+const char * listener_wss_port = "1191";
+
 #endif
 
 /* these includes are prohibited in a production ready code. They are
@@ -75,9 +81,6 @@ const char * listener_port = "1883";
 const char * listener_tls_port = "8883";
 #endif
 
-#if defined(ENABLE_WEBSOCKET_SUPPORT)
-const char * listener_websocket_port = "9001";
-#endif
 
 MyQttCtx * common_init_ctx (void)
 {
@@ -1701,7 +1704,7 @@ axl_bool  test_12 (void) {
 
 	/* call to init the base library and close it */
 	printf ("Test 12: init library and server engine (using test_02.conf)..\n");
-	ctx       = common_init_ctxd (NULL, "test_10.conf");
+	ctx       = common_init_ctxd (NULL, "test_12.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
 		return axl_false;
@@ -1716,7 +1719,7 @@ axl_bool  test_12 (void) {
 	/* create first a noPoll connection, for that we need to
 	   create a context */
 	nopoll_ctx   = nopoll_ctx_new ();
-	nopoll_conn  = nopoll_conn_new (nopoll_ctx, listener_host, listener_websocket_port, "test_01.context", NULL, NULL, NULL);
+	nopoll_conn  = nopoll_conn_new (nopoll_ctx, listener_host, listener_ws_port, "test_01.context", NULL, NULL, NULL);
 	if (! nopoll_conn_is_ok (nopoll_conn)) {
 		printf ("ERROR: failed to connect remote host through WebSocket..\n");
 		return nopoll_false;
@@ -1725,7 +1728,7 @@ axl_bool  test_12 (void) {
 	/* now create MQTT connection using already working noPoll connection */
 	conn = myqtt_web_socket_conn_new (myqtt_ctx, NULL, axl_false, 30, nopoll_conn, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
-		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_websocket_port);
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_ws_host, listener_ws_port);
 		return axl_false;
 	} /* end if */
 

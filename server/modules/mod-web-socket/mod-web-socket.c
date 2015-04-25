@@ -173,7 +173,7 @@ static void mod_web_socket_reconf (MyQttdCtx * ctx) {
  * symbol the myqttd will lookup to load the rest of items.
  */
 MyQttdModDef module_def = {
-	"mod-ssl",
+	"mod-web-socket",
 	"WebSocket support for MyQttd server",
 	mod_web_socket_init,
 	mod_web_socket_close,
