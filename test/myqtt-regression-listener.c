@@ -418,8 +418,6 @@ int main (int argc, char ** argv)
 
 #endif
 
-	
-
 	/* install on publish handler */
 	myqtt_ctx_set_on_publish (ctx, on_publish, NULL);
 	myqtt_ctx_set_on_connect (ctx, on_connect, NULL);

@@ -2860,8 +2860,7 @@ axl_bool test_20 (void) {
 	   connection) */
 	myqtt_conn_close (conn);
 
-	/* release context (this already closes provided noPollCtx
-	   (nopoll_ctx) */
+	/* release context (this already closes provided noPollCtx (nopoll_ctx) */
 	printf ("Test 20: releasing context\n");
 	myqtt_exit_ctx (ctx, axl_true);
 
@@ -2951,8 +2950,7 @@ axl_bool test_21 (void) {
 	   connection) */
 	myqtt_conn_close (conn);
 
-	/* release context (this already closes provided noPollCtx
-	   (nopoll_ctx) */
+	/* release context (this already closes provided noPollCtx (nopoll_ctx) */
 	printf ("Test 21: releasing context\n");
 	myqtt_exit_ctx (ctx, axl_true);
 

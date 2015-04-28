@@ -41,11 +41,18 @@
 #include <myqtt-listener-private.h>
 #include <myqtt-ctx-private.h>
 
+void __myqtt_web_socket_ctx_unref (axlPointer nopoll_ctx)
+{
+	nopoll_ctx_unref (nopoll_ctx);
+	return;
+}
+
 void __myqtt_web_socket_associate_ctx (MyQttCtx * ctx, noPollCtx * nopoll_ctx)
 {
 	/* check if this context has already a context */
-	if (myqtt_ctx_get_data (ctx, "__my:ws:ctx"))
+	if (myqtt_ctx_get_data (ctx, "__my:ws:ctx")) {
 		return;
+	}
 
 	myqtt_mutex_lock (&ctx->ref_mutex);
 	if (myqtt_ctx_get_data (ctx, "__my:ws:ctx")) {
@@ -55,7 +62,7 @@ void __myqtt_web_socket_associate_ctx (MyQttCtx * ctx, noPollCtx * nopoll_ctx)
 
 	/* associate context */
 	myqtt_ctx_set_data_full (ctx, "__my:ws:ctx", nopoll_ctx, 
-				 NULL, (axlDestroyFunc) nopoll_ctx_unref);
+				 NULL, (axlDestroyFunc) __myqtt_web_socket_ctx_unref);
 
 	myqtt_mutex_unlock (&ctx->ref_mutex);
 	return;
@@ -301,6 +308,16 @@ MyQttConn        * myqtt_web_socket_conn_new            (MyQttCtx        * ctx,
 					   on_connected, -1, opts, user_data);
 }
 
+nopoll_bool __myqtt_web_socket_listener_on_ready (noPollCtx * ctx, noPollConn * nopoll_conn, noPollPtr user_data)
+{
+	MyQttConn * conn = user_data;
+	
+	/* setup websocket header */
+	myqtt_conn_set_server_name (conn, nopoll_conn_get_host_header (nopoll_conn));
+
+	return nopoll_true; /* accept connection */
+}
+
 void __myqtt_web_socket_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttConn * conn, MyQttConnOpts * opts, axlPointer user_data)
 {
 	noPollConn * nopoll_listener;
@@ -334,6 +351,9 @@ void __myqtt_web_socket_accept_connection (MyQttCtx * ctx, MyQttConn * listener,
 		myqtt_conn_shutdown (conn);
 		return;
 	} /* end if */
+
+	/* set on ready on this connection to setup received host header */
+	nopoll_conn_set_on_ready (nopoll_conn, __myqtt_web_socket_listener_on_ready, conn);
 
 	/* associate the connection to its websocket transport */
 	__myqtt_web_socket_common_association (conn, nopoll_conn);
@@ -420,7 +440,7 @@ MyQttConn       * myqtt_web_socket_listener_new         (MyQttCtx             * 
 	MyQttConn           * myqtt_listener;
 
 	if (! nopoll_conn_is_ok (listener)) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create listener, receive reference is not working");
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create listener, received reference is not working");
 		return NULL;
 	} /* end if */
 
@@ -453,9 +473,42 @@ MyQttConn       * myqtt_web_socket_listener_new         (MyQttCtx             * 
 		/* configure here reference to the noPoll listener */
 		myqtt_conn_set_data_full (myqtt_listener, "__my:ws:lstnr", listener,
 					  NULL, (axlDestroyFunc) __myqtt_web_socket_close_conn);
+
+		/* configure on ready */
 	} /* end if */
 
 	return myqtt_listener;
+}
+
+/** 
+ * @brief Allows to get the associated noPoll (WebSocket) connection
+ * from the provided MyQttConn object.
+ *
+ * @param conn The MyQtt connection for which we want access to the
+ * noPollConn object.
+ *
+ * @return A reference to the associated noPollConn or NULL if it
+ * fails.
+ */
+noPollConn      * myqtt_web_socket_get_conn             (MyQttConn * conn)
+{
+	return myqtt_conn_get_data (conn, "__my:ws:conn");
+}
+
+/** 
+ * @brief Allows to return the noPollCtx object associated to the
+ * provided connection.
+ *
+ * @param conn The MyQtt connection for which we want access to the
+ * noPollCtx object.
+ *
+ * @return A reference to the associated noPollCtx or NULL if it
+ * fails.
+ */
+noPollCtx       * myqtt_web_socket_get_ctx              (MyQttConn * conn)
+{
+	noPollConn * __conn = myqtt_conn_get_data (conn, "__my:ws:ctx");
+	return nopoll_conn_ctx (__conn);
 }
 
 /* @} */
