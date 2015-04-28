@@ -289,6 +289,10 @@ axl_bool myqttd_run_config_start_listeners (MyQttdCtx * ctx, axlDoc * doc)
 			else if (port_val == 8883)
 				proto = "mqtt-tls";
 		} /* end if */
+
+		/* set default value */
+		if (bind_addr == NULL)
+			bind_addr = "0.0.0.0";
 		
 		/* check if proto is defined in the list of
 		   listener activators */

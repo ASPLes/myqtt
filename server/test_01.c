@@ -1695,9 +1695,11 @@ axl_bool  test_11 (void) {
 axl_bool  test_12 (void) {
 	
 	MyQttAsyncQueue * queue;
+	MyQttAsyncQueue * queue2;
 	MyQttdCtx       * ctx;
 	MyQttCtx        * myqtt_ctx;
 	MyQttConn       * conn;
+	MyQttConn       * conn2;
 	noPollConn      * nopoll_conn;
 	noPollCtx       * nopoll_ctx;
 	/* MyQttdDomain    * domain;*/
@@ -1726,30 +1728,71 @@ axl_bool  test_12 (void) {
 	} /* end if */
 
 	/* now create MQTT connection using already working noPoll connection */
+	printf ("Test 12: creating WeBsocket connection ..\n");
 	conn = myqtt_web_socket_conn_new (myqtt_ctx, NULL, axl_false, 30, nopoll_conn, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_ws_host, listener_ws_port);
 		return axl_false;
 	} /* end if */
 
+	printf ("Test 12: connected, now checking..\n");
+
 	/* create queue */
 	queue  = common_configure_reception (conn);
 
+	printf ("Test 12: sending get-context message..\n");
+	myqttd_ctx_add_on_publish (ctx, test_04_handle_publish, NULL);
 	if (! common_send_msg (conn, "get-context", "test", MYQTT_QOS_0)) {
 		printf ("ERROR: expected to be able to send a message but it failed..\n");
 		return axl_false;
 	} /* end if */
 
 	/* check message */
+	printf ("Test 12: waiting for message reception..\n");
 	if (! common_receive_and_check (queue, "get-context", "test_01.context", MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03: expected to receive different message (test_01.context)..\n");
+		return axl_false;
+	}
+
+	/////////// STEP 2 //////////////
+	nopoll_conn  = nopoll_conn_new (nopoll_ctx, listener_host, listener_ws_port, "test_02.context", NULL, NULL, NULL);
+	if (! nopoll_conn_is_ok (nopoll_conn)) {
+		printf ("ERROR: failed to connect remote host through WebSocket..\n");
+		return nopoll_false;
+	} /* end if */
+
+	/* now create MQTT connection using already working noPoll connection */
+	printf ("Test 12: creating WeBsocket connection (for test_02.context) ..\n");
+	conn2 = myqtt_web_socket_conn_new (myqtt_ctx, NULL, axl_false, 30, nopoll_conn, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_ws_host, listener_ws_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 12: connected, now checking..\n");
+
+	/* create queue */
+	queue2  = common_configure_reception (conn2);
+
+	printf ("Test 12: sending get-context message (test_02.context)..\n");
+	if (! common_send_msg (conn2, "get-context", "test", MYQTT_QOS_0)) {
+		printf ("ERROR: expected to be able to send a message but it failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* check message */
+	printf ("Test 12: waiting for message reception (test_02.context)..\n");
+	if (! common_receive_and_check (queue2, "get-context", "test_02.context", MYQTT_QOS_0, axl_false)) {
 		printf ("Test 03: expected to receive different message (test_01.context)..\n");
 		return axl_false;
 	}
 
 	/* release queue */
 	myqtt_async_queue_unref (queue);
+	myqtt_async_queue_unref (queue2);
 
 	myqtt_conn_close (conn);
+	myqtt_conn_close (conn2);
 
 	myqtt_exit_ctx (myqtt_ctx, axl_true);
 	printf ("Test 12: finishing MyQttdCtx..\n");

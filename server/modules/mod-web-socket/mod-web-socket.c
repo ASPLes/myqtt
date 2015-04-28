@@ -50,7 +50,7 @@ axlDoc    * conf = NULL;
 
 /** MyQttdUsersUnloadDb **/
 void __mod_web_socket_unload (MyQttdCtx * ctx, 
-		       axlPointer  _backend)
+			      axlPointer  _backend)
 {
 	return;
 }
@@ -76,6 +76,15 @@ axlNode * __mod_web_socket_get_default_certificate (MyQttdCtx * ctx, MyQttCtx * 
 	return axl_doc_get (conf, "/mod-ssl/certificates/cert");
 }
 
+nopoll_bool __mod_web_socket_on_ready (noPollCtx * ctx, noPollConn * conn, noPollPtr user_data)
+{
+	/* implement, maybe, some short of mechanism to discard
+	   connection when host header is not supported */
+	
+
+	return nopoll_true; /* accept incoming connection */
+}
+
 
 MyQttConn * __mod_web_socket_start_listener (MyQttdCtx  * ctx, MyQttCtx * my_ctx, axlNode * port_node, 
 					     const char * bind_addr, const char * port, axlPointer user_data)
@@ -85,7 +94,7 @@ MyQttConn * __mod_web_socket_start_listener (MyQttdCtx  * ctx, MyQttCtx * my_ctx
 	noPollConn * nopoll_listener = NULL;
 
 	/* enable context */
-	nopoll_ctx      = nopoll_ctx_new ();
+	nopoll_ctx   = nopoll_ctx_new ();
 	if (axl_cmp (mode, "mqtt-ws") || axl_cmp (mode, "ws")) {
 		/* enable listener without SSL */
 		nopoll_listener = nopoll_listener_new (nopoll_ctx, bind_addr, port);
@@ -95,7 +104,10 @@ MyQttConn * __mod_web_socket_start_listener (MyQttdCtx  * ctx, MyQttCtx * my_ctx
 		} /* end if */
 	} else { 
 		/* WebSocket TLS: still not implemented */
+		nopoll_ctx_unref (nopoll_ctx);
+		return NULL; /* still not implemented */
 	}
+
 	/* now start listener */
 	return myqtt_web_socket_listener_new (my_ctx, nopoll_listener, NULL, NULL, NULL);
 }
@@ -115,18 +127,18 @@ static int  mod_web_socket_init (MyQttdCtx * _ctx)
 	MYQTTD_MOD_PREPARE (_ctx);
 
 	/* add default location if the document wasn't found */
-	myqtt_support_add_domain_search_path_ref (MYQTTD_MYQTT_CTX(ctx), axl_strdup ("ssl"),
-						  myqtt_support_build_filename (myqttd_sysconfdir (ctx), "myqtt", "ssl", NULL));
-	config = myqtt_support_domain_find_data_file (MYQTTD_MYQTT_CTX (_ctx), "ssl", "ssl.conf");
+	myqtt_support_add_domain_search_path_ref (MYQTTD_MYQTT_CTX(ctx), axl_strdup ("web-socket"),
+						  myqtt_support_build_filename (myqttd_sysconfdir (ctx), "myqtt", "web-socket", NULL));
+	config = myqtt_support_domain_find_data_file (MYQTTD_MYQTT_CTX (_ctx), "web-socket", "web-socket.conf");
 	if (config == NULL) {
-		error ("Unable to find ssl.conf file under expected locations, failed to activate TLS support (try checking %s/myqtt/ssl/ssl.conf)",
+		error ("Unable to find ssl.conf file under expected locations, failed to activate Web-Socket support (try checking %s/myqtt/web-socket/web-socket.conf)",
 		       myqttd_sysconfdir (ctx));
 		return axl_false;
 	} /* end if */
 
 	/* try to load configuration */
 	conf = axl_doc_parse_from_file (config, &err);
-	if (config == NULL) {
+	if (conf == NULL) {
 		error ("Unable to load configuration from %s, axl_doc_parse_from_file failed: %s",
 		       config, axl_error_get (err));
 		axl_free (config);
@@ -151,7 +163,9 @@ static int  mod_web_socket_init (MyQttdCtx * _ctx)
  */
 static void mod_web_socket_close (MyQttdCtx * ctx)
 {
-	axl_doc_free (conf);
+	axlDoc * doc = conf;
+	conf = NULL;
+	axl_doc_free (doc);
 
 	/* for now nothing */
 	return;

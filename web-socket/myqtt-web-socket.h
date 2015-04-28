@@ -59,4 +59,8 @@ MyQttConn       * myqtt_web_socket_listener_new         (MyQttCtx             * 
 							 MyQttListenerReady     on_ready, 
 							 axlPointer             user_data);
 
+noPollConn      * myqtt_web_socket_get_conn             (MyQttConn * conn);
+
+noPollCtx       * myqtt_web_socket_get_ctx              (MyQttConn * conn);
+
 #endif

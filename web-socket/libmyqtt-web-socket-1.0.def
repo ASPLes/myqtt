@@ -1,3 +1,5 @@
 EXPORTS
 myqtt_web_socket_conn_new
+myqtt_web_socket_get_conn
+myqtt_web_socket_get_ctx
 myqtt_web_socket_listener_new
