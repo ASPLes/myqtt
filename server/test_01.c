@@ -1941,6 +1941,14 @@ int main (int argc, char ** argv)
 #if defined(ENABLE_WEBSOCKET_SUPPORT)
 	CHECK_TEST("test_12")
 	run_test (test_12, "Test 12: checking domain activation when connected with WebSocket (hostname == domain name)");
+
+	/* comprobar WebSocket TLS (soporte para importar certificados) */
+#endif
+
+#if defined(ENABLE_TLS_SUPPORT)
+#if defined(ENABLE_WEBSOCKET_SUPPORT)
+	/* comprobar conexión al servidor con todos los módulos cargados */
+#endif
 #endif
 
 	/* check client ids registered in all contexts */
