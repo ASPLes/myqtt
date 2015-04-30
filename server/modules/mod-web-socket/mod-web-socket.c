@@ -59,7 +59,7 @@ axlNode * __mod_web_socket_get_default_certificate (MyQttdCtx * ctx, MyQttCtx * 
 {
 	axlNode * node;
 
-	node = axl_doc_get (conf, "/mod-ssl/certificates/cert");
+	node = axl_doc_get (conf, "/mod-web-socket/certificates/cert");
 	if (node == NULL)
 		return NULL;
 	while (node) {
@@ -73,16 +73,7 @@ axlNode * __mod_web_socket_get_default_certificate (MyQttdCtx * ctx, MyQttCtx * 
 
 	/* reached this point no certificate is flagged as default,
 	   then return first */
-	return axl_doc_get (conf, "/mod-ssl/certificates/cert");
-}
-
-nopoll_bool __mod_web_socket_on_ready (noPollCtx * ctx, noPollConn * conn, noPollPtr user_data)
-{
-	/* implement, maybe, some short of mechanism to discard
-	   connection when host header is not supported */
-	
-
-	return nopoll_true; /* accept incoming connection */
+	return axl_doc_get (conf, "/mod-web-socket/certificates/cert");
 }
 
 
@@ -92,21 +83,38 @@ MyQttConn * __mod_web_socket_start_listener (MyQttdCtx  * ctx, MyQttCtx * my_ctx
 	const char * mode     = ATTR_VALUE (port_node, "proto");
 	noPollCtx  * nopoll_ctx;
 	noPollConn * nopoll_listener = NULL;
+	axlNode    * node;
 
-	/* enable context */
-	nopoll_ctx   = nopoll_ctx_new ();
+	/* get or create a noPollCtx */
+	nopoll_ctx   = myqtt_web_socket_get_ctx (my_ctx);
+	if (nopoll_ctx == NULL)
+		nopoll_ctx  = nopoll_ctx_new ();
+	/* end */
+
 	if (axl_cmp (mode, "mqtt-ws") || axl_cmp (mode, "ws")) {
 		/* enable listener without SSL */
 		nopoll_listener = nopoll_listener_new (nopoll_ctx, bind_addr, port);
-		if (! nopoll_conn_is_ok (nopoll_listener)) {
-			printf ("ERROR: failed to start WebSocket listener at %s:%s..\n", bind_addr, port);
-			return nopoll_false;
-		} /* end if */
 	} else { 
-		/* WebSocket TLS: still not implemented */
-		nopoll_ctx_unref (nopoll_ctx);
-		return NULL; /* still not implemented */
-	}
+		/* create listener */
+		nopoll_listener = nopoll_listener_tls_new (nopoll_ctx, bind_addr, port);
+
+		/* configure default certificates from store */
+		node = __mod_web_socket_get_default_certificate (ctx, my_ctx);
+		if (node) {
+			/* set certificates */
+			msg ("Setting certificate crt=%s key=%s", ATTR_VALUE (node, "crt"), ATTR_VALUE (node, "key"));
+			if (! nopoll_listener_set_certificate (nopoll_listener, ATTR_VALUE (node, "crt"), ATTR_VALUE (node, "key"), NULL)) {
+				error ("unable to configure certificates for TLS websocket..\n");
+				return NULL;
+			} /* end if */
+		} /* end if */
+	} /* end if */
+
+	/* check listener created */
+	if (! nopoll_conn_is_ok (nopoll_listener)) {
+		error ("failed to start WebSocket listener at %s:%s..\n", bind_addr, port);
+		return NULL;
+	} /* end if */
 
 	/* now start listener */
 	return myqtt_web_socket_listener_new (my_ctx, nopoll_listener, NULL, NULL, NULL);

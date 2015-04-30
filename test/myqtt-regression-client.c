@@ -120,6 +120,7 @@ const char * listener_host     = "localhost";
 const char * listener_port     = "1909";
 const char * listener_tls_port = "1910";
 const char * listener_websocket_port = "1918";
+const char * listener_websocket_s_port = "1919";
 
 MyQttCtx * init_ctx (void)
 {
@@ -2866,6 +2867,103 @@ axl_bool test_20 (void) {
 
 	return axl_true;
 }
+
+axl_bool test_20b (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	noPollConn      * nopoll_conn;
+	noPollCtx       * nopoll_ctx;
+	noPollConnOpts  * opts;
+	MyQttMsg        * msg;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 20-b: checking WebSocket wss://%s:%s support\n", listener_host, listener_websocket_s_port);
+
+	/* create first a noPoll connection, for that we need to
+	   create a context */
+	nopoll_ctx   = nopoll_ctx_new ();
+
+	opts = nopoll_conn_opts_new ();
+	nopoll_conn_opts_ssl_peer_verify (opts, nopoll_false);
+
+	nopoll_conn  = nopoll_conn_tls_new (nopoll_ctx, opts, listener_host, listener_websocket_s_port, NULL, NULL, NULL, NULL);
+	if (! nopoll_conn_is_ok (nopoll_conn)) {
+		printf ("ERROR: failed to connect remote host through WebSocket..\n");
+		return nopoll_false;
+	} /* end if */
+
+	printf ("Test 20-b: created WSS (TLS) connection, now starting MQTT session on top of it..\n");
+
+	/* now create MQTT connection using already working noPoll
+	   connection */
+	/* nopoll_log_enable (nopoll_ctx, axl_true);
+	   nopoll_log_color_enable (nopoll_ctx, axl_true); */
+	conn = myqtt_web_socket_conn_new (ctx, NULL, axl_false, 30, nopoll_conn, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_websocket_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 20-b: pushing messages\n");
+
+	/* publish a message with retention */
+	if (! myqtt_conn_pub (conn, "this/is/a/test/19", "Test message 1", 14, MYQTT_QOS_2, axl_true, 10)) {
+		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* publish a message with retention */
+	if (! myqtt_conn_pub (conn, "this/is/a/test/19", "Test message 2", 14, MYQTT_QOS_2, axl_true, 10)) {
+		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 20-b: checking connection\n");
+
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* call to get client identifier */
+	if (! myqtt_conn_pub (conn, "myqtt/admin/get-tls-status", "", 0, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message to get client identifier..\n");
+		return axl_false;
+	} /* end if */
+
+	/* push a message to ask for clientid identifier */
+	msg   = myqtt_conn_get_next (conn, 10000);
+	if (msg == NULL) {
+		printf ("ERROR: expected to find message reply...but nothing was found..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 20-b: remote tls status...\n");
+	if (! axl_cmp (myqtt_msg_get_app_msg (msg), "tls-on-bro!")) {
+		printf ("ERROR: expected tls-on-bro!, but found: %s\n", (const char*) myqtt_msg_get_app_msg (msg));
+		return axl_false;
+	}
+
+	printf ("Test 20-b: found announced TLS: %s\n", (const char*) myqtt_msg_get_app_msg (msg));
+
+	/* release message */
+	myqtt_msg_unref (msg);
+
+	printf ("Test 20-b: closing connection..\n");
+
+	/* close connection (this already closes the provided
+	   connection) */
+	myqtt_conn_close (conn);
+
+	/* release context (this already closes provided noPollCtx (nopoll_ctx) */
+	printf ("Test 20-b: releasing context\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+	return axl_true;
+}
 #endif
 
 axl_bool test_21 (void) {
@@ -3094,6 +3192,9 @@ int main (int argc, char ** argv)
 #if defined(ENABLE_WEBSOCKET_SUPPORT)
 	CHECK_TEST("test_20")
 	run_test (test_20, "Test 20: check WebSocket support (basic MQTT over ws://)"); 
+
+	CHECK_TEST("test_20b")
+	run_test (test_20b, "Test 20-b: check WebSocket support (basic MQTT over wss://)"); 
 #endif
 
 	/* test close connection after publish... */
