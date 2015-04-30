@@ -1801,6 +1801,139 @@ axl_bool  test_12 (void) {
 	
 	return axl_true;
 }
+
+axl_bool  test_13 (void) {
+	
+	MyQttAsyncQueue * queue;
+	MyQttAsyncQueue * queue2;
+	MyQttdCtx       * ctx;
+	MyQttCtx        * myqtt_ctx;
+	MyQttConn       * conn;
+	MyQttConn       * conn2;
+	noPollConn      * nopoll_conn;
+	noPollCtx       * nopoll_ctx;
+	noPollConnOpts  * opts;
+
+	/* MyQttdDomain    * domain;*/
+
+	/* call to init the base library and close it */
+	printf ("Test 13: init library and server engine (using test_02.conf)..\n");
+	ctx       = common_init_ctxd (NULL, "test_12.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	myqtt_ctx = common_init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+	
+	/* create first a noPoll connection, for that we need to
+	   create a context */
+	nopoll_ctx   = nopoll_ctx_new ();
+
+	/* disable verification */
+	opts = nopoll_conn_opts_new ();
+	nopoll_conn_opts_ssl_peer_verify (opts, nopoll_false);
+
+	nopoll_conn  = nopoll_conn_tls_new (nopoll_ctx, opts, listener_host, listener_wss_port, "test_01.context", NULL, NULL, NULL);
+	if (! nopoll_conn_is_ok (nopoll_conn)) {
+		printf ("ERROR: failed to connect remote host through WebSocket..\n");
+		return nopoll_false;
+	} /* end if */
+
+	printf ("Test 13: waiting TLS connection to work (WebSocket)..waiting 4 seconds\n");
+	if (! nopoll_conn_wait_until_connection_ready (nopoll_conn, 4)) {
+		printf ("ERROR: TLS WebSocket session failed..\n");
+		return nopoll_false;
+	}
+
+	if (! nopoll_conn_is_ready (nopoll_conn)) {
+		printf ("ERROR: expected to find ready connection...\n");
+		return nopoll_false;
+	} /* end if */
+
+	/* now create MQTT connection using already working noPoll connection */
+	printf ("Test 13: creating WebSocket connection (with working nopoll conn %s:%s) ..\n", listener_host, listener_wss_port);
+	conn = myqtt_web_socket_conn_new (myqtt_ctx, NULL, axl_false, 30, nopoll_conn, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_ws_host, listener_ws_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 13: connected, now checking..\n");
+
+	/* create queue */
+	queue  = common_configure_reception (conn);
+
+	printf ("Test 13: sending get-context message..\n");
+	myqttd_ctx_add_on_publish (ctx, test_04_handle_publish, NULL);
+	if (! common_send_msg (conn, "get-context", "test", MYQTT_QOS_0)) {
+		printf ("ERROR: expected to be able to send a message but it failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* check message */
+	printf ("Test 13: waiting for message reception..\n");
+	if (! common_receive_and_check (queue, "get-context", "test_01.context", MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03: expected to receive different message (test_01.context)..\n");
+		return axl_false;
+	}
+
+	/////////// STEP 2 //////////////
+	/* disable verification */
+	opts = nopoll_conn_opts_new ();
+	nopoll_conn_opts_ssl_peer_verify (opts, nopoll_false);
+
+	nopoll_conn  = nopoll_conn_tls_new (nopoll_ctx, opts, listener_host, listener_wss_port, "test_02.context", NULL, NULL, NULL);
+	if (! nopoll_conn_is_ok (nopoll_conn)) {
+		printf ("ERROR: failed to connect remote host through WebSocket..\n");
+		return nopoll_false;
+	} /* end if */
+
+	/* now create MQTT connection using already working noPoll connection */
+	printf ("Test 13: creating WeBsocket connection (for test_02.context) ..\n");
+	conn2 = myqtt_web_socket_conn_new (myqtt_ctx, NULL, axl_false, 30, nopoll_conn, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_ws_host, listener_ws_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 13: connected, now checking..\n");
+
+	/* create queue */
+	queue2  = common_configure_reception (conn2);
+
+	printf ("Test 13: sending get-context message (test_02.context)..\n");
+	if (! common_send_msg (conn2, "get-context", "test", MYQTT_QOS_0)) {
+		printf ("ERROR: expected to be able to send a message but it failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* check message */
+	printf ("Test 13: waiting for message reception (test_02.context)..\n");
+	if (! common_receive_and_check (queue2, "get-context", "test_02.context", MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03: expected to receive different message (test_01.context)..\n");
+		return axl_false;
+	}
+
+	/* release queue */
+	myqtt_async_queue_unref (queue);
+	myqtt_async_queue_unref (queue2);
+
+	myqtt_conn_close (conn);
+	myqtt_conn_close (conn2);
+
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+	printf ("Test 13: finishing MyQttdCtx..\n");
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+	
+	return axl_true;
+}
+
 #endif
 
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
@@ -1880,7 +2013,7 @@ int main (int argc, char ** argv)
 	printf ("** Providing --run-test=NAME will run only the provided regression test.\n");
 	printf ("** Available tests: test_00, test_01, test_02, test_03, test_04, test_05\n");
 	printf ("**                  test_06, test_07, test_08, test_09, test_10, test_11\n");
-	printf ("**                  test_12\n");
+	printf ("**                  test_12, test_13\n");
 	printf ("**\n");
 	printf ("** Report bugs to:\n**\n");
 	printf ("**     <myqtt@lists.aspl.es> MyQtt Mailing list\n**\n");
@@ -1943,6 +2076,7 @@ int main (int argc, char ** argv)
 	run_test (test_12, "Test 12: checking domain activation when connected with WebSocket (hostname == domain name)");
 
 	/* comprobar WebSocket TLS (soporte para importar certificados) */
+	run_test (test_13, "Test 13: checking domain activation when connected with WebSocket TLS (hostname == domain name)");
 #endif
 
 #if defined(ENABLE_TLS_SUPPORT)

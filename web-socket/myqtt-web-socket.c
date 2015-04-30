@@ -290,7 +290,7 @@ MyQttConn        * myqtt_web_socket_conn_new            (MyQttCtx        * ctx,
 							 MyQttConnNew      on_connected, 
 							 axlPointer        user_data)
 {
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Creating no MQTT over WebSocket connection to %s:%s (is ready:%d)",
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Creating new MQTT over WebSocket connection to %s:%s (is ready:%d)",
 		   nopoll_conn_host (conn), nopoll_conn_port (conn), nopoll_conn_is_ready (conn));
 
 	/* associate context */
@@ -314,6 +314,11 @@ nopoll_bool __myqtt_web_socket_listener_on_ready (noPollCtx * ctx, noPollConn * 
 	
 	/* setup websocket header */
 	myqtt_conn_set_server_name (conn, nopoll_conn_get_host_header (nopoll_conn));
+
+	/* check if we have TLS running to set that flag in the
+	   expected place */
+	if (nopoll_conn_is_tls_on (nopoll_conn))
+		conn->tls_on = axl_true; /* signal it */
 
 	return nopoll_true; /* accept connection */
 }
@@ -499,16 +504,15 @@ noPollConn      * myqtt_web_socket_get_conn             (MyQttConn * conn)
  * @brief Allows to return the noPollCtx object associated to the
  * provided connection.
  *
- * @param conn The MyQtt connection for which we want access to the
- * noPollCtx object.
+ * @param ctx The MyQttCtx for which we want access to the noPollCtx
+ * object.
  *
  * @return A reference to the associated noPollCtx or NULL if it
  * fails.
  */
-noPollCtx       * myqtt_web_socket_get_ctx              (MyQttConn * conn)
+noPollCtx       * myqtt_web_socket_get_ctx              (MyQttCtx * ctx)
 {
-	noPollConn * __conn = myqtt_conn_get_data (conn, "__my:ws:ctx");
-	return nopoll_conn_ctx (__conn);
+	return myqtt_ctx_get_data (ctx, "__my:ws:ctx");
 }
 
 /* @} */

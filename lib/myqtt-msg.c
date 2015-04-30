@@ -645,7 +645,8 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 			 * the negotiation (just before the initial
 			 * step, but after the second step) */
 			__myqtt_conn_shutdown_and_record_error (
-				connection, MyQttProtocolError, "found connection closed before finishing negotiation, dropping..");
+				connection, MyQttProtocolError, "found connection closed before finishing negotiation, dropping (errno=%d)..",
+				errno);
 			return NULL;
 		}
 	

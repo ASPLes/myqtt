@@ -145,6 +145,7 @@ const char * listener_host     = "localhost";
 const char * listener_port     = "1909";
 const char * listener_tls_port = "1910";
 const char * listener_websocket_port = "1918";
+const char * listener_websocket_s_port = "1919";
 
 MyQttCtx * init_ctx (void)
 {
@@ -193,6 +194,14 @@ MyQttPublishCodes on_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, 
 			aux = "";
 		if (! myqtt_conn_pub (conn, "myqtt/admin/get-server-name", (axlPointer) aux, strlen (aux), MYQTT_QOS_0, axl_false, 0)) 
 			printf ("ERROR: failed to publish get-server-name..\n");
+		return MYQTT_PUBLISH_DISCARD; /* report received PUBLISH should be discarded */
+	} /* end if */
+
+	/* get current client identifier */
+	if (axl_cmp ("myqtt/admin/get-tls-status", myqtt_msg_get_topic (msg))) {
+		aux = myqtt_tls_is_on (conn) ? "tls-on-bro!" : "tls is not enabled brother";
+		if (! myqtt_conn_pub (conn, "myqtt/admin/get-tls-status", aux, strlen (aux), MYQTT_QOS_0, axl_false, 0)) 
+			printf ("ERROR: failed to publish get-tls-status..\n");
 		return MYQTT_PUBLISH_DISCARD; /* report received PUBLISH should be discarded */
 	} /* end if */
 
@@ -403,6 +412,8 @@ int main (int argc, char ** argv)
 		nopoll_log_enable (nopoll_ctx, axl_true);
 		nopoll_log_color_enable (nopoll_ctx, axl_true);
 	} /* end if */
+
+
 	nopoll_listener = nopoll_listener_new (nopoll_ctx, listener_host, listener_websocket_port);
 	if (! nopoll_conn_is_ok (nopoll_listener)) {
 		printf ("ERROR: failed to start WebSocket listener at %s:%s..\n", listener_host, listener_websocket_port);
@@ -413,6 +424,24 @@ int main (int argc, char ** argv)
 	listener = myqtt_web_socket_listener_new (ctx, nopoll_listener, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (listener, axl_false)) {
 		printf ("ERROR: failed to start WebSocket listener at: %s:%s..\n", listener_host, listener_websocket_port);
+		exit (-1);
+	} /* end if */
+
+	/* create another listener */
+	printf ("Starting WSS (MQTT over TLS WebSocket) %s:%s..\n", listener_host, listener_websocket_s_port);
+	nopoll_listener = nopoll_listener_tls_new (nopoll_ctx, listener_host, listener_websocket_s_port);
+	if (! nopoll_conn_is_ok (nopoll_listener)) {
+		printf ("ERROR: failed to start WebSocket listener at %s:%s..\n", listener_host, listener_websocket_s_port);
+		return nopoll_false;
+	} /* end if */
+
+	/* configure certificates.. */
+	nopoll_listener_set_certificate (nopoll_listener, "test-certificate.crt", "test-private.key", NULL);
+
+	/* now start listener */
+	listener = myqtt_web_socket_listener_new (ctx, nopoll_listener, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (listener, axl_false)) {
+		printf ("ERROR: failed to start WebSocket listener at: %s:%s..\n", listener_host, listener_websocket_s_port);
 		exit (-1);
 	} /* end if */
 
