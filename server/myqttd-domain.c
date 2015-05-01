@@ -193,7 +193,6 @@ axl_bool __myqttd_domain_find_by_username_client_id_foreach (axlPointer _name,
 	/* item received */
 	MyQttdDomainFindData   * data    = user_data;
 	MyQttdDomain           * domain  = _domain;
-	const char             * name    = _name;
 
 	/* context */
 	MyQttdCtx              * ctx     = domain->ctx;
@@ -205,27 +204,9 @@ axl_bool __myqttd_domain_find_by_username_client_id_foreach (axlPointer _name,
 	const char             * password  = data->password;
 	MyQttConn              * conn      = data->conn;
 
-	msg ("Checking domain: %s, username=%s, client_id=%s", name, myqttd_ensure_str (username), myqttd_ensure_str (client_id));
-	/* ensure we have loaded users object for this domain */
-	if (domain->users == NULL) {
-		myqtt_mutex_lock (&domain->mutex);
-		if (domain->users == NULL) {
-			/* load users database object from path */
-			domain->users = myqttd_users_load (ctx, conn, domain->users_db);
-			if (domain->users == NULL) {
-				error ("Failed to load database from %s for domain %s", domain->users_db, domain->name);
-				myqtt_mutex_unlock (&domain->mutex);
-				return axl_true; /* stop searching, we failed to load database */
-			} /* end if */
-		} /* end if */
-		myqtt_mutex_unlock (&domain->mutex);
-	} /* end if */
-
 	/* reached this point, domain has a users database backend
 	   loaded, now check if this domain recognizes */
 	if (myqttd_domain_do_auth (ctx, domain, conn, username, password, client_id)) {
-		msg ("Authentication: %s, username=%s, client_id=%s : login ok", 
-		     name, myqttd_ensure_str (username), myqttd_ensure_str (client_id));
 		/* report domain to the caller */
 		data->result = domain;
 		return axl_true; /* domain found, report it to the caller */
@@ -236,7 +217,8 @@ axl_bool __myqttd_domain_find_by_username_client_id_foreach (axlPointer _name,
 
 /** 
  * @brief Allows to find the domain associated with the username +
- * clien_id or just client_id or username when some of them are NULL.
+ * clien_id or just client_id or username when some of them are
+ * NULL. 
  *
  * @param ctx The context where where operation is taking place.
  *
@@ -318,15 +300,25 @@ MyQttdDomain    * myqttd_domain_find_by_indications (MyQttdCtx  * ctx,
 		msg ("Finding domain by serverName=%s", server_Name ? server_Name : "");
 		/* get domain by serverName indicated */
 		domain = myqttd_domain_find_by_serverName (ctx, server_Name);
-		if (domain) 
-			return domain;
+		if (domain) {
+			/* if domain is found, implement authentication to ensure this domain is
+			 * accesible by the connecting user providing the username+client_id+password
+			 * credentials */
+			if (myqttd_domain_do_auth (ctx, domain, conn, username, password, client_id)) 
+				return domain; /* domain found, report it to the caller */
+
+			/* domain found but authentication failed */
+			error ("Domain was found (%s) for authentication failed username=%s client-id=%s server-name=%s : domain found but authentication failed",
+			       domain->name, username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
+			return NULL;
+		} /* end if */
 	} /* end if */
 
 	/* find by username + client id, or just client id or just username */
 	domain = myqttd_domain_find_by_username_client_id (ctx, conn, username, client_id, password);
 	if (domain)
 		return domain;
-		
+
 	/* return NULL, no domain was found */
 	error ("No domain was found username=%s client-id=%s server-name=%s : no domain was found to handle request",
 	       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
@@ -361,13 +353,32 @@ axl_bool          myqttd_domain_do_auth (MyQttdCtx    * ctx,
 					 const char   * client_id)
 {
 	/* do a basic check operation for data received */
-	if (ctx == NULL || domain == NULL || domain->users == NULL)
+	if (ctx == NULL || domain == NULL)
 		return axl_false;
+
+	msg ("Checking domain: %s, username=%s, client_id=%s", domain->name, myqttd_ensure_str (username), myqttd_ensure_str (client_id));
+	/* ensure we have loaded users object for this domain */
+	if (domain->users == NULL) {
+		myqtt_mutex_lock (&domain->mutex);
+		if (domain->users == NULL) {
+			/* load users database object from path */
+			domain->users = myqttd_users_load (ctx, conn, domain->users_db);
+			if (domain->users == NULL) {
+				error ("Failed to load database from %s for domain %s", domain->users_db, domain->name);
+				myqtt_mutex_unlock (&domain->mutex);
+				return axl_true; /* stop searching, we failed to load database */
+			} /* end if */
+		} /* end if */
+		myqtt_mutex_unlock (&domain->mutex);
+	} /* end if */
 
 	/* now for the users database loaded, try to do a complete
 	   auth operation */
-	if (domain->users->backend->auth (ctx, conn, domain->users->backend_reference, client_id, username, password))
+	if (domain->users->backend->auth (ctx, conn, domain->users->backend_reference, client_id, username, password)) {
+		msg ("Authentication: %s, username=%s, client_id=%s : login ok", 
+		     domain->name, myqttd_ensure_str (username), myqttd_ensure_str (client_id));
 		return axl_true; /* authentication done */
+	}
 
 	return axl_false;
 }
