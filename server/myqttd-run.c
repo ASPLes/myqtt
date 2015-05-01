@@ -726,13 +726,22 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 	/* conn limits */
 	MyQttConnAckTypes    codes;
 
-	/* find the domain that can handle this connection */
+	/* find the domain that can handle this connection and do the AUTH operation at once */
 	domain = myqttd_domain_find_by_indications (ctx, conn, username, client_id, password, server_Name);
 	if (domain == NULL) {
 		error ("Login failed for username=%s client-id=%s server-name=%s : no domain was found to handle request",
 		       myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name));
 		return MYQTT_CONNACK_IDENTIFIER_REJECTED;
 	} /* end if */
+
+	/*** IMPORTANT NOTE HERE: about myqttd_domain_find_by_indications
+	 *    
+	 *   if domain was found, we can consider a login ok unless we
+	 *   find a failure sending the connection to the domain, but
+	 *   that failure is more for technical reasons (limits, etc)
+	 *   rather than a login failure .
+	 * 
+	 ***/
 
 	/* activate domain to have it working */
 	codes = myqttd_run_send_connection_to_domain (ctx, conn, myqtt_ctx, domain, username, client_id, server_Name);

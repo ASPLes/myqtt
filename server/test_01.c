@@ -186,6 +186,14 @@ axl_bool  test_01 (void) {
 	int               sub_result;
 	MyQttAsyncQueue * queue;
 	MyQttMsg        * msg;
+
+	const char      * test_message = "This is test message (test-01)....";
+
+	/* cleanup test_01 storage */
+	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+		printf ("ERROR: failed to initialize test..\n");
+		return axl_false;
+	} /* end if */
 	
 	/* call to init the base library and close it */
 	printf ("Test 01: init library and server engine..\n");
@@ -226,7 +234,7 @@ axl_bool  test_01 (void) {
 
 	/* push a message */
 	printf ("Test 01: publishing to the topic myqtt/test..\n");
-	if (! myqtt_conn_pub (conn, "myqtt/test", "This is test message....", 24, MYQTT_QOS_0, axl_false, 0)) {
+	if (! myqtt_conn_pub (conn, "myqtt/test", (axlPointer) test_message, strlen (test_message), MYQTT_QOS_0, axl_false, 0)) {
 		printf ("ERROR: unable to publish message, myqtt_conn_pub() failed\n");
 		return axl_false;
 	} /* end if */
@@ -242,8 +250,10 @@ axl_bool  test_01 (void) {
 
 	/* check content */
 	printf ("Test 01: received reply...checking data..\n");
-	if (myqtt_msg_get_app_msg_size (msg) != 24) {
-		printf ("ERROR: expected payload size of 24 but found %d\n", myqtt_msg_get_app_msg_size (msg));
+	if (myqtt_msg_get_app_msg_size (msg) != strlen (test_message)) {
+		printf ("ERROR: expected payload size of %d but found %d\n", 
+			(int) strlen (test_message),
+			(int) myqtt_msg_get_app_msg_size (msg));
 		return axl_false;
 	} /* end if */
 
@@ -253,8 +263,9 @@ axl_bool  test_01 (void) {
 	} /* end if */
 
 	/* check content */
-	if (! axl_cmp ((const char *) myqtt_msg_get_app_msg (msg), "This is test message....")) {
-		printf ("ERROR: expected to find different content..\n");
+	if (! axl_cmp ((const char *) myqtt_msg_get_app_msg (msg), test_message)) {
+		printf ("ERROR (test-01 dkfrf): expected to find different content. Received '%s', expected '%s'..\n",
+			(const char *) myqtt_msg_get_app_msg (msg), test_message);
 		return axl_false;
 	} /* end if */
 
@@ -283,6 +294,12 @@ axl_bool  test_02 (void) {
 	MyQttConn       * conns[50];
 	int               iterator;
 	char            * client_id;
+
+	/* cleanup test_01 storage */
+	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+		printf ("ERROR: failed to initialize test..\n");
+		return axl_false;
+	} /* end if */
 	
 	/* call to init the base library and close it */
 	printf ("Test 02: init library and server engine..\n");
@@ -342,7 +359,7 @@ axl_bool  test_02 (void) {
 	while (iterator < 50) {
 
 		/* push a message */
-		if (! myqtt_conn_pub (conns[iterator], "myqtt/test", "This is test message....", 24, MYQTT_QOS_0, axl_false, 0)) {
+		if (! myqtt_conn_pub (conns[iterator], "myqtt/test", "This is test message (test-02)....", 34, MYQTT_QOS_0, axl_false, 0)) {
 			printf ("ERROR: unable to publish message, myqtt_conn_pub() failed\n");
 			return axl_false;
 		} /* end if */
@@ -363,8 +380,8 @@ axl_bool  test_02 (void) {
 		} /* end if */
 		
 		/* check content */
-		if (myqtt_msg_get_app_msg_size (msg) != 24) {
-			printf ("ERROR: expected payload size of 24 but found %d\n", myqtt_msg_get_app_msg_size (msg));
+		if (myqtt_msg_get_app_msg_size (msg) != 34) {
+			printf ("ERROR: expected payload size of 34 but found %d\n", myqtt_msg_get_app_msg_size (msg));
 			return axl_false;
 		} /* end if */
 		
@@ -374,7 +391,7 @@ axl_bool  test_02 (void) {
 		} /* end if */
 		
 		/* check content */
-		if (! axl_cmp ((const char *) myqtt_msg_get_app_msg (msg), "This is test message....")) {
+		if (! axl_cmp ((const char *) myqtt_msg_get_app_msg (msg), "This is test message (test-02)....")) {
 			printf ("ERROR: expected to find different content..\n");
 			return axl_false;
 		} /* end if */
@@ -640,7 +657,8 @@ axl_bool common_receive_and_check (MyQttAsyncQueue * queue, const char * topic, 
 	} /* end if */
 
 	if (! axl_cmp (message, (const char *) myqtt_msg_get_app_msg (msg))) {
-		printf ("Test --: message content mismatch received..\n");
+		printf ("Test --: message content mismatch received (expected '%s' but received '%s'\n",
+			message, (const char *) myqtt_msg_get_app_msg (msg));
 		myqtt_msg_unref (msg);
 		return axl_false;
 	}
@@ -688,7 +706,7 @@ axl_bool  test_03 (void) {
 	} /* end if */
 
 	/* connect and send message */
-	if (! common_connect_send_and_check (NULL, "test_02", NULL, NULL, "myqtt/test", "This is test message....", NULL, MYQTT_QOS_0, axl_false)) {
+	if (! common_connect_send_and_check (NULL, "test_02", NULL, NULL, "myqtt/test", "This is test message (test-03)....", NULL, MYQTT_QOS_0, axl_false)) {
 		printf ("Test 03: unable to connect and send message...\n");
 		return axl_false;
 	} /* end if */
@@ -699,7 +717,7 @@ axl_bool  test_03 (void) {
 	} /* end if */
 
 	/* connect and send message */
-	if (! common_connect_send_and_check (NULL, "test_04", NULL, NULL, "myqtt/test", "This is test message....", NULL, MYQTT_QOS_0, axl_false)) {
+	if (! common_connect_send_and_check (NULL, "test_04", NULL, NULL, "myqtt/test", "This is test message (test-03)....", NULL, MYQTT_QOS_0, axl_false)) {
 		printf ("Test 03: unable to connect and send message...\n");
 		return axl_false;
 	} /* end if */
@@ -713,7 +731,7 @@ axl_bool  test_03 (void) {
 	printf ("Test 03: checked domain activation for both services...Ok\n");
 
 	/* connect and send message */
-	if (common_connect_send_and_check (NULL, "test_05_wrong", NULL, NULL, "myqtt/test", "This is test message....", NULL, MYQTT_QOS_0, axl_true)) {
+	if (common_connect_send_and_check (NULL, "test_05_wrong", NULL, NULL, "myqtt/test", "This is test message (test-03)....", NULL, MYQTT_QOS_0, axl_true)) {
 		printf ("Test 03: it should fail to connect but it connected (using test_05_wrong)..\n");
 		return axl_false;
 	} /* end if */
@@ -1584,6 +1602,18 @@ axl_bool  test_11 (void) {
 	int               sub_result;
 	/* MyQttdDomain    * domain;*/
 
+	/* cleanup test_01 storage */
+	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+		printf ("ERROR: failed to initialize test..\n");
+		return axl_false;
+	} /* end if */
+
+	/* cleanup test_01 storage */
+	if (system ("find reg-test-02/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+		printf ("ERROR: failed to initialize test..\n");
+		return axl_false;
+	} /* end if */
+
 	/* call to init the base library and close it */
 	printf ("Test 11: init library and server engine (using test_02.conf)..\n");
 	ctx       = common_init_ctxd (NULL, "test_10.conf");
@@ -1606,7 +1636,7 @@ axl_bool  test_11 (void) {
 	myqtt_tls_opts_set_server_name (opts, "test_01.context");
 
 	/* do a simple connection */
-	conn = myqtt_tls_conn_new (myqtt_ctx, NULL, axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
+	conn = myqtt_tls_conn_new (myqtt_ctx, "test_01", axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_tls_port);
 		return axl_false;
@@ -1628,7 +1658,7 @@ axl_bool  test_11 (void) {
 
 	/* check message */
 	if (! common_receive_and_check (queue, "myqtt/test", "test", MYQTT_QOS_0, axl_false)) {
-		printf ("Test 03: expected to receive different message..\n");
+		printf ("ERROR: expected to receive different message..\n");
 		return axl_false;
 	}
 
@@ -1642,7 +1672,7 @@ axl_bool  test_11 (void) {
 
 	/* check message */
 	if (! common_receive_and_check (queue, "get-context", "test_01.context", MYQTT_QOS_0, axl_false)) {
-		printf ("Test 03: expected to receive different message (test_01.context)..\n");
+		printf ("ERROR: expected to receive different message (test_01.context)..\n");
 		return axl_false;
 	}
 
@@ -1654,7 +1684,7 @@ axl_bool  test_11 (void) {
 	myqtt_tls_opts_set_server_name (opts, "test_02.context");
 
 	/* do a simple connection */
-	conn2 = myqtt_tls_conn_new (myqtt_ctx, NULL, axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
+	conn2 = myqtt_tls_conn_new (myqtt_ctx, "test_01", axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn2, axl_false)) {
 		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_tls_port);
 		return axl_false;
@@ -1704,6 +1734,18 @@ axl_bool  test_12 (void) {
 	noPollCtx       * nopoll_ctx;
 	/* MyQttdDomain    * domain;*/
 
+	/* cleanup test_01 storage */
+	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+		printf ("ERROR: failed to initialize test..\n");
+		return axl_false;
+	} /* end if */
+
+	/* cleanup test_01 storage */
+	if (system ("find reg-test-02/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+		printf ("ERROR: failed to initialize test..\n");
+		return axl_false;
+	} /* end if */
+
 	/* call to init the base library and close it */
 	printf ("Test 12: init library and server engine (using test_02.conf)..\n");
 	ctx       = common_init_ctxd (NULL, "test_12.conf");
@@ -1729,7 +1771,7 @@ axl_bool  test_12 (void) {
 
 	/* now create MQTT connection using already working noPoll connection */
 	printf ("Test 12: creating WeBsocket connection ..\n");
-	conn = myqtt_web_socket_conn_new (myqtt_ctx, NULL, axl_false, 30, nopoll_conn, NULL, NULL, NULL);
+	conn = myqtt_web_socket_conn_new (myqtt_ctx, "test_01", axl_false, 30, nopoll_conn, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_ws_host, listener_ws_port);
 		return axl_false;
@@ -1763,7 +1805,7 @@ axl_bool  test_12 (void) {
 
 	/* now create MQTT connection using already working noPoll connection */
 	printf ("Test 12: creating WeBsocket connection (for test_02.context) ..\n");
-	conn2 = myqtt_web_socket_conn_new (myqtt_ctx, NULL, axl_false, 30, nopoll_conn, NULL, NULL, NULL);
+	conn2 = myqtt_web_socket_conn_new (myqtt_ctx, "test_01", axl_false, 30, nopoll_conn, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_ws_host, listener_ws_port);
 		return axl_false;
@@ -1816,6 +1858,18 @@ axl_bool  test_13 (void) {
 
 	/* MyQttdDomain    * domain;*/
 
+	/* cleanup test_01 storage */
+	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+		printf ("ERROR: failed to initialize test..\n");
+		return axl_false;
+	} /* end if */
+
+	/* cleanup test_01 storage */
+	if (system ("find reg-test-02/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+		printf ("ERROR: failed to initialize test..\n");
+		return axl_false;
+	} /* end if */
+
 	/* call to init the base library and close it */
 	printf ("Test 13: init library and server engine (using test_02.conf)..\n");
 	ctx       = common_init_ctxd (NULL, "test_12.conf");
@@ -1857,7 +1911,7 @@ axl_bool  test_13 (void) {
 
 	/* now create MQTT connection using already working noPoll connection */
 	printf ("Test 13: creating WebSocket connection (with working nopoll conn %s:%s) ..\n", listener_host, listener_wss_port);
-	conn = myqtt_web_socket_conn_new (myqtt_ctx, NULL, axl_false, 30, nopoll_conn, NULL, NULL, NULL);
+	conn = myqtt_web_socket_conn_new (myqtt_ctx, "test_01", axl_false, 30, nopoll_conn, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_ws_host, listener_ws_port);
 		return axl_false;
@@ -1895,7 +1949,7 @@ axl_bool  test_13 (void) {
 
 	/* now create MQTT connection using already working noPoll connection */
 	printf ("Test 13: creating WeBsocket connection (for test_02.context) ..\n");
-	conn2 = myqtt_web_socket_conn_new (myqtt_ctx, NULL, axl_false, 30, nopoll_conn, NULL, NULL, NULL);
+	conn2 = myqtt_web_socket_conn_new (myqtt_ctx, "test_01", axl_false, 30, nopoll_conn, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_ws_host, listener_ws_port);
 		return axl_false;
@@ -1934,7 +1988,70 @@ axl_bool  test_13 (void) {
 	return axl_true;
 }
 
-#endif
+axl_bool  test_14 (void) {
+	
+	MyQttdCtx       * ctx;
+	MyQttCtx        * myqtt_ctx;
+	MyQttConn       * conn;
+	noPollConn      * nopoll_conn;
+	noPollCtx       * nopoll_ctx;
+
+	/* cleanup test_01 storage */
+	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+		printf ("ERROR: failed to initialize test..\n");
+		return axl_false;
+	} /* end if */
+
+
+	/* MyQttdDomain    * domain;*/
+
+	/* call to init the base library and close it */
+	printf ("Test 14: init library and server engine (using test_02.conf)..\n");
+	ctx       = common_init_ctxd (NULL, "test_12.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	myqtt_ctx = common_init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+	
+	/* create first a noPoll connection, for that we need to
+	   create a context */
+	nopoll_ctx   = nopoll_ctx_new ();
+
+	printf ("Test 14: connecting to %s:%s (WebSocket)..\n", listener_ws_host, listener_ws_port);
+	nopoll_conn  = nopoll_conn_new (nopoll_ctx, listener_ws_host, listener_ws_port, "test_01.context", NULL, NULL, NULL);
+	if (! nopoll_conn_is_ok (nopoll_conn)) {
+		printf ("ERROR: failed to connect remote host through WebSocket..\n");
+		return nopoll_false;
+	} /* end if */
+
+	/* now create MQTT connection using already working noPoll connection */
+	printf ("Test 14: creating WebSocket connection (with working nopoll conn %s:%s) ..\n", listener_host, listener_wss_port);
+	conn = myqtt_web_socket_conn_new (myqtt_ctx, NULL, axl_false, 30, nopoll_conn, NULL, NULL, NULL);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected connection failure, but a proper connection was found.\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 14: not connected, good, now checking..\n");
+
+
+	myqtt_conn_close (conn);
+
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+	printf ("Test 14: finishing MyQttdCtx..\n");
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+	
+	return axl_true;
+}
+
+#endif /* defined(ENABLE_WEBSOCKET_SUPPORT) */
 
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
@@ -2013,7 +2130,7 @@ int main (int argc, char ** argv)
 	printf ("** Providing --run-test=NAME will run only the provided regression test.\n");
 	printf ("** Available tests: test_00, test_01, test_02, test_03, test_04, test_05\n");
 	printf ("**                  test_06, test_07, test_08, test_09, test_10, test_11\n");
-	printf ("**                  test_12, test_13\n");
+	printf ("**                  test_12, test_13, test_14\n");
 	printf ("**\n");
 	printf ("** Report bugs to:\n**\n");
 	printf ("**     <myqtt@lists.aspl.es> MyQtt Mailing list\n**\n");
@@ -2075,15 +2192,16 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_12")
 	run_test (test_12, "Test 12: checking domain activation when connected with WebSocket (hostname == domain name)");
 
-	/* comprobar WebSocket TLS (soporte para importar certificados) */
+	CHECK_TEST("test_13")
 	run_test (test_13, "Test 13: checking domain activation when connected with WebSocket TLS (hostname == domain name)");
-#endif
 
-#if defined(ENABLE_TLS_SUPPORT)
-#if defined(ENABLE_WEBSOCKET_SUPPORT)
-	/* comprobar conexión al servidor con todos los módulos cargados */
+	CHECK_TEST("test_14")
+	run_test (test_14, "Test 14: checks that authentication fails when provided right hostname but wrong credentials");
 #endif
-#endif
+	
+
+	/* check support to limit amount of subscriptions a user can
+	 * do */
 
 	/* check client ids registered in all contexts */
 
