@@ -14,6 +14,8 @@
   integration of different certificates according to the serverName
   provided.
 
+* Support MQTT, MQTT over TLS, MQTT over WebSocket and MQTT over
+  TLS-WebSocket
 
 * MyQttd server provides an extensible and plugable auth backend which
   allows having different authoration engines running at the same
