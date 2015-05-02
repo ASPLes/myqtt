@@ -1995,6 +1995,7 @@ axl_bool  test_14 (void) {
 	MyQttConn       * conn;
 	noPollConn      * nopoll_conn;
 	noPollCtx       * nopoll_ctx;
+	MyQttAsyncQueue * queue;
 
 	/* cleanup test_01 storage */
 	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm {} \\;") != 0) {
@@ -2040,8 +2041,42 @@ axl_bool  test_14 (void) {
 
 	printf ("Test 14: not connected, good, now checking..\n");
 
-
 	myqtt_conn_close (conn);
+
+	printf ("Test 14: connecting to %s:%s (WebSocket) but without serverName indication..\n", listener_ws_host, listener_ws_port);
+	nopoll_conn  = nopoll_conn_new (nopoll_ctx, listener_ws_host, listener_ws_port, NULL, NULL, NULL, NULL);
+	if (! nopoll_conn_is_ok (nopoll_conn)) {
+		printf ("ERROR: failed to connect remote host through WebSocket..\n");
+		return nopoll_false;
+	} /* end if */
+
+	/* now create MQTT connection using already working noPoll connection */
+	printf ("Test 14: creating WebSocket connection (with working nopoll conn %s:%s) ..\n", listener_host, listener_wss_port);
+	conn = myqtt_web_socket_conn_new (myqtt_ctx, "test_01", axl_false, 30, nopoll_conn, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected connection OK, but a connection failure was found.\n");
+		return axl_false;
+	} /* end if */
+
+	/* create queue */
+	queue  = common_configure_reception (conn);
+
+	/* configure server handler */
+	myqttd_ctx_add_on_publish (ctx, test_04_handle_publish, NULL);
+
+	if (! common_send_msg (conn, "get-context", "test", MYQTT_QOS_0)) {
+		printf ("ERROR: expected to be able to send a message but it failed..\n");
+		return axl_false;
+	} /* end if */
+	
+	printf ("Test 14: waiting for message reception (test_01.context)..\n");
+	if (! common_receive_and_check (queue, "get-context", "test_01.context", MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03: expected to receive different message (test_01.context)..\n");
+		return axl_false;
+	}
+	myqtt_async_queue_unref (queue);
+	myqtt_conn_close (conn);
+
 
 	myqtt_exit_ctx (myqtt_ctx, axl_true);
 	printf ("Test 14: finishing MyQttdCtx..\n");
