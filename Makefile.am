@@ -10,8 +10,11 @@ WEBSOCKET_PKGCONFIG = myqtt-web-socket-1.0.pc
 WEBSOCKET_DEFS = update-web-socket-defs
 endif
 
+if ENABLE_MYQTT_CLIENT
+MYQTT_CLIENT_DIR = client
+endif
 
-SUBDIRS = lib $(TLS_SUPPORT_DIR) $(WEBSOCKET_SUPPORT_DIR) server test
+SUBDIRS = lib $(TLS_SUPPORT_DIR) $(WEBSOCKET_SUPPORT_DIR) server $(MYQTT_CLIENT_DIR) test
 EXTRA_DIST = myqtt-1.0.pc.in VERSION
 
 pkgconfigdir = $(libdir)/pkgconfig

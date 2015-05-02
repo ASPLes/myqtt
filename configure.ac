@@ -190,23 +190,7 @@ AM_CONDITIONAL(DEFAULT_POLL, test "x$default_platform" = "xpoll")
 
 dnl check for myqtt client tool dependencies
 AC_ARG_ENABLE(myqtt-client, [  --enable-myqtt-client    Enable myqtt tool building [default=yes]], enable_myqtt_client="$enableval", enable_myqtt_client=yes)
-if test x$enable_myqtt_client = xyes ; then
-AC_CHECK_HEADER(readline/readline.h, readline_found=true, readline_found=false)
-     AC_TRY_LINK(,,[	READLINE_DEPLIBS="-lreadline" ],[ 
-		LIBS="$LIBS -ltermcap" 
-		AC_TRY_LINK(,,[ READLINE_DEPLIBS="-lreadline -ltermcap" ],[
-			AC_MSG_ERROR([Cannot figure out how to link with the readline library; see config.log for more information])
-		])
-	])
-fi
-AM_CONDITIONAL(ENABLE_READLINE, test "x$readline_found" = "xtrue")
-
-AC_ARG_VAR(READLINE_PATH, [Readline base include path. This can be helpful to set a different location for a readline installation.
-This will be used to build a include path as READLINE_PATH/include and a READLINE_PATH/lib.
-])
-
-AC_CHECK_HEADER(termios.h, [termios_found=yes], [termios_found=no])
-AM_CONDITIONAL(ENABLE_TERMIOS, test ".$termios_found" = ".yes")
+AM_CONDITIONAL(ENABLE_MYQTT_CLIENT, test "x$enable_myqtt_client" = "xyes")
 
 dnl define a m4 macro to check for perl regular expresion support
 AC_DEFUN([CHECK_LIB_PCRE],[dnl
@@ -367,6 +351,7 @@ server/modules/mod-ssl/Makefile
 server/modules/mod-ssl/mod-ssl.xml
 server/modules/mod-web-socket/Makefile
 server/modules/mod-web-socket/mod-web-socket.xml
+client/Makefile
 test/Makefile
 myqtt-1.0.pc
 myqtt-tls-1.0.pc
@@ -393,21 +378,23 @@ echo "   Axl installation: "
 echo "      cflags: $AXL_CFLAGS"
 echo "      libs:   $AXL_LIBS"
 echo
-if test x$readline_found = xtrue ; then
-   echo "   Build myqtt-client tool:                 enabled"
+
+echo "   Build libMyqtt:                    enabled"
+echo "   Build MyQttD server:               enabled"
+
+if test x$enable_myqtt_client = xyes ; then
+   echo "   Build myqtt-client tool:           enabled"
 else
-   echo "   Build myqtt-client tool:                 disabled"
+   echo "   Build myqtt-client tool:           disabled"
    echo 
-   echo "     NOTE: To enable myqtt-client tool building"
-   echo "     it is needed to have readline on this system. "
-   echo "     Once installed run again configure process"
-   echo "     using --enable-myqtt-client option."
+   echo "     NOTE: To enable myqtt-client tool use "
+   echo "           --enable-myqtt-client option."
 fi
 if test x$enable_tls_support = xyes ; then
-   echo "   Build TLS support:                enabled"
+   echo "   Build TLS support:                 enabled"
    echo "     (libmyqtt-tls-1.0)"
 else
-   echo "   Build TLS support:                disabled"
+   echo "   Build TLS support:                 disabled"
    echo 
    echo "     NOTE: To enable TLS support you have to"
    echo "     install OpenSSL developement headers. "
@@ -415,18 +402,18 @@ else
    echo "     using --enable-tls-support option."
 fi
 if test x$enable_websocket_support = xyes ; then
-   echo "   Build WebSocket extension library:        enabled"
+   echo "   Build WebSocket extension library: enabled"
    echo "     (libmyqtt-websocket-1.0)"
 else
-   echo "   Build WebSocket extension library:        disabled"
+   echo "   Build WebSocket extension library: disabled"
    echo 
    echo "     NOTE: To enable WebSocket support you need to have libnopoll"
    echo "           installed on your system and use --enable-websocket-support option."
 fi
 if test x$DOXYGEN = xyes ; then
-   echo "   Build MyQtt doc:                 enabled"
+   echo "   Build MyQtt doc:                   enabled"
 else	    
-   echo "   Build MyQtt doc:                 disabled"
+   echo "   Build MyQtt doc:                   disabled"
    echo  
    echo "     NOTE: To enable MyQtt documentation you will"
    echo "     have to install doxygen tool. Then run again"
