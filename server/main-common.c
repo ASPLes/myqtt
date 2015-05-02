@@ -104,9 +104,9 @@ char * main_common_get_config_location (MyQttdCtx * ctx,
 	myqtt_support_init (myqtt_ctx);
 
 	/* configure lookup domain, and load configuration file */
-	myqtt_support_add_domain_search_path_ref (myqtt_ctx, axl_strdup ("myqttd-conf"), 
-						   myqtt_support_build_filename (SYSCONFDIR, "myqttd", NULL));
-	myqtt_support_add_domain_search_path     (myqtt_ctx, "myqttd-conf", ".");
+	myqtt_support_add_domain_search_path_ref (myqtt_ctx, axl_strdup ("myqtt-conf"), 
+						   myqtt_support_build_filename (SYSCONFDIR, "myqtt", NULL));
+	myqtt_support_add_domain_search_path     (myqtt_ctx, "myqtt-conf", ".");
 
 	/* find the configuration file */
 	if (exarg_is_defined ("config")) {
@@ -115,12 +115,12 @@ char * main_common_get_config_location (MyQttdCtx * ctx,
 	} else {
 		/* get the default configuration defined at
 		 * compilation time */
-		config = myqtt_support_domain_find_data_file (myqtt_ctx, "myqttd-conf", "myqttd.conf");
+		config = myqtt_support_domain_find_data_file (myqtt_ctx, "myqtt-conf", "myqtt.conf");
 	} /* end if */
 
 	/* load main turb */
 	if (config == NULL) {
-		abort_error ("Unable to find myqttd.conf file at the default location: %s/myqtt/myqtt.conf", SYSCONFDIR);
+		abort_error ("Unable to find myqtt.conf file at the default location: %s/myqtt/myqtt.conf", SYSCONFDIR);
 		return NULL;
 	} else 
 		msg ("using configuration file: %s", config);
