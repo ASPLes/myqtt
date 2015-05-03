@@ -304,7 +304,7 @@ int main (int argc, char ** argv)
 	/* create the myqttd and myqtt context */
 	ctx       = myqttd_ctx_new ();
 	myqtt_ctx = myqtt_ctx_new ();
-
+	
 	/* check for child flag */
 	if (exarg_is_defined ("child")) {
 		/* reconfigure signals */

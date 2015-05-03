@@ -757,6 +757,27 @@ typedef void  (*MyQttOnReleaseMsg) (MyQttCtx * ctx, MyQttConn * conn,
 				    int packaet_id, MyQttQos qos,
 				    unsigned char * app_msg, int app_msg_size,
 				    axlPointer user_data);
+
+/** 
+ * @brief Set of handler sdefined at \ref myqtt_conn_set_on_msg_sent
+ * that are called when a message is sent completely.
+ *
+ * @param ctx The context where the operation is taking place.
+ *
+ * @param conn The connection where the operation is taking place.
+ *
+ * @param app_msg A reference to the application message.
+ *
+ * @param app_msg_size Size of the message sent.
+ *
+ * @param msg_type the message type sent.
+ *
+ * @param A reference to a user defiend pointer that was defined and
+ * received in this function.
+ */
+typedef void  (*MyQttOnMsgSent)    (MyQttCtx * ctx, MyQttConn * conn,
+				    unsigned char * app_msg, int app_msg_size,
+				    MyQttMsgType  msg_type, axlPointer user_data);
 				      
 #endif
 

@@ -217,6 +217,10 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 			if (data->step == data->message_size) {
 
 			release_message:
+				/* notify message sent */
+				if (conn->on_msg_sent)
+					conn->on_msg_sent (ctx, conn, data->message, data->message_size, data->type, conn->on_msg_sent_data);
+
 				/* release connection */
 				myqtt_conn_unref (conn, "sequencer");
 

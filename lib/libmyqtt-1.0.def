@@ -43,6 +43,7 @@ myqtt_conn_delete_key_data
 myqtt_conn_do_sanity_check
 myqtt_conn_free
 myqtt_conn_get_client_id
+myqtt_conn_get_code_to_err
 myqtt_conn_get_connect_timeout
 myqtt_conn_get_ctx
 myqtt_conn_get_data
@@ -103,6 +104,7 @@ myqtt_conn_set_nonblocking_socket
 myqtt_conn_set_on_close
 myqtt_conn_set_on_close_full2
 myqtt_conn_set_on_msg
+myqtt_conn_set_on_msg_sent
 myqtt_conn_set_receive_handler
 myqtt_conn_set_receive_stamp
 myqtt_conn_set_send_handler
