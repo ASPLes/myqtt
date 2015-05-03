@@ -351,6 +351,8 @@ server/modules/mod-ssl/Makefile
 server/modules/mod-ssl/mod-ssl.xml
 server/modules/mod-web-socket/Makefile
 server/modules/mod-web-socket/mod-web-socket.xml
+server/modules/mod-status/Makefile
+server/modules/mod-status/mod-status.xml
 client/Makefile
 test/Makefile
 myqtt-1.0.pc

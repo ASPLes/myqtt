@@ -585,15 +585,20 @@ axl_bool      myqtt_log_is_enabled_acquire_mutex (MyQttCtx * ctx)
  * 
  * @param handler A reference to the handler to configure or NULL to
  * disable the notification.
+ *
+ * @param user_data User defined pointer passed into into the handler
+ * provided when called.
  */
 void     myqtt_log_set_handler      (MyQttCtx        * ctx, 
-				      MyQttLogHandler   handler)
+				     MyQttLogHandler   handler,
+				     axlPointer        user_data)
 {
 	/* get current context */
 	v_return_if_fail (ctx);
 	
 	/* configure status */
 	ctx->debug_handler = handler;
+	ctx->debug_handler_user_data = user_data;
 }
 
 /** 
@@ -693,11 +698,11 @@ void _myqtt_log_common (MyQttCtx        * ctx,
 		if (ctx->prepare_log_string) {
 			/* pass the string already prepared */
 			log_string = axl_strdup_printfv (message, args);
-			ctx->debug_handler (file, line, log_level, log_string, NULL);
+			ctx->debug_handler (file, line, log_level, log_string, NULL, ctx->debug_handler_user_data);
 			axl_free (log_string);
 		} else {
 			/* call a custom debug handler if one has been set */
-			ctx->debug_handler (file, line, log_level, message, args);
+			ctx->debug_handler (file, line, log_level, message, args, ctx->debug_handler_user_data);
 		} /* end if */
 
 	} else {

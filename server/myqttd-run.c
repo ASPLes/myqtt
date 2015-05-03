@@ -45,6 +45,20 @@
 #include <myqtt-ctx-private.h>
 #include <myqtt-conn-private.h>
 
+void __myqttd_run_log_handler (const char       * file,
+			       int                line,
+			       MyQttDebugLevel   log_level,
+			       const char       * message,
+			       va_list            args,
+			       axlPointer         user_data)
+{
+	MyQttdCtx * ctx = user_data;
+	if (log_level != MYQTT_LEVEL_CRITICAL)
+		return;
+	error ("(myqtt) %s:%d: %s", file, line, message); 
+	return;
+}
+
 /** 
  * \defgroup myqttd_run MyQttd runtime: runtime checkings 
  */
@@ -525,7 +539,8 @@ void __myqttd_run_on_release_msg (MyQttCtx * myqtt_ctx, MyQttConn * conn,
 
 void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 {
-	int subs;
+	int      subs;
+	axl_bool debug_was_not_requested;
 
 	if (domain->initialized)
 		return;
@@ -541,12 +556,18 @@ void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 	} /* end if */
 
 	/* enable debug as it is in the parent context */
-	if (myqtt_log_is_enabled (ctx->myqtt_ctx))
-		myqtt_log_enable (domain->myqtt_ctx, axl_true);
-	if (myqtt_log2_is_enabled (ctx->myqtt_ctx))
-		myqtt_log2_enable (domain->myqtt_ctx, axl_true);
-	if (myqtt_color_log_is_enabled (ctx->myqtt_ctx))
-		myqtt_color_log_enable (domain->myqtt_ctx, axl_true);
+	debug_was_not_requested = PTR_TO_INT (myqttd_ctx_get_data (ctx, "debug-was-not-requested"));
+	if (debug_was_not_requested) {
+		/* enable log but to catch critical errors */
+		myqtt_log_enable (domain->myqtt_ctx, axl_true); 
+		myqtt_log_set_prepare_log (domain->myqtt_ctx, axl_true);
+		myqtt_log_set_handler (domain->myqtt_ctx, __myqttd_run_log_handler, ctx);
+	} else {
+		/* enable debug was denabled in parent */
+		myqtt_log_enable       (domain->myqtt_ctx, myqtt_log_is_enabled (ctx->myqtt_ctx));
+		myqtt_log2_enable      (domain->myqtt_ctx, myqtt_log2_is_enabled (ctx->myqtt_ctx));
+		myqtt_color_log_enable (domain->myqtt_ctx, myqtt_color_log_is_enabled (ctx->myqtt_ctx));
+	}
 
 	/* configure storage path */
 	msg ("Setting storage path=%s for domain=%s", domain->storage_path, domain->name);

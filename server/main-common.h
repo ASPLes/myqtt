@@ -55,5 +55,6 @@ at <myqtt@lists.aspl.es>."
 void   main_common_enable_debug_options (MyQttdCtx * ctx, 
 					 MyQttCtx  * myqtt_ctx);
 
-char * main_common_get_config_location (MyQttdCtx * ctx, 
-					MyQttCtx  * myqtt_ctx);
+char * main_common_get_config_location  (MyQttdCtx * ctx, 
+					 MyQttCtx  * myqtt_ctx);
+
