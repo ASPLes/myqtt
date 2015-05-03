@@ -191,9 +191,6 @@ typedef struct _MyQttConnNewData {
 	MyQttConnNew           on_connected;
 	axlPointer             user_data;
 	axl_bool               threaded;
-	MyQttNetTransport      transport;
-	MyQttSessionSetup      setup_handler;
-	axlPointer             setup_user_data;
 }MyQttConnNewData;
 
 
@@ -1309,59 +1306,26 @@ axl_bool __myqtt_conn_do_greetings_exchange (MyQttCtx      * ctx,
 } 
 			
 
-/** 
- * @internal
- * @brief Support function to myqtt_conn_new. 
- *
- * This function actually does the work for the myqtt_conn_new.
- * 
- * @param data To perform myqtt connection creation process
- * 
- * @return on thread model NULL on non-thread model the connection
- * created (connected or not connected).
- */
-axlPointer __myqtt_conn_new (MyQttConnNewData * data)
+void __myqtt_conn_new_internal (MyQttCtx * ctx, MyQttConn * connection, MyQttConnOpts * opts)
 {
+	int                       d_timeout       = myqtt_conn_get_connect_timeout (ctx);
+	axlError                * error           = NULL;
 	struct sockaddr_storage   sin;
 #if defined(AXL_OS_WIN32)
 	/* windows flavors */
-	int                    sin_size       = sizeof (sin);
+	int                    sin_size           = sizeof (sin);
 #else
 	/* unix flavors */
-	socklen_t              sin_size       = sizeof (sin);
+	socklen_t              sin_size           = sizeof (sin);
 #endif
-	/* get current context */
-	MyQttConn            * connection      = data->connection;
-	MyQttConnOpts        * opts            = data->opts;
-	MyQttCtx             * ctx             = connection->ctx;
-	axlError             * error           = NULL;
-	int                    d_timeout       = myqtt_conn_get_connect_timeout (ctx);
-	axl_bool               threaded        = data->threaded;
-	MyQttConnNew           on_connected    = data->on_connected;
-	axlPointer             user_data       = data->user_data;
-	MyQttNetTransport      transport       = data->transport;
-	MyQttSessionSetup      setup_handler   = data->setup_handler;
-	axlPointer             setup_user_data = data->setup_user_data;
-
 	char                   host_name[NI_MAXHOST];
 	char                   srv_name[NI_MAXSERV]; 
 
-	myqtt_log (MYQTT_LEVEL_DEBUG, "executing connection new in %s mode to %s:%s id=%d",
-		   (data->threaded == axl_true) ? "thread" : "blocking", 
-		   connection->host, connection->port,
-		   connection->id);
-
-	/* release data */
-	axl_free (data);
-
-	/* configure connection transport */
-	connection->transport = transport;
-
 	/* call session setup handler if defined */
-	if (setup_handler)  {
+	if (connection->setup_handler)  {
 		/* by default, cleanup session */
 		connection->session = -1;
-		if (! setup_handler (ctx, connection, opts, setup_user_data)) {
+		if (! connection->setup_handler (ctx, connection, opts, connection->setup_user_data)) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Session setup handler failed for conn-id=%d, session=%d..", connection->id, connection->session);
 			myqtt_close_socket (connection->session);
 		} /* end if */
@@ -1412,7 +1376,12 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 		}
 	
 		/* set local addr and local port */
+		if (connection->local_addr)
+			axl_free (connection->local_addr);
 		connection->local_addr = axl_strdup (host_name);
+		
+		if (connection->local_port)
+			axl_free (connection->local_port);
 		connection->local_port = axl_strdup (srv_name);
 
 		/* block thread until received remote greetings */
@@ -1443,7 +1412,40 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 		} /* end if */
 	}
 
-	/* call to report connection */
+	return; /* report nothing */
+}
+
+/** 
+ * @internal
+ * @brief Support function to myqtt_conn_new. 
+ *
+ * This function actually does the work for the myqtt_conn_new.
+ * 
+ * @param data To perform myqtt connection creation process
+ * 
+ * @return on thread model NULL on non-thread model the connection
+ * created (connected or not connected).
+ */
+axlPointer __myqtt_conn_new (MyQttConnNewData * data)
+{
+	/* get current context */
+	MyQttConn            * connection      = data->connection;
+	MyQttConnOpts        * opts            = data->opts;
+	MyQttCtx             * ctx             = connection->ctx;
+	axl_bool               threaded        = data->threaded;
+	MyQttConnNew           on_connected    = data->on_connected;
+	axlPointer             user_data       = data->user_data;
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "executing connection new in %s mode to %s:%s id=%d",
+		   (data->threaded == axl_true) ? "thread" : "blocking", 
+		   connection->host, connection->port,
+		   connection->id);
+
+	/* release data */
+	axl_free (data);
+
+	/* call to create connection */
+	__myqtt_conn_new_internal (ctx, connection, opts);
 
 	/* notify on callback or simply return */
 	if (threaded) {
@@ -1491,8 +1493,11 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 	
 	data->connection                      = axl_new (MyQttConn, 1);
 	data->opts                            = opts;
-	data->setup_handler                   = setup_handler;
-	data->setup_user_data                 = setup_user_data;
+	data->connection->setup_handler       = setup_handler;
+	data->connection->setup_user_data     = setup_user_data;
+
+	/* configure connection transport */
+	data->connection->transport           = transport;
 
 	/* for now, set default connection error */
 	data->connection->last_err            = MYQTT_CONNACK_UNKNOWN_ERR;
@@ -1533,8 +1538,8 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 	__myqtt_conn_init_mutex (data->connection);
 
 	data->connection->data                = myqtt_hash_new_full (axl_hash_string, axl_hash_equal_string,
-								      NULL,
-								      NULL);
+								     NULL,
+								     NULL);
 	/* establish the connection role */
 	data->connection->role                = MyQttRoleInitiator;
 
@@ -1562,11 +1567,6 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 		axl_free (data);
 		return NULL;
 	}
-
-	/* detect transport we have to configure */
-	data->transport = transport;
-	/* set same transport on the connection */
-	data->connection->transport = data->transport;
 
 	if (data->threaded) {
 		myqtt_log (MYQTT_LEVEL_DEBUG, "invoking connection_new threaded mode");
@@ -1745,9 +1745,9 @@ MyQttConn  * myqtt_conn_new6                   (MyQttCtx       * ctx,
  * if not. If the <i>on_connected</i> handler is defined, this
  * function will always return axl_true.
  */
-axl_bool            myqtt_conn_reconnect              (MyQttConn * connection,
-							     MyQttConnNew on_connected,
-							     axlPointer user_data)
+axl_bool            myqtt_conn_reconnect              (MyQttConn    * connection,
+						       MyQttConnNew   on_connected,
+						       axlPointer     user_data)
 {
 	MyQttCtx               * ctx;
 	MyQttConnNewData * data;
@@ -1770,17 +1770,14 @@ axl_bool            myqtt_conn_reconnect              (MyQttConn * connection,
 	/* check allocated value */
 	if (data == NULL) 
 		return axl_false;
+
 	data->connection   = connection;
-	
 	data->on_connected = on_connected;
 	data->user_data    = user_data;
 	data->threaded     = (on_connected != NULL);
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "reconnection request is prepared, doing so..");
 
-	/* detect transport we have to configure */
-	data->transport = connection->transport;
-	
 	if (data->threaded) {
 		myqtt_log (MYQTT_LEVEL_DEBUG, "reconnecting connection in threaded mode");
 		myqtt_thread_pool_new_task (ctx, (MyQttThreadFunc) __myqtt_conn_new, data);
@@ -3616,8 +3613,17 @@ void               myqtt_conn_free (MyQttConn * connection)
 	myqtt_ctx_unref2 (&connection->ctx, "end connection");
 
 	/* release master connection options */
-	if (connection->role == MyQttRoleMasterListener && connection->opts)
-		myqtt_conn_opts_free (connection->opts);
+	if (connection->opts) {
+		/* if it is: 
+		 *
+		 *  a) master role connection release or 
+		 *  b) it has reconect enabled but without reuse on 
+		 * 
+		 * then, release myqtt_conn_opts_free (opts)
+		 */
+		if (connection->role == MyQttRoleMasterListener || (connection->opts->reconnect && ! connection->opts->reuse))
+			myqtt_conn_opts_free (connection->opts);
+	} /* end if */
 
 	/* free connection */
 	axl_free (connection);

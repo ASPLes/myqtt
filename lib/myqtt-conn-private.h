@@ -40,6 +40,40 @@
 #ifndef __MYQTT_CONNECTION_PRIVATE_H__
 #define __MYQTT_CONNECTION_PRIVATE_H__
 
+struct _MyQttConnOpts {
+	/** 
+	 * @internal The following is an indication to avoid releasing this object if reuse == axl_true.
+	 */
+	axl_bool        reuse;
+	axl_bool        reconnect;
+
+	/* support for auth */
+	axl_bool        use_auth;
+	char          * username;
+	char          * password;
+
+	/* will topic and will message configuration */
+	MyQttQos        will_qos;
+	char          * will_topic;
+	char          * will_message;
+	int             will_retain;
+
+	/** ssl/tls support **/
+	/* What ssl protocol should be used */
+	int             ssl_protocol;
+
+	/* SSL options */
+	char * certificate;
+	char * private_key;
+	char * chain_certificate;
+	char * ca_certificate;
+
+	axl_bool  disable_ssl_verify;
+	
+	char * serverName;
+};
+
+
 /** 
  * @internal
  * @brief Internal MyQttConnection representation.
@@ -135,12 +169,6 @@ struct _MyQttConn {
 	 * closed once __myqtt_connection_set_not_connected function.
 	 */
 	axl_bool       close_session;
-
-	/** 
-	 * @internal Internal reference to connection especific
-	 * options.
-	 */
-	MyQttConnOpts    * opts;
 
 	/** 
 	 * Hash to hold miscellaneous data, sometimes used by the
@@ -277,7 +305,18 @@ struct _MyQttConn {
 	axlPointer                   hook;
 
 	/** reference to the transport used by the library */
-	MyQttNetTransport           transport;
+	MyQttNetTransport            transport;
+
+	/** setup handlers */
+	MyQttSessionSetup            setup_handler;
+	axlPointer                   setup_user_data;
+	/* reference to opts used when connecting in the case
+	   reconnect option is enabled. Otherwise, this reference is
+	   not configured because it is used and released at
+	   connection time. However, when enabling reconnect option,
+	   you need all options used at connection time to recreate
+	   the session, and that includes the MyQttConnOpts.  */
+	MyQttConnOpts              * opts;
 
 	/** 
 	 * @internal Reference to the list of sent pkg ids that are
@@ -319,38 +358,6 @@ struct _MyQttConn {
 	char          * certificate;
 	char          * private_key;
 	char          * chain_certificate;
-};
-
-struct _MyQttConnOpts {
-	/** 
-	 * @internal The following is an indication to avoid releasing this object if reuse == axl_true.
-	 */
-	axl_bool        reuse;
-
-	/* support for auth */
-	axl_bool        use_auth;
-	char          * username;
-	char          * password;
-
-	/* will topic and will message configuration */
-	MyQttQos        will_qos;
-	char          * will_topic;
-	char          * will_message;
-	int             will_retain;
-
-	/** ssl/tls support **/
-	/* What ssl protocol should be used */
-	int             ssl_protocol;
-
-	/* SSL options */
-	char * certificate;
-	char * private_key;
-	char * chain_certificate;
-	char * ca_certificate;
-
-	axl_bool  disable_ssl_verify;
-	
-	char * serverName;
 };
 
 axl_bool               myqtt_conn_ref_internal           (MyQttConn   * conn, 
