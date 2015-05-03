@@ -146,7 +146,7 @@ MyQttConn * make_connection (void)
 	/* check connection */
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: unable to connect to %s:%s..\n", exarg_get_string ("host"), exarg_get_string ("port"));
-		return axl_false;
+		exit (-1);
 	} /* end if */
 
 	/* report connection created */
@@ -201,6 +201,8 @@ int  main_init_exarg (int argc, char ** argv)
 			   "Subscribe to the provided topic: qos,topic");
 	exarg_install_arg ("get-subscriptions", "n", EXARG_NONE,
 			   "If supported by the server, allows to get current subscriptions registered by the connecting client.");
+	exarg_install_arg ("get-msgs", "m", EXARG_NONE,
+			   "Connect to the server and wait for messages to arrive. Every incoming message received will be printed to the console.");
 	exarg_install_arg ("clean-session", "e", EXARG_NONE,
 			   "Request client session on the next connect operation.");
 
@@ -461,6 +463,37 @@ void client_handle_get_subscriptions_operation (int argc, char ** argv)
 	
 }
 
+void client_handle_get_msgs_operation (int argc, char ** argv)
+{
+	MyQttConn       * conn;
+	MyQttAsyncQueue * queue;
+	MyQttMsg        * msg;
+
+	/* create connection */
+	conn  = make_connection ();
+	queue = configure_reception (conn);
+	
+	while (axl_true) {
+		/* get message and release queue */
+		msg   = myqtt_async_queue_timedpop (queue, 30000000);
+		if (msg == NULL)
+			continue;
+
+		printf ("Message: %d\nTopic: %s\nMessage: %s", 
+			myqtt_msg_get_id (msg), 
+			myqtt_msg_get_topic (msg),
+			(const char *) myqtt_msg_get_app_msg (msg));
+
+		/* release message */
+		myqtt_msg_unref (msg);
+	} /* end while */
+
+	/* close connection */
+	myqtt_conn_close (conn);
+	
+	return;
+}
+
 int main (int argc, char ** argv)
 {
 	/*** init exarg library ***/
@@ -481,6 +514,8 @@ int main (int argc, char ** argv)
 		client_handle_subscribe_operation (argc, argv);
 	else if (exarg_is_defined ("get-subscriptions"))
 		client_handle_get_subscriptions_operation (argc, argv);
+	else if (exarg_is_defined ("get-msgs"))
+		client_handle_get_msgs_operation (argc, argv);
 	else {
 		printf ("ERROR: no operation defined, please run %s --help to get information\n", argv[0]);
 		exit (-1);
