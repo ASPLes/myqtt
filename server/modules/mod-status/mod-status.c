@@ -39,6 +39,8 @@
 
 #include <myqttd.h>
 
+#include <myqtt-conn-private.h>
+
 /* use this declarations to avoid c++ compilers to mangle exported
  * names. */
 BEGIN_C_DECLS
@@ -51,6 +53,75 @@ void __mod_status_unload (MyQttdCtx * ctx,
 			      axlPointer  _backend)
 {
 	return;
+}
+
+
+axl_bool __mod_status_get_subscription (axlPointer key, axlPointer data, axlPointer user_data)
+{
+	axlDoc     * doc = user_data;
+	axlNode    * node;
+	const char * topic = key;
+	int          qos   = PTR_TO_INT (data);
+	axlNode    * root;
+
+	/* create node and add to the document */
+	node = axl_node_create ("sub");
+	axl_node_set_attribute (node, "topic", topic);
+	axl_node_set_attribute_ref (node, axl_strdup ("qos"), axl_strdup_printf ("%d", qos));
+	
+	/* add to the document */
+	root = axl_doc_get (doc, "/reply");
+	axl_node_set_child (root, node);
+	
+	return axl_false; /* keep iterating over all items */
+}
+
+MyQttPublishCodes __mod_status_on_publish (MyQttdCtx * ctx,       MyQttdDomain * domain,  
+					   MyQttCtx  * myqtt_ctx, MyQttConn    * conn, 
+					   MyQttMsg  * msg,       axlPointer user_data)
+{
+	axlDoc * doc;
+	char   * content;
+	int      size;
+
+
+	if (axl_cmp ("myqtt/my-status/get-subscriptions", myqtt_msg_get_topic (msg))) {
+		/* create empty document */
+		doc = axl_doc_parse ("<reply></reply>", 17, NULL);
+		if (doc == NULL)
+			return MYQTT_PUBLISH_OK; /* failed to create document, skip operation */
+
+		/* lock and unlock */
+		myqtt_mutex_lock (&conn->op_mutex);
+		msg ("Reporting %d+%d subscriptions", axl_hash_items (conn->subs), axl_hash_items (conn->wild_subs));
+		axl_hash_foreach (conn->subs, __mod_status_get_subscription, doc);
+		myqtt_mutex_unlock (&conn->op_mutex);
+
+		/* I've got the entire document, dump it into to send
+		 * it back to the client */
+		if (! axl_doc_dump_pretty (doc, &content, &size, 4)) {
+			axl_doc_free (doc);
+			return MYQTT_PUBLISH_OK; /* failed to create document, skip operation */
+		}
+		
+		/* release document */
+		axl_doc_free (doc);
+
+		/* send document */
+		if (! myqtt_conn_pub (conn, myqtt_msg_get_topic (msg), content, size, MYQTT_QOS_0, axl_false, 0)) {
+			axl_free (content);
+			return MYQTT_PUBLISH_OK; /* failed to send content to the client, skip operation */
+		} /* end if */
+
+		/* release content */
+		axl_free (content);
+		
+		return MYQTT_PUBLISH_DISCARD; /* notify engine to forget about this message */
+	} /* end if */
+
+	return MYQTT_PUBLISH_OK; /* report we don't know anything
+				  * about this message, let it go
+				  * through myqttd engine */
 }
 
 /** 
@@ -70,9 +141,9 @@ static int  mod_status_init (MyQttdCtx * _ctx)
 	/* add default location if the document wasn't found */
 	myqtt_support_add_domain_search_path_ref (MYQTTD_MYQTT_CTX(ctx), axl_strdup ("mod-status"),
 						  myqtt_support_build_filename (myqttd_sysconfdir (ctx), "myqtt", "status", NULL));
-	config = myqtt_support_domain_find_data_file (MYQTTD_MYQTT_CTX (_ctx), "status", "status.conf");
+	config = myqtt_support_domain_find_data_file (MYQTTD_MYQTT_CTX (_ctx), "mod-status", "status.conf");
 	if (config == NULL) {
-		error ("Unable to find ssl.conf file under expected locations, failed to activate mod-Status support (try checking %s/myqtt/status/status.conf)",
+		error ("Unable to find status.conf file under expected locations, failed to activate mod-Status support (try checking %s/myqtt/status/status.conf)",
 		       myqttd_sysconfdir (ctx));
 		return axl_false;
 	} /* end if */
@@ -87,6 +158,9 @@ static int  mod_status_init (MyQttdCtx * _ctx)
 		return axl_false;
 	} /* end if */
 	axl_free (config);
+
+	/* configure API */
+	myqttd_ctx_add_on_publish (ctx, __mod_status_on_publish, NULL);
 
 	return axl_true;
 }

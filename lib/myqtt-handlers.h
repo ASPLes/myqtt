@@ -425,12 +425,15 @@ typedef void     (* MyQttIoDispatch)             (axlPointer             fd_grou
  * @param message The message being reported.
  *
  * @param args Arguments for the message.
+ *
+ * @param user_data User defined pointer.
  */
 typedef void (*MyQttLogHandler) (const char       * file,
 				 int                line,
 				 MyQttDebugLevel   log_level,
 				 const char       * message,
-				 va_list            args);
+				 va_list            args,
+				 axlPointer         user_data);
 
 /** 
  * @brief Handler definition used by \ref myqtt_async_queue_foreach

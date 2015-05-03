@@ -95,6 +95,7 @@ struct _MyQttCtx {
 	axl_bool             debug_color;
 
 	MyQttLogHandler      debug_handler;
+	axlPointer           debug_handler_user_data;
 
 	int                  debug_filter;
 	axl_bool             debug_filter_checked;

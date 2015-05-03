@@ -55,9 +55,54 @@ Copyright (C) 2015  Advanced Software Production Line, S.L.\n\n"
 
 #define POST_HEADER "\n\
 If you have question, bugs to report, patches, you can reach us\n\
-at <myqtt@lists.aspl.es>."
+at <myqtt@lists.aspl.es>. \n\
+\n\
+Some examples: \n\n\
+- Publish: \n\
+  >> myqtt-client --host localhost --port 1883 --client-id aspl --username aspl --password test1234 --publish \"0,myqtt/this/is a test,This is a test message for this case\"\n\n\
+- Subscribe:\n\
+  >> myqtt-client --host localhost --port 1883 --client-id aspl --username aspl --password test1234 --subscribe \"0,myqtt/this/is a test\"\n\n\
+"
+
 
 MyQttCtx * ctx;
+axl_bool   disable_ansi_chars = axl_false;
+axl_bool   enable_debug       = axl_false;
+
+#define msg(m,...)   do{_msg (ctx, __AXL_FILE__, __AXL_LINE__, m, ##__VA_ARGS__);}while(0)
+
+void  _msg   (MyQttCtx * ctx, const char * file, int line, const char * format, ...)
+{
+	/* get myqttd context */
+	va_list            args;
+
+	/* do not print if NULL is received */
+	if (format == NULL || ctx == NULL || ! enable_debug)
+		return;
+
+	/* check extended console log */
+	if (! disable_ansi_chars) {
+		fprintf (stdout, "\e[1;32mI: \e[0m");
+	} else {
+		fprintf (stdout, "I: ");
+	} /* end if */
+	
+	va_start (args, format);
+	
+	/* report to console */
+	vfprintf (stdout, format, args);
+
+	va_end (args);
+	va_start (args, format);
+
+	va_end (args);
+
+	fprintf (stdout, "\n");
+	
+	fflush (stdout);
+	
+	return;
+}
 
 MyQttConn * make_connection (void)
 {
@@ -65,6 +110,11 @@ MyQttConn * make_connection (void)
 	MyQttConn     * conn;
 	const char    * proto = "mqtt";
 	MyQttConnOpts * opts;
+	axl_bool        clean_session = axl_false;
+
+	/* check if clean session is registered */
+	if (exarg_is_defined ("clean-session"))
+		clean_session = axl_true;
 
 	/* get proto if defined */
 	if (exarg_is_defined ("proto") && exarg_get_string ("proto"))
@@ -79,13 +129,13 @@ MyQttConn * make_connection (void)
 
 	/* create connection */
 	if (axl_cmp (proto, "mqtt"))
-		conn = myqtt_conn_new (ctx, exarg_get_string ("client-id"), axl_true, 30, exarg_get_string ("host"), exarg_get_string ("port"), opts, NULL, NULL);
+		conn = myqtt_conn_new (ctx, exarg_get_string ("client-id"), clean_session, 30, exarg_get_string ("host"), exarg_get_string ("port"), opts, NULL, NULL);
 #if defined(ENABLE_TLS_SUPPORT)
 	else if (axl_cmp (proto, "mqtt-tls")) {
 		myqtt_tls_opts_ssl_peer_verify (opts, axl_false);
 
 		/* create connection */
-		conn = myqtt_tls_conn_new (ctx, exarg_get_string ("client-id"), axl_true, 30, exarg_get_string ("host"), exarg_get_string ("port"), opts, NULL, NULL);
+		conn = myqtt_tls_conn_new (ctx, exarg_get_string ("client-id"), clean_session, 30, exarg_get_string ("host"), exarg_get_string ("port"), opts, NULL, NULL);
 #endif
 	} else {
 		printf ("ERROR: protocol not supported (%s), unable to connect to %s:%s\n", 
@@ -100,7 +150,7 @@ MyQttConn * make_connection (void)
 	} /* end if */
 
 	/* report connection created */
-	printf ("INFO: connection OK to %s:%s (%s)\n", exarg_get_string ("host"), exarg_get_string ("port"), proto);
+	msg ("connection OK to %s:%s (%s)", exarg_get_string ("host"), exarg_get_string ("port"), proto);
 	return conn;
 }
 
@@ -125,17 +175,7 @@ int  main_init_exarg (int argc, char ** argv)
 	exarg_install_arg ("debug", "d", EXARG_NONE,
 			   "Makes all log produced by the application, to be also dropped to the console in sort form.");
 
-	exarg_install_arg ("debug2", NULL, EXARG_NONE,
-			   "Increase the level of log to console produced.");
-
-	exarg_install_arg ("debug3", NULL, EXARG_NONE,
-			   "Makes logs produced to console to inclue more information about the place it was launched.");
-
-	exarg_install_arg ("color-debug", "c", EXARG_NONE,
-			   "Makes console log to be colorified. Calling to this option makes --debug to be activated.");
-
 	/* connection options */
-
 	exarg_install_arg ("host", "h", EXARG_STRING,
 			   "Location of the myqtt server.");
 
@@ -159,10 +199,14 @@ int  main_init_exarg (int argc, char ** argv)
 			   "Publish a new message to the server with the following format: qos,topic,message  Publish argument can also be a file that holds same format as the argument expresed before");
 	exarg_install_arg ("subscribe", "s", EXARG_STRING,
 			   "Subscribe to the provided topic: qos,topic");
+	exarg_install_arg ("get-subscriptions", "n", EXARG_NONE,
+			   "If supported by the server, allows to get current subscriptions registered by the connecting client.");
+	exarg_install_arg ("clean-session", "e", EXARG_NONE,
+			   "Request client session on the next connect operation.");
 
 	/* operation options */
-	exarg_install_arg ("wait-publish", "w", EXARG_STRING,
-			   "By default no wait is implemented when publishing. You can configure this option to wait for publish return code from server. Option is configured in seconds");
+	exarg_install_arg ("wait", "w", EXARG_STRING,
+			   "By default no wait is implemented when publishing or subscribing. You can configure this option to wait for publish/subscribe return code from server. Option is configured in seconds");
 	exarg_install_arg ("enable-retain", "r", EXARG_NONE,
 			   "Use this option to enable retain flag in publish operations");
 
@@ -176,6 +220,9 @@ int  main_init_exarg (int argc, char ** argv)
 		exarg_end ();
 		return axl_false;
 	}
+
+	/* enable debug */
+	enable_debug = exarg_is_defined ("debug");
 
 	/* exarg properly configured */
 	return axl_true;
@@ -197,9 +244,9 @@ void client_handle_publish_operation (int argc, char ** argv)
 	arg = exarg_get_string ("publish");
 
 	/* check if it is a file */
-	printf ("INFO: processing argument: %s\n", arg);
+	msg ("processing argument: %s", arg);
 	if (myqtt_support_file_test (arg, FILE_EXISTS)) {
-		printf ("INFO: reading publish info from file %s\n", arg);
+		msg ("reading publish info from file %s", arg);
 		/* still not implemented, read the content and leave it into arg */
 	}
 
@@ -249,7 +296,7 @@ void client_handle_publish_operation (int argc, char ** argv)
 	iterator ++;
 	message  = arg + iterator;
 
-	printf ("INFO: sending qos=%d, topic=%s, message=%s\n", qos, topic, message);
+	msg ("sending qos=%d, topic=%s, message=%s", qos, topic, message);
 
 	/* connect to the remote server */
 	conn = make_connection ();
@@ -259,10 +306,10 @@ void client_handle_publish_operation (int argc, char ** argv)
 		retain = axl_true;
 
 	/* get wait publish configuration */
-	if (exarg_is_defined ("wait-publish"))
-		wait_publish = myqtt_support_strtod (exarg_get_string ("wait-publish"), NULL);
+	if (exarg_is_defined ("wait"))
+		wait_publish = myqtt_support_strtod (exarg_get_string ("wait"), NULL);
 
-	printf ("INFO: wait_publish=%d, retain=%d\n", wait_publish, retain);
+	msg ("wait_publish=%d, retain=%d", wait_publish, retain);
 
 	/* send publish operation */
 	if (! myqtt_conn_pub (conn, topic, (axlPointer) message, strlen (message), qos, retain, wait_publish)) {
@@ -271,7 +318,7 @@ void client_handle_publish_operation (int argc, char ** argv)
 		return;
 	} /* end if */
 
-	printf ("INFO: message published, closing connection..\n");
+	msg ("message published, closing connection..");
 
 	/* close connection */
 	myqtt_conn_close (conn);
@@ -281,7 +328,137 @@ void client_handle_publish_operation (int argc, char ** argv)
 
 void client_handle_subscribe_operation (int argc, char ** argv)
 {
+	char          * arg;
+	int             iterator;
+	int             qos;
+	const char    * topic;
+	axl_bool        found;
+	MyQttConn     * conn;
+	int             subs_result = 0;
+	int             wait_sub    = 10;
+
+	/* get argument */
+	arg = exarg_get_string ("subscribe");
+
+	/* check if it is a file */
+	msg ("processing argument: %s", arg);
+	if (myqtt_support_file_test (arg, FILE_EXISTS)) {
+		msg ("reading publish info from file %s", arg);
+		/* still not implemented, read the content and leave it into arg */
+	} /* end if */
+
+	/* prepare arguments */
+	iterator = 0;
+	found    = axl_false;
+	while (arg && arg[iterator]) {
+		if (arg[iterator] == ',') {
+			arg[iterator] = 0;
+			qos           = myqtt_support_strtod (arg, NULL);
+			found         = axl_true;
+			break;
+		} /* end if */
+
+		/* next position */
+		iterator++;
+	} /* end while */
+
+	if (! found) {
+		printf ("ERROR: Unable to find first QoS part. You must provide qos,topic,message\n");
+		exit (-1);
+	} /* end if */
+
+
+	/* now find topic */
+	iterator ++;
+	topic    = arg + iterator;
+
+	msg ("subscribing to qos=%d, topic=%s", qos, topic);
+
+	/* connect to the remote server */
+	conn = make_connection ();
+
+	/* get wait publish configuration */
+	if (exarg_is_defined ("wait"))
+		wait_sub = myqtt_support_strtod (exarg_get_string ("wait"), NULL);
+
+	/* send publish operation */
+	if (! myqtt_conn_sub (conn, wait_sub, topic, qos, &subs_result)) {
+		printf ("ERROR: unable to subscribe to the provided topic..\n");
+		exit (-1);
+		return;
+	} /* end if */
+
+	msg ("user subscribed to %s, closing connection..", topic);
+
+	/* close connection */
+	myqtt_conn_close (conn);
+
 	return;
+}
+
+void configure_reception_queue_received (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+{
+	MyQttAsyncQueue * queue = user_data;
+
+	/* push message received */
+	myqtt_msg_ref (msg);
+	myqtt_async_queue_push (queue, msg);
+	return;
+}
+
+MyQttAsyncQueue * configure_reception (MyQttConn * conn) {
+	MyQttAsyncQueue * queue = myqtt_async_queue_new ();
+
+	/* configure reception on queue  */
+	myqtt_conn_set_on_msg (conn, configure_reception_queue_received, queue);
+
+	return queue;
+}
+
+void client_handle_get_subscriptions_operation (int argc, char ** argv)
+{
+	MyQttConn       * conn;
+	MyQttAsyncQueue * queue;
+	MyQttMsg        * msg;
+	axlDoc          * doc;
+	axlNode         * node;
+
+	/* create connection */
+	conn  = make_connection ();
+	queue = configure_reception (conn);
+	
+	/* send request */
+	if (! myqtt_conn_pub (conn, "myqtt/my-status/get-subscriptions", "", 0, 0, axl_false, 20)) {
+		printf ("ERROR: unable to publish message to get client identifier..\n");
+		exit (-1);
+		return;
+	} /* end if */
+
+	/* get message and release queue */
+	msg   = myqtt_async_queue_timedpop (queue, 30000000);
+	myqtt_async_queue_unref (queue);
+
+	doc = axl_doc_parse ((const char *) myqtt_msg_get_app_msg (msg), myqtt_msg_get_app_msg_size (msg), NULL);
+	myqtt_msg_unref (msg);
+	if (doc == NULL) {
+		printf ("ERROR: failed to parse subscriptions report received: %s\n", (const char *) myqtt_msg_get_app_msg (msg));
+		exit (-1);
+	} /* end if */
+
+	msg ("subscriptions found: ");
+	node = axl_doc_get (doc, "/reply/sub");
+	while (node) {
+		printf (" - %s (qos %s)\n", ATTR_VALUE (node, "topic"), ATTR_VALUE (node, "qos"));
+
+		/* get next node called <sub /> */
+		node = axl_node_get_next_called (node, "sub");
+	}
+	axl_doc_free (doc);
+
+	/* close connection */
+	myqtt_conn_close (conn);
+	return;
+	
 }
 
 int main (int argc, char ** argv)
@@ -302,6 +479,8 @@ int main (int argc, char ** argv)
 		client_handle_publish_operation (argc, argv);
 	else if (exarg_is_defined ("subscribe"))
 		client_handle_subscribe_operation (argc, argv);
+	else if (exarg_is_defined ("get-subscriptions"))
+		client_handle_get_subscriptions_operation (argc, argv);
 	else {
 		printf ("ERROR: no operation defined, please run %s --help to get information\n", argv[0]);
 		exit (-1);

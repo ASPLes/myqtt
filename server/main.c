@@ -278,15 +278,17 @@ void main_signal_received (int _signal) {
 	myqttd_signal_received (ctx, _signal);
 }
 
-void __myqttd_myqtt_log_handler (const char       * file,
-				 int                line,
-				 MyQttDebugLevel   log_level,
-				 const char       * message,
-				 va_list            args)
+void myqttd_myqtt_log_handler (const char       * file,
+			       int                line,
+			       MyQttDebugLevel   log_level,
+			       const char       * message,
+			       va_list            args,
+			       axlPointer         user_data)
 {
+	MyQttdCtx * ctx = user_data;
 	if (log_level != MYQTT_LEVEL_CRITICAL)
 		return;
-	error ("(myqtt) %s:%d: %s", file, line, message); 
+	error ("(myqtt-parent) %s:%d: %s", file, line, message); 
 	return;
 }
 
@@ -372,11 +374,11 @@ int main (int argc, char ** argv)
 		/* notify we are enabling this to inform child process
 		 * to avoid enabling this on command line */
 		myqttd_ctx_set_data (ctx, "debug-was-not-requested", INT_TO_PTR (axl_true));
-
+		
 		/* enable log */
 		myqtt_log_enable (myqtt_ctx, axl_true); 
 		myqtt_log_set_prepare_log (myqtt_ctx, axl_true);
-		myqtt_log_set_handler (myqtt_ctx, __myqttd_myqtt_log_handler);
+		myqtt_log_set_handler (myqtt_ctx, myqttd_myqtt_log_handler, ctx);
 	} /* end if */
 
 	

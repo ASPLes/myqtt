@@ -382,7 +382,8 @@ void     myqtt_log_acquire_mutex            (MyQttCtx * ctx,
 					      axl_bool    status);
 
 void     myqtt_log_set_handler      (MyQttCtx         * ctx,
-				      MyQttLogHandler    handler);
+				     MyQttLogHandler    handler,
+				     axlPointer         user_data);
 
 void     myqtt_log_set_prepare_log  (MyQttCtx         * ctx,
 				      axl_bool            prepare_string);
