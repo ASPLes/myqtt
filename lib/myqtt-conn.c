@@ -1399,7 +1399,7 @@ void __myqtt_conn_new_internal (MyQttCtx * ctx, MyQttConn * connection, MyQttCon
 
  report_connection:
 	/* release conn opts if defined and reuse is not set */
-	if (opts && ! opts->reuse)
+	if (opts && ! opts->reuse && ! opts->reconnect)
 		myqtt_conn_opts_free (opts);
 
 	/* check if the connection has pending messages to be sent to process them now  */
@@ -1443,6 +1443,14 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 
 	/* release data */
 	axl_free (data);
+
+	/* record reference for the future: we have to do it here
+	   because it will be released in the case reconnect is not
+	   enabled */
+	if (opts && opts->reconnect) {
+		/* setup connection options to use them in the future */
+		connection->opts = opts;
+	} /* end if */
 
 	/* call to create connection */
 	__myqtt_conn_new_internal (ctx, connection, opts);
@@ -4164,6 +4172,44 @@ axl_bool            myqtt_conn_half_opened                  (MyQttConn  * conn)
 	return conn->initial_accept;
 }
 
+axlPointer __myqtt_conn_do_reconnect_third_step (axlPointer _conn)
+{
+	MyQttConn * conn = _conn;
+	
+	/* ok, now call to reconnect in this independant thread */
+	__myqtt_conn_new_internal (conn->ctx, conn, conn->opts);
+
+	/* now check if the connection is ok */
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		/* ok, register connection into the reader again */
+		myqtt_reader_watch_connection (conn->ctx, conn);
+	} /* end if */
+
+	/* release reference */
+	myqtt_conn_unref (conn, "myqtt-conn-reconnect");
+
+	/* return NULL just o make the stack happy */
+	return NULL;
+}
+
+
+void __myqtt_conn_do_reconnect_second_step (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_data)
+{
+	/* now launch a threaded process to reconnect */
+	myqtt_thread_pool_new_task (ctx, __myqtt_conn_do_reconnect_third_step, conn);
+	return;
+}
+
+void __myqtt_conn_do_reconnect (MyQttConn * conn)
+{
+	/* acquire a reference to the connection during the process */
+	if (! myqtt_conn_ref (conn, "myqtt-conn-reconnect"))
+		return; /* if we fail to acquiere a reference, just return */
+
+	/* remove connection from the reader while we are working */
+	myqtt_reader_unwatch_connection (conn->ctx, conn, __myqtt_conn_do_reconnect_second_step, NULL);
+}
+
 /** 
  * @internal
  * @brief Sets the given connection the not connected status.
@@ -4246,6 +4292,11 @@ void           __myqtt_conn_set_not_connected (MyQttConn * connection,
 			myqtt_mutex_unlock (&(connection->ref_mutex));
 
  	        } /* end if */
+
+		/* implement automatic reconnect after all have been
+		   closed and notified */
+		if (connection->opts && connection->opts->reconnect) 
+			__myqtt_conn_do_reconnect (connection);
 
 		/* finish reference acquired after unlocking and doing
 		   all close stuff */
