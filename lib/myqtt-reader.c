@@ -1933,8 +1933,16 @@ void       __myqtt_reader_remove_conn_from_hash (MyQttConn * conn, axlHashCursor
 		/* now get connection hash handling that topic */
 		sub_hash    = axl_hash_get (ctx->subs, (axlPointer) topic_filter);
 		if (! sub_hash) {
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to find connection hash under the topic %s but found NULL reference [internal engine error]..", 
-				   topic_filter);
+			/** 
+			 * IMPORTANT NOTE: the following error message is real but in the context of using
+			 * libMyqtt + MyQttd it produces wrong error reporting because MyQttd move connections
+			 * between connections...and in that context, when the losing context wants to release
+			 * the connection, it finds the hash has not this information.
+			 *
+			 * myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to find connection hash under the topic %s but found NULL reference [internal engine error]..", 
+			 * topic_filter);  
+			 */
+
 			/* get next */
 			axl_hash_cursor_next (cursor);
 			continue;
