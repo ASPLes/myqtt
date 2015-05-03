@@ -300,6 +300,10 @@ struct _MyQttConn {
 	MyQttOnMsgReceived          on_msg;
 	axlPointer                  on_msg_data;
 
+	/*** on msg sent support ***/
+	MyQttOnMsgSent              on_msg_sent;
+	axlPointer                  on_msg_sent_data;
+
 	/*** pingreq support ****/
 	MyQttAsyncQueue           * ping_resp_queue;
 

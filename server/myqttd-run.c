@@ -424,7 +424,12 @@ MyQttPublishCodes __myqttd_run_on_publish_msg (MyQttCtx * myqtt_ctx, MyQttConn *
 		if (data != NULL && data->on_publish != NULL) {
 			/* get the code reported by this on publish */
 			code = data->on_publish (domain->ctx, domain, myqtt_ctx, conn, msg, data->user_data);
-			if (code == MYQTT_PUBLISH_DISCARD) {
+			if (code == MYQTT_PUBLISH_DISCARD || code == MYQTT_PUBLISH_CONN_CLOSE) {
+				msg ("%s : DISCARD id %d (%s:%s) -> [%s] (qos %d) : pub discarded", domain->name, 
+				     myqtt_msg_get_id (msg),
+				     myqtt_conn_get_host (conn), myqtt_conn_get_port (conn), myqtt_msg_get_topic (msg),
+				     myqtt_msg_get_qos (msg));
+
 				/* discard message because one of the handlers discarded the message */
 				return code;
 			} /* end if */
@@ -435,6 +440,10 @@ MyQttPublishCodes __myqttd_run_on_publish_msg (MyQttCtx * myqtt_ctx, MyQttConn *
 		/* next iterator */
 		iterator++;
 	} /* end while */
+
+	msg ("%s : PUB id %d (%s:%s) -> [%s] (qos %d) : ok", domain->name, myqtt_msg_get_id (msg), 
+	     myqtt_conn_get_host (conn), myqtt_conn_get_port (conn), myqtt_msg_get_topic (msg),
+	     myqtt_msg_get_qos (msg));
 	
 	return MYQTT_PUBLISH_OK; /* allow publish */
 }

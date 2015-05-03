@@ -88,6 +88,8 @@ axl_bool            myqtt_conn_reconnect       (MyQttConn * conn,
 
 MyQttConnAckTypes   myqtt_conn_get_last_err    (MyQttConn * conn);
 
+const char        * myqtt_conn_get_code_to_err (MyQttConnAckTypes code);
+
 axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 						const char          * topic_name,
 						const axlPointer      app_message,
@@ -278,6 +280,10 @@ void                   myqtt_conn_set_on_close       (MyQttConn         * conn,
 						      axl_bool            insert_last,
 						      MyQttConnOnClose    on_close_handler,
 						      axlPointer          data);
+
+void                   myqtt_conn_set_on_msg_sent    (MyQttConn         * conn,
+						      MyQttOnMsgSent      on_msg_sent,
+						      axlPointer          on_msg_sent_data);
 
 MyQttMsg *             myqtt_conn_get_next (MyQttConn * conn, long timeout);
 

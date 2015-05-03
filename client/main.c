@@ -145,7 +145,8 @@ MyQttConn * make_connection (void)
 
 	/* check connection */
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
-		printf ("ERROR: unable to connect to %s:%s..\n", exarg_get_string ("host"), exarg_get_string ("port"));
+		printf ("ERROR: unable to connect to %s:%s (error = %d : %s)..\n", exarg_get_string ("host"), exarg_get_string ("port"), 
+			myqtt_conn_get_last_err (conn), myqtt_conn_get_code_to_err (myqtt_conn_get_last_err (conn)));
 		exit (-1);
 	} /* end if */
 
@@ -208,7 +209,7 @@ int  main_init_exarg (int argc, char ** argv)
 
 	/* operation options */
 	exarg_install_arg ("wait", "w", EXARG_STRING,
-			   "By default no wait is implemented when publishing or subscribing. You can configure this option to wait for publish/subscribe return code from server. Option is configured in seconds");
+			   "By default 10secs wait is implemented when publishing or subscribing. You can configure this option to wait for publish/subscribe return code from server. Option is configured in seconds");
 	exarg_install_arg ("enable-retain", "r", EXARG_NONE,
 			   "Use this option to enable retain flag in publish operations");
 
@@ -230,17 +231,26 @@ int  main_init_exarg (int argc, char ** argv)
 	return axl_true;
 }
 
+void __message_sent (MyQttCtx * ctx, MyQttConn * conn, unsigned char * msg, int msg_size, MyQttMsgType msg_type, axlPointer user_data)
+{
+	MyQttAsyncQueue * queue = user_data;
+	msg ("Message sent..");
+	myqtt_async_queue_push (queue, INT_TO_PTR (3));
+	return;
+}
+
 void client_handle_publish_operation (int argc, char ** argv)
 {
-	char          * arg;
-	int             iterator;
-	int             qos;
-	const char    * topic;
-	const char    * message;
-	axl_bool        found;
-	MyQttConn     * conn;
-	axl_bool        retain       = axl_false;
-	int             wait_publish = 0; /* by default do not wait */
+	char              * arg;
+	int                 iterator;
+	int                 qos;
+	const char        * topic;
+	const char        * message;
+	axl_bool            found;
+	MyQttConn         * conn;
+	axl_bool            retain       = axl_false;
+	int                 wait_publish = 10; /* by default wait 10 */
+	MyQttAsyncQueue   * queue;
 
 	/* get argument */
 	arg = exarg_get_string ("publish");
@@ -313,12 +323,24 @@ void client_handle_publish_operation (int argc, char ** argv)
 
 	msg ("wait_publish=%d, retain=%d", wait_publish, retain);
 
+	/* configure on complete message when qos is 0 to ensure the
+	 * message is sent */
+	if (qos == MYQTT_QOS_0) {
+		queue = myqtt_async_queue_new ();
+		myqtt_conn_set_on_msg_sent (conn, __message_sent, queue);
+	}
+
 	/* send publish operation */
 	if (! myqtt_conn_pub (conn, topic, (axlPointer) message, strlen (message), qos, retain, wait_publish)) {
 		printf ("ERROR: unable to publish message to get client identifier..\n");
 		exit (-1);
 		return;
 	} /* end if */
+
+	if (qos == MYQTT_QOS_0) {
+		/* wait for message sent */
+		myqtt_async_queue_timedpop (queue, wait_publish * 1000000);
+	}
 
 	msg ("message published, closing connection..");
 
@@ -479,7 +501,7 @@ void client_handle_get_msgs_operation (int argc, char ** argv)
 		if (msg == NULL)
 			continue;
 
-		printf ("Message: %d\nTopic: %s\nMessage: %s", 
+		printf ("Id: %d\nTopic: %s\nMessage: %s\n\n", 
 			myqtt_msg_get_id (msg), 
 			myqtt_msg_get_topic (msg),
 			(const char *) myqtt_msg_get_app_msg (msg));

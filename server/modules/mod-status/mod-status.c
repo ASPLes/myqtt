@@ -93,8 +93,8 @@ MyQttPublishCodes __mod_status_on_publish (MyQttdCtx * ctx,       MyQttdDomain *
 
 		/* lock and unlock */
 		myqtt_mutex_lock (&conn->op_mutex);
-		msg ("Reporting %d+%d subscriptions", axl_hash_items (conn->subs), axl_hash_items (conn->wild_subs));
 		axl_hash_foreach (conn->subs, __mod_status_get_subscription, doc);
+		axl_hash_foreach (conn->wild_subs, __mod_status_get_subscription, doc);
 		myqtt_mutex_unlock (&conn->op_mutex);
 
 		/* I've got the entire document, dump it into to send

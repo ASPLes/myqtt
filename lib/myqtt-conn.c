@@ -1808,6 +1808,42 @@ MyQttConnAckTypes   myqtt_conn_get_last_err    (MyQttConn * conn)
 }
 
 /** 
+ * @brief Allows to get textual error from error code provided.
+ *
+ * @param code The error code to get textual diagnostics from.
+ *
+ * @return Textual error or NULL if it fails.
+ */
+const char        * myqtt_conn_get_code_to_err (MyQttConnAckTypes code)
+{
+	switch (code) {
+	case MYQTT_CONNACK_UNKNOWN_ERR:
+		return "Local error code reported when unknown error happened.";
+	case MYQTT_CONNACK_CONNECT_TIMEOUT:
+		return "Local error code reported when connection fails with a timeout";
+	case MYQTT_CONNACK_UNABLE_TO_CONNECT:
+		return "Local error code reported when connection was not possible (connection refused)";
+	case MYQTT_CONNACK_DEFERRED:
+		return "Report code used to indicate the library to skip replying the particular connect method";
+	case MYQTT_CONNACK_ACCEPTED:
+		return "Return code for connection accepted.";
+	case MYQTT_CONNACK_REFUSED:
+		return "Return code for Connection refused, unacceptable protocol version";
+	case MYQTT_CONNACK_IDENTIFIER_REJECTED:
+		return "Return code for connection refused, server unavailable";
+	case MYQTT_CONNACK_SERVER_UNAVAILABLE:
+		return "Return code for connection refused, bad user name or password";
+	case MYQTT_CONNACK_BAD_USERNAME_OR_PASSWORD:
+		return "Return code for connection refused, bad user name or password";
+	case MYQTT_CONNACK_NOT_AUTHORIZED:
+		return "Return code for connection refused, not authorized";
+	}
+
+	return "Unknown error code";
+	
+}
+
+/** 
  * @internal Get the next package id available over the provided
  * connection.
  */
@@ -4816,6 +4852,31 @@ void myqtt_conn_set_on_close       (MyQttConn         * connection,
 	/* unlock now it is done */
 	myqtt_mutex_unlock (&connection->handlers_mutex);
 	/* returns previous handler */
+	return;
+}
+
+/** 
+ * @brief Allows to setup a handler that is called when a message is
+ * completely sent by the engine (myqtt sequencer).
+ *
+ * @param conn The connection where the operation will take place.
+ *
+ * @param on_msg_sent The handler to call
+ *
+ * @param on_msg_sent_data A user defined pointer to be passed in into
+ * on_msg_sent handler.
+ */
+void                   myqtt_conn_set_on_msg_sent    (MyQttConn         * conn,
+						      MyQttOnMsgSent      on_msg_sent,
+						      axlPointer          on_msg_sent_data)
+{
+	if (conn == NULL)
+		return;
+
+	/* configure handlers */
+	conn->on_msg_sent      = on_msg_sent;
+	conn->on_msg_sent_data = on_msg_sent_data;
+
 	return;
 }
 
