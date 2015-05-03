@@ -2571,6 +2571,11 @@ axl_bool test_19 (void) {
 				      /* ca certificate */
 				      "root.pem");
 
+	/* setup a host name just to ensure handlers
+	   __certificate_handler at myqtt-regression-listener.c does
+	   not find a certificate for this test */
+	myqtt_tls_opts_set_server_name (opts, "test19.skipsni.localhost");
+
 	/* do a simple connection */
 	conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, "1911", opts, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {

@@ -1091,9 +1091,10 @@ int __myqtt_tls_server_sni_callback (SSL * ssl, int *ad, void *arg)
  */
 void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttConn * conn, MyQttConnOpts * opts, axlPointer user_data)
 {
-	const char * certificateFile = NULL;
-	const char * privateKey = NULL;
+	const char * certificateFile  = NULL;
+	const char * privateKey       = NULL;
 	const char * chainCertificate = NULL;
+	const char * caCertificate    = NULL;
 	int          ssl_error;
 	int          result;
 
@@ -1166,20 +1167,18 @@ void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttC
 		return;
 	}
 
-	/* get here SNI to query about the serverName */
-
 	/* overwrite connection options with listener's options: very TLS especific */
 	if (listener->opts)
 		opts = listener->opts;
 	
-	/* 1) GET FROM OPTIONS: detect here if we have
-	 * certificates provided through options */
+	/* 1) GET FROM OPTIONS: detect here if we have certificates provided through options */
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Starting TLS process, options=%p, listener=%p", opts, listener);
 	
 	if (opts) {
 		certificateFile = opts->certificate;
 		privateKey      = opts->private_key;
 	} /* end if */
+
 	if (certificateFile == NULL || privateKey == NULL) {
 		
 		/* 2) GET FROM LISTENER: get references to currently configured certificate file */
@@ -1210,10 +1209,10 @@ void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttC
 	} /* end if */
 	
 	/* now configure chainCertificate */
-	if (listener->chain_certificate) 
-		chainCertificate = listener->chain_certificate;
-	else if (opts && opts->chain_certificate)
+	if (opts && opts->chain_certificate)
 		chainCertificate = opts->chain_certificate;
+	else if (listener->chain_certificate) 
+		chainCertificate = listener->chain_certificate;
 	
 	/* create ssl context */
 	conn->ssl_ctx  = __myqtt_tls_conn_get_ssl_context (ctx, conn, listener->opts, axl_false);
@@ -1225,10 +1224,13 @@ void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttC
 
 	/* configure SNI callback */
 	SSL_CTX_set_tlsext_servername_callback (conn->ssl_ctx, __myqtt_tls_server_sni_callback);	
-	SSL_CTX_set_tlsext_servername_arg      (conn->ssl_ctx, conn);	
+	SSL_CTX_set_tlsext_servername_arg      (conn->ssl_ctx, conn); 
+
+	if (opts && opts->ca_certificate) 
+		caCertificate = NULL;
 	
 	/* Configure ca certificate in the case it is defined */
-	if (! __myqtt_tls_prepare_certificates (conn, opts, certificateFile, privateKey, chainCertificate, NULL)) {
+	if (! __myqtt_tls_prepare_certificates (conn, opts, certificateFile, privateKey, chainCertificate, caCertificate)) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Prepare certificates failed (__myqtt_tls_prepare_certificates), skiping connection accept");
 		return;
 	} /* end if */
