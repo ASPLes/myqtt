@@ -973,7 +973,7 @@ int  myqtt_thread_pool_new_event           (MyQttCtx              * ctx,
 	MyQttThreadPoolEvent * event;
 
 	/* check parameters */
-	if (event_handler == NULL || ctx == NULL || ctx->thread_pool == NULL || ctx->thread_pool_being_stopped)
+	if (event_handler == NULL || ctx == NULL || ctx->thread_pool == NULL || ctx->thread_pool_being_stopped) 
 		return -1;
 
 	/* lock the thread pool */
@@ -1003,7 +1003,7 @@ int  myqtt_thread_pool_new_event           (MyQttCtx              * ctx,
 	/* in case of failure */
 	if (event == NULL)
 		return PTR_TO_INT (-1);
-	
+
 	return PTR_TO_INT (event);
 }
 

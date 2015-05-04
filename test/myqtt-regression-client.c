@@ -2669,11 +2669,15 @@ axl_bool test_19a (void) {
 	MyQttMsg        * msg;
 	char            * fingerprint;
 	const char      * ref;
+	MyQttAsyncQueue * queue;
 
 	if (! ctx)
 		return axl_false;
 
 	printf ("Test 19-a: checking TLS support (SNI indication)\n");
+
+	/* create queue */
+	queue = myqtt_async_queue_new ();
 
 	/* disable verification */
 	opts = myqtt_conn_opts_new ();
@@ -2708,6 +2712,7 @@ axl_bool test_19a (void) {
 	} /* end if */
 
 	printf ("Test 19-a: getting announced SNI value at the server side\n");
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
 
 	/* call to get client identifier */
 	if (! myqtt_conn_pub (conn, "myqtt/admin/get-server-name", "", 0, MYQTT_QOS_0, axl_false, 0)) {
@@ -2716,7 +2721,7 @@ axl_bool test_19a (void) {
 	} /* end if */
 
 	/* push a message to ask for clientid identifier */
-	msg   = myqtt_conn_get_next (conn, 10000);
+	msg   = myqtt_async_queue_timedpop (queue, 10000000);
 	if (msg == NULL) {
 		printf ("ERROR: expected to find message reply...but nothing was found..\n");
 		return axl_false;
@@ -2769,6 +2774,8 @@ axl_bool test_19a (void) {
 		return axl_false;
 	} /* end if */
 
+	myqtt_conn_set_on_msg (conn2, test_03_on_message, queue);
+
 	/* call to get client identifier */
 	if (! myqtt_conn_pub (conn2, "myqtt/admin/get-server-name", "", 0, MYQTT_QOS_0, axl_false, 0)) {
 		printf ("ERROR: unable to publish message to get client identifier..\n");
@@ -2776,7 +2783,7 @@ axl_bool test_19a (void) {
 	} /* end if */
 
 	/* push a message to ask for clientid identifier */
-	msg   = myqtt_conn_get_next (conn2, 10000);
+	msg   = myqtt_async_queue_timedpop (queue, 10000000);
 	if (msg == NULL) {
 		printf ("ERROR: expected to find message reply...but nothing was found..\n");
 		return axl_false;
@@ -2791,6 +2798,9 @@ axl_bool test_19a (void) {
 
 	/* release message */
 	myqtt_msg_unref (msg);
+
+	/* release queue */
+	myqtt_async_queue_unref (queue);
 
 	/* close connection */
 	myqtt_conn_close (conn);
@@ -3060,6 +3070,213 @@ axl_bool test_21 (void) {
 	return axl_true;
 }
 
+void test_22_reconnected (MyQttConn * conn, axlPointer user_data)
+{
+	MyQttAsyncQueue * queue = user_data;
+
+	printf ("Test 22: reconnect detected (and finished)...\n");
+	myqtt_async_queue_push (queue, INT_TO_PTR (4));
+	return;
+}
+
+axl_bool test_22_close_recover_and_send (MyQttConn * conn, MyQttAsyncQueue * queue, const char * label)
+{
+
+	MYQTT_SOCKET   _sock;
+	MyQttMsg     * msg;
+
+	/* close the socket to simulate a connection failure */
+	_sock = myqtt_conn_get_socket (conn);
+	printf ("Test 22: %s: closing socket=%d...\n", label, _sock);
+	myqtt_close_socket (myqtt_conn_get_socket (conn));
+
+	/* wait for reconnect */
+	printf ("Test 22: %s: waiting reconnect to complete (10 seconds at most)..\n", label);
+	myqtt_async_queue_timedpop (queue, 10000000);
+	
+	/* check connection */
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected to find connection is OK state, but found it broken..\n");
+		return axl_false;
+	} /* end if */
+
+	if (myqtt_conn_get_socket (conn) <= 0) {
+		printf ("ERROR: myqtt connection socket %d seems to be not right\n", myqtt_conn_get_socket (conn));
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 22: %s: close it again socket=%d...\n", label, _sock);
+	myqtt_close_socket (myqtt_conn_get_socket (conn));
+
+	/* wait for reconnect */
+	printf ("Test 22: %s: waiting reconnect to complete (10 seconds at most) for second time..\n", label);
+	myqtt_async_queue_timedpop (queue, 10000000);
+	
+	/* check connection */
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected to find connection is OK state, but found it broken..\n");
+		return axl_false;
+	} /* end if */
+
+	if (myqtt_conn_get_socket (conn) <= 0) {
+		printf ("ERROR: myqtt connection socket %d seems to be not right\n", myqtt_conn_get_socket (conn));
+		return axl_false;
+	} /* end if */
+
+	/* send some data here */
+	printf ("Test 22: %s: sending some data..\n", label);
+
+	/* set on message received */
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+	
+	/* call to get client identifier */
+	if (! myqtt_conn_pub (conn, "myqtt/admin/get-server-name", "", 0, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message to get client identifier..\n");
+		return axl_false;
+	} /* end if */
+
+	/* push a message to ask for clientid identifier */
+	msg   = myqtt_async_queue_timedpop (queue, 10000000);
+	if (msg == NULL) {
+		printf ("ERROR: expected to find message reply...but nothing was found..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 22: %s: data received, connection is working: %s\n", label, (const char *) myqtt_msg_get_app_msg (msg));
+	myqtt_msg_unref (msg);
+
+	return axl_true;
+}
+
+#if defined(ENABLE_WEBSOCKET_SUPPORT)
+axlPointer test_22_create_websocket (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_data, axlPointer user_data2, axlPointer user_data3)
+{
+	noPollCtx  * nopoll_ctx;
+	noPollConn * nopoll_conn;
+
+	const char * _listener_host           = user_data;
+	const char * _listener_websocket_port = user_data2;
+
+	printf ("Test --: called init session setup pointer to create websocket\n");
+	/* IMPORTANT: do not create the context with nopoll_ctx but
+	   with myqtt_web_socket_get_ctx () to ensure no leak
+	   happens */
+	nopoll_ctx   = 	myqtt_web_socket_get_ctx (ctx);
+	nopoll_conn  = nopoll_conn_new (nopoll_ctx, _listener_host, _listener_websocket_port, NULL, NULL, NULL, NULL);
+	if (! nopoll_conn_is_ok (nopoll_conn)) {
+		printf ("ERROR: failed to connect remote host through WebSocket..\n");
+		return NULL;
+	} /* end if */
+
+	/* report connection */
+	return nopoll_conn;
+}
+#endif /* defined(ENABLE_WEBSOCKET_SUPPORT) */
+
+axl_bool test_22 (void)
+{
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	MyQttConnOpts   * opts;
+	MyQttAsyncQueue * queue;
+
+	if (! ctx)
+		return axl_false;
+
+	/* create queue */
+	queue = myqtt_async_queue_new ();
+
+	printf ("Test 22: Connect to the server and force disconnect to let the library reconnect..\n");
+
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_set_reconnect (opts, axl_true);
+
+	/* create first a noPoll connection, for that we need to
+	   create a context */
+	conn = myqtt_conn_new (ctx, "test_01", axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_websocket_port);
+		return axl_false;
+	} /* end if */
+
+	/* configure on reconnect */
+	myqtt_conn_set_on_reconnect (conn, test_22_reconnected, queue);
+
+	if (! test_22_close_recover_and_send (conn, queue, "plain-mqtt"))
+		return axl_false;
+
+	/* close connection (this already closes the provided
+	   connection) */
+	myqtt_conn_close (conn);
+
+#if defined(ENABLE_TLS_SUPPORT)
+	printf ("Test 22: creating TLS connection, now starting MQTT session on top of it (to check reconnection)..\n");
+
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_set_reconnect (opts, axl_true);
+	myqtt_tls_opts_ssl_peer_verify (opts, axl_false);
+
+	/* do a simple connection */
+	conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_tls_port);
+		return axl_false;
+	} /* end if */
+
+	/* configure on reconnect */
+	myqtt_conn_set_on_reconnect (conn, test_22_reconnected, queue);
+
+	if (! test_22_close_recover_and_send (conn, queue, "mqtt-tls"))
+		return axl_false;
+
+	/* close connection (this already closes the provided connection) */
+	myqtt_conn_close (conn);
+	
+#endif /* defined(ENABLE_WEBSOCKET_SUPPORT) */
+
+#if defined(ENABLE_WEBSOCKET_SUPPORT)
+	/* create first a noPoll connection, for that we need to
+	   create a context */
+	printf ("Test 22: creating WebSocket connection, now starting MQTT session on top of it (to check reconnection)..\n");
+
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_set_reconnect (opts, axl_true);
+	myqtt_conn_opts_set_init_session_setup_ptr (opts, test_22_create_websocket, (axlPointer) listener_host, (axlPointer) listener_websocket_port, NULL);
+
+	/* now create MQTT connection using already working noPoll
+	   connection */
+	/* nopoll_log_enable (nopoll_ctx, axl_true);
+	   nopoll_log_color_enable (nopoll_ctx, axl_true); */
+	conn = myqtt_web_socket_conn_new (ctx, NULL, axl_false, 30, NULL, opts, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected being able to connect to %s:%s.. (myqtt_web_socket_conn_new)\n", listener_host, listener_websocket_port);
+		return axl_false;
+	} /* end if */
+
+	/* configure on reconnect */
+	myqtt_conn_set_on_reconnect (conn, test_22_reconnected, queue);
+
+	if (! test_22_close_recover_and_send (conn, queue, "mqtt-ws"))
+		return axl_false;
+
+	/* close connection (this already closes the provided
+	   connection) */
+	myqtt_conn_close (conn);
+	
+
+#endif /* defined(ENABLE_WEBSOCKET_SUPPORT) */
+
+	/* release queue */
+	myqtt_async_queue_unref (queue);
+
+	/* release context (this already closes provided noPollCtx (nopoll_ctx) */
+	printf ("Test 21: releasing context\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+
+	return axl_true;
+}
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -3205,6 +3422,10 @@ int main (int argc, char ** argv)
 	/* test close connection after publish... */
 	CHECK_TEST("test_21")
 	run_test (test_21, "Test 21: connection close after PUBLISH (qos 0, qos 1 and qos 2)"); 
+
+	/* test close connection after publish... */
+	CHECK_TEST("test_22")
+	run_test (test_22, "Test 22: test reconnect support"); 
 
 	/* support for message retention when subscribed with a wild
 	   card topic filter that matches different topic names */

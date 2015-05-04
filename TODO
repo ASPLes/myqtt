@@ -10,7 +10,7 @@
 
 * It is multi-threaded.
 
-* Has support for TLS SNI and a particular design to easily allow
+* Support for TLS SNI and a particular design to easily allow
   integration of different certificates according to the serverName
   provided.
 
@@ -21,6 +21,10 @@
   allows having different authoration engines running at the same
   time. Default auth backend provided is not built-in but provided by
   a module.
+
+* Support for automatic and transparent connection reconnect (if 
+  enabled) for all transports supported (mqtt, mqtt-tls, mqtt-ws and
+  myqtt-wss).
 
 --== roadmap ==--
 

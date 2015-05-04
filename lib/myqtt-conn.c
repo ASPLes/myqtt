@@ -1320,12 +1320,34 @@ void __myqtt_conn_new_internal (MyQttCtx * ctx, MyQttConn * connection, MyQttCon
 #endif
 	char                   host_name[NI_MAXHOST];
 	char                   srv_name[NI_MAXSERV]; 
+	axlPointer             setup_user_data;
 
 	/* call session setup handler if defined */
 	if (connection->setup_handler)  {
+		/* init setup user data */
+		setup_user_data = connection->setup_user_data;
+
+		/* before calling sesion setup, check and call init session setup if defined */
+		if (setup_user_data == NULL &&  opts && opts->init_session_setup_ptr) {
+			/* call to create the session setup pointer */
+			setup_user_data = opts->init_session_setup_ptr (ctx, connection, 
+									opts->init_user_data, 
+									opts->init_user_data2,
+									opts->init_user_data3);
+
+			/* check error reported */
+			if (setup_user_data == NULL) {
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Init Session setup pointer failed for conn-id=%d, session=%d..", connection->id, connection->session);
+				connection->session = -1;
+				connection->is_connected = axl_false;
+				goto handle_error;
+			} /* end if */
+
+		} /* end if */
+
 		/* by default, cleanup session */
 		connection->session = -1;
-		if (! connection->setup_handler (ctx, connection, opts, connection->setup_user_data)) {
+		if (! connection->setup_handler (ctx, connection, opts, setup_user_data)) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Session setup handler failed for conn-id=%d, session=%d..", connection->id, connection->session);
 			myqtt_close_socket (connection->session);
 		} /* end if */
@@ -1334,6 +1356,7 @@ void __myqtt_conn_new_internal (MyQttCtx * ctx, MyQttConn * connection, MyQttCon
 		connection->session = myqtt_conn_sock_connect_common (ctx, connection->host, connection->port, &d_timeout, connection->transport, &error);
 	} /* end if */
 
+ handle_error:
 	if (connection->session == -1) {
 		/* configure error */
 		connection->last_err     = MYQTT_CONNACK_UNABLE_TO_CONNECT;
@@ -1399,7 +1422,7 @@ void __myqtt_conn_new_internal (MyQttCtx * ctx, MyQttConn * connection, MyQttCon
 
  report_connection:
 	/* release conn opts if defined and reuse is not set */
-	if (opts && ! opts->reuse && ! opts->reconnect)
+	if (opts && ! opts->reuse && ! opts->reconnect) 
 		myqtt_conn_opts_free (opts);
 
 	/* check if the connection has pending messages to be sent to process them now  */
@@ -1459,9 +1482,8 @@ axlPointer __myqtt_conn_new (MyQttConnNewData * data)
 	if (threaded) {
 		/* notify connection */
 		on_connected (connection, user_data);
-
 		return NULL;
-	}
+	} /* end if */
 
 	return connection;
 }
@@ -2836,7 +2858,6 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
 	/* get a reference to the ctx */
 	ctx = connection->ctx;
 #endif
-
 	/* ensure only one call to myqtt_conn_close will
 	   progress */
 	myqtt_mutex_lock (&connection->op_mutex);
@@ -2847,6 +2868,15 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
 	/* flag as connection close called */
 	connection->close_called = axl_true;
 	myqtt_mutex_unlock (&connection->op_mutex);
+
+	/* release connection options if they were configured having
+	   reconnect enabled and reuse disabled */
+	if (connection && connection->opts) {
+		if (! connection->opts->reuse && connection->opts->reconnect) {
+			myqtt_conn_opts_free (connection->opts);
+			connection->opts = NULL;
+		} /* end if */
+	}
 
 	/* close this connection */
 	if (myqtt_conn_is_ok (connection, axl_false) && connection->role == MyQttRoleInitiator) {
@@ -3061,6 +3091,76 @@ void                myqtt_conn_opts_set_will (MyQttConnOpts  * opts,
 }
 
 /** 
+ * @brief Allows to set/unset reconnect flag on the provided
+ * connection options object.
+ *
+ * See also \ref myqtt_conn_set_on_reconnect to get a notification
+ * when a reconnect operation takes place and finishes without error.
+ *
+ * @param opts The connection options where the configuration is done.
+ *
+ * @param enable_reconnect axl_true to enable reconnect everytime a
+ * connection is closed, axl_false to disable this mechanism.
+ */
+void                myqtt_conn_opts_set_reconnect (MyQttConnOpts * opts,
+						   axl_bool        enable_reconnect)
+{
+	if (! opts)
+		return;
+	/* set reconnect flag */
+	opts->reconnect = enable_reconnect;
+	return;
+}
+
+/** 
+ * @brief Allows to configure a session setup ptr init function
+ * used by the session setup handler to implement reconnect
+ * operations.
+ *
+ * For MQTT and MQTT-TLS protocols this function is not
+ * required. However, for MQTT-WS, it is required additional
+ * information to init the session, and in particular, it is
+ * required a function that allows to restore the noPollConn reference
+ * used by the \ref MyQttSessionSetup handler.
+ *
+ * If you don't provide these session init function, myqtt-web-socket module will
+ * disable the reconnect option if requested the user.
+ *
+ * Please note that this function is not required if you are not
+ * attempting to implement reconnect support on connection close.
+ *
+ * The handler here configured (the init_session_setup_ptr) is called just before calling
+ * session setup to refresh internal pointer passed in into the \ref
+ * MyQttSessionSetup so session setup receives a newly created object.
+ *
+ * @param opts The connection options to configure.
+ *
+ * @param init_session_setup_ptr Recover handler to call to refresh/regenerate user land pointer passed in into the session setup.
+ *
+ * @param user_data User defined pointer passed in into the recover handler.
+ *
+ * @param user_data2 Second user defined pointer passed in into the recover handler.
+ *
+ * @param user_data3 Third user defined pointer passed in into the recover handler.
+ */
+void                myqtt_conn_opts_set_init_session_setup_ptr (MyQttConnOpts               * opts,
+								MyQttInitSessionSetupPtr      init_session_setup_ptr,
+								axlPointer                    user_data,
+								axlPointer                    user_data2,
+								axlPointer                    user_data3)
+{
+	if (! opts)
+		return;
+
+	/* configure data */
+	opts->init_session_setup_ptr   = init_session_setup_ptr;
+	opts->init_user_data           = user_data;
+	opts->init_user_data2          = user_data2;
+	opts->init_user_data3          = user_data3;
+	return;
+}
+
+/** 
  * @brief Releases the connection object created by \ref myqtt_conn_opts_new.
  *
  * In general you don't have to call this function unless you called
@@ -3099,8 +3199,8 @@ void                myqtt_conn_opts_free     (MyQttConnOpts  * opts)
  * @internal Reference counting update implementation.
  */
 axl_bool               myqtt_conn_ref_internal                    (MyQttConn * connection, 
-									  const char       * who,
-									  axl_bool           check_ref)
+								   const char       * who,
+								   axl_bool           check_ref)
 {
 #if defined(ENABLE_MYQTT_LOG)
 	MyQttCtx * ctx;
@@ -4172,42 +4272,69 @@ axl_bool            myqtt_conn_half_opened                  (MyQttConn  * conn)
 	return conn->initial_accept;
 }
 
-axlPointer __myqtt_conn_do_reconnect_third_step (axlPointer _conn)
+axl_bool __myqtt_conn_do_reconnect_third_step (MyQttCtx * ctx, axlPointer _conn, axlPointer user_data)
 {
-	MyQttConn * conn = _conn;
-	
+	MyQttConn     * conn = _conn;
+	axl_bool        stop_event = axl_false;
+	MyQttConnOpts * opts;
+
+	/* check if we have a init session setup pointer handler and
+	   call it */
+	if (conn && conn->opts) {
+		/* define opts pointer */
+		opts = conn->opts;
+
+		if (opts && opts->init_session_setup_ptr) {
+			/* call to create the session setup pointer */
+			conn->setup_user_data = opts->init_session_setup_ptr (ctx, conn, 
+									      opts->init_user_data, 
+									      opts->init_user_data2,
+									      opts->init_user_data3);
+		} /* end if */
+	} /* end if */
+
 	/* ok, now call to reconnect in this independant thread */
 	__myqtt_conn_new_internal (conn->ctx, conn, conn->opts);
 
 	/* now check if the connection is ok */
 	if (myqtt_conn_is_ok (conn, axl_false)) {
+
 		/* ok, register connection into the reader again */
 		myqtt_reader_watch_connection (conn->ctx, conn);
+
+		/* stop the event because the connection is ok */
+		stop_event = axl_true;
+
+		/* notify if handler is defined */
+		if (conn->on_reconnect)
+			conn->on_reconnect (conn, conn->on_reconnect_data);
+
 	} /* end if */
 
 	/* release reference */
 	myqtt_conn_unref (conn, "myqtt-conn-reconnect");
 
 	/* return NULL just o make the stack happy */
-	return NULL;
+	return stop_event;
 }
 
 
 void __myqtt_conn_do_reconnect_second_step (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_data)
 {
 	/* now launch a threaded process to reconnect */
-	myqtt_thread_pool_new_task (ctx, __myqtt_conn_do_reconnect_third_step, conn);
+	myqtt_thread_pool_new_event (ctx, 1000000, __myqtt_conn_do_reconnect_third_step, conn, NULL);
 	return;
 }
 
 void __myqtt_conn_do_reconnect (MyQttConn * conn)
 {
 	/* acquire a reference to the connection during the process */
-	if (! myqtt_conn_ref (conn, "myqtt-conn-reconnect"))
+	if (! myqtt_conn_ref_internal (conn, "myqtt-conn-reconnect", axl_false))
 		return; /* if we fail to acquiere a reference, just return */
 
 	/* remove connection from the reader while we are working */
 	myqtt_reader_unwatch_connection (conn->ctx, conn, __myqtt_conn_do_reconnect_second_step, NULL);
+	return;
 }
 
 /** 
@@ -4936,6 +5063,33 @@ void                   myqtt_conn_set_on_msg_sent    (MyQttConn         * conn,
 
 	return;
 }
+
+/** 
+ * @brief Allows to configure a handler that is called in the case a
+ * reconnect operation took place and finished without error.
+ *
+ * @param conn The connection that was reconnected.
+ *
+ * @param on_reconnect The handler that will be called on reconnect.
+ *
+ * @param on_reconnect_data A user defined pointer that is passed in
+ * into the handler configured when it is called.
+ */
+void                   myqtt_conn_set_on_reconnect   (MyQttConn         * conn,
+						      MyQttOnReconnect    on_reconnect,
+						      axlPointer          on_reconnect_data)
+{
+	if (conn == NULL)
+		return;
+	
+	/* set on reconnect handler */
+	conn->on_reconnect      = on_reconnect;
+	conn->on_reconnect_data = on_reconnect_data;
+
+	return;
+}
+
+
 
 /** 
  * @brief Extended version for \ref myqtt_conn_set_on_close

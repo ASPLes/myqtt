@@ -74,8 +74,8 @@ typedef void (*MyQttForeachFunc3) (MyQttConn * conn,
 				    axlPointer         user_data3);
 
 MyQttAsyncQueue * myqtt_reader_foreach       (MyQttCtx            * ctx,
-						MyQttForeachFunc      func,
-						axlPointer             user_data);
+					      MyQttForeachFunc      func,
+					      axlPointer             user_data);
 
 void               myqtt_reader_foreach_offline (MyQttCtx           * ctx,
 						  MyQttForeachFunc3    func,

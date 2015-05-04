@@ -1632,9 +1632,9 @@ MyQttReaderData * __myqtt_reader_change_io_mech (MyQttCtx        * ctx,
 
 /* do a foreach operation */
 void myqtt_reader_foreach_impl (MyQttCtx        * ctx, 
-				 axlList          * con_list, 
-				 axlList          * srv_list, 
-				 MyQttReaderData * data)
+				axlList         * con_list, 
+				axlList         * srv_list, 
+				MyQttReaderData * data)
 {
 	axlListCursor * cursor;
 
@@ -2649,6 +2649,61 @@ int  myqtt_reader_connections_watched         (MyQttCtx        * ctx)
 	return axl_list_length (ctx->conn_list) + axl_list_length (ctx->srv_list);
 }
 
+typedef struct _MyQttReaderUnwatchConn {
+
+	MyQttConn          * conn;
+	MyQttCtx           * ctx;
+	axl_bool             found;
+	MyQttConnUnwatch     after_unwatch;
+	axlPointer           user_data;
+
+} MyQttReaderUnwatchConn;
+
+void __myqtt_reader_unwatch_connection_check (MyQttConn * conn, axlPointer user_data)
+{
+	MyQttReaderUnwatchConn * ref = user_data;
+	/* check if the connection is the same */
+	if (myqtt_conn_get_id (conn) == myqtt_conn_get_id (ref->conn)) {
+		ref->found = axl_true;
+	} /* end if */
+	return;
+}
+
+axlPointer __myqtt_reader_unwatch_connection_launch (axlPointer _ref)
+{
+	MyQttReaderUnwatchConn * ref = _ref;
+	MyQttCtx               * ctx = ref->ctx;
+	MyQttAsyncQueue        * queue;
+
+	
+	/* launch foreach operation */
+	queue  = myqtt_reader_foreach (ctx, __myqtt_reader_unwatch_connection_check, ref);
+
+	/* wait for myqtt reader foreach to end */
+	myqtt_async_queue_pop (queue);
+	myqtt_async_queue_unref (queue);
+	
+	if (! ref->found) {
+		/* nothing to unwatch because it is already unwatched */
+		ref->after_unwatch (ctx, ref->conn, ref->user_data);
+		axl_free (ref);
+		return NULL;
+	} /* end if */
+	
+	/* connection found, register unwatch and continue,
+	   set the unwatch handlers */
+	myqtt_conn_set_data (ref->conn, "my:co:unwtch:func", ref->after_unwatch);
+	myqtt_conn_set_data (ref->conn, "my:co:unwtch:data", ref->user_data);
+
+	/* flag connection myqtt reader unwatch */
+	ref->conn->reader_unwatch = axl_true;
+
+	axl_free (ref);
+
+	return NULL;
+}
+
+
 /** 
  * @internal Function used to unwatch the provided connection from the
  * myqtt reader loop.
@@ -2668,17 +2723,38 @@ void myqtt_reader_unwatch_connection          (MyQttCtx          * ctx,
 					       MyQttConnUnwatch    after_unwatch,
 					       axlPointer          user_data)
 {
-	v_return_if_fail (ctx && connection);
+	MyQttReaderUnwatchConn * ref;
 
-	/* flag connection myqtt reader unwatch */
-	connection->reader_unwatch = axl_true;
+	v_return_if_fail (ctx && connection);
 
 	/* check for after unwatch and user data pointer */
 	if (after_unwatch) {
-		/* set the unwatch handlers */
-		myqtt_conn_set_data (connection, "my:co:unwtch:func", after_unwatch);
-		myqtt_conn_set_data (connection, "my:co:unwtch:data", user_data);
-	}
+
+		/* check that the connection isn't there to ensure the
+		   handler is called even in the case it is already
+		   unwatched */
+		ref   = axl_new (MyQttReaderUnwatchConn, 1);
+		if (ref == NULL) 
+			return;
+
+		/* notify connection and flag to check if it was found or what */
+		ref->ctx           = ctx;
+		ref->conn          = connection;
+		ref->found         = axl_false;
+		ref->after_unwatch = after_unwatch;
+		ref->user_data     = user_data;
+
+		/* postpone in a different thread this invocation to
+		   avoid locking myqtt reader loop in the case this
+		   function is called somehow from there */
+		myqtt_thread_pool_new_task (ctx, __myqtt_reader_unwatch_connection_launch, ref);
+
+		return;
+
+	} /* end if */
+
+	/* flag connection myqtt reader unwatch */
+	connection->reader_unwatch = axl_true;
 
 	return;
 }
@@ -2952,8 +3028,8 @@ void myqtt_reader_notify_change_done_io_api   (MyQttCtx * ctx)
  * used to notify the foreach operation finished.
  */
 MyQttAsyncQueue * myqtt_reader_foreach                     (MyQttCtx            * ctx,
-							      MyQttForeachFunc      func,
-							      axlPointer             user_data)
+							    MyQttForeachFunc      func,
+							    axlPointer            user_data)
 {
 	MyQttReaderData * data;
 	MyQttAsyncQueue * queue;

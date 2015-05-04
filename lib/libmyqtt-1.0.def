@@ -81,6 +81,8 @@ myqtt_conn_offline_pub
 myqtt_conn_opts_free
 myqtt_conn_opts_new
 myqtt_conn_opts_set_auth
+myqtt_conn_opts_set_init_session_setup_ptr
+myqtt_conn_opts_set_reconnect
 myqtt_conn_opts_set_reuse
 myqtt_conn_opts_set_will
 myqtt_conn_parse_greetings_and_enable
@@ -105,6 +107,7 @@ myqtt_conn_set_on_close
 myqtt_conn_set_on_close_full2
 myqtt_conn_set_on_msg
 myqtt_conn_set_on_msg_sent
+myqtt_conn_set_on_reconnect
 myqtt_conn_set_receive_handler
 myqtt_conn_set_receive_stamp
 myqtt_conn_set_send_handler

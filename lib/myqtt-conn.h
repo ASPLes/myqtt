@@ -136,6 +136,15 @@ void                myqtt_conn_opts_set_will (MyQttConnOpts  * opts,
 					      const char     * will_message,
 					      axl_bool         will_retain);
 
+void                myqtt_conn_opts_set_reconnect (MyQttConnOpts * opts,
+						   axl_bool        enable_reconnect);
+
+void                myqtt_conn_opts_set_init_session_setup_ptr (MyQttConnOpts               * opts,
+								MyQttInitSessionSetupPtr      init_session_setup_ptr,
+								axlPointer                    user_data,
+								axlPointer                    user_data2,
+								axlPointer                    user_data3);
+
 void                myqtt_conn_opts_free     (MyQttConnOpts  * opts);
 
 MYQTT_SOCKET       myqtt_conn_sock_connect     (MyQttCtx    * ctx,
@@ -284,6 +293,10 @@ void                   myqtt_conn_set_on_close       (MyQttConn         * conn,
 void                   myqtt_conn_set_on_msg_sent    (MyQttConn         * conn,
 						      MyQttOnMsgSent      on_msg_sent,
 						      axlPointer          on_msg_sent_data);
+
+void                   myqtt_conn_set_on_reconnect   (MyQttConn         * conn,
+						      MyQttOnReconnect    on_reconnect,
+						      axlPointer          on_reconnect_data);
 
 MyQttMsg *             myqtt_conn_get_next (MyQttConn * conn, long timeout);
 
