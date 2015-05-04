@@ -280,6 +280,16 @@ axl_bool __myqtt_web_socket_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQ
  *
  * See \ref myqtt_conn_new for more information.
  *
+ * <b>About reconnecting</b>
+ *
+ * If you enable automatic reconnect support after connection close
+ * (\ref myqtt_conn_opts_set_reconnect), remember to also configure
+ * the recover handler by using \ref
+ * myqtt_conn_opts_set_recover_session_setup_ptr. That function should
+ * implement a complete reconnect and return a noPollConn reference
+ * used by the internal session setup. If you don't configure this,
+ * the function will disable reconnect support even if you enable it.
+ *
  */
 MyQttConn        * myqtt_web_socket_conn_new            (MyQttCtx        * ctx,
 							 const char      * client_identifier,
@@ -290,8 +300,24 @@ MyQttConn        * myqtt_web_socket_conn_new            (MyQttCtx        * ctx,
 							 MyQttConnNew      on_connected, 
 							 axlPointer        user_data)
 {
+
+	/* check if the conn reference is not defined. In that case,
+	   try to craete it with the init session setup ptr */
+	if (conn == NULL && opts && opts->init_session_setup_ptr)
+		conn = opts->init_session_setup_ptr (ctx, NULL, opts->init_user_data, opts->init_user_data2, opts->init_user_data3);
+
+	/* report what we are doing */
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Creating new MQTT over WebSocket connection to %s:%s (is ready:%d)",
 		   nopoll_conn_host (conn), nopoll_conn_port (conn), nopoll_conn_is_ready (conn));
+
+	/* check and disable reconnect if it is not configured the
+	   recover handler */
+	if (opts && opts->reconnect) {
+		if (opts->init_session_setup_ptr == NULL) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Disable reconnect flag because user didn't provide a recover handler (myqtt_conn_opts_set_recover_session_setup_ptr)");
+			opts->reconnect = axl_false; /* disable it */
+		} /* end if */
+	} /* end opts */
 
 	/* associate context */
 	__myqtt_web_socket_associate_ctx (ctx, nopoll_conn_ctx (conn));
@@ -512,7 +538,32 @@ noPollConn      * myqtt_web_socket_get_conn             (MyQttConn * conn)
  */
 noPollCtx       * myqtt_web_socket_get_ctx              (MyQttCtx * ctx)
 {
-	return myqtt_ctx_get_data (ctx, "__my:ws:ctx");
+	noPollCtx * nopoll_ctx;
+
+	if (ctx == NULL)
+		return NULL;
+
+	/* get current nopoll context configured */
+	myqtt_mutex_lock (&ctx->ref_mutex);
+	nopoll_ctx =  myqtt_ctx_get_data (ctx, "__my:ws:ctx");
+	if (nopoll_ctx) {
+		/* release lock */
+		myqtt_mutex_unlock (&ctx->ref_mutex);
+
+		return nopoll_ctx;
+	} /* end if */
+
+	/* reached this point, it looks like no context is configured,
+	   create one and associate */
+	nopoll_ctx = nopoll_ctx_new ();
+
+	/* associate context */
+	myqtt_ctx_set_data_full (ctx, "__my:ws:ctx", nopoll_ctx, 
+				 NULL, (axlDestroyFunc) __myqtt_web_socket_ctx_unref);
+
+	myqtt_mutex_unlock (&ctx->ref_mutex);
+
+	return nopoll_ctx;
 }
 
 /* @} */

@@ -778,6 +778,44 @@ typedef void  (*MyQttOnReleaseMsg) (MyQttCtx * ctx, MyQttConn * conn,
 typedef void  (*MyQttOnMsgSent)    (MyQttCtx * ctx, MyQttConn * conn,
 				    unsigned char * app_msg, int app_msg_size,
 				    MyQttMsgType  msg_type, axlPointer user_data);
+
+/** 
+ * @brief Allows to set a handler that will be called when a reconnect operation took place.
+ * 
+ * This method could be used to establish some especial actions to be
+ * taken before the connection is completely reconnected. 
+ * 
+ * This handler is used by:
+ *  - \ref myqtt_conn_set_on_reconnect
+ * 
+ * @param connection The connection that was reconnected.
+ *
+ * @param data User defined pointer passed to the handler and configured at \ref myqtt_conn_set_on_reconnect
+ * 
+ */
+typedef void     (*MyQttOnReconnect)      (MyQttConn * connection, axlPointer data);
+
+/** 
+ * @brief Handler definition for the user pointer used by the session
+ * setup handler.
+ *
+ * @param ctx The context where the operation is taking place.
+ *
+ * @param conn The connection that is attempting the engine to start Session setup ptr.
+ *
+ * @param user_data User defined pointerm
+ *
+ * @param user_data2 Second user defined pointer
+ *
+ * @param user_data3 Third user defined pointer
+ *
+ * @return A reference to pass to the session setup handler (\ref MyQttSessionSetup) or NULL if it fails.
+ */
+typedef axlPointer (*MyQttInitSessionSetupPtr) (MyQttCtx   * ctx, 
+						MyQttConn  * conn, 
+						axlPointer   user_data, 
+						axlPointer   user_data2, 
+						axlPointer   user_data3);
 				      
 #endif
 

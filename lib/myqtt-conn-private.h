@@ -71,6 +71,12 @@ struct _MyQttConnOpts {
 	axl_bool  disable_ssl_verify;
 	
 	char * serverName;
+
+	/** reconnect support **/
+	MyQttInitSessionSetupPtr      init_session_setup_ptr;
+	axlPointer                    init_user_data;
+	axlPointer                    init_user_data2;
+	axlPointer                    init_user_data3;
 };
 
 
@@ -342,6 +348,10 @@ struct _MyQttConn {
 	/*** on msg sent support ***/
 	MyQttOnMsgSent              on_msg_sent;
 	axlPointer                  on_msg_sent_data;
+
+	/*** on reconnect support ***/
+	MyQttOnReconnect            on_reconnect;
+	axlPointer                  on_reconnect_data;
 
 	/*** pingreq support ****/
 	MyQttAsyncQueue           * ping_resp_queue;
