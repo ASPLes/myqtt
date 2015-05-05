@@ -40,6 +40,9 @@
 
 --== things that should be reviewed ==--
 
+* Review:
+  http://www.hivemq.com/mqtt-security-fundamentals-authorization/
+
 * Add support to get a list of active topics: 
   https://groups.google.com/d/msg/mqtt/03QiWpz4kHY/1g52eTb9ou4J
   https://groups.google.com/d/msg/mqtt/03QiWpz4kHY/RygE9M0rFAcJ
