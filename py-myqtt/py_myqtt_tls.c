@@ -622,7 +622,7 @@ static PyMethodDef py_myqtt_tls_methods[] = {
 	{"start_tls", (PyCFunction) py_myqtt_tls_start_tls, METH_VARARGS | METH_KEYWORDS,
 	 "Starts TLS process on the provided connection (myqtt_tls_start_negotiation wrapper)."},
 	{"accept_tls", (PyCFunction) py_myqtt_tls_accept_tls, METH_VARARGS | METH_KEYWORDS,
-	 "Enables accepting incoming TLS requests. This is used by server side BEEP peers to accept incoming TLS requests."},
+	 "Enables accepting incoming TLS requests. This is used by server side MQTT peers to accept incoming TLS requests."},
 	{"is_enabled", (PyCFunction) py_myqtt_tls_is_enabled, METH_VARARGS | METH_KEYWORDS,
 	 "Allows to check if the provided connection object has sucessfully started TLS over the session (see myqtt_connection_is_tlsficated)."},
 	{"verify_cert", (PyCFunction) py_myqtt_tls_verify_cert, METH_VARARGS | METH_KEYWORDS,

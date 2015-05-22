@@ -251,6 +251,62 @@ PKG_CHECK_MODULES(AXL, axl >= 0.6.4)
 AC_SUBST(AXL_CFLAGS)
 AC_SUBST(AXL_LIBS)
 
+dnl check for py-myqtt support
+AC_ARG_ENABLE(py-myqtt,   [   --disable-py-myqtt       Makes MyQtt Library to be build without PyMyQtt: python bindings support],
+              enable_py_myqtt_support="$enableval",
+	      enable_py_myqtt_support=yes)
+if test "$enable_py_myqtt_support" = "yes" ; then
+   AM_PATH_PYTHON([2.3], enable_py_myqtt_support="yes", enable_py_myqtt_support="no")
+
+   # find python-config
+   PYTHON_CONFIG=`./get-python-config`
+
+   # get site_packages
+   python_dir_check=`eval ./check-python-dir.py ${pythondir}`
+
+   # get python includes 
+   PYTHON_INCLUDES=`$PYTHON_CONFIG --includes 2>/dev/null`
+   old_CPPFLAGS=$CPPFLAGS
+   CPPFLAGS="$PYTHON_INCLUDES"
+   echo "Python includes: $PYTHON_INCLUDES"
+   AC_SUBST(PYTHON_INCLUDES)
+
+   AC_TRY_COMPILE([#include <Python.h>],
+          [Py_InitModule3(NULL, NULL, NULL);],
+          enable_py_myqtt_support="yes",
+          enable_py_myqtt_support="no")
+   AC_MSG_RESULT([Python development headers status: $enable_py_myqtt_support])
+
+   if test "$enable_py_myqtt_support" = "yes" ; then
+
+      # get python flags and libs
+      PYTHON_CFLAGS=`$PYTHON_CONFIG --cflags 2>/dev/null | sed -r 's/\-arch (\d|\w)+ //g'`
+      PYTHON_LIBS=`$PYTHON_CONFIG --ldflags 2>/dev/null`
+      AC_SUBST(PYTHON_CFLAGS)
+      AC_SUBST(PYTHON_LIBS)
+
+      dnl get site dinamic library extension
+      SHARED_EXTENSION=$shrext_cmds
+      AC_SUBST(SHARED_EXTENSION)
+
+      # check python_install_dir and pythondir maches
+      python_dir_temp=`eval echo ${pythondir}`
+      # check python_install_dir and pythondir maches
+      if test "$python_dir_check" != "ok" ; then
+          AC_MSG_ERROR([ERROR: pythondir variable is poiting to an unusable location: $python_dir_temp. Error detected: $python_dir_check. Fix your autoconf install or disable python building, for that, pass --disable-py-myqtt to configure. This usually indicates a problem with automake package which provides the _AM_PATH_PYTHON_ macro.])
+      fi
+      echo "Python install dir OK: $python_dir_temp"
+   fi
+fi
+AM_CONDITIONAL(ENABLE_PY_MYQTT_SUPPORT, test "x$enable_py_myqtt_support" = "xyes")
+
+dnl check for console log
+AC_ARG_ENABLE(py-myqtt-log, [  --enable-py-myqtt-log       Enable building PyMyQtt console debug log support [default=yes]], 
+	      enable_py_myqtt_log="$enableval", 
+	      enable_py_myqtt_log=yes)
+AM_CONDITIONAL(ENABLE_PY_MYQTT_LOG, test "x$enable_py_myqtt_log" = "xyes")
+
+
 dnl check for console log
 AC_ARG_ENABLE(myqtt-log, [  --enable-myqtt-log       Enable building MyQtt console debug log support [default=yes]], 
 	      enable_myqtt_log="$enableval", 
@@ -354,6 +410,7 @@ server/modules/mod-web-socket/mod-web-socket.xml
 server/modules/mod-status/Makefile
 server/modules/mod-status/mod-status.xml
 client/Makefile
+py-myqtt/Makefile
 test/Makefile
 myqtt-1.0.pc
 myqtt-tls-1.0.pc
@@ -381,7 +438,7 @@ echo "      cflags: $AXL_CFLAGS"
 echo "      libs:   $AXL_LIBS"
 echo
 
-echo "   Build libMyqtt:                    enabled"
+echo "   Build libMyQtt:                    enabled"
 echo "   Build MyQttD server:               enabled"
 
 if test x$enable_myqtt_client = xyes ; then
@@ -411,6 +468,19 @@ else
    echo 
    echo "     NOTE: To enable WebSocket support you need to have libnopoll"
    echo "           installed on your system and use --enable-websocket-support option."
+fi
+echo
+if test x$enable_py_myqtt_support = xyes ; then
+   echo "   Build PyMyQtt support:                   enabled"
+   echo "     python install dir: ${python_install_dir}"
+   echo "     python dir: ${pythondir}"
+   echo "     python cflags:      ${PYTHON_CFLAGS}"
+   echo "     python libs:        ${PYTHON_LIBS}"
+else
+   echo "   Build PyMyQtt support:                   disabled"
+   echo 
+   echo "     NOTE: To enable PyMyQtt support you have to install python development headers and "
+   echo "           use --enable-py-myqtt option."
 fi
 if test x$DOXYGEN = xyes ; then
    echo "   Build MyQtt doc:                   enabled"

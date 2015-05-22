@@ -14,7 +14,11 @@ if ENABLE_MYQTT_CLIENT
 MYQTT_CLIENT_DIR = client
 endif
 
-SUBDIRS = lib $(TLS_SUPPORT_DIR) $(WEBSOCKET_SUPPORT_DIR) server $(MYQTT_CLIENT_DIR) test
+if ENABLE_PY_MYQTT_SUPPORT
+PY_MYQTT_DIR = py-myqtt
+endif
+
+SUBDIRS = lib $(TLS_SUPPORT_DIR) $(WEBSOCKET_SUPPORT_DIR) server $(MYQTT_CLIENT_DIR) $(PY_MYQTT_DIR) test
 EXTRA_DIST = myqtt-1.0.pc.in VERSION
 
 pkgconfigdir = $(libdir)/pkgconfig

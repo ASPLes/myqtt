@@ -228,7 +228,7 @@ void py_myqtt_decref (PyObject * obj)
 static PyMethodDef py_myqtt_methods[] = { 
 	/* create_listener */
 	{"create_listener", (PyCFunction) py_myqtt_create_listener, METH_VARARGS | METH_KEYWORDS,
-	 "Wrapper of the set of functions that allows to create a BEEP listener. The function returns a new myqtt.Connection that represents a listener running on the port and address provided."},
+	 "Wrapper of the set of functions that allows to create a MQTT listener. The function returns a new myqtt.Connection that represents a listener running on the port and address provided."},
 	/* wait_listeners */
 	{"wait_listeners", (PyCFunction) py_myqtt_wait_listeners, METH_VARARGS | METH_KEYWORDS,
 	 "Direct wrapper for myqtt_listener_wait. This function is optional and it is used at the listener side to make the main thread to not finish after all myqtt initialization."},
@@ -263,7 +263,7 @@ PyMODINIT_FUNC  initlibpy_myqtt_10 (void)
 
 	/* register myqtt module */
 	module = Py_InitModule3 ("libpy_myqtt_11", py_myqtt_methods, 
-				 "Base module that include core BEEP elements implemented by the MyQtt base library");
+				 "Base module that include core MQTT elements implemented by the MyQtt base library");
 	if (module == NULL) 
 		return;
 
