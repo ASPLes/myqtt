@@ -23,7 +23,7 @@
  *  fee but returning back any change, improvement or addition in the
  *  form of source code, project image, documentation patches, etc.
  *
- *  For commercial support on build BEEP enabled solutions contact us:
+ *  For commercial support on build MQTT enabled solutions contact us:
  *          
  *      Postal address:
  *         Advanced Software Production Line, S.L.
@@ -210,7 +210,7 @@ static void py_myqtt_conn_dealloc (PyMyQttConn* self)
 
 	/* finish the conn in the case it is no longer referenced */
 	if (myqtt_conn_is_ok (self->conn, axl_false) && self->close_ref) {
-		py_myqtt_log (PY_MYQTT_DEBUG, "shutting down BEEP session associated at conn finalize id: %d (conn is ok, and close_ref is activated, refs: %d)", 
+		py_myqtt_log (PY_MYQTT_DEBUG, "shutting down MQTT session associated at conn finalize id: %d (conn is ok, and close_ref is activated, refs: %d)", 
 			       myqtt_conn_get_id (self->conn),
 			       myqtt_conn_ref_count (self->conn));
 
@@ -742,10 +742,10 @@ static PyMethodDef py_myqtt_conn_methods[] = {
 	 "API wrapper for myqtt_conn_remove_on_close_full. This method allows to remove a particular on close handler installed by the method .set_on_close."},
 	/* close */
 	{"close", (PyCFunction) py_myqtt_conn_close, METH_NOARGS,
-	 "Allows to close a the BEEP session (myqtt.Conn) following all BEEP close negotation phase. The method returns True in the case the conn was cleanly closed, otherwise False is returned. If this operation finishes properly, the reference should not be used."},
+	 "Allows to close a the MQTT session (myqtt.Conn) following all MQTT close negotation phase. The method returns True in the case the conn was cleanly closed, otherwise False is returned. If this operation finishes properly, the reference should not be used."},
 	/* shutdown */
 	{"shutdown", (PyCFunction) py_myqtt_conn_shutdown, METH_NOARGS,
-	 "Allows to shutdown the BEEP session. This operation closes the underlaying transport without going into the full BEEP close process. It is still required to call to .close method to fully finish the conn. After the shutdown the caller can still use the reference and check its status. After a close operation the conn cannot be used again."},
+	 "Allows to shutdown the MQTT session. This operation closes the underlaying transport without going into the full MQTT close process. It is still required to call to .close method to fully finish the conn. After the shutdown the caller can still use the reference and check its status. After a close operation the conn cannot be used again."},
 	/* incref */
 	{"incref", (PyCFunction) py_myqtt_conn_incref, METH_NOARGS,
 	 "Allows to increment reference counting of the python object (myqtt.Conn) holding the conn."},
@@ -793,7 +793,7 @@ static PyTypeObject PyMyQttConnType = {
     0,                         /* tp_setattro*/
     0,                         /* tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,  /* tp_flags*/
-    "myqtt.Conn, the object used to represent a connected BEEP session.",           /* tp_doc */
+    "myqtt.Conn, the object used to represent a connected MQTT session.",           /* tp_doc */
     0,		               /* tp_traverse */
     0,		               /* tp_clear */
     0,		               /* tp_richcompare */
