@@ -70,38 +70,6 @@ axl_bool _py_myqtt_color_log_enabled = axl_false;
 
 
 /** 
- * @brief Function that implements myqtt_channel_queue_reply handler
- * used as frame received handler.
- */
-static PyObject * py_myqtt_queue_reply (PyMyQttChannel * self, PyObject * args)
-{
-	PyMyQttConnection  * conn    = NULL;
-	PyMyQttChannel     * channel = NULL;
-	PyMyQttFrame       * frame   = NULL;
-	PyMyQttAsyncQueue  * data    = NULL;
-	
-	/* parse and check result */
-	if (! PyArg_ParseTuple (args, "OOOO", &conn, &channel, &frame, &data))
-		return NULL;
-
-	/* NOTE: do not call to myqtt_channel_queue_reply because that
-	 * function will store a copy of the frame received in the
-	 * queue rather allow to store the PyMyQttFrame reference
-	 * which is what is required by queue.pop or channel.get_reply
-	 * (). */
-	
-	/* create a frame copy and acquire a reference to it */
-	frame = PY_MYQTT_FRAME ( py_myqtt_frame_create (py_myqtt_frame_get (frame), axl_true) );
-
-	/* now store the frame created into the queue */
-	myqtt_async_queue_push (py_myqtt_async_queue_get (data), frame);
-
-	/* reply work done */
-	Py_INCREF (Py_None);
-	return Py_None;
-}
-
-/** 
  * @brief Allows to start a listener running on the address and port
  * specified.
  */
@@ -121,14 +89,14 @@ static PyObject * py_myqtt_create_listener (PyObject * self, PyObject * args, Py
 		return NULL;
 
 	/* create a listener */
-	listener = myqtt_listener_new_full (
+	listener = myqtt_listener_new (
 		/* context */
 		py_myqtt_ctx_get (py_myqtt_ctx),
 		/* host and port */
-		host, port, NULL, NULL);
+		host, port, NULL, NULL, NULL);
 
 	py_myqtt_log (PY_MYQTT_DEBUG, "creating listener using: %s:%s (%p, status: %d)", host, port,
-		       listener, myqtt_connection_is_ok (listener, axl_false));
+		       listener, myqtt_conn_is_ok (listener, axl_false));
 
 	/* do not check if the connection is ok, to return a different
 	   value. Rather return a PyMyQttConnection in all cases
@@ -136,7 +104,7 @@ static PyObject * py_myqtt_create_listener (PyObject * self, PyObject * args, Py
 
 	/* create the listener and acquire a reference to the
 	 * PyMyQttCtx */
-	py_listener =  py_myqtt_connection_create (
+	py_listener =  py_myqtt_conn_create (
 			/* connection reference wrapped */
 			listener, 
 			/* acquire a reference */
@@ -148,10 +116,10 @@ static PyObject * py_myqtt_create_listener (PyObject * self, PyObject * args, Py
 	py_myqtt_handle_and_clear_exception (py_listener);
 
 	py_myqtt_log (PY_MYQTT_DEBUG, "py_listener running at: %s:%s (refs: %d, id: %d)", 
-		       myqtt_connection_get_host (listener),
-		       myqtt_connection_get_port (listener),
-		       myqtt_connection_ref_count (listener),
-		       myqtt_connection_get_id (listener));
+		       myqtt_conn_get_host (listener),
+		       myqtt_conn_get_port (listener),
+		       myqtt_conn_ref_count (listener),
+		       myqtt_conn_get_id (listener));
 	
 	return py_listener;
 }
@@ -257,275 +225,7 @@ void py_myqtt_decref (PyObject * obj)
 	return;
 }
 
-/** 
- * @internal Implementation used by py_myqtt_register_profile to
- * bridge into python notifying start request.
- */
-axl_bool  py_myqtt_profile_start  (int                channel_num,
-				    MyQttConn * conn,
-				    axlPointer         user_data)
-{
-	PyGILState_STATE     state;
-	PyObject           * py_conn;
-	PyObject           * start;
-	PyObject           * start_data;
-	MyQttChannel      * channel;
-	PyObject           * args;
-	PyObject           * result;
-	axl_bool             _result;
-	MyQttCtx          * ctx = CONN_CTX (conn);
-
-	/* acquire the GIL */
-	state = PyGILState_Ensure();
-
-	/* get a reference to the actual channel being accepted */
-	channel  = myqtt_connection_get_channel (conn, channel_num);
-
-	/* get references to handlers */
-	start      = py_myqtt_ctx_register_get (ctx, "%s_start", myqtt_channel_get_profile (channel));
-	start_data = py_myqtt_ctx_register_get (ctx, "%s_start_data", myqtt_channel_get_profile (channel));
-
-	/* provide a default value */
-	if (start_data == NULL)
-		start_data = Py_None;
-
-	/* create a PyMyQttConnection instance */
-	py_conn  = py_myqtt_connection_find_reference (conn);
-
-	/* create a tuple to contain arguments */
-	args = PyTuple_New (3);
-
-	/* the following function PyTuple_SetItem "steals" a reference
-	 * which is the python way to say that we are transfering the
-	 * ownership of the reference to that function, making it
-	 * responsible of calling to Py_DECREF when required. */
-	PyTuple_SetItem (args, 0, Py_BuildValue ("i", channel_num));
-	PyTuple_SetItem (args, 1, py_conn);
-
-	/* increment reference counting because the tuple will
-	 * decrement the reference passed when he thinks it is no
-	 * longer used. */
-	Py_INCREF (start_data);
-	PyTuple_SetItem (args, 2, start_data);
-
-	/* record handler */
-	START_HANDLER (start);
-
-	/* now invoke */
-	result = PyObject_Call (start, args, NULL);
-
-	/* unrecord handler */
-	CLOSE_HANDLER (start);
-	
-	py_myqtt_log (PY_MYQTT_DEBUG, "channel start notification finished, checking for exceptions..");
-	py_myqtt_handle_and_clear_exception (py_conn);
-
-	/* translate result */
-	_result = axl_false;
-	if (result) {
-		PyArg_Parse (result, "i", &_result);
-		py_myqtt_log (PY_MYQTT_DEBUG, "channel start notification result: %d..", _result);
-	} /* end if */
-
-	/* release tuple and result returned (which may be null) */
-	Py_DECREF (args);
-	Py_XDECREF (result);
-
-	/* release the GIL */
-	PyGILState_Release(state);
-	
-	return _result;
-}
-
-/** 
- * @internal Implementation used by py_myqtt_register_profile to
- * bridge into python notifying close request.
- */
-axl_bool py_myqtt_profile_close (int                channel_num,
-				  MyQttConn * connection,
-				  axlPointer         user_data)
-{
-	return axl_true;
-}
-
-/** 
- * @internal Implementation used by py_myqtt_register_profile to
- * bridge into python notifying frame received.
- */
-void py_myqtt_profile_frame_received (MyQttChannel    * channel,
-				       MyQttConn * conn,
-				       MyQttFrame      * frame,
-				       axlPointer         user_data)
-{
-	PyGILState_STATE     state;
-	PyObject           * py_frame;
-	PyObject           * py_channel;
-	PyObject           * py_conn;
-	PyObject           * frame_received;
-	PyObject           * frame_received_data;
-	PyObject           * args;
-	PyObject           * result;
-	MyQttCtx          * ctx = CONN_CTX (conn);
-
-	/* acquire the GIL */
-	state    = PyGILState_Ensure();
-
-	/* create a PyMyQttFrame instance */
-	py_frame = py_myqtt_frame_create (frame, axl_true);
-
-	/* get references to handlers */
-	frame_received      = py_myqtt_ctx_register_get (ctx, "%s_frame_received", myqtt_channel_get_profile (channel));
-	frame_received_data = py_myqtt_ctx_register_get (ctx, "%s_frame_received_data", myqtt_channel_get_profile (channel));
-	py_myqtt_log (PY_MYQTT_DEBUG, "frame received handler %p, data %p", frame_received, frame_received_data);
-
-	/* set to none rather than NULL */
-	if (frame_received_data == NULL)
-		frame_received_data = Py_None;
-
-	/* create a connection, acquire_ref=axl_true, close_ref=axl_false */
-	py_conn  = py_myqtt_connection_create (conn, axl_true, axl_false);
-
-	/* create the channel */
-	py_channel = py_myqtt_channel_create (channel);
-	py_myqtt_log (PY_MYQTT_DEBUG, "notifying frame received over channel: %d", myqtt_channel_get_number (channel));
-
-	/* create a tuple to contain arguments */
-	args = PyTuple_New (4);
-
-	/* the following function PyTuple_SetItem "steals" a reference
-	 * which is the python way to say that we are transfering the
-	 * ownership of the reference to that function, making it
-	 * responsible of calling to Py_DECREF when required. */
-	PyTuple_SetItem (args, 0, py_conn);
-	PyTuple_SetItem (args, 1, py_channel);
-	PyTuple_SetItem (args, 2, py_frame);
-
-	/* increment reference counting because the tuple will
-	 * decrement the reference passed when he thinks it is no
-	 * longer used. */
-	Py_INCREF (frame_received_data);
-	PyTuple_SetItem (args, 3, frame_received_data);
-
-	/* record handler */
-	START_HANDLER (frame_received);
-
-	/* now invoke */
-	result = PyObject_Call (frame_received, args, NULL);
-
-	/* unrecord handler */
-	CLOSE_HANDLER (frame_received);
-	
-	py_myqtt_log (PY_MYQTT_DEBUG, "frame notification finished, checking for exceptions..");
-	py_myqtt_handle_and_clear_exception (py_conn);
-
-	/* release tuple and result returned (which may be null) */
-	Py_DECREF (args);
-	Py_XDECREF (result);
-
-	/* release the GIL */
-	PyGILState_Release(state);
-
-	return;
-}
-
-/** 
- * @brief Allows to register a profile and its associated handlers
- * that will be used for incoming requests.
- */
-static PyObject * py_myqtt_register_profile (PyObject * self, PyObject * args, PyObject * kwds)
-{
-	const char         * uri           = NULL;
-	PyObject           * py_myqtt_ctx = NULL;
-
-	PyObject           * start         = NULL;
-	PyObject           * start_data    = NULL;
-
-	PyObject           * close         = NULL;
-	PyObject           * close_data    = NULL;
-
-	PyObject           * frame_received       = NULL;
-	PyObject           * frame_received_data  = NULL;
-	MyQttCtx          * ctx = NULL;
-
-	/* now parse arguments */
-	static char *kwlist[] = {"ctx", "uri", "start", "start_data", "close", "close_data", "frame_received", "frame_received_data", NULL};
-
-	/* parse and check result */
-	if (! PyArg_ParseTupleAndKeywords (args, kwds, "Os|OOOOOO", kwlist, 
-					   &py_myqtt_ctx, &uri, 
-					   &start, &start_data, 
-					   &close, &close_data, 
-					   &frame_received, &frame_received_data))
-		return NULL;
-
-	py_myqtt_log (PY_MYQTT_DEBUG, "received request to register profile %s", uri);
-	/* check object received is a py_myqtt_ctx */
-	if (! py_myqtt_ctx_check (py_myqtt_ctx)) {
-		py_myqtt_log (PY_MYQTT_CRITICAL, "Expected to receive myqtt.Ctx object but found something else..");
-		return NULL;
-	}
-
-	/* get the MyQttCtx */
-	ctx = py_myqtt_ctx_get (py_myqtt_ctx);
-
-	/* check handlers defined */
-	if (start != NULL && ! PyCallable_Check (start)) {
-		py_myqtt_log (PY_MYQTT_CRITICAL, "defined start handler but received a non callable object, unable to register %s", uri);
-		return NULL;
-	} /* end if */
-
-	if (close != NULL && ! PyCallable_Check (close)) {
-		py_myqtt_log (PY_MYQTT_CRITICAL, "defined start handler but received a non callable object, unable to register %s", uri);
-		return NULL;
-	} /* end if */
-
-	if (frame_received != NULL && ! PyCallable_Check (frame_received)) {
-		py_myqtt_log (PY_MYQTT_CRITICAL, "defined start handler but received a non callable object, unable to register %s", uri);
-		return NULL;
-	} /* end if */
-
-	py_myqtt_log (PY_MYQTT_DEBUG, "calling to register %s, frame_received=%p, frame_received_data=%p", uri,
-		       frame_received, frame_received_data);
-
-	/* acquire a reference to the register content */
-	py_myqtt_ctx_register (ctx, start, "%s_start", uri);
-	py_myqtt_ctx_register (ctx, start_data, "%s_start_data", uri);
-
-	py_myqtt_ctx_register (ctx, close, "%s_close", uri);
-	py_myqtt_ctx_register (ctx, close_data, "%s_close_data", uri);
-
-	py_myqtt_ctx_register (ctx, frame_received, "%s_frame_received", uri);
-	py_myqtt_ctx_register (ctx, frame_received_data, "%s_frame_received_data", uri);
-	
-	/* call to register */
-	if (! myqtt_profiles_register (ctx,
-					uri,
-					/* start */
-					start ? py_myqtt_profile_start : NULL, 
-					NULL,
-					/* close */
-					close ? py_myqtt_profile_close : NULL, 
-					NULL,
-					/* frame_received */
-					frame_received ? py_myqtt_profile_frame_received : NULL, 
-					NULL)) {
-		py_myqtt_log (PY_MYQTT_CRITICAL, "failure found while registering %s at myqtt_profiles_register", uri);
-		return NULL;
-	} /* end if */
-
-	py_myqtt_log (PY_MYQTT_DEBUG, "acquiring references to handlers and objects..");
-
-	/* reply work done */
-	py_myqtt_log (PY_MYQTT_DEBUG, "registered beep uri: %s", uri);
-	Py_INCREF (Py_None);
-	return Py_None;
-}
-
-
 static PyMethodDef py_myqtt_methods[] = { 
-	/* queue reply */
-	{"queue_reply", (PyCFunction) py_myqtt_queue_reply, METH_VARARGS,
-	 "Implementation of myqtt_channel_queue_reply. The function is used inside the queue reply method that requires this handler to be configured as frame received then to use channel.get_reply."},
 	/* create_listener */
 	{"create_listener", (PyCFunction) py_myqtt_create_listener, METH_VARARGS | METH_KEYWORDS,
 	 "Wrapper of the set of functions that allows to create a BEEP listener. The function returns a new myqtt.Connection that represents a listener running on the port and address provided."},
@@ -534,10 +234,6 @@ static PyMethodDef py_myqtt_methods[] = {
 	 "Direct wrapper for myqtt_listener_wait. This function is optional and it is used at the listener side to make the main thread to not finish after all myqtt initialization."},
 	{"unlock_listeners", (PyCFunction) py_myqtt_unlock_listeners, METH_VARARGS | METH_KEYWORDS,
 	 "Direct wrapper for myqtt_listener_unlock. This function allows to unlock the thread that is blocked at myqtt.wait_listeners."},
-	
-	/* register_profile */
-	{"register_profile", (PyCFunction) py_myqtt_register_profile, METH_VARARGS | METH_KEYWORDS,
-	 "Function that allows to register a profile with its associated handlers (frame received, channel start and channel close)."},
 	{NULL, NULL, 0, NULL}   /* sentinel */
 }; 
 
@@ -573,11 +269,9 @@ PyMODINIT_FUNC  initlibpy_myqtt_10 (void)
 
 	/* call to register all myqtt modules and types */
 	init_myqtt_ctx          (module);
-	init_myqtt_connection   (module);
-	init_myqtt_channel      (module);
+	init_myqtt_conn         (module);
 	init_myqtt_async_queue  (module);
-	init_myqtt_frame        (module);
-	init_myqtt_channel_pool (module);
+	init_myqtt_msg          (module);
 	init_myqtt_handle       (module);
 
 	return;
@@ -910,10 +604,10 @@ axl_bool py_myqtt_handle_and_clear_exception (PyObject * py_conn)
 
 		/* check connection reference and its role to close it
 		 * in the case we are working at the listener side */
-		if (py_conn && (myqtt_connection_get_role (py_myqtt_connection_get (py_conn)) != MyQttRoleInitiator)) {
+		if (py_conn && (myqtt_conn_get_role (py_myqtt_conn_get (py_conn)) != MyQttRoleInitiator)) {
 			/* shutdown connection due to unhandled exception found */
 			py_myqtt_log (PY_MYQTT_CRITICAL, "shutting down connection due to unhandled exception found");
-			Py_DECREF ( py_myqtt_connection_shutdown (PY_MYQTT_CONNECTION (py_conn)) );
+			Py_DECREF ( py_myqtt_conn_shutdown (PY_MYQTT_CONN (py_conn)) );
 		}
 		
 

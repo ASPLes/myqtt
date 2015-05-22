@@ -124,11 +124,9 @@ PyMODINIT_FUNC  initlibpy_myqtt_10 (void);
 /* include other modules */
 #include <py_myqtt_handle.h>
 #include <py_myqtt_ctx.h>
-#include <py_myqtt_connection.h>
-#include <py_myqtt_channel.h>
+#include <py_myqtt_conn.h>
 #include <py_myqtt_async_queue.h>
-#include <py_myqtt_frame.h>
-#include <py_myqtt_channel_pool.h>
+#include <py_myqtt_msg.h>
 
 /** 
  * @brief Macro that records a python object into the first reference,
