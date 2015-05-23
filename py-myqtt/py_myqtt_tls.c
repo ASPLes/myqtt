@@ -631,7 +631,7 @@ static PyMethodDef py_myqtt_tls_methods[] = {
 	{NULL, NULL, 0, NULL}   /* sentinel */
 }; 
 
-PyMODINIT_FUNC initlibpy_myqtt_tls_11 (void)
+PyMODINIT_FUNC initlibpy_myqtt_tls_10 (void)
 {
 	PyObject * module;
 
@@ -639,7 +639,7 @@ PyMODINIT_FUNC initlibpy_myqtt_tls_11 (void)
 	PyEval_InitThreads();
 
 	/* register myqtt module */
-	module = Py_InitModule3 ("libpy_myqtt_tls_11", py_myqtt_tls_methods, 
+	module = Py_InitModule3 ("libpy_myqtt_tls_10", py_myqtt_tls_methods, 
 				 "TLS binding support for myqtt library TLS profile");
 	if (module == NULL) {
 		py_myqtt_log (PY_MYQTT_CRITICAL, "failed to create tls module");

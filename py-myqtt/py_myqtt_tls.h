@@ -43,6 +43,6 @@
 /* include base library */
 #include <py_myqtt.h>
 
-PyMODINIT_FUNC initlibpy_myqtt_tls_11 (void);
+PyMODINIT_FUNC initlibpy_myqtt_tls_10 (void);
 
 #endif

@@ -262,7 +262,7 @@ PyMODINIT_FUNC  initlibpy_myqtt_10 (void)
 	PyEval_InitThreads();
 
 	/* register myqtt module */
-	module = Py_InitModule3 ("libpy_myqtt_11", py_myqtt_methods, 
+	module = Py_InitModule3 ("libpy_myqtt_10", py_myqtt_methods, 
 				 "Base module that include core MQTT elements implemented by the MyQtt base library");
 	if (module == NULL) 
 		return;
