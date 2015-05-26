@@ -162,6 +162,56 @@ def test_00_a():
 
     return True
 
+def test_01():
+    # call to initilize a context and to finish it 
+    ctx = myqtt.Ctx ()
+
+    # init context and finish it */
+    info ("init context..")
+    if not ctx.init ():
+        error ("Failed to init MyQtt context")
+        return False
+
+    # ok, now finish context
+    info ("finishing context..")
+    ctx.exit ()
+
+    # finish ctx 
+    del ctx
+
+    return True
+
+def test_02():
+    # call to initialize a context 
+    ctx = myqtt.Ctx ()
+
+    # call to init ctx 
+    if not ctx.init ():
+        error ("Failed to init MyQtt context")
+        return False
+
+    # call to create a connection
+    conn = myqtt.Conn (ctx, host, port)
+
+    # check connection status after if 
+    if not conn.is_ok ():
+        error ("Expected to find proper connection result, but found error. Error code was: " + str(conn.status) + ", message: " + conn.error_msg)
+        return False
+
+    info ("MQTT connection created to: " + conn.host + ":" + conn.port) 
+    
+    # now close the connection
+    info ("Now closing the MQTT session..")
+    conn.close ()
+
+    ctx.exit ()
+
+    # finish ctx 
+    del ctx
+
+    return True
+
+
 
 ###########################
 # intrastructure support  #
@@ -197,6 +247,8 @@ def run_all_tests ():
 # declare list of tests available
 tests = [
    (test_00_a, "Check PyMyQtt async queue wrapper"),
+   (test_01,   "Check PyMyQtt context initialization"),
+   (test_02,   "Check PyMyQtt basic MQTT connection"),
 ]
 
 # declare default host and port
