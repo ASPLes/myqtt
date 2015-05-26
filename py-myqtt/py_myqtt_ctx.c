@@ -606,6 +606,30 @@ axl_bool py_myqtt_ctx_bridge_event (MyQttCtx * ctx, axlPointer user_data, axlPoi
 	return _result;
 }
 
+static PyObject * py_myqtt_ctx_storage_set_path (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	const char         * storage_path = NULL;
+	int                  hash_size    = 4096;
+	MyQttCtx           * ctx;
+
+	/* now parse arguments */
+	static char *kwlist[] = {"storage_path", "hash_size", NULL};
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords (args, kwds, "si", kwlist, 
+					   &storage_path,
+					   &hash_size))
+		return NULL;
+
+	/* configure path */
+	ctx = py_myqtt_ctx_get (self);
+	myqtt_storage_set_path (ctx, storage_path, hash_size);
+
+	/* return None */
+	Py_INCREF (Py_None);
+	return Py_None;
+}
+
 /** 
  * @brief Allows to register a new callable event.
  */
@@ -710,6 +734,9 @@ static PyMethodDef py_myqtt_ctx_methods[] = {
 	/* exit */
 	{"exit", (PyCFunction) py_myqtt_ctx_exit, METH_NOARGS,
 	 "Finish the MyQtt context. This call must be the last one MyQtt API usage (for this context)."},
+	/* storage_set_path */
+	{"storage_set_path", (PyCFunction) py_myqtt_ctx_storage_set_path, METH_VARARGS | METH_KEYWORDS,
+	 "Allows to configure storage path used by the provided content to hold messages in transit. This method implements support for myqtt_storage_set_path C API."},
 	/* new_event */
 	{"new_event", (PyCFunction) py_myqtt_ctx_new_event, METH_VARARGS | METH_KEYWORDS,
 	 "Function that allows to configure an asynchronous event calling to the handler defined, between the intervals defined. This function is the interface to myqtt_thread_pool_event_new."},

@@ -77,12 +77,12 @@ static PyObject * py_myqtt_create_listener (PyObject * self, PyObject * args, Py
 {
 	const char         * host          = NULL;
 	const char         * port          = NULL;
-	PyObject           * py_myqtt_ctx = NULL;
-	MyQttConn   * listener      = NULL;
+	PyObject           * py_myqtt_ctx  = NULL;
+	MyQttConn          * listener      = NULL;
 	PyObject           * py_listener;
 
 	/* now parse arguments */
-	static char *kwlist[] = {"ctx", "host", "port", NULL};
+	static char        * kwlist[] = {"ctx", "host", "port", NULL};
 
 	/* parse and check result */
 	if (! PyArg_ParseTupleAndKeywords (args, kwds, "Oss", kwlist, &py_myqtt_ctx, &host, &port))
@@ -99,7 +99,7 @@ static PyObject * py_myqtt_create_listener (PyObject * self, PyObject * args, Py
 		       listener, myqtt_conn_is_ok (listener, axl_false));
 
 	/* do not check if the connection is ok, to return a different
-	   value. Rather return a PyMyQttConnection in all cases
+	   value. Rather return a PyMyQttConn in all cases
 	   allowing the user to call to .is_ok () */
 
 	/* create the listener and acquire a reference to the
@@ -120,7 +120,7 @@ static PyObject * py_myqtt_create_listener (PyObject * self, PyObject * args, Py
 		       myqtt_conn_get_port (listener),
 		       myqtt_conn_ref_count (listener),
 		       myqtt_conn_get_id (listener));
-	
+
 	return py_listener;
 }
 

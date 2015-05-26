@@ -133,7 +133,7 @@ static PyObject * py_myqtt_conn_new (PyTypeObject *type, PyObject *args, PyObjec
 	PyObject           * py_myqtt_ctx = NULL;
 
 	/* now parse arguments */
-	static char *kwlist[] = {"ctx", "client_identifier", "clean_session", "keep_alive", "host", "port", NULL};
+	static char *kwlist[] = {"ctx", "host", "port", "client_identifier", "clean_session", "keep_alive", NULL};
 
 	/* create the object */
 	self = (PyMyQttConn *)type->tp_alloc(type, 0);
@@ -141,8 +141,8 @@ static PyObject * py_myqtt_conn_new (PyTypeObject *type, PyObject *args, PyObjec
 	/* check args */
 	if (args != NULL) {
 		/* parse and check result */
-		if (! PyArg_ParseTupleAndKeywords(args, kwds, "Oziiss", kwlist, 
-						  &py_myqtt_ctx, &client_identifier, &clean_session, &keep_alive, &host, &port)) 
+		if (! PyArg_ParseTupleAndKeywords(args, kwds, "|Osszii", kwlist, 
+						  &py_myqtt_ctx, &host, &port, &client_identifier, &clean_session, &keep_alive)) 
 			return NULL;
 
 		/* check for empty creation */
@@ -774,8 +774,8 @@ static PyMethodDef py_myqtt_conn_methods[] = {
 static PyTypeObject PyMyQttConnType = {
     PyObject_HEAD_INIT(NULL)
     0,                         /* ob_size*/
-    "myqtt.Conn",       /* tp_name*/
-    sizeof(PyMyQttConn),/* tp_basicsize*/
+    "myqtt.Conn",              /* tp_name*/
+    sizeof(PyMyQttConn),       /* tp_basicsize*/
     0,                         /* tp_itemsize*/
     (destructor)py_myqtt_conn_dealloc, /* tp_dealloc*/
     0,                         /* tp_print*/
@@ -789,7 +789,7 @@ static PyTypeObject PyMyQttConnType = {
     0,                         /* tp_hash */
     0,                         /* tp_call*/
     0,                         /* tp_str*/
-    py_myqtt_conn_get_attr, /* tp_getattro*/
+    py_myqtt_conn_get_attr,    /* tp_getattro*/
     0,                         /* tp_setattro*/
     0,                         /* tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,  /* tp_flags*/
@@ -832,9 +832,9 @@ static PyTypeObject PyMyQttConnType = {
  *
  * @return A newly created PyMyQttConn reference.
  */
-PyObject * py_myqtt_conn_create   (MyQttConn * conn, 
-					  axl_bool           acquire_ref,
-					  axl_bool           close_ref)
+PyObject * py_myqtt_conn_create   (MyQttConn  * conn, 
+				   axl_bool     acquire_ref,
+				   axl_bool     close_ref)
 {
 	/* return a new instance */
 	PyMyQttConn * obj = (PyMyQttConn *) PyObject_CallObject ((PyObject *) &PyMyQttConnType, NULL); 
