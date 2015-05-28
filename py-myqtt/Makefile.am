@@ -1,4 +1,4 @@
-SUBDIRS = . test
+SUBDIRS = . test doc
 
 EXTRA_DIST=__init__.py tls.py
 

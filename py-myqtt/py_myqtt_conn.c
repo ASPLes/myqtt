@@ -530,6 +530,44 @@ void py_myqtt_conn_set_on_close_handler (MyQttConn * conn,
 	return;
 }
 
+PyObject * py_myqtt_conn_sub (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	int          wait_sub  = 10;
+	const char * topic     = NULL;
+	int          qos       = 0;
+	axl_bool     result;
+	int          sub_result = 0;
+	MyQttConn  * conn;
+		
+	
+	/* now parse arguments */
+	static char *kwlist[] = {"topic", "qos", "wait_sub", NULL};
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords(args, kwds, "s|ii", kwlist, &topic, &qos, &wait_sub))
+		return NULL;
+
+	/* allow threads */
+	Py_BEGIN_ALLOW_THREADS
+
+	/* call to subscribe */
+	conn   = py_myqtt_conn_get (self);
+	result = myqtt_conn_sub (conn, wait_sub, topic, qos, &sub_result);
+
+	/* end threads */
+	Py_END_ALLOW_THREADS
+
+	if (! result) {
+		/* return (status, None) */
+		Py_INCREF (Py_None);
+		return Py_BuildValue ("(iO)", result, Py_None);
+	} /* end if */
+
+	/* return Qos reported (status, qos)  */
+	return Py_BuildValue ("(ii)", result, sub_result);
+}
+
+
 PyObject * py_myqtt_conn_set_on_close (PyObject * self, PyObject * args, PyObject * kwds)
 {
 	PyObject                  * on_close      = NULL;
@@ -734,6 +772,9 @@ static PyMethodDef py_myqtt_conn_methods[] = {
 	/* is_ok */
 	{"is_ok", (PyCFunction) py_myqtt_conn_is_ok, METH_NOARGS,
 	 "Allows to check current myqtt.Conn status. In the case False is returned the conn is no longer operative. "},
+	/* sub */
+	{"sub", (PyCFunction) py_myqtt_conn_sub, METH_VARARGS | METH_KEYWORDS,
+	 "API wrapper for myqtt_conn_sub. This method allows to subscribe to a particular topic."},
 	/* set_on_close */
 	{"set_on_close", (PyCFunction) py_myqtt_conn_set_on_close, METH_VARARGS | METH_KEYWORDS,
 	 "API wrapper for myqtt_conn_set_on_close_full. This method allows to configure a handler which will be called in case the conn is closed. This is useful to detect client or server broken conn."},

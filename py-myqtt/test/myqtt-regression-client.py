@@ -212,6 +212,47 @@ def test_02():
     return True
 
 
+def test_03 ():
+    # call to initialize a context 
+    ctx = myqtt.Ctx ()
+
+    # call to init ctx 
+    if not ctx.init ():
+        error ("Failed to init MyQtt context")
+        return False
+
+    # call to create a connection
+    conn = myqtt.Conn (ctx, host, port)
+
+    # check connection status after if 
+    if not conn.is_ok ():
+        error ("Expected to find proper connection result, but found error. Error code was: " + str(conn.status) + ", message: " + conn.error_msg)
+        return False
+
+    info ("MQTT connection created to: " + conn.host + ":" + conn.port) 
+
+    # now subscribe
+    (status, sub_qos) = conn.sub ("topic", myqtt.qos0, 10)
+    if not status:
+        error ("Failed to subscribe")
+        return False
+
+    info ("Subscription done, sub_qos is: %d" % sub_qos)
+
+    # check here subscriptions done
+    
+    # now close the connection
+    info ("Now closing the MQTT session..")
+    conn.close ()
+
+    ctx.exit ()
+
+    # finish ctx 
+    del ctx
+
+    return True
+
+
 
 ###########################
 # intrastructure support  #
@@ -249,11 +290,12 @@ tests = [
    (test_00_a, "Check PyMyQtt async queue wrapper"),
    (test_01,   "Check PyMyQtt context initialization"),
    (test_02,   "Check PyMyQtt basic MQTT connection"),
+   (test_03,   "Check PyMyQtt basic MQTT connection and subscription"),
 ]
 
 # declare default host and port
 host     = "localhost"
-port     = "44010"
+port     = "34010"
 
 if __name__ == '__main__':
     iterator = 0
@@ -269,6 +311,7 @@ if __name__ == '__main__':
 
     # drop a log
     info ("Running tests against " + host + ":" + port)
+    info ("For valgrind, run with: libtool --mode=execute valgrind --leak-check=yes  --suppressions=suppressions.valgrind  ./myqtt-regression-client.py")
 
     # call to run all tests
     run_all_tests ()
