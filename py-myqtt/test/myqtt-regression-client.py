@@ -252,6 +252,77 @@ def test_03 ():
 
     return True
 
+def test_04 ():
+    # call to initialize a context 
+    ctx = myqtt.Ctx ()
+
+    # call to init ctx 
+    if not ctx.init ():
+        error ("Failed to init MyQtt context")
+        return False
+
+    # call to create a connection
+    conn = myqtt.Conn (ctx, host, port)
+
+    # check connection status after if 
+    if not conn.is_ok ():
+        error ("Expected to find proper connection result, but found error. Error code was: " + str(conn.status) + ", message: " + conn.error_msg)
+        return False
+
+    info ("MQTT connection created to: " + conn.host + ":" + conn.port) 
+
+    # call to create a connection
+    conn2 = myqtt.Conn (ctx, host, port)
+
+    # check connection status after if 
+    if not conn2.is_ok ():
+        error ("Expected to find proper connection result, but found error. Error code was: " + str(conn.status) + ", message: " + conn.error_msg)
+        return False
+
+    # now subscribe with conn
+    (status, sub_qos) = conn.sub ("topic", myqtt.qos0, 10)
+    if not status:
+        error ("Failed to subscribe")
+        return False
+
+    info ("Subscription done, sub_qos is: %d" % sub_qos)
+
+    # create queue
+    queue = myqtt.AsyncQueue ()
+    conn.set_on_msg (conn, test_04_on_msg, queue)
+    conn.set_on_msg (conn2, test_04_fail)
+
+    if not conn.pub ("topic", "This is a test message....", 24, myqtt.qos0, False, 0):
+        error ("Failed to publish message..")
+        return False
+
+    # receive message
+    msg = queue.pop ()
+
+    if msg.payload_size != 24:
+        error ("Failed to publish message..")
+        return False
+
+    if msg.type != myqtt.PUBLISH:
+        error ("Expected PUBLISH message but found: %d" % msg.type)
+        return False
+
+    if msg.payload != "This is a test message....":
+        error ("Expected different message, but found: " + msg.payload)
+        return False
+
+    # now close the connection
+    info ("Now closing both MQTT sessions..")
+    conn.close ()
+    conn2.close ()
+
+    ctx.exit ()
+
+    # finish ctx 
+    del ctx
+
+    return True
+
 
 
 ###########################
@@ -291,6 +362,7 @@ tests = [
    (test_01,   "Check PyMyQtt context initialization"),
    (test_02,   "Check PyMyQtt basic MQTT connection"),
    (test_03,   "Check PyMyQtt basic MQTT connection and subscription"),
+   (test_04,   "Check PyMyQtt basic subscribe function (QOS 0) and publish"),
 ]
 
 # declare default host and port
