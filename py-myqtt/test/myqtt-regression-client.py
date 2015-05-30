@@ -252,6 +252,16 @@ def test_03 ():
 
     return True
 
+def test_04_on_msg (ctx, conn, msg, data):
+    info ("Test --: called test_04_on_msg, pushing message...")
+    queue = data
+    queue.push (msg)
+    return
+
+def test_04_fail (ctx, conn, msg, data):
+    error ("test_04_fail: Shouldn't be called, failing..")
+    return
+
 def test_04 ():
     # call to initialize a context 
     ctx = myqtt.Ctx ()
@@ -262,7 +272,10 @@ def test_04 ():
         return False
 
     # call to create a connection
-    conn = myqtt.Conn (ctx, host, port)
+    # client_identifier = "test_03"
+    # clean_session = True
+    # keep_alive = 30
+    conn = myqtt.Conn (ctx, host, port, "test_03", True, 30)
 
     # check connection status after if 
     if not conn.is_ok ():
@@ -272,7 +285,10 @@ def test_04 ():
     info ("MQTT connection created to: " + conn.host + ":" + conn.port) 
 
     # call to create a connection
-    conn2 = myqtt.Conn (ctx, host, port)
+    # client_identifier = "test_03-2"
+    # clean_session = True
+    # keep_alive = 30
+    conn2 = myqtt.Conn (ctx, host, port, "test_03-2", True, 30)
 
     # check connection status after if 
     if not conn2.is_ok ():
@@ -289,26 +305,28 @@ def test_04 ():
 
     # create queue
     queue = myqtt.AsyncQueue ()
-    conn.set_on_msg (conn, test_04_on_msg, queue)
-    conn.set_on_msg (conn2, test_04_fail)
+    conn.set_on_msg (test_04_on_msg, queue)
+    conn2.set_on_msg (test_04_fail)
 
+    info ("Publishing message...")
     if not conn.pub ("topic", "This is a test message....", 24, myqtt.qos0, False, 0):
         error ("Failed to publish message..")
         return False
 
     # receive message
+    info ("Getting notification from queue (should call test_04_on_msg)")
     msg = queue.pop ()
 
-    if msg.payload_size != 24:
-        error ("Failed to publish message..")
+    if msg.size != 24:
+        error ("Expected payload size of 24 but found: %d.." % msg.payload_size)
         return False
 
-    if msg.type != myqtt.PUBLISH:
-        error ("Expected PUBLISH message but found: %d" % msg.type)
+    if msg.type != "PUBLISH":
+        error ("Expected PUBLISH message but found: %s" % msg.type)
         return False
 
-    if msg.payload != "This is a test message....":
-        error ("Expected different message, but found: " + msg.payload)
+    if msg.content != "This is a test message..":
+        error ("Expected different message, but found: " + msg.content)
         return False
 
     # now close the connection
@@ -362,7 +380,7 @@ tests = [
    (test_01,   "Check PyMyQtt context initialization"),
    (test_02,   "Check PyMyQtt basic MQTT connection"),
    (test_03,   "Check PyMyQtt basic MQTT connection and subscription"),
-   (test_04,   "Check PyMyQtt basic subscribe function (QOS 0) and publish"),
+   (test_04,   "Check PyMyQtt basic subscribe function (QOS 0) and publish")
 ]
 
 # declare default host and port
