@@ -766,8 +766,9 @@ axl_bool test_03 (void) {
 	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
 	myqtt_conn_set_on_msg (conn2, test_03_fail, NULL);
 
-	/* publish application message */
-	if (! myqtt_conn_pub (conn, "myqtt/test", "This is test message....", 24, MYQTT_QOS_0, axl_false, 0)) {
+	/* publish application message (the message sent here is
+	 * bigger than 24, this is on purpose) */
+	if (! myqtt_conn_pub (conn, "myqtt/test", "This is test message........", 24, MYQTT_QOS_0, axl_false, 0)) {
 		printf ("ERROR: unable to publish message, myqtt_conn_pub() failed\n");
 		return axl_false;
 	} /* end if */

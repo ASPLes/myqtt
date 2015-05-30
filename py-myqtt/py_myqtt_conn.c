@@ -530,6 +530,76 @@ void py_myqtt_conn_set_on_close_handler (MyQttConn * conn,
 	return;
 }
 
+/** 
+ * @internal 
+ */
+typedef struct _PyMyQttConnSetOnMsgData {
+	PyObject           * on_msg;
+	PyObject           * on_msg_data;
+} PyMyQttConnSetOnMsgData;
+
+void py_myqtt_conn_set_on_msg_handler (MyQttCtx     * ctx,
+				       MyQttConn    * conn, 
+				       MyQttMsg     * msg,
+				       axlPointer     _on_msg_obj)
+{
+	PyMyQttConnSetOnMsgData      * on_msg_obj = _on_msg_obj;
+	PyGILState_STATE               state;
+	PyObject                     * args;
+	PyObject                     * result;
+	PyObject                     * py_conn;
+
+	/* notify on close notification received */
+	py_myqtt_log (PY_MYQTT_DEBUG, "received on msg notification for conn id=%d, (internal: %p)", 
+		       myqtt_conn_get_id (conn), _on_msg_obj);
+	
+	/*** bridge into python ***/
+	/* acquire the GIL */
+	state = PyGILState_Ensure();
+
+	/* create a tuple to contain arguments */
+	args = PyTuple_New (4);
+
+	/* param 0: ctx */
+	PyTuple_SetItem (args, 0, py_myqtt_ctx_create (ctx));
+
+	/* param 1: conn */
+	py_conn = py_myqtt_conn_create (conn, axl_true, axl_false);
+	PyTuple_SetItem (args, 1, py_conn);
+
+	/* param 2: msg */
+	PyTuple_SetItem (args, 2, py_myqtt_msg_create (msg, axl_true));
+
+	/* param 3: on msg data */
+	Py_INCREF (on_msg_obj->on_msg_data);
+	PyTuple_SetItem (args, 3, on_msg_obj->on_msg_data);
+
+	/* record handler */
+	START_HANDLER (on_msg_obj->on_msg);
+
+	/* now invoke */
+	result = PyObject_Call (on_msg_obj->on_msg, args, NULL);
+
+	/* unrecord handler */
+	CLOSE_HANDLER (on_msg_obj->on_msg);
+
+	py_myqtt_log (PY_MYQTT_DEBUG, "conn on msg notification finished, checking for exceptions..");
+	py_myqtt_handle_and_clear_exception (py_conn);
+
+	Py_XDECREF (result);
+	Py_DECREF (args);
+
+	/* now release the rest of data */
+	/* Py_DECREF (on_msg_obj->py_conn); */
+	/* Py_DECREF (on_msg_obj->on_close);*/
+	/* Py_DECREF (on_msg_obj->on_msg_data); */
+
+	/* release the GIL */
+	PyGILState_Release(state);
+
+	return;
+}
+
 PyObject * py_myqtt_conn_sub (PyObject * self, PyObject * args, PyObject * kwds)
 {
 	int          wait_sub  = 10;
@@ -565,6 +635,118 @@ PyObject * py_myqtt_conn_sub (PyObject * self, PyObject * args, PyObject * kwds)
 
 	/* return Qos reported (status, qos)  */
 	return Py_BuildValue ("(ii)", result, sub_result);
+}
+
+PyObject * py_myqtt_conn_pub (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	const char * topic        = NULL;
+	const char * msg          = NULL;
+	int          qos          = 0;
+	int          msg_size     = 0;
+	axl_bool     retain       = axl_false;
+	int          wait_publish = 10;
+
+	axl_bool     result;
+	MyQttConn  * conn;
+		
+	
+	/* now parse arguments */
+	static char *kwlist[] = {"topic", "msg", "msg_size", "qos", "retain", "wait_publish", NULL};
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords(args, kwds, "szi|iii", kwlist, &topic, &msg, &msg_size, &qos, &retain, &wait_publish))
+		return NULL;
+
+	/* allow threads */
+	Py_BEGIN_ALLOW_THREADS
+
+	/* call to subscribe */
+	conn   = py_myqtt_conn_get (self);
+	result = myqtt_conn_pub (conn, topic, (axlPointer) msg, msg_size, qos, retain, wait_publish);
+
+	/* report a simple log here */
+	py_myqtt_log (result == axl_false ? PY_MYQTT_CRITICAL : PY_MYQTT_DEBUG, "myqtt_conn_pub () = %d (reported), %s", 
+		      result,
+		      result == axl_false ? "failed to publish message" : "message published without errors");
+
+	/* end threads */
+	Py_END_ALLOW_THREADS
+
+	/* report value found */
+	return Py_BuildValue ("i", result);
+}
+
+PyObject * py_myqtt_conn_set_on_msg (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	PyObject                  * on_msg        = NULL;
+	PyObject                  * on_msg_data   = Py_None;
+	PyMyQttConnSetOnMsgData   * on_msg_obj;
+	
+	/* now parse arguments */
+	static char *kwlist[] = {"on_msg", "on_msg_data", NULL};
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords(args, kwds, "O|O", kwlist, &on_msg, &on_msg_data))
+		return NULL;
+
+	/* check handler received */
+	if (on_msg == NULL || ! PyCallable_Check (on_msg)) {
+		py_myqtt_log (PY_MYQTT_CRITICAL, "received on_msg handler which is not a callable object");
+		return NULL;
+	} /* end if */
+
+	/* configure an on msg handler to bridge into python. In this
+	 * case we are reusing PyMyQttConnSetOnMsgData reference.  */
+	on_msg_obj = axl_new (PyMyQttConnSetOnMsgData, 1);
+	if (on_msg_obj == NULL) {
+		py_myqtt_log (PY_MYQTT_CRITICAL, "received on_msg handler but unable to acquire memory required to store handlers during operations");
+		return NULL;
+	} /* end if */
+		
+	/* set reference to release it when the connection is
+	 * closed */
+	myqtt_conn_set_data_full (py_myqtt_conn_get (self),
+				  axl_strdup_printf ("%p", on_msg_obj),
+				  on_msg_obj,
+				  axl_free, axl_free);
+
+	/* configure on_close handler */
+	on_msg_obj->on_msg = on_msg;
+	Py_INCREF (on_msg);
+
+	/* configure on_close_data handler data */
+	if (on_msg_data == NULL)
+		on_msg_data = Py_None;
+	on_msg_obj->on_msg_data = on_msg_data;
+	Py_INCREF (on_msg_data);
+
+	/* now acquire a reference to the handler and the data to make
+	 * them permanent during the execution of the script *and* to
+	 * release them when finishing the connection */
+	myqtt_conn_set_data_full (py_myqtt_conn_get (self),
+				  axl_strdup_printf ("%p", on_msg),
+				  on_msg,
+				  axl_free,
+				  (axlDestroyFunc) py_myqtt_decref);
+	myqtt_conn_set_data_full (py_myqtt_conn_get (self),
+				  axl_strdup_printf ("%p", on_msg_data),
+				  on_msg_data,
+				  axl_free,
+				  (axlDestroyFunc) py_myqtt_decref);
+
+	/* configure on_close_full */
+	myqtt_conn_set_on_msg (
+               /* the conn with on close */
+	       py_myqtt_conn_get (self),
+	       /* the handler */
+	       py_myqtt_conn_set_on_msg_handler, 
+	       /* the object with all references */
+	       on_msg_obj);
+
+	/* create a handle that allows to remove this particular
+	   handler. This handler can be used to remove the on close
+	   handler */
+	return py_myqtt_handle_create (on_msg_obj, NULL);
 }
 
 
@@ -775,6 +957,12 @@ static PyMethodDef py_myqtt_conn_methods[] = {
 	/* sub */
 	{"sub", (PyCFunction) py_myqtt_conn_sub, METH_VARARGS | METH_KEYWORDS,
 	 "API wrapper for myqtt_conn_sub. This method allows to subscribe to a particular topic."},
+	/* pub */
+	{"pub", (PyCFunction) py_myqtt_conn_pub, METH_VARARGS | METH_KEYWORDS,
+	 "API wrapper for myqtt_conn_pub. This method allows to publish to a particular topic."},
+	/* set_on_msg */
+	{"set_on_msg", (PyCFunction) py_myqtt_conn_set_on_msg, METH_VARARGS | METH_KEYWORDS,
+	 "API wrapper for myqtt_conn_set_on_msg. This method allows to configure a handler which will be called in case a message is receoved on the provided connection."},
 	/* set_on_close */
 	{"set_on_close", (PyCFunction) py_myqtt_conn_set_on_close, METH_VARARGS | METH_KEYWORDS,
 	 "API wrapper for myqtt_conn_set_on_close_full. This method allows to configure a handler which will be called in case the conn is closed. This is useful to detect client or server broken conn."},

@@ -391,9 +391,16 @@ PyObject * py_myqtt_ctx_exit (PyMyQttCtx* self)
 {
 	if (self->exit_pending) {
 		py_myqtt_log (PY_MYQTT_DEBUG, "finishing myqtt.Ctx %p (self->ctx: %p)", self, self->ctx);
+
+		/* let other threads to work after this */
+		Py_BEGIN_ALLOW_THREADS
+
 		/* call to finish context: do not dealloc ->ctx, this is
 		   already done by the type deallocator */
 		myqtt_exit_ctx (self->ctx, axl_false);
+
+		/* restore thread state */
+		Py_END_ALLOW_THREADS
 
 		/* flag as exit done */
 		self->exit_pending = axl_false;
@@ -820,7 +827,7 @@ PyObject * py_myqtt_ctx_create (MyQttCtx * ctx)
 		obj->exit_pending = axl_false;
 		
 		py_myqtt_log (PY_MYQTT_DEBUG, "created myqtt.Ctx (self: %p, self->ctx: %p)", 
-			       obj, obj->ctx);
+			      obj, obj->ctx);
 		
 		return __PY_OBJECT (obj);
 	} /* end if */

@@ -106,6 +106,12 @@ PyObject * py_myqtt_msg_get_attr (PyObject *o, PyObject *attr_name) {
 	} else if (axl_cmp (attr, "type")) {
 		/* return string type */
 		return Py_BuildValue ("s", myqtt_msg_get_type_str (self->msg));
+	} else if (axl_cmp (attr, "size")) {
+		/* get msg_size attribute */
+		return Py_BuildValue ("i", myqtt_msg_get_app_msg_size (self->msg));
+	} else if (axl_cmp (attr, "content")) {
+		/* get payload attribute */
+		return Py_BuildValue ("z#", myqtt_msg_get_app_msg (self->msg), myqtt_msg_get_app_msg_size (self->msg));
 	} else if (axl_cmp (attr, "payload_size")) {
 		/* get payload_size attribute */
 		return Py_BuildValue ("i", myqtt_msg_get_payload_size (self->msg));

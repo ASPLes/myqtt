@@ -60,8 +60,8 @@ void                 init_myqtt_conn        (PyObject           * module);
 MyQttConn          * py_myqtt_conn_get      (PyObject           * py_conn);
 
 PyObject           * py_myqtt_conn_create   (MyQttConn   * conn, 
-						    axl_bool             acquire_ref,
-						    axl_bool             close_ref);
+					     axl_bool             acquire_ref,
+					     axl_bool             close_ref);
 
 PyObject           * py_myqtt_conn_shutdown (PyMyQttConn * self);
 
