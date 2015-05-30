@@ -676,6 +676,35 @@ PyObject * py_myqtt_conn_pub (PyObject * self, PyObject * args, PyObject * kwds)
 	return Py_BuildValue ("i", result);
 }
 
+PyObject * py_myqtt_conn_ping (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	int          wait_pingresp = 10;
+	axl_bool     result;
+	MyQttConn  * conn;
+		
+	
+	/* now parse arguments */
+	static char *kwlist[] = {"wait_pingresp", NULL};
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords(args, kwds, "|i", kwlist, &wait_pingresp))
+		return NULL;
+
+	/* allow threads */
+	Py_BEGIN_ALLOW_THREADS
+
+	/* call to subscribe */
+	conn   = py_myqtt_conn_get (self);
+	result = myqtt_conn_ping (conn, wait_pingresp);
+
+	/* end threads */
+	Py_END_ALLOW_THREADS
+
+	/* report value found */
+	return Py_BuildValue ("i", result);
+}
+
+
 PyObject * py_myqtt_conn_set_on_msg (PyObject * self, PyObject * args, PyObject * kwds)
 {
 	PyObject                  * on_msg        = NULL;
@@ -960,6 +989,9 @@ static PyMethodDef py_myqtt_conn_methods[] = {
 	/* pub */
 	{"pub", (PyCFunction) py_myqtt_conn_pub, METH_VARARGS | METH_KEYWORDS,
 	 "API wrapper for myqtt_conn_pub. This method allows to publish to a particular topic."},
+	/* ping */
+	{"ping", (PyCFunction) py_myqtt_conn_ping, METH_VARARGS | METH_KEYWORDS,
+	 "API wrapper for myqtt_conn_ping. This method allows to ping connect server."},
 	/* set_on_msg */
 	{"set_on_msg", (PyCFunction) py_myqtt_conn_set_on_msg, METH_VARARGS | METH_KEYWORDS,
 	 "API wrapper for myqtt_conn_set_on_msg. This method allows to configure a handler which will be called in case a message is receoved on the provided connection."},
