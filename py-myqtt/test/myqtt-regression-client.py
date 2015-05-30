@@ -341,7 +341,31 @@ def test_04 ():
 
     return True
 
+def test_05 ():
+    # call to initialize a context 
+    ctx = myqtt.Ctx ()
 
+    # call to init ctx 
+    if not ctx.init ():
+        error ("Failed to init MyQtt context")
+        return False
+
+    # call to create a connection
+    # client_identifier = "test_05"
+    # clean_session = True
+    # keep_alive = 30
+    conn = myqtt.Conn (ctx, host, port, "test_05", True, 30)
+
+    # check connection status after if 
+    if not conn.is_ok ():
+        error ("Expected to find proper connection result, but found error. Error code was: " + str(conn.status) + ", message: " + conn.error_msg)
+        return False
+
+    if not conn.ping (10):
+        error ("Expected to ping server without error, but found failure")
+        return False
+
+    return True
 
 ###########################
 # intrastructure support  #
@@ -380,7 +404,8 @@ tests = [
    (test_01,   "Check PyMyQtt context initialization"),
    (test_02,   "Check PyMyQtt basic MQTT connection"),
    (test_03,   "Check PyMyQtt basic MQTT connection and subscription"),
-   (test_04,   "Check PyMyQtt basic subscribe function (QOS 0) and publish")
+   (test_04,   "Check PyMyQtt basic subscribe function (QOS 0) and publish"),
+   (test_05,   "Check PyMyQtt check ping server (PINGREQ)")
 ]
 
 # declare default host and port
