@@ -637,6 +637,156 @@ static PyObject * py_myqtt_ctx_storage_set_path (PyObject * self, PyObject * arg
 	return Py_None;
 }
 
+typedef struct _PyMyQttCtxSetOnPublishData {
+
+	PyObject           * on_publish;
+	PyObject           * on_publish_data;
+
+} PyMyQttCtxSetOnPublishData;
+
+MyQttPublishCodes py_myqtt_ctx_set_on_publish_handler (MyQttCtx     * ctx,
+						       MyQttConn    * conn, 
+						       MyQttMsg     * msg,
+						       axlPointer     _on_publish_obj)
+{
+	PyMyQttCtxSetOnPublishData   * on_publish_obj = _on_publish_obj;
+	PyGILState_STATE               state;
+	PyObject                     * args;
+	PyObject                     * result;
+	PyObject                     * py_conn;
+	MyQttPublishCodes              codes = MYQTT_PUBLISH_OK;
+
+	/* notify on close notification received */
+	py_myqtt_log (PY_MYQTT_DEBUG, "received on publish notification for conn id=%d, (internal: %p)", 
+		      myqtt_conn_get_id (conn), _on_publish_obj);
+	
+	/*** bridge into python ***/
+	/* acquire the GIL */
+	state = PyGILState_Ensure();
+
+	/* create a tuple to contain arguments */
+	args = PyTuple_New (4);
+
+	/* param 0: ctx */
+	PyTuple_SetItem (args, 0, py_myqtt_ctx_create (ctx));
+
+	/* param 1: conn */
+	py_conn = py_myqtt_conn_create (conn, axl_true, axl_false);
+	PyTuple_SetItem (args, 1, py_conn);
+
+	/* param 2: msg */
+	PyTuple_SetItem (args, 2, py_myqtt_msg_create (msg, axl_true));
+
+	/* param 3: on msg data */
+	Py_INCREF (on_publish_obj->on_publish_data);
+	PyTuple_SetItem (args, 3, on_publish_obj->on_publish_data);
+
+	/* record handler */
+	START_HANDLER (on_publish_obj->on_publish);
+
+	/* now invoke */
+	result = PyObject_Call (on_publish_obj->on_publish, args, NULL);
+
+	/* unrecord handler */
+	CLOSE_HANDLER (on_publish_obj->on_publish);
+
+	py_myqtt_log (PY_MYQTT_DEBUG, "conn on publish notification finished, checking for exceptions..");
+	py_myqtt_handle_and_clear_exception (py_conn);
+
+	if (PyInt_Check (result)) {
+		codes = PyInt_AsLong (result);
+	} else {
+		py_myqtt_log (PY_MYQTT_DEBUG, "on_publish handler is reporting something that is not an integer value (myqtt.PUBLISH_OK, myqtt.PUBLISH_DISCARD, myqtt.PUBLISH_CONN_CLOSE)");
+	}
+
+	Py_XDECREF (result);
+	Py_DECREF (args);
+
+	/* now release the rest of data */
+	/* Py_DECREF (on_publish_obj->py_conn); */
+	/* Py_DECREF (on_publish_obj->on_close);*/
+	/* Py_DECREF (on_publish_obj->on_publish_data); */
+
+	/* release the GIL */
+	PyGILState_Release(state);
+
+	return codes;
+}
+
+
+PyObject * py_myqtt_ctx_set_on_publish (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	PyObject                     * on_publish        = NULL;
+	PyObject                     * on_publish_data   = Py_None;
+	PyMyQttCtxSetOnPublishData   * on_publish_obj;
+	
+	/* now parse arguments */
+	static char *kwlist[] = {"on_publish", "on_publish_data", NULL};
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords(args, kwds, "O|O", kwlist, &on_publish, &on_publish_data))
+		return NULL;
+
+	/* check handler received */
+	if (on_publish == NULL || ! PyCallable_Check (on_publish)) {
+		py_myqtt_log (PY_MYQTT_CRITICAL, "received on_publish handler which is not a callable object");
+		return NULL;
+	} /* end if */
+
+	/* configure an on msg handler to bridge into python. In this
+	 * case we are reusing PyMyQttConnSetOnMsgData reference.  */
+	on_publish_obj = axl_new (PyMyQttCtxSetOnPublishData, 1);
+	if (on_publish_obj == NULL) {
+		py_myqtt_log (PY_MYQTT_CRITICAL, "received on_publish handler but unable to acquire memory required to store handlers during operations");
+		return NULL;
+	} /* end if */
+		
+	/* set reference to release it when the connection is
+	 * closed */
+	myqtt_ctx_set_data_full (py_myqtt_ctx_get (self),
+				 axl_strdup_printf ("%p", on_publish_obj),
+				 on_publish_obj,
+				 axl_free, axl_free);
+
+	/* configure on_close handler */
+	on_publish_obj->on_publish = on_publish;
+	Py_INCREF (on_publish);
+
+	/* configure on_close_data handler data */
+	if (on_publish_data == NULL)
+		on_publish_data = Py_None;
+	on_publish_obj->on_publish_data = on_publish_data;
+	Py_INCREF (on_publish_data);
+
+	/* now acquire a reference to the handler and the data to make
+	 * them permanent during the execution of the script *and* to
+	 * release them when finishing the connection */
+	myqtt_ctx_set_data_full (py_myqtt_ctx_get (self),
+				 axl_strdup_printf ("%p", on_publish),
+				 on_publish,
+				 axl_free,
+				 (axlDestroyFunc) py_myqtt_decref);
+	myqtt_ctx_set_data_full (py_myqtt_ctx_get (self),
+				 axl_strdup_printf ("%p", on_publish_data),
+				 on_publish_data,
+				 axl_free,
+				 (axlDestroyFunc) py_myqtt_decref);
+
+	/* configure on publish handler */
+	myqtt_ctx_set_on_publish (
+		/* the ctx */
+		py_myqtt_ctx_get (self),
+		/* the handler */
+		py_myqtt_ctx_set_on_publish_handler, 
+		/* the object with all references */
+		on_publish_obj);
+
+	/* create a handle that allows to remove this particular
+	   handler. This handler can be used to remove the on close
+	   handler */
+	return py_myqtt_handle_create (on_publish_obj, NULL);
+}
+
 /** 
  * @brief Allows to register a new callable event.
  */
@@ -744,6 +894,9 @@ static PyMethodDef py_myqtt_ctx_methods[] = {
 	/* storage_set_path */
 	{"storage_set_path", (PyCFunction) py_myqtt_ctx_storage_set_path, METH_VARARGS | METH_KEYWORDS,
 	 "Allows to configure storage path used by the provided content to hold messages in transit. This method implements support for myqtt_storage_set_path C API."},
+	/* set_on_publish */
+	{"set_on_publish", (PyCFunction) py_myqtt_ctx_set_on_publish, METH_VARARGS | METH_KEYWORDS,
+	 "API wrapper for myqtt_ctx_set_on_publish. This method allows to configure a handler which will be called in case a message is received on the provided connection."},
 	/* new_event */
 	{"new_event", (PyCFunction) py_myqtt_ctx_new_event, METH_VARARGS | METH_KEYWORDS,
 	 "Function that allows to configure an asynchronous event calling to the handler defined, between the intervals defined. This function is the interface to myqtt_thread_pool_event_new."},

@@ -947,7 +947,7 @@ axl_bool test_06 (void) {
 	printf ("Test 06: creating connection..\n");
 
 	/* now connect to the listener:
-	   client_identifier -> test_05
+	   client_identifier -> test_06.identifier
 	   clean_session -> axl_true
 	   keep_alive -> 30 */
 	conn = myqtt_conn_new (ctx, "test_06.identifier", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);

@@ -450,6 +450,12 @@ PyObject * py_myqtt_conn_get_attr (PyObject *o, PyObject *attr_name) {
 	} else if (axl_cmp (attr, "ref_count")) {
 		/* return integer value */
 		return Py_BuildValue ("i", myqtt_conn_ref_count (self->conn));
+	} else if (axl_cmp (attr, "client_id")) {
+		/* return connection client id value */
+		return Py_BuildValue ("z", myqtt_conn_get_client_id (self->conn));
+	} else if (axl_cmp (attr, "last_err")) {
+		/* return last error reported */
+		return Py_BuildValue ("i", myqtt_conn_get_last_err (self->conn));
 	} /* end if */
 
 	/* printf ("Attribute not found: '%s'..\n", attr); */
@@ -702,6 +708,34 @@ PyObject * py_myqtt_conn_ping (PyObject * self, PyObject * args, PyObject * kwds
 
 	/* report value found */
 	return Py_BuildValue ("i", result);
+}
+
+PyObject * py_myqtt_conn_get_next (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	long         timeout;
+	MyQttConn  * conn;
+	MyQttMsg   * msg;
+		
+	
+	/* now parse arguments */
+	static char *kwlist[] = {"timeout", NULL};
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords(args, kwds, "l", kwlist, &timeout))
+		return NULL;
+
+	/* allow threads */
+	Py_BEGIN_ALLOW_THREADS
+
+	/* call to subscribe */
+	conn   = py_myqtt_conn_get (self);
+	msg    = myqtt_conn_get_next (conn, timeout);
+
+	/* end threads */
+	Py_END_ALLOW_THREADS
+
+	/* report value found */
+	return py_myqtt_msg_create (msg, axl_false);
 }
 
 
@@ -992,9 +1026,12 @@ static PyMethodDef py_myqtt_conn_methods[] = {
 	/* ping */
 	{"ping", (PyCFunction) py_myqtt_conn_ping, METH_VARARGS | METH_KEYWORDS,
 	 "API wrapper for myqtt_conn_ping. This method allows to ping connect server."},
+	/* get_next */
+	{"get_next", (PyCFunction) py_myqtt_conn_get_next, METH_VARARGS | METH_KEYWORDS,
+	 "API wrapper for myqtt_conn_get_next. This method allows to implement a synchronous blocking wait for the next message, limiting the wait to the amount of microseconds provided."},
 	/* set_on_msg */
 	{"set_on_msg", (PyCFunction) py_myqtt_conn_set_on_msg, METH_VARARGS | METH_KEYWORDS,
-	 "API wrapper for myqtt_conn_set_on_msg. This method allows to configure a handler which will be called in case a message is receoved on the provided connection."},
+	 "API wrapper for myqtt_conn_set_on_msg. This method allows to configure a handler which will be called in case a message is received on the provided connection."},
 	/* set_on_close */
 	{"set_on_close", (PyCFunction) py_myqtt_conn_set_on_close, METH_VARARGS | METH_KEYWORDS,
 	 "API wrapper for myqtt_conn_set_on_close_full. This method allows to configure a handler which will be called in case the conn is closed. This is useful to detect client or server broken conn."},
