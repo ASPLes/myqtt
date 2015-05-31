@@ -457,9 +457,13 @@ PyObject * py_myqtt_conn_get_attr (PyObject *o, PyObject *attr_name) {
 	} else if (axl_cmp (attr, "last_err")) {
 		/* return last error reported */
 		return Py_BuildValue ("i", myqtt_conn_get_last_err (self->conn));
+	} else if (axl_cmp (attr, "username")) {
+		/* return last error reported */
+		return Py_BuildValue ("z", myqtt_conn_get_username (self->conn));
+	} else if (axl_cmp (attr, "password")) {
+		/* return last error reported */
+		return Py_BuildValue ("z", myqtt_conn_get_password (self->conn));
 	} /* end if */
-
-	printf ("Attribute not found: '%s'..\n", attr);
 
 	/* first implement generic attr already defined */
 	result = PyObject_GenericGetAttr (o, attr_name);

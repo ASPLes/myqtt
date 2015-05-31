@@ -691,13 +691,14 @@ MyQttPublishCodes py_myqtt_ctx_set_on_publish_handler (MyQttCtx     * ctx,
 	CLOSE_HANDLER (on_publish_obj->on_publish);
 
 	py_myqtt_log (PY_MYQTT_DEBUG, "conn on publish notification finished, checking for exceptions..");
-	py_myqtt_handle_and_clear_exception (py_conn);
-
-	if (PyInt_Check (result)) {
-		codes = PyInt_AsLong (result);
-	} else {
-		py_myqtt_log (PY_MYQTT_DEBUG, "on_publish handler is reporting something that is not an integer value (myqtt.PUBLISH_OK, myqtt.PUBLISH_DISCARD, myqtt.PUBLISH_CONN_CLOSE)");
-	}
+	if (! py_myqtt_handle_and_clear_exception (py_conn)) {
+		/* no error was found */
+		if (PyInt_Check (result)) {
+			codes = PyInt_AsLong (result);
+		} else {
+			py_myqtt_log (PY_MYQTT_DEBUG, "on_publish handler is reporting something that is not an integer value (myqtt.PUBLISH_OK, myqtt.PUBLISH_DISCARD, myqtt.PUBLISH_CONN_CLOSE)");
+		}
+	} /* end if */
 
 	Py_XDECREF (result);
 	Py_DECREF (args);
@@ -837,12 +838,14 @@ MyQttConnAckTypes py_myqtt_ctx_set_on_connect_handler (MyQttCtx     * ctx,
 	CLOSE_HANDLER (on_connect_obj->on_connect);
 
 	py_myqtt_log (PY_MYQTT_DEBUG, "conn on connect notification finished, checking for exceptions..");
-	py_myqtt_handle_and_clear_exception (py_conn);
+	if (! py_myqtt_handle_and_clear_exception (py_conn)) {
+		/* no error was found */
 
-	if (PyInt_Check (result)) {
-		codes = PyInt_AsLong (result);
-	} else {
-		py_myqtt_log (PY_MYQTT_DEBUG, "on_connect handler is reporting something that is not an integer value (myqtt.CONNECT_OK, myqtt.CONNECT_DISCARD, myqtt.CONNECT_CONN_CLOSE)");
+		if (PyInt_Check (result)) {
+			codes = PyInt_AsLong (result);
+		} else {
+			py_myqtt_log (PY_MYQTT_DEBUG, "on_connect handler is reporting something that is not an integer value (myqtt.CONNECT_OK, myqtt.CONNECT_DISCARD, myqtt.CONNECT_CONN_CLOSE)");
+		} /* end if */
 	}
 
 	Py_XDECREF (result);
