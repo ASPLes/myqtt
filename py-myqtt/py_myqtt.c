@@ -273,6 +273,7 @@ PyMODINIT_FUNC  initlibpy_myqtt_10 (void)
 	init_myqtt_async_queue  (module);
 	init_myqtt_msg          (module);
 	init_myqtt_handle       (module);
+	init_myqtt_conn_opts    (module);
 
 	return;
 }

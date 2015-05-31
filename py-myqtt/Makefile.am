@@ -25,7 +25,8 @@ libpy_myqtt_10_la_include_HEADERS  = \
 	py_myqtt_ctx.h \
 	py_myqtt_conn.h  \
 	py_myqtt_async_queue.h \
-	py_myqtt_msg.h
+	py_myqtt_msg.h \
+	py_myqtt_conn_opts.h
 
 libpy_myqtt_10_la_SOURCES  = \
 	py_myqtt.c \
@@ -33,7 +34,8 @@ libpy_myqtt_10_la_SOURCES  = \
 	py_myqtt_ctx.c \
 	py_myqtt_conn.c \
 	py_myqtt_async_queue.c \
-	py_myqtt_msg.c
+	py_myqtt_msg.c \
+	py_myqtt_conn_opts.c
 
 libpy_myqtt_10_la_LDFLAGS  = $(PYTHON_LIBS) $(top_srcdir)/lib/libmyqtt-1.0.la $(AXL_LIBS)
 libpy_myqtt_10_la_includedir = $(includedir)/py_myqtt
