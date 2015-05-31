@@ -118,6 +118,12 @@ PyObject * py_myqtt_msg_get_attr (PyObject *o, PyObject *attr_name) {
 	} else if (axl_cmp (attr, "payload")) {
 		/* get payload attribute */
 		return Py_BuildValue ("z#", myqtt_msg_get_payload (self->msg), myqtt_msg_get_payload_size (self->msg));
+	} else if (axl_cmp (attr, "topic")) {
+		/* get message topic */
+		return Py_BuildValue ("z", myqtt_msg_get_topic (self->msg));
+	} else if (axl_cmp (attr, "qos")) {
+		/* get message qos */
+		return Py_BuildValue ("i", myqtt_msg_get_qos (self->msg));
 	} /* end if */
 
 	/* first implement generic attr already defined */
@@ -203,8 +209,10 @@ PyObject * py_myqtt_msg_create (MyQttMsg * msg, axl_bool acquire_ref)
 
 	/* set msg reference received */
 	if (obj && msg) {
-		/* increase reference counting */
-		myqtt_msg_ref (msg);
+		if (acquire_ref) {
+			/* increase reference counting */
+			myqtt_msg_ref (msg);
+		} /* end if */
 
 		/* acquire reference */
 		obj->msg = msg;

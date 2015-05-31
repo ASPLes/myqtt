@@ -38,6 +38,7 @@
 #                        http://www.aspl.es/myqtt
 #
 import myqtt
+import time
 
 import os
 import signal
@@ -55,6 +56,18 @@ def ok (msg):
 def signal_handler (signal, stackframe):
     print ("Received signal: " + str (signal))
     return
+
+def on_publish (ctx, conn, msg, data):
+    if msg.topic == "myqtt/admin/get-client-identifier":
+        time.sleep (1)
+        if not conn.pub ("myqtt/admin/get-client-identifier", conn.client_id, len (conn.client_id), myqtt.qos0, False, 0):
+            error ("Error: failed to publish the client identifier")
+
+        # now indicate engine to discard message received
+        return myqtt.PUBLISH_DISCARD
+
+    # let know engine to go ahead publishing the message received
+    return myqtt.PUBLISH_OK
 
 if __name__ == '__main__':
 
@@ -84,6 +97,9 @@ if __name__ == '__main__':
     if not listener.is_ok ():
         error ("ERROR: failed to start listener. Maybe there is another instance running at 34010?")
         sys.exit (-1)
+
+    # configure on publish
+    ctx.set_on_publish (on_publish)
 
     # do a wait operation
     info ("waiting requests..")

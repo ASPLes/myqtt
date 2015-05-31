@@ -367,6 +367,71 @@ def test_05 ():
 
     return True
 
+def test_06 ():
+    # call to initialize a context 
+    ctx = myqtt.Ctx ()
+
+    # call to init ctx 
+    if not ctx.init ():
+        error ("Failed to init MyQtt context")
+        return False
+
+    # call to create a connection
+    # client_identifier = "test_06.identifier"
+    # clean_session = True
+    # keep_alive = 30
+    conn = myqtt.Conn (ctx, host, port, "test_06.identifier", True, 30)
+
+    # check connection status after if 
+    if not conn.is_ok ():
+        error ("Expected to find proper connection result, but found error. Error code was: " + str(conn.status) + ", message: " + conn.error_msg)
+        return False
+
+    info ("Get client identifer as percieved by the server...")
+    if not conn.pub ("myqtt/admin/get-client-identifier", "", 0, myqtt.qos0, False, 0):
+        error ("Failed to publish message requesting client identifier..")
+        return False
+
+    info ("Getting next message reply")
+    msg = conn.get_next (10000)
+    if not msg:
+        error ("Expected to receive message but None was found..")
+        return False
+
+    if msg.content != "test_06.identifier":
+        error ("Expected to receive identifier but found: " + msg.content)
+        return False
+
+    info ("Now, trying to connect with the same identifier...")
+    conn2 = myqtt.Conn (ctx, host, port, "test_06.identifier", True, 30)
+    if conn2.is_ok ():
+        error ("Expected to find connection failure but found it worked")
+        return False
+
+    if conn2.last_err != myqtt.CONNACK_IDENTIFIER_REJECTED:
+        print "%s (%s)" % (conn2.last_err, type(conn2.last_err).__name__)
+        print "%s (%s)" % (myqtt.CONNACK_IDENTIFIER_REJECTED, type (myqtt.CONNACK_IDENTIFIER_REJECTED).__name__)
+        error ("Expected to find the following error %d but found %d" % (myqtt.CONNACK_IDENTIFIER_REJECTED, conn2.last_err))
+        return False
+
+    info ("Test --: now check automatic client ids..")
+
+    conn3 = myqtt.Conn (ctx, host, port, None, True, 30)
+    if not conn3.pub ("myqtt/admin/get-client-identifier", "", 0, myqtt.qos0, False, 0):
+        error ("Failed to publish message requesting client identifier..")
+        return False
+
+    info ("Getting next message reply")
+    msg = conn3.get_next (10000)
+    if not msg:
+        error ("Expected to receive message but None was found..")
+        return False
+
+    info ("Automatic identifier assigned to the connection was: " + msg.content)
+
+    
+    return True
+
 ###########################
 # intrastructure support  #
 ###########################
@@ -405,7 +470,8 @@ tests = [
    (test_02,   "Check PyMyQtt basic MQTT connection"),
    (test_03,   "Check PyMyQtt basic MQTT connection and subscription"),
    (test_04,   "Check PyMyQtt basic subscribe function (QOS 0) and publish"),
-   (test_05,   "Check PyMyQtt check ping server (PINGREQ)")
+   (test_05,   "Check PyMyQtt check ping server (PINGREQ)"),
+   (test_06,   "Check PyMyQtt check client identifier function")
 ]
 
 # declare default host and port
