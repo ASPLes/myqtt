@@ -316,18 +316,18 @@ axl_bool  py_myqtt_tls_accept_handler_bridge (MyqttConnection * connection,
 	CLOSE_HANDLER (data->accept_handler);
 
 	py_myqtt_log (PY_MYQTT_DEBUG, "tls query accept handling finished, checking for exceptions, _result: %p..", _result);
-	py_myqtt_handle_and_clear_exception (py_conn);
+	if (! py_myqtt_handle_and_clear_exception (py_conn)) {
+		/* get result to return */
+		if (_result != NULL && ! PyArg_Parse (_result, "i", &result)) {
+			py_myqtt_log (PY_MYQTT_CRITICAL, "failed to parse result get from tls accept handler");
+			py_myqtt_handle_and_clear_exception (py_conn);
+			
+			/* release the GIL */
+			PyGILState_Release(state);
 
-	/* get result to return */
-	if (_result != NULL && ! PyArg_Parse (_result, "i", &result)) {
-		py_myqtt_log (PY_MYQTT_CRITICAL, "failed to parse result get from tls accept handler");
-		py_myqtt_handle_and_clear_exception (py_conn);
-
-		/* release the GIL */
-		PyGILState_Release(state);
-
-		return axl_false;
-	}
+			return axl_false;
+		}
+	} /* end if */
 
 	Py_XDECREF (_result);
 	Py_DECREF (args);
@@ -382,18 +382,19 @@ char * py_myqtt_tls_cert_handler_bridge (MyqttConnection * connection,
 	CLOSE_HANDLER (data->cert_handler);
 
 	py_myqtt_log (PY_MYQTT_DEBUG, "cert handling finished, checking for exceptions, _result: %p..", _result);
-	py_myqtt_handle_and_clear_exception (py_conn);
+	if (! py_myqtt_handle_and_clear_exception (py_conn)) {
 
-	/* get result to return */
-	if (_result != NULL && ! PyArg_Parse (_result, "z", &result)) {
-		py_myqtt_log (PY_MYQTT_CRITICAL, "failed to parse result get from tls accept handler");
-		py_myqtt_handle_and_clear_exception (py_conn);
+		/* get result to return */
+		if (_result != NULL && ! PyArg_Parse (_result, "z", &result)) {
+			py_myqtt_log (PY_MYQTT_CRITICAL, "failed to parse result get from tls accept handler");
+			py_myqtt_handle_and_clear_exception (py_conn);
 
-		/* release the GIL */
-		PyGILState_Release(state);
+			/* release the GIL */
+			PyGILState_Release(state);
 
-		return NULL;
-	}
+			return NULL;
+		}
+	} /* end if */
 
 	Py_XDECREF (_result);
 	Py_DECREF (args);
@@ -448,18 +449,19 @@ char * py_myqtt_tls_key_handler_bridge (MyqttConnection * connection,
 	CLOSE_HANDLER (data->key_handler);
 
 	py_myqtt_log (PY_MYQTT_DEBUG, "key handling finished, checking for exceptions, _result: %p..", _result);
-	py_myqtt_handle_and_clear_exception (py_conn);
+	if (! py_myqtt_handle_and_clear_exception (py_conn)) { 
 
-	/* get result to return */
-	if (_result != NULL && ! PyArg_Parse (_result, "z", &result)) {
-		py_myqtt_log (PY_MYQTT_CRITICAL, "failed to parse result get from tls accept handler");
-		py_myqtt_handle_and_clear_exception (py_conn);
+		/* get result to return */
+		if (_result != NULL && ! PyArg_Parse (_result, "z", &result)) {
+			py_myqtt_log (PY_MYQTT_CRITICAL, "failed to parse result get from tls accept handler");
+			py_myqtt_handle_and_clear_exception (py_conn);
+			
+			/* release the GIL */
+			PyGILState_Release(state);
 
-		/* release the GIL */
-		PyGILState_Release(state);
-
-		return NULL;
-	}
+			return NULL;
+		}
+	} /* end if */
 
 	Py_XDECREF (_result);
 	Py_DECREF (args);

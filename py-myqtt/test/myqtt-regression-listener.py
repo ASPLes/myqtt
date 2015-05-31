@@ -58,6 +58,15 @@ def signal_handler (signal, stackframe):
     return
 
 def on_publish (ctx, conn, msg, data):
+    info ("Topic received: %s" % (msg.topic))
+    if msg.topic == "myqtt/admin/get-conn-user":
+        time.sleep (1)
+        if not conn.pub ("myqtt/admin/get-conn-user", conn.username, len (conn.username), myqtt.qos0, False, 0):
+            error ("Error: failed to publish the connection's username")
+
+        # now indicate engine to discard message received
+        return myqtt.PUBLISH_DISCARD
+
     if msg.topic == "myqtt/admin/get-client-identifier":
         time.sleep (1)
         if not conn.pub ("myqtt/admin/get-client-identifier", conn.client_id, len (conn.client_id), myqtt.qos0, False, 0):
@@ -73,10 +82,9 @@ def on_connect (ctx, conn, data):
     info ("Called on connect handler..")
 
     if conn.username and conn.password:
-
         # username and password where defined, handle them
         if conn.username != "aspl" or conn.password != "test":
-            return myqtt.BAD_USERNAME_OR_PASSWORD
+            return myqtt.CONNACK_BAD_USERNAME_OR_PASSWORD
         # end if
 
     # end if

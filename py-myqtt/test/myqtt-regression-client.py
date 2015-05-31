@@ -518,13 +518,13 @@ def run_all_tests ():
 
 # declare list of tests available
 tests = [
-#   (test_00_a, "Check PyMyQtt async queue wrapper"),
-#   (test_01,   "Check PyMyQtt context initialization"),
-#   (test_02,   "Check PyMyQtt basic MQTT connection"),
-#   (test_03,   "Check PyMyQtt basic MQTT connection and subscription"),
-#   (test_04,   "Check PyMyQtt basic subscribe function (QOS 0) and publish"),
-#   (test_05,   "Check PyMyQtt check ping server (PINGREQ)"),
-#   (test_06,   "Check PyMyQtt check client identifier function"),
+   (test_00_a, "Check PyMyQtt async queue wrapper"),
+   (test_01,   "Check PyMyQtt context initialization"),
+   (test_02,   "Check PyMyQtt basic MQTT connection"),
+   (test_03,   "Check PyMyQtt basic MQTT connection and subscription"),
+   (test_04,   "Check PyMyQtt basic subscribe function (QOS 0) and publish"),
+   (test_05,   "Check PyMyQtt check ping server (PINGREQ)"),
+   (test_06,   "Check PyMyQtt check client identifier function"),
    (test_07,   "Check PyMyqtt client auth (CONNECT simple auth)")
 ]
 
