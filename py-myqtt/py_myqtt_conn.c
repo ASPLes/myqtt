@@ -131,9 +131,10 @@ static PyObject * py_myqtt_conn_new (PyTypeObject *type, PyObject *args, PyObjec
 	const char         * host       = NULL;
 	const char         * port       = NULL;
 	PyObject           * py_myqtt_ctx = NULL;
+	PyObject           * conn_opts  = NULL;
 
 	/* now parse arguments */
-	static char *kwlist[] = {"ctx", "host", "port", "client_identifier", "clean_session", "keep_alive", NULL};
+	static char *kwlist[] = {"ctx", "host", "port", "client_identifier", "clean_session", "keep_alive", "conn_opts", NULL};
 
 	/* create the object */
 	self = (PyMyQttConn *)type->tp_alloc(type, 0);
@@ -141,8 +142,8 @@ static PyObject * py_myqtt_conn_new (PyTypeObject *type, PyObject *args, PyObjec
 	/* check args */
 	if (args != NULL) {
 		/* parse and check result */
-		if (! PyArg_ParseTupleAndKeywords(args, kwds, "|Osszii", kwlist, 
-						  &py_myqtt_ctx, &host, &port, &client_identifier, &clean_session, &keep_alive)) 
+		if (! PyArg_ParseTupleAndKeywords(args, kwds, "|OssziiO", kwlist, 
+						  &py_myqtt_ctx, &host, &port, &client_identifier, &clean_session, &keep_alive, &conn_opts)) 
 			return NULL;
 
 		/* check for empty creation */
@@ -167,7 +168,7 @@ static PyObject * py_myqtt_conn_new (PyTypeObject *type, PyObject *args, PyObjec
 		self->conn = myqtt_conn_new (py_myqtt_ctx_get (py_myqtt_ctx),
 					     client_identifier, clean_session, keep_alive,
 					     host, port,
-					     NULL,
+					     conn_opts ? py_myqtt_conn_opts_get (conn_opts) : NULL,
 					     NULL, NULL);
 
 		/* end threads */
@@ -458,7 +459,7 @@ PyObject * py_myqtt_conn_get_attr (PyObject *o, PyObject *attr_name) {
 		return Py_BuildValue ("i", myqtt_conn_get_last_err (self->conn));
 	} /* end if */
 
-	/* printf ("Attribute not found: '%s'..\n", attr); */
+	printf ("Attribute not found: '%s'..\n", attr);
 
 	/* first implement generic attr already defined */
 	result = PyObject_GenericGetAttr (o, attr_name);

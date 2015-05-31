@@ -787,6 +787,151 @@ PyObject * py_myqtt_ctx_set_on_publish (PyObject * self, PyObject * args, PyObje
 	return py_myqtt_handle_create (on_publish_obj, NULL);
 }
 
+typedef struct _PyMyQttCtxSetOnConnectData {
+
+	PyObject           * on_connect;
+	PyObject           * on_connect_data;
+
+} PyMyQttCtxSetOnConnectData;
+
+MyQttConnAckTypes py_myqtt_ctx_set_on_connect_handler (MyQttCtx     * ctx,
+						       MyQttConn    * conn, 
+						       axlPointer     _on_connect_obj)
+{
+	PyMyQttCtxSetOnConnectData   * on_connect_obj = _on_connect_obj;
+	PyGILState_STATE               state;
+	PyObject                     * args;
+	PyObject                     * result;
+	PyObject                     * py_conn;
+	MyQttConnAckTypes              codes = MYQTT_CONNACK_ACCEPTED;
+
+	/* notify on close notification received */
+	py_myqtt_log (PY_MYQTT_DEBUG, "received on connect notification for conn id=%d, (internal: %p)", 
+		      myqtt_conn_get_id (conn), _on_connect_obj);
+	
+	/*** bridge into python ***/
+	/* acquire the GIL */
+	state = PyGILState_Ensure();
+
+	/* create a tuple to contain arguments */
+	args = PyTuple_New (3);
+
+	/* param 0: ctx */
+	PyTuple_SetItem (args, 0, py_myqtt_ctx_create (ctx));
+
+	/* param 1: conn */
+	py_conn = py_myqtt_conn_create (conn, axl_true, axl_false);
+	PyTuple_SetItem (args, 1, py_conn);
+
+	/* param 3: on msg data */
+	Py_INCREF (on_connect_obj->on_connect_data);
+	PyTuple_SetItem (args, 2, on_connect_obj->on_connect_data);
+
+	/* record handler */
+	START_HANDLER (on_connect_obj->on_connect);
+
+	/* now invoke */
+	result = PyObject_Call (on_connect_obj->on_connect, args, NULL);
+
+	/* unrecord handler */
+	CLOSE_HANDLER (on_connect_obj->on_connect);
+
+	py_myqtt_log (PY_MYQTT_DEBUG, "conn on connect notification finished, checking for exceptions..");
+	py_myqtt_handle_and_clear_exception (py_conn);
+
+	if (PyInt_Check (result)) {
+		codes = PyInt_AsLong (result);
+	} else {
+		py_myqtt_log (PY_MYQTT_DEBUG, "on_connect handler is reporting something that is not an integer value (myqtt.CONNECT_OK, myqtt.CONNECT_DISCARD, myqtt.CONNECT_CONN_CLOSE)");
+	}
+
+	Py_XDECREF (result);
+	Py_DECREF (args);
+
+	/* now release the rest of data */
+	/* Py_DECREF (on_connect_obj->py_conn); */
+	/* Py_DECREF (on_connect_obj->on_close);*/
+	/* Py_DECREF (on_connect_obj->on_connect_data); */
+
+	/* release the GIL */
+	PyGILState_Release(state);
+
+	return codes;
+}
+
+PyObject * py_myqtt_ctx_set_on_connect (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	PyObject                     * on_connect        = NULL;
+	PyObject                     * on_connect_data   = Py_None;
+	PyMyQttCtxSetOnConnectData   * on_connect_obj;
+	
+	/* now parse arguments */
+	static char *kwlist[] = {"on_connect", "on_connect_data", NULL};
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords(args, kwds, "O|O", kwlist, &on_connect, &on_connect_data))
+		return NULL;
+
+	/* check handler received */
+	if (on_connect == NULL || ! PyCallable_Check (on_connect)) {
+		py_myqtt_log (PY_MYQTT_CRITICAL, "received on_connect handler which is not a callable object");
+		return NULL;
+	} /* end if */
+
+	/* configure an on msg handler to bridge into python. In this
+	 * case we are reusing PyMyQttConnSetOnMsgData reference.  */
+	on_connect_obj = axl_new (PyMyQttCtxSetOnConnectData, 1);
+	if (on_connect_obj == NULL) {
+		py_myqtt_log (PY_MYQTT_CRITICAL, "received on_connect handler but unable to acquire memory required to store handlers during operations");
+		return NULL;
+	} /* end if */
+		
+	/* set reference to release it when the connection is
+	 * closed */
+	myqtt_ctx_set_data_full (py_myqtt_ctx_get (self),
+				 axl_strdup_printf ("%p", on_connect_obj),
+				 on_connect_obj,
+				 axl_free, axl_free);
+
+	/* configure on_close handler */
+	on_connect_obj->on_connect = on_connect;
+	Py_INCREF (on_connect);
+
+	/* configure on_close_data handler data */
+	if (on_connect_data == NULL)
+		on_connect_data = Py_None;
+	on_connect_obj->on_connect_data = on_connect_data;
+	Py_INCREF (on_connect_data);
+
+	/* now acquire a reference to the handler and the data to make
+	 * them permanent during the execution of the script *and* to
+	 * release them when finishing the connection */
+	myqtt_ctx_set_data_full (py_myqtt_ctx_get (self),
+				 axl_strdup_printf ("%p", on_connect),
+				 on_connect,
+				 axl_free,
+				 (axlDestroyFunc) py_myqtt_decref);
+	myqtt_ctx_set_data_full (py_myqtt_ctx_get (self),
+				 axl_strdup_printf ("%p", on_connect_data),
+				 on_connect_data,
+				 axl_free,
+				 (axlDestroyFunc) py_myqtt_decref);
+
+	/* configure on connect handler */
+	myqtt_ctx_set_on_connect (
+		/* the ctx */
+		py_myqtt_ctx_get (self),
+		/* the handler */
+		py_myqtt_ctx_set_on_connect_handler, 
+		/* the object with all references */
+		on_connect_obj);
+
+	/* create a handle that allows to remove this particular
+	   handler. This handler can be used to remove the on close
+	   handler */
+	return py_myqtt_handle_create (on_connect_obj, NULL);
+}
+
 /** 
  * @brief Allows to register a new callable event.
  */
@@ -897,6 +1042,9 @@ static PyMethodDef py_myqtt_ctx_methods[] = {
 	/* set_on_publish */
 	{"set_on_publish", (PyCFunction) py_myqtt_ctx_set_on_publish, METH_VARARGS | METH_KEYWORDS,
 	 "API wrapper for myqtt_ctx_set_on_publish. This method allows to configure a handler which will be called in case a message is received on the provided connection."},
+	/* set_on_connect */
+	{"set_on_connect", (PyCFunction) py_myqtt_ctx_set_on_connect, METH_VARARGS | METH_KEYWORDS,
+	 "API wrapper for myqtt_ctx_set_on_connect. This method allows to configure a handler which will be called when a new connection is received (CONNECT packet received)."},
 	/* new_event */
 	{"new_event", (PyCFunction) py_myqtt_ctx_new_event, METH_VARARGS | METH_KEYWORDS,
 	 "Function that allows to configure an asynchronous event calling to the handler defined, between the intervals defined. This function is the interface to myqtt_thread_pool_event_new."},

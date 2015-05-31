@@ -432,6 +432,59 @@ def test_06 ():
     
     return True
 
+def test_07 ():
+    # call to initialize a context 
+    ctx = myqtt.Ctx ()
+
+    # call to init ctx 
+    if not ctx.init ():
+        error ("Failed to init MyQtt context")
+        return False
+
+    opts = myqtt.ConnOpts ()
+    opts.set_auth ("aspl", "wrong-password")
+
+    # call to create a connection
+    # client_identifier = None
+    # clean_session = True
+    # keep_alive = 30
+    conn = myqtt.Conn (ctx, host, port, None, True, 30, opts)
+
+    # check connection status after if 
+    if conn.is_ok ():
+        error ("Expected to find connection ERROR for wrong auth but found it working")
+        return False
+
+    opts = myqtt.ConnOpts ()
+    opts.set_auth ("aspl", "test")
+
+    # client_identifier = None
+    # clean_session = True
+    # keep_alive = 30
+    conn = myqtt.Conn (ctx, host, port, None, True, 30, opts)
+    if not conn.is_ok ():
+        error ("Expected to find proper connection result, but found error. Error code was: " + str(conn.status) + ", message: " + conn.error_msg)
+        return False
+
+    if not conn.pub ("myqtt/admin/get-conn-user", "", 0, myqtt.qos0, False, 0):
+        error ("Unable to send message to get current connecting user..")
+        return False
+
+    info ("Getting message with the connecting user..")
+    msg = conn.get_next (10000)
+
+    if not msg:
+        error ("Expected to receive a message with the connecting user but None was received")
+        return False
+    
+    if msg.content != "aspl":
+        error ("Expected to find user aspl but found: %s" % msg.content)
+        return False
+
+    info ("Test --: auth test ok..")
+
+    return True
+
 ###########################
 # intrastructure support  #
 ###########################
@@ -465,13 +518,14 @@ def run_all_tests ():
 
 # declare list of tests available
 tests = [
-   (test_00_a, "Check PyMyQtt async queue wrapper"),
-   (test_01,   "Check PyMyQtt context initialization"),
-   (test_02,   "Check PyMyQtt basic MQTT connection"),
-   (test_03,   "Check PyMyQtt basic MQTT connection and subscription"),
-   (test_04,   "Check PyMyQtt basic subscribe function (QOS 0) and publish"),
-   (test_05,   "Check PyMyQtt check ping server (PINGREQ)"),
-   (test_06,   "Check PyMyQtt check client identifier function")
+#   (test_00_a, "Check PyMyQtt async queue wrapper"),
+#   (test_01,   "Check PyMyQtt context initialization"),
+#   (test_02,   "Check PyMyQtt basic MQTT connection"),
+#   (test_03,   "Check PyMyQtt basic MQTT connection and subscription"),
+#   (test_04,   "Check PyMyQtt basic subscribe function (QOS 0) and publish"),
+#   (test_05,   "Check PyMyQtt check ping server (PINGREQ)"),
+#   (test_06,   "Check PyMyQtt check client identifier function"),
+   (test_07,   "Check PyMyqtt client auth (CONNECT simple auth)")
 ]
 
 # declare default host and port

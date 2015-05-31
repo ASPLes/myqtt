@@ -69,6 +69,20 @@ def on_publish (ctx, conn, msg, data):
     # let know engine to go ahead publishing the message received
     return myqtt.PUBLISH_OK
 
+def on_connect (ctx, conn, data):
+    info ("Called on connect handler..")
+
+    if conn.username and conn.password:
+
+        # username and password where defined, handle them
+        if conn.username != "aspl" or conn.password != "test":
+            return myqtt.BAD_USERNAME_OR_PASSWORD
+        # end if
+
+    # end if
+
+    return myqtt.CONNACK_ACCEPTED
+        
 if __name__ == '__main__':
 
     # create a context
@@ -100,6 +114,7 @@ if __name__ == '__main__':
 
     # configure on publish
     ctx.set_on_publish (on_publish)
+    ctx.set_on_connect (on_connect)
 
     # do a wait operation
     info ("waiting requests..")
