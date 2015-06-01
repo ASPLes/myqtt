@@ -137,11 +137,44 @@ PyObject * py_myqtt_conn_opts_set_auth (PyObject * self, PyObject * args, PyObje
 	return Py_None;
 }
 
+PyObject * py_myqtt_conn_opts_set_will (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	MyQttQos         will_qos;
+	const char     * will_topic;
+	const char     * will_message;
+	axl_bool         will_retain;
+	MyQttConnOpts  * conn_opts;
+		
+	/* now parse arguments */
+	static char *kwlist[] = {"will_qos", "will_topic", "will_message", "will_retain", NULL};
+
+	/* get connection options */
+	conn_opts = py_myqtt_conn_opts_get (self);
+	if (! conn_opts) {
+		PyErr_SetString (PyExc_ValueError, "Expected to receive a myqtt.ConnOpts not used or with reuse option enabled but found internal reference empty");
+		return NULL;
+	} /* end if */
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords(args, kwds, "iszi", kwlist, &will_qos, &will_topic, &will_message, &will_retain))
+		return NULL;
+	
+	/* configure options */
+	myqtt_conn_opts_set_will (conn_opts, will_qos, will_topic, will_message, will_retain);
+
+	/* done, return ok */
+	Py_INCREF (Py_None);
+	return Py_None;
+}
+
 static PyMethodDef py_myqtt_conn_opts_methods[] = { 
 	/* set_auth */
 	{"set_auth", (PyCFunction) py_myqtt_conn_opts_set_auth, METH_VARARGS | METH_KEYWORDS,
 	 "API wrapper for myqtt_conn_opts_set_auth. This method allows to configure auth options on the provided connection options."},
- 	{NULL}  
+	/* set_will */
+	{"set_will", (PyCFunction) py_myqtt_conn_opts_set_will, METH_VARARGS | METH_KEYWORDS,
+	 "API wrapper for myqtt_conn_opts_set_will. This method allows to configure will options for the provided connection."},
+ 	{NULL} 
 }; 
 
 
