@@ -566,6 +566,72 @@ def test_08 ():
     # no need to finished ctx
     return True
 
+def test_09 ():
+    # call to initialize a context 
+    ctx = myqtt.Ctx ()
+
+    # call to init ctx 
+    if not ctx.init ():
+        error ("Failed to init MyQtt context")
+        return False
+
+    info ("Test 09: checking will message is not sent in the case of connection close")
+
+    opts = myqtt.ConnOpts ()
+    opts.set_will (myqtt.qos2, "I lost connection", "Hey I lost connection, this is my status:....", False)
+
+    # call to create a connection
+    # client_identifier = None
+    # clean_session = True
+    # keep_alive = 30
+    conn = myqtt.Conn (ctx, host, port, None, True, 30, opts)
+    if not conn.is_ok ():
+        error ("Expected to find proper connection..")
+        return False
+
+    # connect without options
+    conn2 = myqtt.Conn (ctx, host, port, None, True, 30)
+    if not conn2.is_ok ():
+        error ("Expected to find proper connection..")
+        return False
+
+    # subscripbe
+    (status, sub_qos) = conn2.sub ("I lost connection", myqtt.qos0)
+    if not status:
+        error ("Failed to subscribe..")
+        return False
+
+    # create a third connection but without subscription
+    conn3 = myqtt.Conn (ctx, host, port, None, True, 30)
+    if not conn3.is_ok ():
+        error ("Expected to find proper connection..")
+        return False
+
+    info ("Test --: 3 links connected, now close connection with will")
+    queue = myqtt.AsyncQueue ()
+    conn2.set_on_msg (test_08_should_receive, queue)
+    conn3.set_on_msg (test_08_should_not_receive)
+
+    # close the connection
+    conn.close ()
+
+    # wait for message 
+    info ("Test --: waiting for will... (3 seconds at most)")
+    msg = queue.timedpop (3000000)
+    if msg:
+        error ("ERROR: expected to NOT receive msg reference but found NULL value..")
+        return False
+
+    # no need to release queue
+
+    # no need to close conn
+    # no need to close conn2
+    # no need to close conn3
+
+    # no need to finished ctx
+    return True
+    
+
 
 ###########################
 # intrastructure support  #
@@ -608,7 +674,8 @@ tests = [
    (test_05,   "Check PyMyQtt check ping server (PINGREQ)"),
    (test_06,   "Check PyMyQtt check client identifier function"),
    (test_07,   "Check PyMyqtt client auth (CONNECT simple auth)"),
-   (test_08,   "Check PyMyqtt test will support (without auth)")
+   (test_08,   "Check PyMyqtt test will support (without auth)"),
+   (test_09,   "Check PyMyqtt test will is not published with disconnect (without auth)"),
 ]
 
 # declare default host and port
