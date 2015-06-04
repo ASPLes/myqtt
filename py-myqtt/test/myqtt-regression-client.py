@@ -563,7 +563,7 @@ def test_08 ():
     # no need to close conn2
     # no need to close conn3
 
-    # no need to finished ctx
+    # no need to finish ctx
     return True
 
 def test_09 ():
@@ -628,10 +628,61 @@ def test_09 ():
     # no need to close conn2
     # no need to close conn3
 
-    # no need to finished ctx
+    # no need to finish ctx
     return True
     
+def test_18 ():
 
+    m = __import__ ("myqtt.tls")
+    if not m:
+        info ("Test 18: ** skipping myqtt.tls checking, module is not present .. ** ")
+        return True
+
+    import myqtt.tls
+
+    # call to initialize a context 
+    ctx = myqtt.Ctx ()
+
+    # call to init ctx 
+    if not ctx.init ():
+        error ("Failed to init MyQtt context")
+        return False
+
+    info ("Test 09: checking will message is not sent in the case of connection close")
+
+    opts = myqtt.ConnOpts ()
+    myqtt.tls.ssl_peer_verify (opts, False)
+
+    # call to create a connection
+    # client_identifier = None
+    # clean_session = True
+    # keep_alive = 30
+    conn = myqtt.tls.create_conn (ctx, host, port, None, True, 30, opts)
+    if not conn.is_ok ():
+        error ("Expected to find proper connection..")
+        return False
+
+    if not conn.pub ("this/is/a/test/18", "Test message 1", 14, myqtt.qos2, True, 10):
+        error ("Unable to publish message..")
+        return False
+
+    if not conn.pub ("this/is/a/test/18", "Test message 2", 14, myqtt.qos2, True, 10):
+        error ("Unable to publish message..")
+        return False
+
+    info ("Test --: checking connection")
+
+    if not conn.is_ok ():
+        error ("Expected being able to connect to %s:%s" % (host, tls_port))
+        return False
+
+    if not myqtt.tls.is_on (conn):
+        error ("Expected to find TLS enabled connection but found it is not")
+        return False
+
+    # no need to close conn
+    # no need to finish ctx
+    return True
 
 ###########################
 # intrastructure support  #
@@ -666,21 +717,24 @@ def run_all_tests ():
 
 # declare list of tests available
 tests = [
-   (test_00_a, "Check PyMyQtt async queue wrapper"),
-   (test_01,   "Check PyMyQtt context initialization"),
-   (test_02,   "Check PyMyQtt basic MQTT connection"),
-   (test_03,   "Check PyMyQtt basic MQTT connection and subscription"),
-   (test_04,   "Check PyMyQtt basic subscribe function (QOS 0) and publish"),
-   (test_05,   "Check PyMyQtt check ping server (PINGREQ)"),
-   (test_06,   "Check PyMyQtt check client identifier function"),
-   (test_07,   "Check PyMyqtt client auth (CONNECT simple auth)"),
-   (test_08,   "Check PyMyqtt test will support (without auth)"),
-   (test_09,   "Check PyMyqtt test will is not published with disconnect (without auth)"),
+#   (test_00_a, "Check PyMyQtt async queue wrapper"),
+#   (test_01,   "Check PyMyQtt context initialization"),
+#   (test_02,   "Check PyMyQtt basic MQTT connection"),
+#   (test_03,   "Check PyMyQtt basic MQTT connection and subscription"),
+#   (test_04,   "Check PyMyQtt basic subscribe function (QOS 0) and publish"),
+#   (test_05,   "Check PyMyQtt check ping server (PINGREQ)"),
+#   (test_06,   "Check PyMyQtt check client identifier function"),
+#   (test_07,   "Check PyMyqtt client auth (CONNECT simple auth)"),
+#   (test_08,   "Check PyMyqtt test will support (without auth)"),
+#   (test_09,   "Check PyMyqtt test will is not published with disconnect (without auth)"),
+   # tls support
+   (test_18,   "Check PyMyqtt test TLS support"),
 ]
 
 # declare default host and port
 host     = "localhost"
 port     = "34010"
+tls_port = "34011"
 
 if __name__ == '__main__':
     iterator = 0
