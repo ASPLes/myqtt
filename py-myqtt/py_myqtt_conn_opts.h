@@ -56,6 +56,8 @@ void              init_myqtt_conn_opts      (PyObject * module);
 
 PyObject        * py_myqtt_conn_opts_create (MyQttConnOpts * conn_opts);
 
+axl_bool          py_myqtt_conn_opts_check    (PyObject          * obj);
+
 MyQttConnOpts   * py_myqtt_conn_opts_get    (PyObject * conn_opts);
 
 #endif

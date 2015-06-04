@@ -256,6 +256,20 @@ PyObject * py_myqtt_conn_opts_create (MyQttConnOpts * conn_opts)
 }
 
 /** 
+ * @brief Allows to check if the PyObject received represents a
+ * PyMyQttConnOpts reference.
+ */
+axl_bool             py_myqtt_conn_opts_check    (PyObject          * obj)
+{
+	/* check null references */
+	if (obj == NULL)
+		return axl_false;
+
+	/* return check result */
+	return PyObject_TypeCheck (obj, &PyMyQttConnOptsType);
+}
+
+/** 
  * @brief Inits the myqtt conn_opts module. It is implemented as a type.
  */
 void init_myqtt_conn_opts (PyObject * module) 
