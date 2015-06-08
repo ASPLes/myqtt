@@ -85,4 +85,6 @@ void        init_myqtt_ctx      (PyObject * module);
 /** internal declaration **/
 PyObject  * py_myqtt_ctx_exit   (PyMyQttCtx* self);
 
+void __py_myqtt_ctx_set_to_release (MyQttCtx * ctx, PyObject * data);
+
 #endif
