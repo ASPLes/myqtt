@@ -1239,4 +1239,14 @@ void init_myqtt_ctx (PyObject * module)
 	return;
 }
 
+void __py_myqtt_ctx_set_to_release (MyQttCtx * ctx, PyObject * data)
+{
+	/* configure a reference to be released */
+	myqtt_conn_set_data_full (ctx,
+				  axl_strdup_printf ("%p", data),
+				  data,
+				  axl_free,
+				  (axlDestroyFunc) py_myqtt_decref);
+	return;
+}
 
