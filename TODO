@@ -1,14 +1,24 @@
 --== Features ==--
 
-* Designed as a reusable library that allows to start several
-  context into the same process or the provide client or server
-  support to an existing application.
+* Broker as a library: Designed as a reusable library that allows to
+  MQTT server and client solutions. What to create a pure MQTT server
+  with an specific functionally or provide support of MQTT to your
+  existing project, then libMyQTT is for you.
+
+* Several contexts: libMyQtt can start several context into the same
+  process allowing to start different configurations with different
+  settings.
 
 * Modular and extensible design that allows extending the ready to
   user server (myqttd) by providing plugins or to integreated libmyqtt
   into your application to create MQTT client or server solutions.
 
-* It is multi-threaded.
+* Multi-thread support: the library and all components are designed
+  and built using multi-threading so multi-core scenarios can take
+  advantage of it.
+
+* External Eventloop support: MyQtt library supports several external
+  I/O wait mechanism. By default epoll() is used if present.
 
 * Support for TLS SNI and a particular design to easily allow
   integration of different certificates according to the serverName
