@@ -38,6 +38,7 @@
 #                        http://www.aspl.es/myqtt
 #
 import myqtt
+import myqtt.tls
 import time
 
 import os
@@ -119,6 +120,16 @@ if __name__ == '__main__':
     if not listener.is_ok ():
         error ("ERROR: failed to start listener. Maybe there is another instance running at 34010?")
         sys.exit (-1)
+
+    ### begin: TLS support
+    listener2 = myqtt.tls.create_listener (ctx, "0.0.0.0", "34011")
+    if not listener2.is_ok ():
+        error ("ERROR: failed to create TLS listener..")
+        sys.exit (-1)
+        
+    # set certificate
+    myqtt.tls.set_certificate (listener2, "../../test/test-certificate.crt",  "../../test/test-private.key")
+    ### end: TLS support
 
     # configure on publish
     ctx.set_on_publish (on_publish)

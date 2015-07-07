@@ -657,7 +657,7 @@ def test_18 ():
     # client_identifier = None
     # clean_session = True
     # keep_alive = 30
-    conn = myqtt.tls.create_conn (ctx, host, port, None, True, 30, opts)
+    conn = myqtt.tls.create_conn (ctx, host, tls_port, None, True, 30, opts)
     if not conn.is_ok ():
         error ("Expected to find proper connection..")
         return False
@@ -678,6 +678,95 @@ def test_18 ():
 
     if not myqtt.tls.is_on (conn):
         error ("Expected to find TLS enabled connection but found it is not")
+        return False
+
+    # no need to close conn
+    # no need to finish ctx
+    return True
+
+def test_19 ():
+
+    m = __import__ ("myqtt.tls")
+    if not m:
+        info ("Test 19: ** skipping myqtt.tls checking, module is not present .. ** ")
+        return True
+
+    import myqtt.tls
+
+    # call to initialize a context 
+    ctx = myqtt.Ctx ()
+
+    # call to init ctx 
+    if not ctx.init ():
+        error ("Failed to init MyQtt context")
+        return False
+
+    info ("Test 09: checking will message is not sent in the case of connection close")
+
+    opts = myqtt.ConnOpts ()
+    myqtt.tls.ssl_peer_verify (opts, False)
+
+    # configure certificates
+    myqtt.tls.set_ssl_certs (opts, "../../test/client.pem", "../../test/client.pem", None, "../../test/root.pem")
+
+    # setup a host name just to ensure handlers
+    myqtt.tls.set_server_name (opts, "test19.skipsni.localhost")
+
+    # call to create a connection
+    # client_identifier = None
+    # clean_session = False
+    # keep_alive = 30
+    conn = myqtt.tls.create_conn (ctx, host, "1911", None, False, 30, opts)
+    if not conn.is_ok ():
+        error ("Expected to find proper connection..")
+        return False
+
+    if not conn.pub ("this/is/a/test/19", "Test message 1", 14, myqtt.qos2, True, 10):
+        error ("Unable to publish message..")
+        return False
+
+    if not conn.pub ("this/is/a/test/19", "Test message 2", 14, myqtt.qos2, True, 10):
+        error ("Unable to publish message..")
+        return False
+
+    info ("Test --: checking connection")
+
+    if not conn.is_ok ():
+        error ("Expected being able to connect to %s:%s" % (host, tls_port))
+        return False
+
+    if not myqtt.tls.is_on (conn):
+        error ("Expected to find TLS enabled connection but found it is not")
+        return False
+
+    ### STEP 2 ###
+    info ("Test 19: (step 2) attempting to connect without prividing certificates")
+
+    opts = myqtt.ConnOpts ()
+    myqtt.tls.ssl_peer_verify (opts, False)
+
+    # call to create a connection
+    # client_identifier = None
+    # clean_session = False
+    # keep_alive = 30
+    conn = myqtt.tls.create_conn (ctx, host, "1911", None, False, 30, opts)
+    if conn.is_ok ():
+        error ("Expected to find proper connection..")
+        return False
+
+    ### STEP 3 ###
+    opts = myqtt.ConnOpts ()
+
+    # configure certificates
+    myqtt.tls.set_ssl_certs (opts, "../../test/test-certificate.crt", "../../test/test-private.key", None, "../../test/root.pem")
+
+    # call to create a connection
+    # client_identifier = None
+    # clean_session = False
+    # keep_alive = 30
+    conn = myqtt.tls.create_conn (ctx, host, "1911", None, False, 30, opts)
+    if conn.is_ok ():
+        error ("Expected to find proper connection..")
         return False
 
     # no need to close conn
@@ -728,7 +817,8 @@ tests = [
 #   (test_08,   "Check PyMyqtt test will support (without auth)"),
 #   (test_09,   "Check PyMyqtt test will is not published with disconnect (without auth)"),
    # tls support
-   (test_18,   "Check PyMyqtt test TLS support"),
+#   (test_18,   "Check PyMyqtt test TLS support"),
+   (test_19,   "Check PyMyqtt TLS support (server side certificate auth: common CA)")
 ]
 
 # declare default host and port
