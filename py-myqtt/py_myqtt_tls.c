@@ -171,6 +171,201 @@ static PyObject * py_myqtt_tls_set_certificate (PyObject * self, PyObject * args
 	return Py_BuildValue ("i", result);
 } 
 
+typedef struct _TlsListenerSetCertificateData {
+
+	PyObject * certificate_handler;
+	PyObject * key_handler;
+	PyObject * chain_handler;
+	PyObject * user_data;
+
+} TlsListenerSetCertificateData;
+
+void __py_myqtt_tls_release_certificate_handlers (axlPointer _data)
+{
+	TlsListenerSetCertificateData * data = _data;
+
+	/* reduce references acquired before */
+	Py_DECREF (data->certificate_handler);
+	Py_DECREF (data->key_handler);
+	Py_DECREF (data->chain_handler);
+	Py_DECREF (data->user_data);
+
+	/* release data */
+	axl_free (data);
+
+	return;
+}
+
+char * __py_myqtt_tls_set_certificate_handlers_bridget (MyQttCtx * ctx, MyQttConn * conn, const char * serverName, 
+							PyObject * handler, PyObject * user_data) {
+	
+	PyGILState_STATE     state;
+	PyObject           * result;
+	PyObject           * args;
+	PyObject           * py_conn;
+	char               * str_result = NULL;
+
+	/*** bridge into python ***/
+	/* acquire the GIL */
+	state = PyGILState_Ensure();
+
+	/* create a tuple to contain arguments */
+	args = PyTuple_New (4);
+
+	/* param 0: ctx */
+	PyTuple_SetItem (args, 0, py_myqtt_ctx_create (ctx));
+
+	/* param 1: conn */
+	py_conn = py_myqtt_conn_create (conn, axl_true, axl_false);
+	PyTuple_SetItem (args, 1, py_conn);
+
+	/* param 2: serverName */
+	PyTuple_SetItem (args, 2, Py_BuildValue ("s", serverName));
+
+	/* param 3: on msg data */
+	Py_INCREF (user_data);
+	PyTuple_SetItem (args, 3, user_data);
+
+	/* record handler */
+	START_HANDLER (handler);
+
+	/* now invoke */
+	result     = PyObject_Call (handler, args, NULL);
+	if (result && result != Py_None) {
+		/* get string result and copy it */
+		str_result = PyString_AsString (result);
+		if (str_result)
+			str_result = axl_strdup (str_result);
+	} /* end if */
+
+	/* unrecord handler */
+	CLOSE_HANDLER (handler);
+
+	py_myqtt_log (PY_MYQTT_DEBUG, "handler notification finished, checking for exceptions..");
+	py_myqtt_handle_and_clear_exception (py_conn);
+
+	Py_XDECREF (result);
+	Py_DECREF (args);
+
+	/* release the GIL */
+	PyGILState_Release(state);
+	
+	/* report result */
+	return str_result;
+}
+
+
+char * __certificate_file_locator (MyQttCtx    * ctx, 
+				   MyQttConn   * conn,
+				   const char  * serverName,
+				   axlPointer    user_data)
+{
+	TlsListenerSetCertificateData * data = user_data;
+	
+	/* call common function */
+	return __py_myqtt_tls_set_certificate_handlers_bridget (ctx, conn, serverName, data->certificate_handler, data->user_data);
+}
+
+char * __private_key_file_locator (MyQttCtx    * ctx, 
+				   MyQttConn   * conn,
+				   const char  * serverName,
+				   axlPointer    user_data)
+{
+	TlsListenerSetCertificateData * data = user_data;
+	
+	/* call common function */
+	return __py_myqtt_tls_set_certificate_handlers_bridget (ctx, conn, serverName, data->key_handler, data->user_data);
+}
+
+char * __chain_file_locator (MyQttCtx    * ctx, 
+			     MyQttConn   * conn,
+			     const char  * serverName,
+			     axlPointer    user_data)
+{
+	TlsListenerSetCertificateData * data = user_data;
+	
+	/* call common function */
+	return __py_myqtt_tls_set_certificate_handlers_bridget (ctx, conn, serverName, data->chain_handler, data->user_data);
+}
+
+
+static PyObject * py_myqtt_tls_set_certificate_handlers (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	PyObject           * py_ctx                = NULL;
+	PyObject           * certificate_handler   = NULL;
+	PyObject           * key_handler           = NULL;
+	PyObject           * chain_handler         = NULL;
+	PyObject           * user_data             = NULL;
+
+	TlsListenerSetCertificateData  * data;
+
+	/* now parse arguments */
+	static char *kwlist[] = {"ctx", "certificate_handler", "key_handler", "chain_handler", "user_data", NULL};
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords(args, kwds, "OOO|OO", kwlist, 
+					  &py_ctx, &certificate_handler, &key_handler, &chain_handler, &user_data))
+		return NULL;
+
+	/* certificate handler */
+	if (certificate_handler == NULL || ! PyCallable_Check (certificate_handler)) {
+		py_myqtt_log (PY_MYQTT_CRITICAL, "Received a certificate handler that is not callable");
+		return NULL;
+	} /* end if */
+
+	/* key handler */
+	if (key_handler == NULL || ! PyCallable_Check (key_handler)) {
+		py_myqtt_log (PY_MYQTT_CRITICAL, "Received a key handler that is not callable");
+		return NULL;
+	} /* end if */
+
+	/* chain handler */
+	if (chain_handler == NULL || ! PyCallable_Check (chain_handler)) {
+		py_myqtt_log (PY_MYQTT_CRITICAL, "Received a chain handler that is not callable");
+		return NULL;
+	} /* end if */
+
+	/* get reference to all the data */
+	data = axl_new (TlsListenerSetCertificateData, 1);
+	if (data == NULL) {
+		py_myqtt_log (PY_MYQTT_CRITICAL, "Unable to allocate memory to hold certificate handlers");
+		return NULL;
+	}/* end if */
+
+	/* get references */
+	data->certificate_handler = certificate_handler;
+	Py_INCREF (certificate_handler);
+
+	data->key_handler         = key_handler;
+	Py_INCREF (key_handler);
+
+	data->chain_handler       = chain_handler;
+	Py_INCREF (chain_handler);
+
+	/* configure user_data */
+	data->user_data           = user_data;
+	if (data->user_data == NULL)
+		data->user_data = Py_None;
+	Py_INCREF (data->user_data);
+
+	/* configure destroy handler */
+	myqtt_ctx_set_data_full (py_myqtt_ctx_get (py_ctx), axl_strdup_printf ("%p", data),
+				 data, 
+				 axl_free,
+				 __py_myqtt_tls_release_certificate_handlers);
+
+	/* configure certificates */
+	myqtt_tls_listener_set_certificate_handlers (py_myqtt_ctx_get (py_ctx),
+						     __certificate_file_locator, 
+						     __private_key_file_locator,
+						     __chain_file_locator,
+						     data);
+	
+	/* return none */
+	Py_INCREF (Py_None);
+	return Py_None;
+} 
+
 
 
 typedef struct _PyMyQttTlsAcceptData {
@@ -249,11 +444,12 @@ static PyObject * py_myqtt_tls_ssl_peer_verify (PyObject * self, PyObject * args
 
 static PyObject * py_myqtt_tls_set_ssl_certs (PyObject * self, PyObject * args)
 {
-	PyObject * py_conn_opts = NULL;
+	PyObject       * py_conn_opts = NULL;
 	const char     * certificate = NULL;
 	const char     * private_key = NULL;
 	const char     * chain_certificate = NULL;
 	const char     * ca_certificate = NULL;
+	axl_bool         result;
 	
 	/* parse and check result */
 	if (! PyArg_ParseTuple (args, "O|sszz", &py_conn_opts, &certificate, &private_key, &chain_certificate, &ca_certificate))
@@ -267,12 +463,11 @@ static PyObject * py_myqtt_tls_set_ssl_certs (PyObject * self, PyObject * args)
 	} /* end if */
 
 	/* configure ssl peer verification */
-	myqtt_tls_opts_set_ssl_certs (py_myqtt_conn_opts_get (py_conn_opts), 
-				      certificate, private_key, 
-				      chain_certificate, ca_certificate);
+	result = myqtt_tls_opts_set_ssl_certs (py_myqtt_conn_opts_get (py_conn_opts), 
+					       certificate, private_key, 
+					       chain_certificate, ca_certificate);
 	/* return none */
-	Py_INCREF (Py_None);
-	return Py_None;
+	return Py_BuildValue ("i", result);
 }
 
 static PyObject * py_myqtt_tls_set_server_name (PyObject * self, PyObject * args)
@@ -351,6 +546,9 @@ static PyMethodDef py_myqtt_tls_methods[] = {
 	/* set_server_Name */
 	{"set_server_name", (PyCFunction) py_myqtt_tls_set_server_name, METH_VARARGS | METH_KEYWORDS,
 	 "Allows to configure serverName used by the connection options myqtt.ConnOpts."},
+	/* set_certificate_handlers */
+	{"set_certificate_handlers", (PyCFunction) py_myqtt_tls_set_certificate_handlers, METH_VARARGS | METH_KEYWORDS,
+	 "Allows to configure a set of handlers that are called at run time to get the certificates that are to be used."},
 	{"verify_cert", (PyCFunction) py_myqtt_tls_verify_cert, METH_VARARGS | METH_KEYWORDS,
 	 "Allows to check peer certificate verify status  (see myqtt_tls_verify_cert)."},
 	/* is_authenticated */
