@@ -701,7 +701,7 @@ def test_19 ():
         error ("Failed to init MyQtt context")
         return False
 
-    info ("Test 09: checking will message is not sent in the case of connection close")
+    info ("Test 19: (step 1) checking will message is not sent in the case of connection close")
 
     opts = myqtt.ConnOpts ()
     myqtt.tls.ssl_peer_verify (opts, False)
@@ -751,10 +751,12 @@ def test_19 ():
     # keep_alive = 30
     conn = myqtt.tls.create_conn (ctx, host, "1911", None, False, 30, opts)
     if conn.is_ok ():
-        error ("Expected to find proper connection..")
+        error ("Expected to find connection failure connection..")
         return False
 
     ### STEP 3 ###
+    info ("Test 19: (step 3) attempting to connect but providing certificates")
+    
     opts = myqtt.ConnOpts ()
 
     # configure certificates
@@ -806,16 +808,16 @@ def run_all_tests ():
 
 # declare list of tests available
 tests = [
-#   (test_00_a, "Check PyMyQtt async queue wrapper"),
-#   (test_01,   "Check PyMyQtt context initialization"),
-#   (test_02,   "Check PyMyQtt basic MQTT connection"),
-#   (test_03,   "Check PyMyQtt basic MQTT connection and subscription"),
-#   (test_04,   "Check PyMyQtt basic subscribe function (QOS 0) and publish"),
-#   (test_05,   "Check PyMyQtt check ping server (PINGREQ)"),
-#   (test_06,   "Check PyMyQtt check client identifier function"),
-#   (test_07,   "Check PyMyqtt client auth (CONNECT simple auth)"),
-#   (test_08,   "Check PyMyqtt test will support (without auth)"),
-#   (test_09,   "Check PyMyqtt test will is not published with disconnect (without auth)"),
+   (test_00_a, "Check PyMyQtt async queue wrapper"),
+   (test_01,   "Check PyMyQtt context initialization"),
+   (test_02,   "Check PyMyQtt basic MQTT connection"),
+   (test_03,   "Check PyMyQtt basic MQTT connection and subscription"),
+   (test_04,   "Check PyMyQtt basic subscribe function (QOS 0) and publish"),
+   (test_05,   "Check PyMyQtt check ping server (PINGREQ)"),
+   (test_06,   "Check PyMyQtt check client identifier function"),
+   (test_07,   "Check PyMyqtt client auth (CONNECT simple auth)"),
+   (test_08,   "Check PyMyqtt test will support (without auth)"),
+   (test_09,   "Check PyMyqtt test will is not published with disconnect (without auth)"),
    # tls support
 #   (test_18,   "Check PyMyqtt test TLS support"),
    (test_19,   "Check PyMyqtt TLS support (server side certificate auth: common CA)")

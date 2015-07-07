@@ -254,7 +254,7 @@ static PyObject * py_myqtt_conn_is_ok (PyMyQttConn* self)
 	/* call to check conn and build the value with the
 	   result. Do not free the conn in the case of
 	   failure. */
-	_result = Py_BuildValue ("i", myqtt_conn_is_ok (self->conn, axl_false));
+	_result = Py_BuildValue ("i", myqtt_conn_is_ok (self->conn, axl_false) > 0);
 	
 	return _result;
 }

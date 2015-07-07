@@ -91,6 +91,32 @@ def on_connect (ctx, conn, data):
     # end if
 
     return myqtt.CONNACK_ACCEPTED
+
+def __certificate_handler (ctx, conn, serverName, userData):
+
+    if serverName == "localhost":
+        return "../../test/localhost-server.crt"
+
+    if serverName == "test19a.localhost":
+        return "../../test/test19a-localhost-server.crt"
+
+    return None
+
+def __private_handler (ctx, conn, serverName, userData):
+
+    if serverName == "localhost":
+        return "../../test/localhost-server.key"
+
+    if serverName == "test19a.localhost":
+        return "../../test/test19a-localhost-server.key"
+    
+
+    return None
+
+def __chain_handler (ctx, conn, serverName, userData):
+
+    return None
+    
         
 if __name__ == '__main__':
 
@@ -129,6 +155,24 @@ if __name__ == '__main__':
         
     # set certificate
     myqtt.tls.set_certificate (listener2, "../../test/test-certificate.crt",  "../../test/test-private.key")
+
+    opts = myqtt.ConnOpts ()
+    if not myqtt.tls.set_ssl_certs (opts, "../../test/server.pem", "../../test/server.pem", None, "../../test/root.pem"):
+        error ("Unable to configure certificates, server.pem and root.pem")
+        sys.exit (-1)
+    # end if
+
+    # do not verify peer
+    myqtt.tls.ssl_peer_verify (opts, True)
+
+    listener3 = myqtt.tls.create_listener (ctx, "0.0.0.0", "1911", opts)
+    if not listener3.is_ok ():
+        error ("ERROR: failed to create TLS listener with especial options..")
+        sys.exit (-1)    
+
+    # configure auxiliar handlers 
+    myqtt.tls.set_certificate_handlers (ctx, __certificate_handler, __private_handler, __chain_handler)
+    
     ### end: TLS support
 
     # configure on publish
