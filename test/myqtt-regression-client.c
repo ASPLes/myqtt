@@ -2630,7 +2630,7 @@ axl_bool test_19 (void) {
 	/* close connection */
 	myqtt_conn_close (conn);
 
-	/*** STEP 2 ***/
+	/*** STEP 3 ***/
 	printf ("Test 19: (step 3) attempting to connect without providing certificates\n");
 
 	/* disable verification */
