@@ -3409,7 +3409,7 @@ int main (int argc, char ** argv)
 
 	/* test SNI indication */
 	CHECK_TEST("test_19a")
-	run_test (test_19a, "Test 19-a: check TLS SNI support (announcing "); 
+	run_test (test_19a, "Test 19-a: check TLS SNI support (announcing a different server name and check different certificate expected)"); 
 #endif
 
 #if defined(ENABLE_WEBSOCKET_SUPPORT)

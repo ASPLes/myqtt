@@ -659,7 +659,7 @@ def test_18 ():
     # keep_alive = 30
     conn = myqtt.tls.create_conn (ctx, host, tls_port, None, True, 30, opts)
     if not conn.is_ok ():
-        error ("Expected to find proper connection..")
+        error ("Expected to find proper connection (expected proper connection at test_18, it shouldn't fail)..")
         return False
 
     if not conn.pub ("this/is/a/test/18", "Test message 1", 14, myqtt.qos2, True, 10):
@@ -718,7 +718,7 @@ def test_19 ():
     # keep_alive = 30
     conn = myqtt.tls.create_conn (ctx, host, "1911", None, False, 30, opts)
     if not conn.is_ok ():
-        error ("Expected to find proper connection..")
+        error ("Expected to find proper connection (first step for test_19 failed)..")
         return False
 
     if not conn.pub ("this/is/a/test/19", "Test message 1", 14, myqtt.qos2, True, 10):
@@ -819,7 +819,7 @@ tests = [
    (test_08,   "Check PyMyqtt test will support (without auth)"),
    (test_09,   "Check PyMyqtt test will is not published with disconnect (without auth)"),
    # tls support
-#   (test_18,   "Check PyMyqtt test TLS support"),
+   (test_18,   "Check PyMyqtt test TLS support"),
    (test_19,   "Check PyMyqtt TLS support (server side certificate auth: common CA)")
 ]
 

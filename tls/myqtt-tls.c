@@ -544,7 +544,7 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 		} /* end if */
 		
 		/* wait a bit before retry */
-		myqtt_sleep (10000);
+		myqtt_sleep (100000);
 		
 	} /* end while */
 	
