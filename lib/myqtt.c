@@ -1349,10 +1349,10 @@ int    myqtt_get_32bit (const unsigned char * buffer)
  */
 void        myqtt_sleep (long microseconds)
 {
-#if defined(NOPOLL_OS_UNIX)
+#if defined(AXL_OS_UNIX)
 	usleep (microseconds);
 	return;
-#elif defined(NOPOLL_OS_WIN32)
+#elif defined(AXL_OS_WIN32)
 	Sleep (microseconds / 1000);
 	return;
 #endif
