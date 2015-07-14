@@ -95,6 +95,7 @@ myqtt_conn_ref_internal
 myqtt_conn_remove_on_close
 myqtt_conn_report_and_close
 myqtt_conn_sanity_socket_check
+myqtt_conn_send_connect_reply
 myqtt_conn_set_blocking_socket
 myqtt_conn_set_close_socket
 myqtt_conn_set_data

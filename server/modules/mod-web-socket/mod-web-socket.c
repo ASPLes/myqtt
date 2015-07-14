@@ -46,7 +46,7 @@
 BEGIN_C_DECLS
 
 MyQttdCtx * ctx = NULL;
-axlDoc    * conf = NULL;
+axlDoc    * mod_web_socket_conf = NULL;
 
 /** MyQttdUsersUnloadDb **/
 void __mod_web_socket_unload (MyQttdCtx * ctx, 
@@ -59,7 +59,7 @@ axlNode * __mod_web_socket_get_default_certificate (MyQttdCtx * ctx, MyQttCtx * 
 {
 	axlNode * node;
 
-	node = axl_doc_get (conf, "/mod-web-socket/certificates/cert");
+	node = axl_doc_get (mod_web_socket_conf, "/mod-web-socket/certificates/cert");
 	if (node == NULL)
 		return NULL;
 	while (node) {
@@ -73,7 +73,7 @@ axlNode * __mod_web_socket_get_default_certificate (MyQttdCtx * ctx, MyQttCtx * 
 
 	/* reached this point no certificate is flagged as default,
 	   then return first */
-	return axl_doc_get (conf, "/mod-web-socket/certificates/cert");
+	return axl_doc_get (mod_web_socket_conf, "/mod-web-socket/certificates/cert");
 }
 
 
@@ -145,8 +145,8 @@ static int  mod_web_socket_init (MyQttdCtx * _ctx)
 	} /* end if */
 
 	/* try to load configuration */
-	conf = axl_doc_parse_from_file (config, &err);
-	if (conf == NULL) {
+	mod_web_socket_conf = axl_doc_parse_from_file (config, &err);
+	if (mod_web_socket_conf == NULL) {
 		error ("Unable to load configuration from %s, axl_doc_parse_from_file failed: %s",
 		       config, axl_error_get (err));
 		axl_free (config);
@@ -171,8 +171,9 @@ static int  mod_web_socket_init (MyQttdCtx * _ctx)
  */
 static void mod_web_socket_close (MyQttdCtx * ctx)
 {
-	axlDoc * doc = conf;
-	conf = NULL;
+	axlDoc * doc = mod_web_socket_conf;
+	mod_web_socket_conf = NULL;
+	/* printf ("%s:%d -- axl_doc_free (%p)\n", __AXL_FILE__, __AXL_LINE__, doc); */
 	axl_doc_free (doc);
 
 	/* for now nothing */

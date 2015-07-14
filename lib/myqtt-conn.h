@@ -86,6 +86,8 @@ axl_bool            myqtt_conn_reconnect       (MyQttConn * conn,
 						MyQttConnNew on_connected,
 						axlPointer user_data);
 
+void                myqtt_conn_send_connect_reply (MyQttConn * conn, MyQttConnAckTypes response);
+
 MyQttConnAckTypes   myqtt_conn_get_last_err    (MyQttConn * conn);
 
 const char        * myqtt_conn_get_code_to_err (MyQttConnAckTypes code);

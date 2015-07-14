@@ -282,6 +282,17 @@ MyQttPublishCodes on_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, 
 	return MYQTT_PUBLISH_OK;
 }
 
+axl_bool reply_deferred (MyQttCtx * ctx, axlPointer _conn, axlPointer _user_data)
+{
+	MyQttConn * conn = _conn;
+
+	/* send ok */
+	printf ("Sending ok reply..\n");
+	myqtt_conn_send_connect_reply (conn, MYQTT_CONNACK_ACCEPTED);
+
+	return axl_true; /* finish this call */
+}
+
 /** 
  * @brief On connect function used to check and accept/reject
  * connections to this instance.
@@ -295,9 +306,19 @@ MyQttConnAckTypes on_connect (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_
 	/* check for user and password (if provided).  */
 	if (username && password) {
 		if (! axl_cmp (username, "aspl") || !axl_cmp (password, "test")) {
+
 			/* user and/or password is wrong */
 			return MYQTT_CONNACK_BAD_USERNAME_OR_PASSWORD;
 		}
+
+	} /* end if */
+
+	if (axl_cmp (myqtt_conn_get_client_id (conn), "test_23")) {
+		printf ("Deferring connection accept for user aspl..\n");
+		myqtt_thread_pool_new_event (ctx, 2000000, reply_deferred, conn, NULL);
+		
+		/* user and/or password is wrong */
+		return MYQTT_CONNACK_DEFERRED;
 	} /* end if */
 
 	/* report connection accepted */

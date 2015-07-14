@@ -2902,6 +2902,11 @@ axl_bool test_20b (void) {
 	   create a context */
 	nopoll_ctx   = nopoll_ctx_new ();
 
+	if (test_common_enable_debug) {
+		nopoll_log_enable (nopoll_ctx, nopoll_true);
+		nopoll_log_color_enable (nopoll_ctx, nopoll_true);
+	} /* end if */
+
 	opts = nopoll_conn_opts_new ();
 	nopoll_conn_opts_ssl_peer_verify (opts, nopoll_false);
 
@@ -2911,7 +2916,8 @@ axl_bool test_20b (void) {
 		return nopoll_false;
 	} /* end if */
 
-	printf ("Test 20-b: created WSS (TLS) connection, now starting MQTT session on top of it..\n");
+	printf ("Test 20-b: created WSS (TLS) connection, now starting MQTT session on top of it (%s:%s socket %d)..\n",
+		nopoll_conn_host (nopoll_conn), nopoll_conn_port (nopoll_conn), nopoll_conn_socket (nopoll_conn));
 
 	/* now create MQTT connection using already working noPoll
 	   connection */
@@ -3278,6 +3284,73 @@ axl_bool test_22 (void)
 	return axl_true;
 }
 
+axl_bool test_23 (void)
+{
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	MyQttAsyncQueue * queue;
+	int               sub_result;
+	MyQttMsg        * msg;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 23: creating connection (2 seconds delay because MYQTT_CONNACK_DEFERRED)..\n");
+
+	/* now connect to the listener:
+	   client_identifier -> test_03
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	conn = myqtt_conn_new (ctx, "test_23", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 23: connected without problems..\n");
+
+	/* subscribe to a topic */
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test/deferred", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* register on message handler */
+	queue = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+
+	/* publish application message (the message sent here is
+	 * bigger than 24, this is on purpose) */
+	if (! myqtt_conn_pub (conn, "myqtt/test/deferred", "This is test message........", 24, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message, myqtt_conn_pub() failed\n");
+		return axl_false;
+	} /* end if */
+
+
+	/* waiting for reply */
+	printf ("Test 23: waiting for reply..\n");
+	msg   = myqtt_async_queue_pop (queue);
+	myqtt_async_queue_unref (queue);
+	if (msg == NULL) {
+		printf ("ERROR: expected to find message from queue, but NULL was found..\n");
+		return axl_false;
+	} /* end if */
+
+	/* release message */
+	printf ("Test 23: releasing references=%d\n", myqtt_msg_ref_count (msg));
+	myqtt_msg_unref (msg);
+ 
+	/* close connection */
+	printf ("Test 23: closing connection..\n");
+	myqtt_conn_close (conn);
+
+	/* release context */
+	printf ("Test 23: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+	
+	return axl_true;
+}
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -3427,6 +3500,10 @@ int main (int argc, char ** argv)
 	/* test close connection after publish... */
 	CHECK_TEST("test_22")
 	run_test (test_22, "Test 22: test reconnect support"); 
+
+	/* check on connect deferred */
+	CHECK_TEST("test_23")
+	run_test (test_23, "Test 23: check on connect deferred"); 
 
 	/* support for message retention when subscribed with a wild
 	   card topic filter that matches different topic names */

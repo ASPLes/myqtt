@@ -46,7 +46,7 @@
 BEGIN_C_DECLS
 
 MyQttdCtx * ctx = NULL;
-axlDoc    * conf = NULL;
+axlDoc    * mod_status_conf = NULL;
 
 /** MyQttdUsersUnloadDb **/
 void __mod_status_unload (MyQttdCtx * ctx, 
@@ -100,11 +100,13 @@ MyQttPublishCodes __mod_status_on_publish (MyQttdCtx * ctx,       MyQttdDomain *
 		/* I've got the entire document, dump it into to send
 		 * it back to the client */
 		if (! axl_doc_dump_pretty (doc, &content, &size, 4)) {
+			/* printf ("%s:%d -- axl_doc_free (%p)\n", __AXL_FILE__, __AXL_LINE__, doc); */
 			axl_doc_free (doc);
 			return MYQTT_PUBLISH_OK; /* failed to create document, skip operation */
 		}
 		
 		/* release document */
+		/* printf ("%s:%d -- axl_doc_free (%p)\n", __AXL_FILE__, __AXL_LINE__, doc); */
 		axl_doc_free (doc);
 
 		/* send document */
@@ -149,8 +151,8 @@ static int  mod_status_init (MyQttdCtx * _ctx)
 	} /* end if */
 
 	/* try to load configuration */
-	conf = axl_doc_parse_from_file (config, &err);
-	if (conf == NULL) {
+	mod_status_conf = axl_doc_parse_from_file (config, &err);
+	if (mod_status_conf == NULL) {
 		error ("Unable to load configuration from %s, axl_doc_parse_from_file failed: %s",
 		       config, axl_error_get (err));
 		axl_free (config);
@@ -172,8 +174,9 @@ static int  mod_status_init (MyQttdCtx * _ctx)
  */
 static void mod_status_close (MyQttdCtx * ctx)
 {
-	axlDoc * doc = conf;
-	conf = NULL;
+	axlDoc * doc = mod_status_conf;
+	mod_status_conf = NULL;
+	/* printf ("%s:%d -- axl_doc_free (%p)\n", __AXL_FILE__, __AXL_LINE__, doc); */
 	axl_doc_free (doc);
 
 	/* for now nothing */

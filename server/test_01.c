@@ -976,7 +976,7 @@ axl_bool  test_06 (void) {
 	}
 
 	printf ("Test --: check basic settings\n");
-	if (setting->conn_limit != 5 ||
+	if (setting->conn_limit != 50 ||
 	    setting->message_size_limit != 256 ||
 	    setting->storage_messages_limit != 10000 ||
 	    setting->storage_quota_limit != 102400) {
@@ -1037,7 +1037,7 @@ axl_bool  test_07 (void) {
 	
 	MyQttdCtx       * ctx;
 	MyQttCtx        * myqtt_ctx;
-	MyQttConn       * conns[50];
+	MyQttConn       * conns[60];
 	int               iterator;
 	char            * client_id;
 
@@ -1056,9 +1056,9 @@ axl_bool  test_07 (void) {
 	} /* end if */
 	
 	/* connect to test_01.context and create more than 5 connections */
-	printf ("Test 07: creating five connections..\n");
+	printf ("Test 07: creating 50 connections..\n");
 	iterator = 0;
-	while (iterator < 5) {
+	while (iterator < 50) {
 		/* call to get client id */
 		client_id       = axl_strdup_printf ("test_02_%d", iterator);
 		conns[iterator] = myqtt_conn_new (myqtt_ctx, client_id, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
@@ -1081,9 +1081,9 @@ axl_bool  test_07 (void) {
 	if (! common_connect_send_and_check (NULL, 
 				      /* client id, user and password */
 				      "test_02", "user-test-02", "test1234", 
-				      /* we've got 6 connections because we have 5 plus the
+				      /* we've got 6 connections because we have 50 plus the
 					 connection that is being requesting the get-connections */
-				      "get-connections", "", "6", MYQTT_QOS_0, axl_false)) {
+				      "get-connections", "", "51", MYQTT_QOS_0, axl_false)) {
 		printf ("Test --: unable to connect and send message...\n");
 		return axl_false;
 	} /* end if */
@@ -1097,7 +1097,7 @@ axl_bool  test_07 (void) {
 	myqtt_conn_close (conns[iterator]);
 
 	iterator = 0;
-	while (iterator < 5) {
+	while (iterator < 50) {
 		/* close connection */
 		myqtt_conn_close (conns[iterator]);
 		/* next iterator */
@@ -1604,14 +1604,14 @@ axl_bool  test_11 (void) {
 
 	/* cleanup test_01 storage */
 	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm {} \\;") != 0) {
-		printf ("ERROR: failed to initialize test..\n");
-		return axl_false;
+		/* printf ("ERROR: failed to initialize test..\n");
+		   return axl_false; */
 	} /* end if */
 
 	/* cleanup test_01 storage */
 	if (system ("find reg-test-02/storage/test_01 -type f  -exec rm {} \\;") != 0) {
-		printf ("ERROR: failed to initialize test..\n");
-		return axl_false;
+		/* printf ("ERROR: failed to initialize test..\n");
+		   return axl_false; */
 	} /* end if */
 
 	/* call to init the base library and close it */

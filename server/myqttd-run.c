@@ -312,8 +312,8 @@ axl_bool myqttd_run_config_start_listeners (MyQttdCtx * ctx, axlDoc * doc)
 		   listener activators */
 		activator = myqtt_hash_lookup (ctx->listener_activators, (axlPointer) proto);
 		if (activator == NULL) {
-			error ("No listener activator was found for proto %s, skipping starting listener at %s:%d",
-			       proto, bind_addr ? bind_addr : "", port_val);
+			wrn ("No listener activator was found for proto %s, skipping starting listener at %s:%d",
+			     proto, bind_addr ? bind_addr : "", port_val);
 			goto next;
 		} /* end if */
 
@@ -625,6 +625,9 @@ void myqttd_run_watch_after_unwatch (MyQttCtx * _ctx, MyQttConn * conn, axlPoint
 		myqtt_storage_queued_flush (domain->myqtt_ctx, conn);
 	} /* end if */
 
+	/* notify login accepted here */
+	myqtt_conn_send_connect_reply (conn, MYQTT_CONNACK_ACCEPTED);
+
 	return;
 }
 
@@ -687,6 +690,7 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttCo
 	/*** PHASE 2: init session storage for the connection (if any) ***/
 	/* init storage if it has session */
 	if (! conn->clean_session) {
+
 		if (! myqtt_storage_init (domain->myqtt_ctx, conn, MYQTT_STORAGE_ALL)) {
 			error ("Login failed for username=%s client-id=%s server-name=%s : Unable to init storage service for provided client identifier '%s', unable to accept connection",
 			       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "", conn->client_identifier);
@@ -701,6 +705,7 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttCo
 
 		/* session recovered, now remove offline subscriptions */
 		__myqtt_reader_move_offline_to_online (domain->myqtt_ctx, conn);
+
 	} /* end if */
 
 	/*** PHASE 3: update client id hashes ***/
@@ -751,7 +756,7 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttCo
 	myqtt_reader_unwatch_connection (ctx->myqtt_ctx, conn, myqttd_run_watch_after_unwatch, domain);
 
 	/* enable domain and send connection in an async manner */
-	return MYQTT_CONNACK_ACCEPTED;
+	return MYQTT_CONNACK_DEFERRED;
 }
 
 
@@ -788,7 +793,7 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 
 	/* activate domain to have it working */
 	codes = myqttd_run_send_connection_to_domain (ctx, conn, myqtt_ctx, domain, username, client_id, server_Name);
-	if (codes != MYQTT_CONNACK_ACCEPTED) {
+	if (codes != MYQTT_CONNACK_DEFERRED) {
 		/* do not output an error message here because that
 		 * error message is already sent by
 		 * myqttd_run_send_connection_to_domain */

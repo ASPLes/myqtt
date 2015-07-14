@@ -50,9 +50,8 @@ void __myqtt_web_socket_ctx_unref (axlPointer nopoll_ctx)
 void __myqtt_web_socket_associate_ctx (MyQttCtx * ctx, noPollCtx * nopoll_ctx)
 {
 	/* check if this context has already a context */
-	if (myqtt_ctx_get_data (ctx, "__my:ws:ctx")) {
+	if (myqtt_ctx_get_data (ctx, "__my:ws:ctx")) 
 		return;
-	}
 
 	myqtt_mutex_lock (&ctx->ref_mutex);
 	if (myqtt_ctx_get_data (ctx, "__my:ws:ctx")) {
@@ -209,6 +208,13 @@ axl_bool __myqtt_web_socket_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQ
 {
 	noPollConn  * nopoll_conn = user_data;
 
+	if (nopoll_conn_socket (nopoll_conn) < 0) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, 
+			   "Failed to create MQTT over WebSocket connection to %s:%s because socket is invalid or connection is not connected (socket: %d)",
+			   nopoll_conn_host (nopoll_conn), nopoll_conn_port (nopoll_conn), nopoll_conn_socket (nopoll_conn));
+		return axl_false;
+	} /* end if */
+
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Creating new MQTT over WebSocket connection to %s:%s (socket: %d)",
 		   nopoll_conn_host (nopoll_conn), nopoll_conn_port (nopoll_conn), nopoll_conn_socket (nopoll_conn));
 
@@ -307,8 +313,8 @@ MyQttConn        * myqtt_web_socket_conn_new            (MyQttCtx        * ctx,
 		conn = opts->init_session_setup_ptr (ctx, NULL, opts->init_user_data, opts->init_user_data2, opts->init_user_data3);
 
 	/* report what we are doing */
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Creating new MQTT over WebSocket connection to %s:%s (is ready:%d)",
-		   nopoll_conn_host (conn), nopoll_conn_port (conn), nopoll_conn_is_ready (conn));
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Creating new MQTT over WebSocket connection to %s:%s (is ready:%d, socket: %d)",
+		   nopoll_conn_host (conn), nopoll_conn_port (conn), nopoll_conn_is_ready (conn), nopoll_conn_socket (conn));
 
 	/* check and disable reconnect if it is not configured the
 	   recover handler */

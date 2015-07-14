@@ -191,6 +191,7 @@ void __mod_auth_xml_unload (MyQttdCtx * ctx,
 	
 	/* release full path and internal document holding database */
 	axl_free (backend->full_path);
+	/* printf ("%s:%d -- axl_doc_free (%p)\n", __AXL_FILE__, __AXL_LINE__, backend->doc); */
 	axl_doc_free (backend->doc);
 	axl_free (backend);
 
