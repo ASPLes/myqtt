@@ -366,7 +366,9 @@ axl_bool          myqttd_domain_do_auth (MyQttdCtx    * ctx,
 			if (domain->users == NULL) {
 				error ("Failed to load database from %s for domain %s", domain->users_db, domain->name);
 				myqtt_mutex_unlock (&domain->mutex);
-				return axl_true; /* stop searching, we failed to load database */
+
+				/* report axl_false to indicate login failure for this domain backend */
+				return axl_false; /* stop searching, we failed to load database */
 			} /* end if */
 		} /* end if */
 		myqtt_mutex_unlock (&domain->mutex);

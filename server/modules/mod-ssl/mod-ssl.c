@@ -46,7 +46,7 @@
 BEGIN_C_DECLS
 
 MyQttdCtx * ctx = NULL;
-axlDoc    * conf = NULL;
+axlDoc    * mod_ssl_conf = NULL;
 
 /** MyQttdUsersUnloadDb **/
 void __mod_ssl_unload (MyQttdCtx * ctx, 
@@ -59,7 +59,7 @@ axlNode * __mod_ssl_get_default_certificate (MyQttdCtx * ctx, MyQttCtx * my_ctx)
 {
 	axlNode * node;
 
-	node = axl_doc_get (conf, "/mod-ssl/certificates/cert");
+	node = axl_doc_get (mod_ssl_conf, "/mod-ssl/certificates/cert");
 	if (node == NULL)
 		return NULL;
 	while (node) {
@@ -73,7 +73,7 @@ axlNode * __mod_ssl_get_default_certificate (MyQttdCtx * ctx, MyQttCtx * my_ctx)
 
 	/* reached this point no certificate is flagged as default,
 	   then return first */
-	return axl_doc_get (conf, "/mod-ssl/certificates/cert");
+	return axl_doc_get (mod_ssl_conf, "/mod-ssl/certificates/cert");
 }
 
 
@@ -135,7 +135,7 @@ static int  mod_ssl_init (MyQttdCtx * _ctx)
 	} /* end if */
 
 	/* try to load configuration */
-	conf = axl_doc_parse_from_file (config, &err);
+	mod_ssl_conf = axl_doc_parse_from_file (config, &err);
 	if (config == NULL) {
 		error ("Unable to load configuration from %s, axl_doc_parse_from_file failed: %s",
 		       config, axl_error_get (err));
@@ -161,7 +161,8 @@ static int  mod_ssl_init (MyQttdCtx * _ctx)
  */
 static void mod_ssl_close (MyQttdCtx * ctx)
 {
-	axl_doc_free (conf);
+	/* printf ("%s:%d -- axl_doc_free (%p)\n", __AXL_FILE__, __AXL_LINE__, mod_ssl_conf); */
+	axl_doc_free (mod_ssl_conf);
 
 	/* for now nothing */
 	return;

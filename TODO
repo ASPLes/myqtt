@@ -38,8 +38,6 @@
 
 --== roadmap ==--
 
-* Add support for SNI continue with integration at test_11 (myqttd).
-
 * Add wildcard support (for message retention too).
 
 * Big message support (review and strenghten current limits).

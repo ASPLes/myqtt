@@ -1819,6 +1819,79 @@ axl_bool            myqtt_conn_reconnect              (MyQttConn    * connection
 }
 
 /** 
+ * @brief Allows to complete connect operation by sending a particular
+ * response. This function is used in combination with \ref MYQTT_CONNACK_DEFERRED 
+ * that allows a server side MQTT server to tell the library engine to skip reporting to the connecting client.
+ *
+ * This \ref MYQTT_CONNACK_DEFERRED response code is reported at the \ref MyQttOnConnectHandler handler.
+ */
+void            myqtt_conn_send_connect_reply (MyQttConn * conn, MyQttConnAckTypes response)
+{
+	MyQttCtx          * ctx;
+	int                 size = 0;
+	unsigned char     * reply;
+
+	if (conn == NULL)
+		return;
+
+	/* handle deferred responses */
+	if (response == MYQTT_CONNACK_DEFERRED) {
+		return;
+	} /* end if */
+
+	/* get reference to the context used by the connection */
+	ctx = conn->ctx;
+
+	/* session recovery: connection accepted, if it has session recover */
+	if (! conn->clean_session && response == MYQTT_CONNACK_ACCEPTED) {
+		if (! ctx->skip_storage_init) {
+			/* move subscriptions from offline to online */
+			if (! myqtt_storage_session_recover (ctx, conn)) {
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to recover session for the provided connection, unable to accept connection");
+				response = MYQTT_CONNACK_SERVER_UNAVAILABLE;
+			} else {
+				/* session recovered, now remove offline subscriptions */
+				__myqtt_reader_move_offline_to_online (ctx, conn);
+			} /* end if */
+		} /* end if */
+	} /* end if */
+
+	/* rest of cases, reply with the response */
+	reply = myqtt_msg_build (ctx, MYQTT_CONNACK, axl_false, 0, axl_false, &size, 
+				 /* variable header and payload */
+				 MYQTT_PARAM_16BIT_INT, response, 
+				 MYQTT_PARAM_END);
+
+	/* send message */
+	if (! myqtt_msg_send_raw (conn, reply, size)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send CONNACK message, errno=%d", errno);
+	} /* end if */
+
+	/* free reply */
+	myqtt_msg_free_build (ctx, reply, size);
+
+	/* close connection in the case it is not an accepted */
+	if (response != MYQTT_CONNACK_ACCEPTED) {
+		myqtt_conn_shutdown (conn);
+		myqtt_log (MYQTT_LEVEL_WARNING, "Connection conn-id=%d denied from %s:%s", conn->id, conn->host, conn->port);
+	} else {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Connection conn-id=%d accepted from %s:%s", conn->id, conn->host, conn->port);
+
+		/* resend messages queued */
+		if (myqtt_storage_queued_messages (ctx, conn) > 0) {
+			/* we have pending messages, order to deliver them */
+			myqtt_storage_queued_flush (ctx, conn);
+		} /* end if */
+
+		/* flag the connection as fully accepted */
+		conn->initial_accept = axl_false;
+
+	} /* end if */
+
+	return;
+}
+
+/** 
  * @brief After a \ref myqtt_conn_new you can call this function to get the last error reported.
  *
  * @param conn The connection where the last error is being queried.
