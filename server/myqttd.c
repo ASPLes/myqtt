@@ -1496,11 +1496,12 @@ const char    * myqttd_ensure_str      (const char * string)
 /** 
  * \mainpage 
  *
- * \section intro Myqttd Introduction
+ * \section intro MyQtt Introduction
  *
- * Myqttd is a general MQTT server server. This means you focus on
- * adding features to your server side application, letting Myqttd to
- * help you with (to name some of them):
+ * MyQtt is an Open Source professional MQTT stack focused on
+ * providing support to create MQTT server side solutions. MyQtt has a modular design 
+ *
+ * - <b>libMyQtt</b> : a ready to use stateless 
  *
  * - The profile security (\ref profile_path_configuration "by using profile path"), that is, to ensure your
  *      profile is used in the exact combination sequence required.
