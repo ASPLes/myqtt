@@ -404,4 +404,7 @@ MyQttConn            * myqtt_conn_new_full_common        (MyQttCtx             *
 
 MyQttNetTransport      __myqtt_conn_detect_transport (MyQttCtx * ctx, const char * host);
 
+int  __myqtt_conn_get_next_id (MyQttCtx * ctx);
+void __myqtt_conn_init_mutex (MyQttConn * connection);
+
 #endif /* __MYQTT_CONNECTION_PRIVATE_H__ */

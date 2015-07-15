@@ -612,28 +612,155 @@ void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 	return;
 }
 
-void myqttd_run_watch_after_unwatch (MyQttCtx * _ctx, MyQttConn * conn, axlPointer ptr)
+/** 
+ * @internal Interla function that creates a new connection object
+ * reusing all internal references from the provided connection. This
+ * is done to make a fase transfer from the current contet into the
+ * new without having to wait it to be unregistered the first one in
+ * first place.
+ */
+MyQttConn * __myqttd_run_internal_copy (MyQttCtx * ctx, MyQttConn * ref)
 {
-	MyQttdDomain * domain     = ptr;
+	MyQttConn * conn;
 
-	/* register the connection into the new handler */
-	myqtt_reader_watch_connection (domain->myqtt_ctx, conn);
+	/* create connection that will own all internal references */
+	conn = axl_new (MyQttConn, 1);
+	if (conn == NULL)
+		return NULL;
 
-	/* resend messages queued */
-	if (myqtt_storage_queued_messages (domain->myqtt_ctx, conn) > 0) {
-		/* we have pending messages, order to deliver them */
-		myqtt_storage_queued_flush (domain->myqtt_ctx, conn);
-	} /* end if */
+	conn->id = __myqtt_conn_get_next_id (ctx);
+	conn->ctx = ctx;
+	myqtt_ctx_ref2 (ctx, "new connection"); /* acquire a reference to context */
 
-	/* notify login accepted here */
-	myqtt_conn_send_connect_reply (conn, MYQTT_CONNACK_ACCEPTED);
+	conn->host       = ref->host;       ref->host = NULL;
+	conn->port       = ref->port;       ref->port = NULL;
+	conn->host_ip    = ref->host_ip;    ref->host_ip = NULL;
+	conn->local_addr = ref->local_addr; ref->local_addr = NULL;
+	conn->local_port = ref->local_port; ref->local_port = NULL;
+	conn->ref_count  = 1; 
+	conn->is_connected = ref->is_connected;
 
-	return;
+	/* on_close_full */
+	conn->on_close_full = ref->on_close_full; ref->on_close_full = NULL;
+	conn->keep_alive = ref->keep_alive;
+
+	/* bytes received and bytes sent */
+	conn->bytes_received = ref->bytes_received;
+	conn->bytes_sent     = ref->bytes_sent;
+
+	/* copy status lines */
+	conn->initial_accept = ref->initial_accept;
+	conn->transport_detected = ref->transport_detected;
+	conn->connect_received = ref->connect_received;
+
+	/* pending line and buffer */
+	conn->pending_line = ref->pending_line; ref->pending_line = NULL;
+	conn->buffer       = ref->buffer; ref->buffer = NULL;
+
+	/* remaining bytes and bytes read */
+	conn->remaining_bytes = ref->remaining_bytes;
+	conn->bytes_read = ref->bytes_read;
+
+	/* hook */
+	conn->hook = ref->hook;
+
+	/* send pkgids */
+	conn->sent_pkgids = ref->sent_pkgids; ref->sent_pkgids = NULL;
+
+	/* handlers */
+	conn->on_msg = ref->on_msg; ref->on_msg = NULL;
+	conn->on_msg_data = ref->on_msg_data; ref->on_msg_data = NULL;
+
+	conn->on_msg_sent = ref->on_msg_sent; ref->on_msg_sent = NULL;
+	conn->on_msg_sent_data = ref->on_msg_sent_data; ref->on_msg_sent_data = NULL;
+
+	conn->on_reconnect = ref->on_reconnect; ref->on_reconnect = NULL;
+	conn->on_reconnect_data = ref->on_reconnect_data; ref->on_reconnect_data = NULL;
+
+	/* ping req */
+	conn->ping_resp_queue = ref->ping_resp_queue; ref->ping_resp_queue = NULL;
+
+	/* prered handlers */
+	conn->preread_handler = ref->preread_handler;
+	conn->preread_user_data = ref->preread_user_data;
+
+	/* opts */
+	conn->opts      = ref->opts; ref->opts = NULL;
+	/* transport */
+	conn->transport = ref->transport;
+	/* clean_session */
+	conn->clean_session = ref->clean_session;
+
+	/* client_identifier */
+	conn->client_identifier = ref->client_identifier; ref->client_identifier = NULL;
+
+	/* wait_replies */
+	conn->wait_replies = ref->wait_replies; ref->wait_replies = NULL;
+
+	/* wild_subs */
+	conn->wild_subs = ref->wild_subs; ref->wild_subs = NULL;
+	/* subs */
+	conn->subs = ref->subs; ref->subs = NULL;
+
+	/* init mutexes */
+	__myqtt_conn_init_mutex (conn);
+
+	/* data */
+	conn->data = ref->data; ref->data = NULL;
+
+	/* role */
+	conn->role = ref->role;
+	
+	/* send and receive */
+	conn->send = ref->send; ref->send = NULL;
+	conn->receive = ref->receive; ref->receive = NULL;
+
+	/* close session */
+	conn->close_session = ref->close_session;
+
+	/* get socket */
+	conn->session = ref->session; ref->session = -1;
+	ref->is_connected = axl_false;
+
+	/* setup handlers */
+	conn->setup_handler   = ref->setup_handler; 
+	conn->setup_user_data = ref->setup_user_data;
+
+	/* will */
+	conn->will_topic = ref->will_topic; ref->will_topic = NULL;
+	conn->will_msg   = ref->will_msg; ref->will_msg = NULL;
+	conn->will_qos   = ref->will_qos; 
+
+	/* serverName */
+	conn->serverName = ref->serverName; ref->serverName = NULL;
+
+	/* username */
+	conn->username = ref->username; ref->username = NULL;
+	/* conn->password = ref->password; ref->password = NULL; */
+
+	/* ssl */
+	conn->ssl_ctx = ref->ssl_ctx; ref->ssl_ctx = NULL;
+	conn->ssl = ref->ssl; ref->ssl = NULL;
+	conn->tls_on = ref->tls_on; 
+
+	conn->pending_ssl_accept = ref->pending_ssl_accept;
+
+	/* certificates */
+	conn->certificate = ref->certificate; ref->certificate = NULL;
+	conn->private_key = ref->private_key; ref->private_key = NULL;
+	conn->chain_certificate = ref->chain_certificate; ref->chain_certificate = NULL;
+
+	return conn;
 }
 
-MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttConn * conn, 
-							MyQttCtx  * myqtt_ctx, MyQttdDomain * domain,
-							const char * username, const char * client_id, const char * server_Name) {
+MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx, 
+							MyQttConn      * conn, 
+							MyQttCtx       * myqtt_ctx, 
+							MyQttdDomain   * domain,
+							const char     * username, 
+							const char     * client_id, 
+							const char     * server_Name) 
+{
 
 	int         connections;
 	MyQttConn * conn2;
@@ -651,6 +778,7 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttCo
 
 				error ("Login failed for username=%s client-id=%s server-name=%s : Unable to initialize domain context",
 				       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
+
 				return MYQTT_CONNACK_SERVER_UNAVAILABLE;
 			} /* end if */
 		} /* end if */
@@ -660,7 +788,7 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttCo
 	if (! domain->initialized) {
 		error ("Login failed for username=%s client-id=%s server-name=%s : Unable to initialize domain context (2)",
 		       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
-
+		
 		return MYQTT_CONNACK_SERVER_UNAVAILABLE;
 	} /* end if */
 
@@ -678,6 +806,7 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttCo
 				       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "",
 				       myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name), domain->name, 
 				       domain->use_settings, connections, domain->settings->conn_limit);
+
 				return MYQTT_CONNACK_REFUSED;
 			} /* end if */
 		} else {
@@ -694,12 +823,14 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttCo
 		if (! myqtt_storage_init (domain->myqtt_ctx, conn, MYQTT_STORAGE_ALL)) {
 			error ("Login failed for username=%s client-id=%s server-name=%s : Unable to init storage service for provided client identifier '%s', unable to accept connection",
 			       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "", conn->client_identifier);
+
 			return MYQTT_CONNACK_SERVER_UNAVAILABLE;
 		} /* end if */
 
 		if (! myqtt_storage_session_recover (domain->myqtt_ctx, conn)) {
 			error ("Login failed for username=%s client-id=%s server-name=%s : Failed to recover session for the provided connection, unable to accept connection",
 			       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
+
 			return MYQTT_CONNACK_SERVER_UNAVAILABLE;
 		} /* end if */
 
@@ -718,9 +849,9 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttCo
 
 	/** Ensure that no client connects with same id unless
 	    drop_conn_same_client_id is enabled. According to MQTT
-	    standard ([MQTT-3.1.4-2], page * 12, section 3.1.4
-	    response, it states that by default the * server must
-	    disconnect previous. */
+	    standard ([MQTT-3.1.4-2], page 12, section 3.1.4 response,
+	    it states that by default the server must disconnect
+	    previous. */
 	conn2 = axl_hash_get (domain->myqtt_ctx->client_ids, (axlPointer) conn->client_identifier);
 	if (conn2) {
 		/* connection with same client identifier found, now
@@ -732,30 +863,52 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx * ctx, MyQttCo
 			error ("Login failed for username=%s client-id=%s server-name=%s : Rejected CONNECT request because client id %s is already in use, denying connect",
 			       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "",
 			       conn->client_identifier);
+
 			return MYQTT_CONNACK_IDENTIFIER_REJECTED;
 		} /* end if */
 
 		/* reached this point, we have to drop previous
 		   connection */
-		wrn ("Replacing conn-id=%d by conn-id=%d because client id %s was found, dropping old connection", 
-		     conn2->id, conn->id, conn->client_identifier);
+		/* wrn ("Replacing conn-id=%d by conn-id=%d because client id %s was found, dropping old connection", 
+		   conn2->id, conn->id, conn->client_identifier); */
 		myqtt_conn_shutdown (conn2);
 	} /* end if */
 
+	/* duplicate connection : this function creates a reference that is released at the end */
+	conn2 = __myqttd_run_internal_copy (domain->myqtt_ctx, conn);
+
+	/* insert into connections table */
 	axl_hash_insert_full (domain->myqtt_ctx->client_ids, 
-			      axl_strdup (conn->client_identifier), axl_free,
-			      conn, NULL);
+			      axl_strdup (conn2->client_identifier), axl_free,
+			      conn2, NULL);
 	myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
 
 	/* remove registry from parent context */
 	myqtt_mutex_lock (&myqtt_ctx->client_ids_m);
-	axl_hash_remove (myqtt_ctx->client_ids, conn->client_identifier);
+	axl_hash_remove (myqtt_ctx->client_ids, conn2->client_identifier);
 	myqtt_mutex_unlock (&myqtt_ctx->client_ids_m);
 
-	/* un register this connection from current reader */
-	myqtt_reader_unwatch_connection (ctx->myqtt_ctx, conn, myqttd_run_watch_after_unwatch, domain);
+	/* register new connection into the new reader */
+	myqtt_reader_watch_connection (domain->myqtt_ctx, conn2);
 
-	/* enable domain and send connection in an async manner */
+	/* resend messages queued */
+	if (myqtt_storage_queued_messages (domain->myqtt_ctx, conn) > 0) {
+		/* we have pending messages, order to deliver them */
+		myqtt_storage_queued_flush (domain->myqtt_ctx, conn);
+	} /* end if */
+
+	/* send reply */
+	myqtt_conn_send_connect_reply (conn2, MYQTT_CONNACK_ACCEPTED);
+
+	/* un-register this connection from current reader */
+	myqtt_reader_unwatch_connection (ctx->myqtt_ctx, conn, NULL, NULL);
+
+	/* release reference no longer needed */
+	myqtt_conn_unref (conn2, "__myqttd_run_internal_copy");
+
+	/* notify engine to defer decision because in fact it was
+	   replied from a differnt context, see
+	   myqtt_conn_send_connect_reply () done before */
 	return MYQTT_CONNACK_DEFERRED;
 }
 

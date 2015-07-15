@@ -584,21 +584,24 @@ MyQttConn * common_connect_and_subscribe (MyQttCtx * myqtt_ctx, const char * cli
 		} /* end if */
 	} /* end if */
 
-	printf ("Test --: connecting to myqtt server (client ctx = %p)..\n", myqtt_ctx);
+	printf ("Test --: connecting to myqtt server (client ctx = %p, client_id = '%s', %s:%s)..\n", 
+		myqtt_ctx, client_id, listener_host, listener_port);
 	
 	conn = myqtt_conn_new (myqtt_ctx, client_id, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		if (! skip_error_reporting)
 			printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
-		return axl_false;
+		return NULL;
 	} /* end if */
+
+	printf ("Test --: connection OK to %s:%s (client ctx = %p)..\n", listener_host, listener_port, myqtt_ctx);
 
 	/* subscribe */
 	printf ("Test --: subscribe to the topic %s..\n", topic);
 	if (! myqtt_conn_sub (conn, 10, topic, 0, &sub_result)) {
 		if (! skip_error_reporting)
 			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
-		return axl_false;
+		return NULL;
 	} /* end if */	
 
 	printf ("Test --: subscription completed with qos=%d (requested=%d)\n", sub_result, qos);
@@ -701,7 +704,7 @@ axl_bool  test_03 (void) {
 	printf ("Test 03: library and server engine started.. ok (ctxd = %p, ctx = %p\n", ctx, MYQTTD_MYQTT_CTX (ctx));
 
 	if (myqttd_domain_count_enabled (ctx) != 0) {
-		printf ("Test 03: expected to find 0 domains enabled but found %d\n", myqttd_domain_count_enabled (ctx));
+		printf ("Test 03: (1) expected to find 0 domains enabled but found %d\n", myqttd_domain_count_enabled (ctx));
 		return axl_false;
 	} /* end if */
 
@@ -712,7 +715,7 @@ axl_bool  test_03 (void) {
 	} /* end if */
 
 	if (myqttd_domain_count_enabled (ctx) != 1) {
-		printf ("Test 03: expected to find 1 domains enabled but found %d\n", myqttd_domain_count_enabled (ctx));
+		printf ("Test 03: (2) expected to find 1 domains enabled but found %d\n", myqttd_domain_count_enabled (ctx));
 		return axl_false;
 	} /* end if */
 
@@ -723,7 +726,7 @@ axl_bool  test_03 (void) {
 	} /* end if */
 
 	if (myqttd_domain_count_enabled (ctx) != 2) {
-		printf ("Test 03: expected to find 2 domains enabled but found %d\n", myqttd_domain_count_enabled (ctx));
+		printf ("Test 03: (3) expected to find 2 domains enabled but found %d\n", myqttd_domain_count_enabled (ctx));
 		return axl_false;
 	} /* end if */
 
@@ -738,11 +741,13 @@ axl_bool  test_03 (void) {
 
 	/* ensure connections in domain */
 	if (myqttd_domain_conn_count (myqttd_domain_find_by_name (ctx, "test_01.context")) != 0) {
-		printf ("Test 03: expected to find 0 connection but found something different..\n");
+		printf ("Test 03: (4) expected to find 0 connection but found something different..\n");
 		return axl_false;
 	}
 
 	/* connect and report connection */
+	printf ("Test 03: ------------------\n");
+	printf ("Test 03: connecting with client_identifier='test_02', and sub='myqtt/test'\n");
 	conn = common_connect_and_subscribe (NULL, "test_02", "myqtt/test", MYQTT_QOS_0, axl_false);
 	if (conn == NULL) {
 		printf ("Test 03: unable to connect to the domain..\n");
@@ -751,26 +756,32 @@ axl_bool  test_03 (void) {
 
 	/* ensure connections in domain */
 	if (myqttd_domain_conn_count (myqttd_domain_find_by_name (ctx, "test_01.context")) != 1) {
-		printf ("Test 03: expected to find 1 connection but found something different..\n");
+		printf ("Test 03: (5) expected to find 1 connection but found something different: %d..\n", 
+			myqttd_domain_conn_count (myqttd_domain_find_by_name (ctx, "test_01.context")));
 		return axl_false;
 	}
 
 	/* ensure connections in domain */
 	if (myqttd_domain_conn_count (myqttd_domain_find_by_name (ctx, "test_02.context")) != 0) {
-		printf ("Test 03: expected to find 0 connection but found something different..\n");
+		printf ("Test 03: (6) expected to find 0 connection but found something different: %d..\n",
+			myqttd_domain_conn_count (myqttd_domain_find_by_name (ctx, "test_02.context")));
 		return axl_false;
 	}
 
 	/* connect and report connection */
+	printf ("Test 03: ------------------\n");
+	printf ("Test 03: connecting with client_identifier='test_04', and sub='myqtt/test'\n");
 	conn2 = common_connect_and_subscribe (NULL, "test_04", "myqtt/test", MYQTT_QOS_0, axl_false);
-	if (conn == NULL) {
+	if (conn2 == NULL) {
 		printf ("Test 03: unable to connect to the domain..\n");
 		return axl_false;
 	}
 
 	/* ensure connections in domain */
+	printf ("Test 03: checking client_identifier='test_04' is connected to context='test_02.context'\n");
 	if (myqttd_domain_conn_count (myqttd_domain_find_by_name (ctx, "test_02.context")) != 1) {
-		printf ("Test 03: expected to find 1 connection but found something different..\n");
+		printf ("Test 03: (7) expected to find 1 connection but found something different: %d..\n",
+			myqttd_domain_conn_count (myqttd_domain_find_by_name (ctx, "test_02.context")));
 		return axl_false;
 	}
 	
