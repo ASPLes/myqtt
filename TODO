@@ -94,8 +94,8 @@
   clients:
   https://groups.google.com/d/msg/mqtt/fjVNfZJ46dI/p_F7DG5SBsIJ
 
-* Implement simple presense implementation based on the following notes:
-  http://stackoverflow.com/questions/19057835/how-to-find-connected-mqtt-client-details
+* [Presense support] Implement simple presense implementation based on
+  the following notes: http://stackoverflow.com/questions/19057835/how-to-find-connected-mqtt-client-details
 
 * Review and provide support for message ordering differences:
   https://groups.google.com/forum/#!msg/mqtt/UfcO0HtLq9s/cjboTzdoR64J
