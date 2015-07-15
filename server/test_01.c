@@ -2097,6 +2097,63 @@ axl_bool  test_14 (void) {
 	return axl_true;
 }
 
+axl_bool  test_15 (void) {
+
+	MyQttdCtx       * ctx;
+	MyQttConn       * conn;
+	MyQttCtx        * myqtt_ctx;
+	MyQttConnOpts   * opts;
+
+	/* call to init the base library and close it */
+	printf ("Test 15: init library and server engine..\n");
+	ctx       = common_init_ctxd (NULL, "test_15.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 15: library and server engine started.. ok (ctxd = %p, ctx = %p\n", ctx, MYQTTD_MYQTT_CTX (ctx));
+
+	/* create connection to local server and test domain support */
+	myqtt_ctx = common_init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+
+	/* clear all auth backends */
+	myqtt_hash_clear (ctx->auth_backends);
+
+	/* ensure auth backends not enabled */
+	if (myqtt_hash_size (ctx->auth_backends) != 0) {
+		printf ("ERROR: detected %d auth backends installed when expected to have 0..\n", 
+			myqtt_hash_size (ctx->auth_backends));
+		return axl_false;
+	} /* end if */
+
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_set_auth (opts, "auth-user1", "password1");
+
+	printf ("Test 15: connecting to myqtt server (client ctx = %p)..\n", myqtt_ctx);
+	conn = myqtt_conn_new (myqtt_ctx, "test_01", axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it shouldn't connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* close connection */
+	myqtt_conn_close (conn);
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+
+	printf ("Test 15: finishing MyQttdCtx..\n");
+
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+		
+	return axl_true;
+	
+}
+
 #endif /* defined(ENABLE_WEBSOCKET_SUPPORT) */
 
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
@@ -2244,7 +2301,10 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_14")
 	run_test (test_14, "Test 14: checks that authentication fails when provided right hostname but wrong credentials");
 #endif
-	
+
+	CHECK_TEST("test_15")
+	run_test (test_15, "Test 15: test auth fails when no backend is enabled");
+
 
 	/* check support to limit amount of subscriptions a user can
 	 * do */
