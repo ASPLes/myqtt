@@ -415,6 +415,8 @@ py-myqtt/test/Makefile
 py-myqtt/doc/Makefile
 py-myqtt/doc/conf.py
 test/Makefile
+doc/Makefile
+doc/myqtt.doxygen
 myqtt-1.0.pc
 myqtt-tls-1.0.pc
 myqtt-web-socket-1.0.pc
