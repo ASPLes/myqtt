@@ -139,14 +139,14 @@ typedef struct _MyQttCtx MyQttCtx;
  * @brief A MyQtt Connection object.
  *
  * This object represent a connection inside the MyQtt Library. It
- * can be created using \ref myqtt_connection_new and then checked
- * with \ref myqtt_connection_is_ok.
+ * can be created using \ref myqtt_conn_new and then checked
+ * with \ref myqtt_conn_is_ok.
  *
  * Internal \ref MyQttConn representation is not exposed to
  * user code space to ensure the minimal impact while improving or
  * changing MyQtt Library internals. 
  * 
- * To operate with a \ref MyQttConn object \ref myqtt_connection "check out its API documentation".
+ * To operate with a \ref MyQttConn object \ref myqtt_conn "check out its API documentation".
  * 
  */
 typedef struct _MyQttConn  MyQttConn;
@@ -171,8 +171,7 @@ typedef struct _MyQttConnOpts MyQttConnOpts;
  * 
  * This enum is used to represent different MyQtt Library status,
  * especially while operating with \ref MyQttConn
- * references. Values described by this enumeration are returned by
- * \ref myqtt_connection_get_status.
+ * references. 
  */
 typedef enum {
 	/** 
@@ -245,15 +244,12 @@ typedef enum {
 	 */
 	MyQttXmlValidationError     = 11,
 	/** 
-	 * @brief Connection is in transit to be closed. This is not
-	 * an error just an indication that the connection is being
-	 * closed at the time the call to \ref
-	 * myqtt_connection_get_status was done.
+	 * @brief Connection is in transit to be closed. 
 	 */
 	MyQttConnectionCloseCalled  = 12,
 	/** 
 	 * @brief The connection was terminated due to a call to \ref
-	 * myqtt_connection_shutdown or an internal implementation
+	 * myqtt_conn_shutdown or an internal implementation
 	 * that closes the connection without taking place the MQTT disconnect.
 	 */
 	MyQttConnectionForcedClose  = 13,
@@ -308,8 +304,7 @@ typedef enum {
 	 * functions are the only ones that can have this value:
 	 *
 	 * - \ref myqtt_listener_new
-	 * - \ref myqtt_listener_new2
-	 * - \ref myqtt_listener_new_full
+	 * - \ref myqtt_listener_new6
 	 */
 	MyQttRoleMasterListener
 	
@@ -634,7 +629,7 @@ typedef enum {
 	/** 
 	 * @brief Combinable flag for \ref myqtt_conn_pub to control
 	 * storage for publications that may require them by default
-	 * (for example \ref MQTT_QOS_1 and \ref MYQTT_QOS_2) but
+	 * (for example \ref MYQTT_QOS_1 and \ref MYQTT_QOS_2) but
 	 * still requires that quality of service to be present in the
 	 * header. Combine them by doing \ref MYQTT_QOS_1 | \ref MYQTT_QOS_SKIP_STORAGE.
 	 */

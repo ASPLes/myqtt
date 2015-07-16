@@ -41,6 +41,15 @@
 #include <myqtt-ctx-private.h>
 #include <dirent.h>
 
+/** 
+ * \defgroup myqtt_storage MyQtt Storage: Plugable storage API 
+ */
+
+/** 
+ * \addtogroup myqtt_storage
+ * @{
+ */
+
 int __myqtt_storage_strpos (MyQttCtx * ctx, const char * string, char item)
 {
 	int iterator = 0;
@@ -699,7 +708,12 @@ axl_bool myqtt_storage_sub_offline      (MyQttCtx      * ctx,
  *
  * @param topic_filter The topic filter to check.
  *
+ * @param requested_qos Requested QoS for the subscription.
+ *
  * @param remove_if_found Remove the subscription if found.
+ *
+ * @return axl_true if the subscription oepration was completed,
+ * otherwise axl_false is reported.
  */
 axl_bool myqtt_storage_sub_exists_common (MyQttCtx * ctx, MyQttConn * conn, const char * topic_filter, MyQttQos requested_qos, axl_bool remove_if_found)
 {
@@ -747,6 +761,9 @@ axl_bool myqtt_storage_sub_exists_common (MyQttCtx * ctx, MyQttConn * conn, cons
  * @param conn The connection to check subscription.
  *
  * @param topic_filter The topic filter to check.
+ *
+ * @return axl_true if the subscription oepration was completed,
+ * otherwise axl_false is reported.
  */
 axl_bool myqtt_storage_sub_exists (MyQttCtx * ctx, MyQttConn * conn, const char * topic_filter)
 {
@@ -983,9 +1000,11 @@ axl_bool myqtt_storage_unsub (MyQttCtx * ctx, MyQttConn * conn, const char * top
  *
  * @param ctx The context where the operation takes place.
  *
- * @param conn The connection to select local session storage.
+ * @param client_identifier The client id for which the operation is requested.
  *
  * @param packet_id The packet id associated to the message.
+ *
+ * @param qos The QoS of the operation requested.
  *
  * @param app_msg The application message to store.
  *
@@ -1986,3 +2005,6 @@ axl_bool     myqtt_storage_set_path (MyQttCtx * ctx, const char * storage_path, 
 	return axl_true;
 }
        
+/** 
+ * @} 
+ */

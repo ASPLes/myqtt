@@ -37,6 +37,15 @@
  *                        http://www.aspl.es/myqtt
  */
 
+/** 
+ * \defgroup myqtt MyQtt Init: init, core and common functions
+ */
+
+/** 
+ * \addtogroup myqtt
+ * @{
+ */
+
 /* global includes */
 #include <myqtt.h>
 #include <signal.h>

@@ -38,6 +38,7 @@
  */
 #include <myqtt.h>
 
+
 #define LOG_DOMAIN "myqtt-errno"
 
 #if defined(AXL_OS_WIN32)
@@ -332,3 +333,5 @@ char  * myqtt_errno_get_last_error    (void)
 {
 	return (errno == 0) ? NULL : myqtt_errno_get_error (errno);
 }
+
+
