@@ -47,11 +47,18 @@
 
 /**
  * \defgroup myqtt_reader MyQtt Reader: The module that reads your msgs. 
+ *
+ * This is the module used by libMyQtt to implement of the I/O wait
+ * operations for all connections, only a few functions are useful for
+ * API consumers creating MQTT applications on top of libMyQtt or
+ * plugins for MyQttD broker.
+ *
  */
 
 /**
  * \addtogroup myqtt_reader
  * @{
+ *
  */
 
 typedef enum {
@@ -339,6 +346,7 @@ void __myqtt_reader_move_offline_to_online (MyQttCtx * ctx, MyQttConn * conn)
 void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data) 
 {
 	/** 
+	 * @internal
 	 * By default all connections are accepted. User application
 	 * can set their own handler to control this.
 	 */
@@ -511,7 +519,7 @@ void __myqtt_reader_recover_retained_message (MyQttCtx * ctx, MyQttConn * conn, 
 	return;
 }
 
-/** 
+/*
  * @internal Function used to subcribe the provided topic filter / qos
  * for the provided connection into the in-memory maps used by MyQtt
  * to route all traffic.
@@ -615,6 +623,9 @@ void __myqtt_reader_subscribe (MyQttCtx * ctx, const char * client_identifier, M
 	return;
 }
 
+/** 
+ * @internal
+ */
 void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _data) {
 
 	/* local parameters */
@@ -1864,6 +1875,9 @@ axl_bool      myqtt_reader_read_pending (MyQttCtx  * ctx,
 	return should_continue;
 }
 
+/** 
+ * @internal
+ */
 void       __myqtt_reader_remove_conn_from_hash (MyQttConn * conn, axlHashCursor * cursor)
 {
 	axlHash       * sub_hash;

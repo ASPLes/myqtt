@@ -1498,32 +1498,34 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * \section intro MyQtt Introduction
  *
- * MyQtt is an Open Source professional MQTT stack focused on
- * providing support to create MQTT server side solutions. MyQtt has a modular design 
+ * MyQtt is an Open Source professional MQTT stack written in ANSI C,
+ * focused on providing support to create MQTT brokers.  MyQtt has a modular design that allows creating MQTT brokers by
+ * using the API provided by <b>libMyQtt</b> (which in fact is
+ * composed by several libraries: libmyqtt, libmyqtt-tls,
+ * libmyqtt-websocket). It is also provided a ready to use MQTT broker called
+ * <b>MyQttD</b> which is built on top of
+ * <b>libMyQtt</b>. <b>MyQttD</b> server is extensible by adding C
+ * plugins.
  *
- * - <b>libMyQtt</b> : a ready to use stateless 
+ * At this point it is also provided a Python interface to libMyQtt so
+ * it's possible to write fully functional MQTT brokers in Python.
  *
- * - The profile security (\ref profile_path_configuration "by using profile path"), that is, to ensure your
- *      profile is used in the exact combination sequence required.
+ * MyQtt stack is focused on security, very well tested and stable
+ * across releases (regression tests are used to check all components
+ * libMyQtt, MyQttD and PyMyQtt) to ensure features and behaviour
+ * provided is stable and robust across releases and changes
+ * introduced.
  *
- * - To enable application authentication (\ref myqttd_mod_sasl "by using SASL profiles"), that
- *     is, you can use already tested and integrated SASL framework to
- *     add auth to your server side applications (including site particular sasl configuration, MySQL support...).
+ * See some of the features provided:
  *
- * - To secure connection transmissions in a transparent way to your
- *     application (\ref myqttd_mod_tls "by using TLS profile").
+ * - \ref libmyqtt_features "libMyQtt features"
  *
- * - The \ref myqttd_execution_model "execution model" required by
- *     your application, that is, you can choose to handle your
- *     incoming requests with a single new process each time (like
- *     HTTP servers), or handling a set of logically related
- *     connections by the same child process, allowing security
- *     configurations like chroot, changing executing user and group,
- *     etc.
+ * - \ref myqttd_features "MyQttD broker features"
  *
- * Myqttd is written on top of MyQtt Library and it is extended
- * by modules written in C or python (for now) and can be accessed by
- * available MQTT toolkits.
+ * \section licensing MyQtt stack licensing
+ *
+ * MyQtt stack is Open Source releaesd under LGPL 2.1, which allows to
+ * used by Open and Closed source projects. See licensing for more information: http://www.aspl.es/myqtt/licensing
  *
  * \section documentation Myqttd Documentation
  *
@@ -1542,16 +1544,85 @@ const char    * myqttd_ensure_str      (const char * string)
  * users</a> for any question and patches.
  *
  * If you are interested in getting commercial support, you can
- * contact us at: <a href="mailto:info@aspl.es?subject=Myqttd+Myqtt support">info@aspl.es</a>. For more information see:
- * http://www.aspl.es/myqtt/commercial.html
+ * contact us at: <a href="mailto:info@aspl.es?subject=Myqtt support">info@aspl.es</a>. For more information see:
+ * http://www.aspl.es/myqtt/commercial
  */
 
 /** 
- * \page myqttd_administrator_manual Myqttd Administrator manual
+ * \page libmyqtt_features libMyQtt main features
+ *
+ * These are some of the features provided by <b>libMyQtt</b>:
+ *
+ * - <b>Broker as a library</b>: Designed as a reusable library that
+ *  allows to write MQTT brokers and client solutions. Want to create
+ *  a MQTT server with an specific functionally? or provide support of
+ *  MQTT to your existing project?, then <b>libMyQTT</b> is for you.
+ *
+ * - <b>Several contexts</b>: libMyQtt can start several context into
+ * the same process allowing to start different configurations with
+ * different settings.
+ *
+ * - <b>Multi-thread support</b>: the library and all components are
+ * designed and built using multi-threading so multi-core scenarios
+ * can take advantage of it.
+ * 
+ * - <b>External Eventloop support</b>: MyQtt library supports several external
+ *  I/O wait mechanism. By default epoll() is used if present.
+ *
+ * - <b>Support for TLS SNI</b> and a particular design to easily allow
+ * integration of different certificates according to the serverName
+ * provided.
+ *
+ * - Support MQTT, MQTT over TLS, MQTT over WebSocket and MQTT over
+ * TLS-WebSocket
+ * 
+ * - <b>Support for automatic and transparent connection reconnect</b> (if 
+ * enabled) for all transports supported (mqtt, mqtt-tls, mqtt-ws and
+ * myqtt-wss).
+ *
+ * - <b>Full support for Python through <b>PyMyQtt</b>, see: http://www.aspl.es/myqtt/py-myqtt/index.html  
+ *   (more bindings will be added).
+ */
+
+/** 
+ * \page myqttd_features MyQttD broker main features
+ *
+ * These are some of the features provided by <b>MyQttD broker</b>:
+ *
+ * - <b>Modular and extensible design</b> that allows extending the
+ *     ready to user server (myqttd) by providing plugins or to
+ *     integreated libmyqtt into your application to create MQTT
+ *     client or server solutions.
+ *
+ * - <b>Virtual hosting support</b> that allows running different
+ *     users in a insoliated form in the same process: different users
+ *     do not share storage, topics and users.
+ *
+ * - <b>serverName for Virtual hosting dection</b> which allows MyQttD
+ *     to activate the right domain (set of users, storage and topics)
+ *     according to the serverName announced during TLS (SNI) or
+ *     WebSocket exchange. When this information is not available,
+ *     MyQttD broker will try to guess which is the correct domain
+ *     based on the auth info and client id.
+ *
+ * - MyQttd server provides an <b>extensible and plugable auth
+ *   backend</b> which allows having different authoration engines
+ *   running at the same time. Default auth backend provided is not
+ *   built-in but provided by a module, which allows to extend, update
+ *   and modify the autorization engine without having to modify core
+ *   broker code.
+ *
+ */
+
+
+
+/** 
+ * \page myqttd_administrator_manual MyQtt Administrator manual
  *
  * <b>Section 1: Installation notes</b>
  *
- *   - \ref installing_myqttd 
+ *   - \ref installing_myqtt
+ *   - \ref installing_myqtt_from_sources
  *
  * <b>Section 2: Myqttd configuration</b>
  *
@@ -1583,63 +1654,43 @@ const char    * myqttd_ensure_str      (const char * string)
  *   - \ref myqttd_mod_tls    "4.7 mod-tls: TLS support for Myqttd (secure connections)"
  *   - \ref myqttd_mod_radmin "4.8 mod-radmin: support for query runtime status"
  *
- * \section installing_myqttd 1.1 Installing Myqttd
+ * \section installing_myqtt 1.1 Installing MyQtt using packages available
  *
- * <b>Myqttd dependencies</b>
- * 
- * Myqttd have the following required dependencies:
+ * Please, check the following page for ready to install MyQtt packages: http://www.aspl.es/myqtt/downloads
+ *
+ *
+ * \section installing_myqtt_from_sources 1.2 Installing MyQtt from sources
+ *
+ * Myqttd have the following dependencies:
  *
  * <ol>
- *  <li> <b>Myqtt Library 1.1</b>: which provides the MQTT engine (located at: http://www.aspl.es/myqtt).</li>
+ *  <li> <b>Axl Library:</b> which provides all XML services and core infrastructure (located at: http://www.aspl.es/xml).</li>
  *
- *  <li> <b>Axl Library:</b> which provides all XML services (located at: http://www.aspl.es/xml).</li>
+ *  <li> <b>noPoll (optional) </b>: which provides the WebSocket
+ *  engine support (located at: http://www.aspl.es/nopoll). If this is
+ *  not provided, all WebSocket functions will not be available.</li>
+ *
+ *  <li> <b>OpenSSL (optional) </b>: which provides SSL/TLS engine support
+ *  (located at: http://www.openssl.org). If this is not provided, all
+ *  SSL/TLS functions will not be available.</li>
+ *
+ *
  * </ol>
  *
- * The following optional dependencies are not required to built
- * Myqttd, but provides really useful features.
  *
- * <ol> 
- *
- * <li><b>Libpcre3:</b> a library that provides perl expressions
- * support. It is used by all expressions used by the myqttd
- * configuration file. If not provided all expressions provided will
- * be matched as is.
- *
- * This regular expression library was written by Philip Hazel, and
- * copyrighted by the University of Cambridge, England.
- *
- * The software is available at:
- * ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre </li>
- *
- *  <li><b>OpenSSL:</b> a library that provides TLS support. If not
- *  provided mod-tls won't be available. 
- *
- *  The software is available at: http://www.openssl.org </li>
- *  
- * <li><b>GNU SASL:</b> a library that provides SASL support. If not
- * provided  won't be available.
- *
- * The software is available at: ftp://alpha.gnu.org/pub/gnu/gsasl </li>
- *
- *</ol>
- *
- * In many cases, GNU SASL, Libpcre3 and OpenSSL are already available
- * on your platform. Check your distribution documentation.  
  *
  *
  * <h3>Building Myqttd from source on POSIX / Unix environments</h3>
  * 
  * It is assumed you have a platform that have autoconf, libtool, and
- * the rest of GNU tools to build software.
- *
- * Get the source code at the download page: http://www.aspl.es/myqtt/downloads.html
+ * the rest of GNU tools to build software. Get the source code at the download page: http://www.aspl.es/myqtt/downloads
  * 
  * Myqttd is compiled following the standard autoconf-compatible
  * procedure:
  *
  * \code
- * >> tar xzvf myqttd-X.X.X-bXXXX.gXXXX.tar.gz
- * >> cd myqttd-X.X.X-bXXXX.gXXXX
+ * >> tar xzvf myqtt-X.X.X-bXXXX.gXXXX.tar.gz
+ * >> cd myqtt-X.X.X-bXXXX.gXXXX
  * >> ./configure
  * >> make
  * >> make install
@@ -1647,18 +1698,20 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * <h3>Once finished, next step</h3>
  *
- * Now you must configure your Myqttd installation. Check the
- * following section.
+ * - For <b>libMyQtt</b>: see \ref libmyqtt_api_manual "this manual" and also check \ref libmyqtt_api_reference
+ *
+ * - For <b>PyMyQtt</b>: see http://www.aspl.es/myqtt/py-myqtt/index.html 
+ *
+ * - For <b>MyQttD</b>: now you must configure your Myqttd installation. Check the following section.
+ *
  * 
  * \section configuring_myqttd 2.1 Myqttd configuration
  * 
  * \section myqttd_config_location 2.2 How myqttd is configured (configuration file location)
  *   
  * Myqttd is configured through XML 1.0 files. The intention is
- * provide an easy and extensible way to configure myqttd,
- * allowing third parties to build tools to update/reconfigure it. It
- * is also provided a DTD to ensure that configuration file created is
- * properly constructed at a minimum syntax level.
+ * provide an easy and extensible way to configure myqttd, allowing
+ * third parties to build tools to update/reconfigure it.
  * 
  * According to your installation, the main myqttd configuration
  * file should be found at the location provided by the following
@@ -2139,3 +2192,37 @@ const char    * myqttd_ensure_str      (const char * string)
  */
 
 
+/** 
+ * \page libmyqtt_api_reference libMyQtt API reference
+ *
+ * \section Introduction
+ *
+ * Here you will find API reference for the C API provided by libMyQtt
+ * and its additional components (like support for WebSocket and TLS).
+ *
+ * <b>1. Core functions </b>
+ *
+ * - \ref myqtt
+ * - \ref myqtt_types
+ * - \ref myqtt_handlers
+ * - \ref myqtt_support
+ *
+ * <b>2. Context handling, connections, listeners, messages</b>
+ *
+ * - \ref myqtt_ctx
+ * - \ref myqtt_conn
+ * - \ref myqtt_listener
+ * - \ref myqtt_msg
+ *
+ * <b>3. Infrastructure functions</b>
+ *
+ * - \ref myqtt_thread
+ * - \ref myqtt_thread_pool
+ * - \ref myqtt_storage
+ * - \ref myqtt_hash
+ *
+ * <b>4. I/O and loop handling</b>
+ *
+ * - \ref myqtt_io
+ * - \ref myqtt_reader
+ */

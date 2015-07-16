@@ -11,7 +11,7 @@ PAPEROPT_a4     = -D latex_paper_size=a4
 PAPEROPT_letter = -D latex_paper_size=letter
 ALLSPHINXOPTS   = -d .build/doctrees $(SPHINXOPTS) .
 
-EXTRA_DIST = py-vortex-doc.css conf.py conf.py.in \
+EXTRA_DIST = py-myqtt-doc.css conf.py conf.py.in \
 	manual.rst  \
 	conn.rst  \
 	handlers.rst  \
@@ -44,7 +44,7 @@ build_doc: html
 html:
 	mkdir -p .build/html .build/doctrees
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) .build/html
-	cp py-vortex-doc.css .build/html/_static/
+	cp py-myqtt-doc.css .build/html/_static/
 	cp ../../doc/aspl-logo-header.png .build/html/
 	cp ../../doc/main-page-logo.png .build/html/
 	@echo

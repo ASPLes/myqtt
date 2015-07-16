@@ -1,4 +1,4 @@
-EXTRA_DIST = myqtt-regression-client.py myqtt-regression-listener.py test.crt test.key file.sup simple-client.py simple-listener.py
+EXTRA_DIST = myqtt-regression-client.py myqtt-regression-listener.py 
 
 all: prepare
 	@echo "To run regression tests do the following steps:"

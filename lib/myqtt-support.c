@@ -106,7 +106,7 @@ void __search_path_node_destroy (SearchPathNode * node)
 }
 
 /** 
- * @brief Inits the myqtt support module using the context provided
+ * @internal Inits the myqtt support module using the context provided
  * (\ref MyQttCtx). Function that checks and creates the search path
  * list.
  */
@@ -584,6 +584,8 @@ char   * myqtt_support_domain_find_data_file      (MyQttCtx  * ctx,
  * variable, and return the integer content that it is
  * representing. The function asumes the environment variable provides
  * has a numeric value. 
+ *
+ * @param env_name The environment variable name to get the value from.
  * 
  * @return The variable numeric value. If the variable is not defined,
  * then 0 will be returned.
@@ -626,6 +628,8 @@ int      myqtt_support_getenv_int                 (const char * env_name)
  * The function tries to get the content from the environment
  * variable, and return the string content that it is
  * representing. 
+ *
+ * @param env_name The environment variable name to get the value from.
  * 
  * @return The variable value or NULL if it fails. The caller must
  * dealloc the string returned when no longer needed by calling to

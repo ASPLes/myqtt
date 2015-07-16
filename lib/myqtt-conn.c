@@ -4262,6 +4262,11 @@ void __myqtt_conn_invoke_on_close (MyQttConn * connection)
 	return;
 } 
 
+/** 
+ * @brief Allows to shutdown the connection without cleanly closing like using \ref myqtt_conn_close.
+ *
+ * @param connection The connection to be closed.
+ */
 void    myqtt_conn_shutdown           (MyQttConn * connection)
 {
 	/* call to internal set not connected */
