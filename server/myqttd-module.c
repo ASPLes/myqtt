@@ -64,14 +64,12 @@ struct _MyQttdModule {
 	/* module attributes */
 	char             * path;
 	void             * handle;
-	MyQttdModDef * def;
+	MyQttdModDef     * def;
 	axl_bool           skip_unmap;
 
 	/* context that loaded the module */
-	MyQttdCtx    * ctx;
+	MyQttdCtx        * ctx;
 
-	/* list of profiles provided by this module */
-	axlList          * provided_profiles;
 };
 
 /** 

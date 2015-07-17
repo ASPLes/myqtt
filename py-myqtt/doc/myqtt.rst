@@ -1,4 +1,4 @@
-:mod:`vortex` --- PyVortex base module: base functions (create listeners, register profiles)
+:mod:`vortex` --- PyVortex base module: base functions (create listeners, register handlers)
 ============================================================================================
 
 .. module:: vortex
@@ -6,8 +6,8 @@
 .. moduleauthor:: Advanced Software Production Line, S.L.
 
 
-This modules includes all functions required to establish a BEEP
-session, create channels and develop BEEP profiles.
+This modules includes all functions required to establish a MQTT
+session, create MQTT listeners
 
 This module also includes type definition for the following classes:
 
@@ -16,11 +16,9 @@ This module also includes type definition for the following classes:
 
    ctx
    connection
-   channel
-   frame
+   msg
    asyncqueue
    handlers
-   vortexsasl
 
 ==========
 Module API
@@ -70,49 +68,6 @@ Module API
 
    :param ctx: context where a listener or a set of listener were created.
    :type ctx: vortex.Ctx
-
-.. function:: register_profile (ctx = vortex.Ctx, uri, [start], [start_data], [close], [close_data], [frame_received], [frame_received_data])
-
-   Allows to register a supported profile so the current BEEP, inside
-   the provided vortex.Ctx will accept incoming requests to open a
-   channel running such profile.
-
-   The function requires to mandatory parameters (ctx and uri). The
-   rest of parameters are handlers used to handle different situations
-   (start channel request, close channel request, and frame received).
-
-   :param ctx: context where the profile will be registered
-   :type ctx: vortex.Ctx
-
-   :param uri: Profile unique string identification
-   :type uri: string
-
-   :param start: User defined handler that will be used to manage incoming start channel requests. The handler must provide return True to accept the channel to be created or False to deny it.
-   :type start: :ref:`channel-start-handler`
-
-   :param start_data: User defined data that will notified along with corresponding data at start handler.
-   :type  start_data: object
-
-   :param close: User defined handler that will be used to manage incoming close channel requests. The handler must provide return True to accept the channel to be closed or False to deny it. 
-   :type  close: :ref:`channel-close-handler`
-
-   :param close_data: User defined data that will notified along with corresponding data at close channel handler.
-   :type  close_data: object
-
-   :param frame_received: User defined handler that will be used to manage frames received under channels running this profile. 
-   :type  frame_received: :ref:`frame-received-handler`
-
-   :param frame_received_data: User defined data that will notified along with corresponding data at frame received handler.
-   :type  frame_received_data: object
-
-   To register a profile with a simple handler do::
-
-       # register the profile
-       vortex.register_profile (ctx, "urn:your-domain:beep:profiles:my-app-profile",
-                                frame_received=my_app_frame_received)
-
-   Check :ref:`frame-received-handler` to get details about frame received handler (**my_app_frame_received**).
-
 
 
 .. function:: queue_reply(conn, channel, frame, o)
