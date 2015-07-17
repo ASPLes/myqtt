@@ -130,7 +130,7 @@ MyQttCtx * myqtt_ctx_new (void)
  * publishing messages does not get this handler called. 
  *
  * See \ref myqtt_ctx_set_on_msg and \ref myqtt_conn_set_on_msg for
- * more information about getting notifications for when acting as a
+ * more information about getting notifications when acting as a
  * MQTT client.
  *
  * See \ref MyQttOnPublish for more information.
@@ -145,7 +145,7 @@ MyQttCtx * myqtt_ctx_new (void)
  * @param user_data User defined pointer to be passed in into the
  * handler every time it gets called.
  * 
- * <b>EXAMPLE 1: Discarding a message to reply to a message (request-reply pattern)
+ * <b>EXAMPLE 1</b>: Discarding publishing a message to reply to it (request-reply pattern)
  *
  * The following example shows how to use this handler to block
  * received message so the engine will discard it, but, because you
@@ -153,7 +153,9 @@ MyQttCtx * myqtt_ctx_new (void)
  * reply to it:
  *
  * \code
- * // get current client identifier 
+ * // Use some pattern to detect which message to reply; in this case we are matching the topic
+ * // In this case, we are using this technique to report current client id if the connecting peer
+ * // asks for it by publishing to the topic myqtt/admin/get-client-identifier
  * if (axl_cmp ("myqtt/admin/get-client-identifier", myqtt_msg_get_topic (msg))) {
  *
  *		// found administrative request, report this information and block publication 
@@ -161,8 +163,11 @@ MyQttCtx * myqtt_ctx_new (void)
  *		if (! myqtt_conn_pub (conn, "myqtt/admin/get-client-identifier", 
  *                                   (axlPointer) client_id, strlen (client_id), MYQTT_QOS_0, axl_false, 0)) 
  *			printf ("ERROR: failed to publish get-client-identifier..\n");
- *		return MYQTT_PUBLISH_DISCARD; // report received PUBLISH should be discarded 
- *	} // end if 
+ *            
+ *              // report received PUBLISH should be discarded 
+ *		return MYQTT_PUBLISH_DISCARD; 
+ *
+ * } // end if 
  * \endcode
  */
 void        myqtt_ctx_set_on_publish            (MyQttCtx                       * ctx,
@@ -237,9 +242,9 @@ void        myqtt_ctx_set_on_msg               (MyQttCtx             * ctx,
  *
  * @param ctx The context where the handler will be configured.
  *
- * @param on_msg The handler to be configured.
+ * @param on_header The handler to be configured.
  *
- * @param on_msg_data User defined pointer to be passed in into the
+ * @param on_header_data User defined pointer to be passed in into the
  * on_msg when called.
  */
 void        myqtt_ctx_set_on_header             (MyQttCtx               * ctx,
@@ -272,9 +277,9 @@ void        myqtt_ctx_set_on_header             (MyQttCtx               * ctx,
  *
  * @param ctx The context where the handler will be configured.
  *
- * @param on_msg The handler to be configured.
+ * @param on_store The handler to be configured.
  *
- * @param on_msg_data User defined pointer to be passed in into the
+ * @param on_store_data User defined pointer to be passed in into the
  * on_msg when called.
  */
 void        myqtt_ctx_set_on_store              (MyQttCtx               * ctx,
@@ -503,7 +508,12 @@ void        myqtt_ctx_set_idle_handler          (MyQttCtx                       
  *
  * @param ctx The context that will be configured.
  *
- * @param on_connect_handler The handler that will be configured.
+ * @param on_connect The handler that will be configured.
+ *
+ * This function differs from \ref myqtt_listener_set_on_connection_accepted in the sense 
+ * that the handler configured in this function is called when CONNECT MQTT package has 
+ * been received and fully parsed while the handler configured at \ref myqtt_listener_set_on_connection_accepted is 
+ * called when the connection has been just received (but no protocol negotiation has taken place).
  *
  * @param user_data User defined pointer that will be passed in into
  * the handler when called.
@@ -651,12 +661,13 @@ axl_bool        myqtt_ctx_ref                       (MyQttCtx  * ctx)
 }
 
 /** 
- * @brief Allows to increase reference count to the MyQttCtx
- * instance.
+ * @brief Allows to increase reference count to the MyQttCtx instance.
  *
  * @param ctx The reference to update its reference count.
  *
  * @param who An string that identifies this ref. Useful for debuging.
+ *
+ * @return axl_true if unref operation finished without errors, otherwise axl_false is returned.
  */
 axl_bool        myqtt_ctx_ref2                       (MyQttCtx  * ctx, const char * who)
 {

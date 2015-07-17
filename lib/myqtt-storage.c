@@ -293,8 +293,10 @@ axl_bool myqtt_storage_init_offline (MyQttCtx * ctx, const char * client_identif
  *
  * @param ctx The context where the operation takes place. Cannot be NULL.
  *
- * @param client_id The client identifier to init storage
- * services. Cannot be NULL or empty.
+ * @param conn The connection with a client identifier to init storage
+ * services. Cannot be NULL
+ *
+ * @param storage Storage configuration to initialize
  *
  * @return If the function is not able to create default storage, the
  * function will fail, otherwise axl_true is returned. The function
@@ -1084,6 +1086,8 @@ axlPointer myqtt_storage_store_msg_offline (MyQttCtx      * ctx,
  *
  * @param packet_id The packet id associated to the message.
  *
+ * @param qos QoS of the message to be stored.
+ *
  * @param app_msg The application message to store.
  *
  * @param app_msg_size The size of the application message to store.
@@ -1186,6 +1190,8 @@ axl_bool myqtt_storage_release_msg   (MyQttCtx      * ctx,
  *
  * @param app_msg_size Application message size.
  *
+ *
+ * @return axl_true in the case retain message was configured without errors, otherwise axl_false is returned.
  */
 axl_bool       myqtt_storage_retain_msg_set (MyQttCtx            * ctx,
 					     const char          * topic_name,
@@ -1693,6 +1699,8 @@ axlPointer __myqtt_storage_queued_flush_proxy (axlPointer _conn)
  * @brief Allows to redeliver all queued messages associated to the
  * connected session provided.
  *
+ * @param ctx The context where the operation takes place.
+ *
  * @param conn The connection that may have pending messages to be redeliver...
  *
  * @return Number of flushed messages, or -1 if it fails.
@@ -1804,7 +1812,7 @@ axl_bool myqtt_storage_lock_pkgid (MyQttCtx * ctx, MyQttConn * conn, int pkg_id)
  *
  * @param ctx The context where the operation takes place.
  *
- * @param conn The connection where the operation takes place, using its session.
+ * @param client_identifier Client identifier for which the release operation will be applied
  *
  * @param pkg_id The packet id to release. 
  *
@@ -1979,6 +1987,8 @@ finish:
  * will be used to split internal storage in the given values.
  * Recomended value is 4096.
  *
+ *
+ * @return axl_true if the path was correctly set, otherwise axl_false is returned.
  */
 axl_bool     myqtt_storage_set_path (MyQttCtx * ctx, const char * storage_path, int hash_size)
 {

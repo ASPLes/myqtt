@@ -203,13 +203,6 @@
 #endif 
 
 /** 
- * @brief Returns the minimum from two values.
- * @param a First value to compare.
- * @param b Second value to compare.
- */
-#define MYQTT_MIN(a,b) ((a) > (b) ? b : a)
-
-/** 
  * @brief Allows to check the reference provided, and returning the
  * return value provided.
  * @param ref The reference to be checke for NULL.

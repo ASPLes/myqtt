@@ -262,17 +262,18 @@ int        myqttd_conn_mgr_count       (MyQttdCtx            * ctx)
  *
  * \code
  * // set up proxy configuration
- * myqtt_conn_set_data (conn, "tbc:proxy:conn", INT_TO_PTR (axl_true));
+ * myqtt_conn_set_data (conn, "myqttd:proxy:conn", INT_TO_PTR (axl_true));
  * \endcode
  *
  */
 axl_bool   myqttd_conn_mgr_proxy_on_parent (MyQttConn * conn)
 {
 	/* set up proxy configuration */
-	return PTR_TO_INT (myqtt_conn_get_data (conn, "tbc:proxy:conn"));
+	return PTR_TO_INT (myqtt_conn_get_data (conn, "myqttd:proxy:conn"));
 }
 
 /** 
+ * @internal
  * Function used to read content from the connection and write that
  * content into the child socket.
  *
@@ -284,7 +285,7 @@ void __myqttd_conn_mgr_proxy_reads (MyQttCtx * myqtt_ctx, MyQttConn * listener, 
 	char               buffer[4096];
 	int                bytes_read;
 	/* get socket associated */
-	int                _socket = PTR_TO_INT (myqtt_conn_get_data (conn, "tbc:proxy:fd"));
+	int                _socket = PTR_TO_INT (myqtt_conn_get_data (conn, "myqttd:proxy:fd"));
 	MyQttdCtx        * ctx     = user_data;
 
 	/* check connection status */
@@ -319,6 +320,7 @@ void __myqttd_conn_mgr_proxy_reads (MyQttCtx * myqtt_ctx, MyQttConn * listener, 
 }
 
 /** 
+ * @internal
  * Function used to read content from the socket in the loop into the
  * connection proxied.
  *
@@ -371,7 +373,7 @@ void __myqttd_conn_mgr_proxy_on_close (MyQttConn * conn, axlPointer _loop)
 	/* MyQttdCtx   * ctx  = myqttd_loop_ctx (loop); */
 
 	/* get socket associated */
-	int               _socket = PTR_TO_INT (myqtt_conn_get_data (conn, "tbc:proxy:fd"));	
+	int               _socket = PTR_TO_INT (myqtt_conn_get_data (conn, "myqttd:proxy:fd"));	
 
 	/* msg ("PROXY: closing connection-id=%d, refs=%d, socket=%d", 
 	   myqtt_conn_get_id (conn), myqtt_conn_ref_count (conn), _socket); */
@@ -454,8 +456,8 @@ int        myqttd_conn_mgr_setup_proxy_on_parent (MyQttdCtx * ctx, MyQttConn * c
 	myqttd_loop_watch_descriptor (ctx->proxy_loop, descf[1], __myqttd_conn_proxy_reads_loop, conn, NULL);
 
 	/* configure links between both connections */
-	myqtt_conn_set_data (conn,       "tbc:proxy:fd", INT_TO_PTR (descf[1]));
-	myqtt_conn_set_data (conn,       "tbc:ctx", ctx);
+	myqtt_conn_set_data (conn,       "myqttd:proxy:fd", INT_TO_PTR (descf[1]));
+	myqtt_conn_set_data (conn,       "myqttd:ctx", ctx);
 
 	/* now configure preread handlers to pass data from both
 	 * connections */

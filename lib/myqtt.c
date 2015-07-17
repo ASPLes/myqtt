@@ -1334,7 +1334,7 @@ void   myqtt_set_32bit (int value, unsigned char * buffer)
 }
 
 /** 
- * @brief Allows to get a 32bits integer value from the buffer.
+ * @internal Allows to get a 32bits integer value from the buffer.
  *
  * @param buffer The buffer where the integer will be retreived from.
  *

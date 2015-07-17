@@ -237,6 +237,8 @@ axl_bool  myqttd_config_load (MyQttdCtx * ctx, const char * config)
 /** 
  * @brief Allows to get the configuration loaded at the startup. The
  * function will always return a configuration object. 
+ *
+ * @param ctx The context where the operation is taking place.
  * 
  * @return A reference to the axlDoc having all the configuration
  * loaded.
@@ -341,10 +343,12 @@ void            myqttd_config_ensure_attr (MyQttdCtx * ctx, axlNode * node, cons
  *
  * @param attr_name The node attribute name to check for positive
  * value.
+ *
+ * @return axl_true if positive value is found, otherwise axl_false is returned.
  */
-axl_bool        myqttd_config_is_attr_positive (MyQttdCtx * ctx,
-						    axlNode       * node,
-						    const char    * attr_name)
+axl_bool        myqttd_config_is_attr_positive (MyQttdCtx     * ctx,
+						axlNode       * node,
+						const char    * attr_name)
 {
 	if (ctx == NULL || node == NULL)
 		return axl_false;
@@ -361,7 +365,7 @@ axl_bool        myqttd_config_is_attr_positive (MyQttdCtx * ctx,
 	return axl_false;
 }
 
-/**
+/** 
  * @brief Allows to check if an xml attribute is positive, that is,
  * have 1, true or yes as value.
  *
@@ -371,6 +375,8 @@ axl_bool        myqttd_config_is_attr_positive (MyQttdCtx * ctx,
  *
  * @param attr_name The node attribute name to check for positive
  * value.
+ *
+ * @return axl_true if negative value is found, otherwise axl_false is returned.
  */
 axl_bool        myqttd_config_is_attr_negative (MyQttdCtx * ctx,
 						    axlNode       * node,
