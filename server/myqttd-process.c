@@ -120,7 +120,7 @@ axlPointer __myqttd_process_finished (MyQttdCtx * ctx)
 		 * at this time */
 		myqtt_mutex_lock (&ctx->conn_mgr_mutex);
 		if (axl_hash_items (ctx->conn_mgr_hash) > 0) {
-			msg ("CHILD: cancelled child process termination because new connections are now handled, tries=%d, delay=%d, reader connections=%d, tbc conn mgr=%d",
+			msg ("CHILD: cancelled child process termination because new connections are now handled, tries=%d, delay=%d, reader connections=%d, myqttd conn mgr=%d",
 			      tries, delay, 
 			      myqtt_reader_connections_watched (myqtt_ctx), 
 			      axl_hash_items (ctx->conn_mgr_hash));
@@ -137,7 +137,7 @@ axlPointer __myqttd_process_finished (MyQttdCtx * ctx)
 
 		if (tries < 10) {
 			/* reduce tries, wait */
-			msg ("CHILD: delay child process termination to ensure the parent has no pending connections, tries=%d, delay=%d, reader connections=%d, tbc conn mgr=%d, is-existing=%d",
+			msg ("CHILD: delay child process termination to ensure the parent has no pending connections, tries=%d, delay=%d, reader connections=%d, myqttd conn mgr=%d, is-existing=%d",
 			     tries, delay,
 			     myqtt_reader_connections_watched (myqtt_ctx), 
 			     axl_hash_items (ctx->conn_mgr_hash),

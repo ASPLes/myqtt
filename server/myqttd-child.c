@@ -63,7 +63,7 @@ MyQttdChild * myqttd_child_new (MyQttdCtx * ctx)
 	gettimeofday (&now, NULL);
 
 	/* create socket path: socket used to transfer file descriptors from parent to child */
-	result->socket_control_path = axl_strdup_printf ("%s%s%s%s%p%d%d.tbc",
+	result->socket_control_path = axl_strdup_printf ("%s%s%s%s%p%d%d.myqttd",
 							 myqttd_runtime_datadir (ctx),
 							 MYQTT_FILE_SEPARATOR,
 							 "myqttd",

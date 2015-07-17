@@ -156,7 +156,7 @@ void            myqttd_ctx_set_myqtt_ctx (MyQttdCtx * ctx,
 	ctx->myqtt_ctx = myqtt_ctx;
 
 	/* configure reference on myqtt ctx */
-	myqtt_ctx_set_data (myqtt_ctx, "tbc:ctx", ctx);
+	myqtt_ctx_set_data (myqtt_ctx, "myqttd:ctx", ctx);
 
 	return;
 }
@@ -387,8 +387,10 @@ void            myqttd_ctx_wait           (MyQttdCtx * ctx,
 }
 
 /** 
- * @brief Allows to check if the provided myqttd ctx is associated
- * to a child process.
+ * @brief Allows to check if the provided myqttd ctx is associated to
+ * a child process.
+ *
+ * @param ctx The context where the operation is taking place.
  *
  * This function can be used to check if the current execution context
  * is bound to a child process which means we are running in a child

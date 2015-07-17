@@ -1009,15 +1009,8 @@ axl_bool             myqtt_msg_send_raw     (MyQttConn * connection, const unsig
  * every place you receive a msg (second and first level invocation
  * handler).
  *
- * Once you use this function, you can't call directly to \ref
- * myqtt_msg_free. Instead a call to \ref myqtt_msg_unref is
- * required. 
+ * Once you use this function, call to \ref myqtt_msg_unref to release the reference.
  *
- * Calling to \ref myqtt_msg_free when no reference count was
- * increases is the same as calling to \ref myqtt_msg_unref. This
- * means that code written against MyQtt Library 0.9.0 (or previous)
- * will keep working doing calls to \ref myqtt_msg_free.
- * 
  * @param msg The msg to increase its reference counting. 
  * 
  * @return axl_true if the msg reference counting was
@@ -1095,7 +1088,7 @@ int           myqtt_msg_ref_count             (MyQttMsg * msg)
 
 
 /** 
- * @brief Deallocate the msg. You shouldn't call this directly,
+ * @internal Deallocate the msg. You shouldn't call this directly,
  * instead use \ref myqtt_msg_unref.
  *
  * Frees a allocated \ref MyQttMsg. Keep in mind that, unless
@@ -1166,11 +1159,7 @@ void          _myqtt_msg_free (MyQttMsg * msg, const char * caller)
  * support but, it has become a useful mechanism to have msgs
  * identified. 
  *
- * Application level could use this value to implement fast msg
- * recognition rather than using \ref myqtt_msg_are_equal, which is
- * more expensive.
- *
- * MyQtt Library will ensure, as long as the process is in memory
+ * MyQtt Library will ensure, as long as the process is in memory,
  * that every unique identifier returned/generated for a msg will be
  * unique.
  * 
@@ -1207,7 +1196,7 @@ int           myqtt_msg_get_app_msg_size      (MyQttMsg * msg)
  * @brief Allows to get topic message from the message (only supported
  * for PUBLISH messages).
  *
- * @param The message where the operation takes place.
+ * @param msg The message where the operation takes place.
  *
  * @return Returns a reference to the the topic name on the PUBLISH
  * message or NULL if it fails.
@@ -1258,7 +1247,7 @@ MyQttQos          myqtt_msg_get_qos (MyQttMsg * msg)
 /** 
  * @brief Allows to get dup flag from the provided message.
  *
- * @param The message to get dup flag from.
+ * @param msg The message to get dup flag from.
  *
  * @return The dup flag status.
  */

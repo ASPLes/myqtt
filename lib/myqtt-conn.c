@@ -1610,7 +1610,7 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 /** 
  * @brief Allows to create a new MQTT connection to a MQTT broker/server.
  *
- * @param The context where the operation will take place.
+ * @param ctx The context where the operation will take place.
  *
  * @param client_identifier The client identifier that uniquely
  * identifies this MQTT client from others.  It can be NULL to let
@@ -1679,10 +1679,9 @@ MyQttConn  * myqtt_conn_new                    (MyQttCtx       * ctx,
 }
 
 /** 
- * @brief Allows to create a new MQTT connection to a MQTT
- * broker/server, forcing IPv6 transport.
+ * @brief Allows to create a new MQTT connection to a MQTT* broker/server, forcing IPv6 transport.
  *
- * @param The context where the operation will take place.
+ * @param ctx The context where the operation will take place.
  *
  * @param client_identifier The client identifier that uniquely
  * identifies this MQTT client from others. 
@@ -1823,7 +1822,13 @@ axl_bool            myqtt_conn_reconnect              (MyQttConn    * connection
  * response. This function is used in combination with \ref MYQTT_CONNACK_DEFERRED 
  * that allows a server side MQTT server to tell the library engine to skip reporting to the connecting client.
  *
- * This \ref MYQTT_CONNACK_DEFERRED response code is reported at the \ref MyQttOnConnectHandler handler.
+ * This \ref MYQTT_CONNACK_DEFERRED response code is reported at the
+ * \ref MyQttOnConnectHandler handler (for example, when configuring
+ * the on connect handler at \ref myqtt_ctx_set_on_connect).
+ *
+ * @param conn The connection for which a response will be sent.
+ *
+ * @param response The response to send. 
  */
 void            myqtt_conn_send_connect_reply (MyQttConn * conn, MyQttConnAckTypes response)
 {
@@ -2485,26 +2490,18 @@ axl_bool            myqtt_conn_offline_pub     (MyQttCtx            * ctx,
 
 
 /**  
- * @brief Allows to subscribe to one or multiple topics.
+ * @brief Allows to subscribe to one topic.
  *
  * @param conn The connection where the operation will take place.
  *
- * @param wait_publish Wait for subscription reply blocking the caller
- * until that happens. If 0 is provided no wait is performed. If some
- * value is provided that will be the max amount of time, in seconds,
- * to wait for complete subscription reply.
- *
  * @param topic_filter Topic filter to subscribe to.
  *
+ * @param wait_sub How long to wait for subscription operation to complete. Value provided must be in microseconds: 10 seconds -> 10000000 If 0 is provided, no wait operation will be implemented. If -1 is provided, a default wait of 10 seconds will be implemented (10000000).
+ * 
  * @param qos Requested QoS, maximum QoS level at which the server can
- * send publications to this client. As the standard describes,
- * subscribing to a topic filter at QoS 2 (\ref MYQTT_QOS_2) is
- * equivalent to saying "I would like to receive Messages matching
- * this filter at the QoS with which they were published". This means
- * a publisher is responsible for determining the maximum QoS a
- * Message can be delivered at, but a subscriber is able to require
- * that the Server downgrades the QoS to one more suitable for its
- * usage.
+ * send publications to this client. Note that this is a request that
+ * must be granted by the server. Use subs_result param to get an
+ * indication about the QoS that was finally granted.
  *
  * @param subs_result Reference to a integer value where the function
  * will report subscription result. If subs_result is NULL, no
@@ -2518,6 +2515,66 @@ axl_bool            myqtt_conn_offline_pub     (MyQttCtx            * ctx,
  * connection failure, subscription failure or timeout, the function
  * will report axl_false. The function also reports axl_false in the
  * case conn and any topic_filter provided is NULL.
+ *
+ * <b>About QoS to use for subscriptions: </b>
+ *
+ * From OASIS Standard definition: "The requested QoS gives the
+ * maximum QoS level at which the Server can send publications to the
+ * Client (3.4.3 Payload section).  
+ *
+ *
+ * When you subscribe with a certain QoS to the broker you are telling
+ * the server to send you all publish operations using that provided
+ * QoS level. This has the direct implication that all guaranties (or
+ * none) will be applied according to the QoS you select. 
+ *
+ * If a you receive a message that was published using QoS 2 but you
+ * subscribed using QoS 1, then the message QoS will be downgraded to
+ * QoS 1 (for this particular subscription). 
+ *
+ * - Use \ref MYQTT_QOS_0 in the case you don't care about missing some messages you can use
+ * \ref MYQTT_QOS_0 which means that any message published to the
+ * subscribed topic will be sent to you with QoS 0 (even though it was published with QoS 1 o 2). 
+ *
+ * - Use \ref MYQTT_QOS_1 in the case you want message retention while you are disconnected
+ * (don't forget to setup clean_session to axl_false when connecting)
+ * you can use \ref MYQTT_QOS_1. This will make the broker to send you
+ * messages published with QoS 1, ensuring that the message reaches
+ * your client at least once (but be aware you can receive duplicates, see \ref myqtt_msg_get_dup_flag).
+ *
+ * - Use \ref MYQTT_QOS_2 in the case you want all guaranties provided
+ *  by MQTT protocol and you want to receive all messages and only one
+ *  time. This is the highest level provided by MQTT which ensures all
+ *  messages are delivered. This is recommended for critical
+ *  applications where no message can be lost.  However, it is the QoS
+ *  that causes more overhead because it needs to store and confirm
+ *  every message on every step. Note that if you set a QoS of 2, it doesn't imply that a published message with QoS 0 will be upgraded to QoS 2.
+ *
+ * As you can see these is a different process when selecting the QOS
+ * when publishing (\ref myqtt_conn_pub). That is, when sending
+ * publications to the broker there is a configurable QoS and when
+ * receiving those publications there is also another QoS configuration.
+ *
+ * <b>No upgrade of QoS happens (as opposed to downgrade described):</b>
+ *
+ * Keep in mind that an upgrade of QoS never happens (as opposed to the
+ * downgrade when subscribing with a QoS that is lower than message's
+ * QoS). 
+ * 
+ * This means that subscribing with QoS 2 ensures that you receive QoS
+ * 2 published message as is, but for those messages having QoS 1 and
+ * QoS 0 will be received as is too (no upgrade happens from 0 to 2 or
+ * from 1 to 2).
+ * 
+ * That's why the standard says: Subscribing to a Topic Filter at QoS
+ * 2 is equivalent to saying "I would like to receive Messages
+ * matching this filter at the QoS with which they were
+ * published". This means a publisher is responsible for determining
+ * the maximum QoS a Message can be delivered at, but a subscriber is
+ * able to require that the Server downgrades the QoS to one more
+ * suitable for its usage.
+ *
+ *
  */
 axl_bool            myqtt_conn_sub             (MyQttConn           * conn,
 						int                   wait_sub,
@@ -2606,6 +2663,10 @@ axl_bool            myqtt_conn_sub             (MyQttConn           * conn,
 	} /* end if */
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "SUBSCRIBE to %s sent (packet id=%d, conn-id=%d), waiting reply (%d secs)..", topic_filter, packet_id, conn->id, wait_sub);
+
+	/* configure default wait_sub */
+	if (wait_sub == -1)
+		wait_sub = 10000000;
 
 	/* wait here for suback reply limiting wait by wait_sub */
 	reply = __myqtt_reader_get_reply (conn, packet_id, wait_sub);
@@ -3508,7 +3569,7 @@ void               myqtt_conn_timeout (MyQttCtx * ctx,
  * @brief Allows to configure myqtt connect timeout.
  * 
  * This function allows to set the TCP connect timeout used by \ref
- * myqtt_conn_new_full and \ref myqtt_conn_new. 
+ * myqtt_conn_new and \ref myqtt_conn_new6
  *
  * If you call to create a new connection with \ref myqtt_conn_new
  * and connect does not succeed within the period
@@ -3560,6 +3621,8 @@ void               myqtt_conn_connect_timeout (MyQttCtx * ctx,
  * @brief Allows to get current timeout set for \ref MyQttConn
  * synchronous operations.
  *
+ * @param ctx The context where the timeout configuration is requested
+ *
  * See also \ref myqtt_conn_timeout.
  *
  * @return Current timeout configured. Returned value is measured in
@@ -3601,6 +3664,8 @@ long                myqtt_conn_get_timeout (MyQttCtx * ctx)
 /** 
  * @brief Allows to get current timeout set for \ref MyQttConn
  * connect operation.
+ *
+ * @param ctx The context where the connection timeout is being requested.
  *
  * See also \ref myqtt_conn_connect_timeout.
  *
@@ -3982,6 +4047,8 @@ void                myqtt_conn_set_host_and_port      (MyQttConn * connection,
 /** 
  * @brief Allows to get the actual host ip this connection is
  * connected to.
+ *
+ * @param connection The connection where the host ip value is being requested.
  *
  * This function works like \ref myqtt_conn_get_host_ip but
  * returning the actual ip in the case a name was used.

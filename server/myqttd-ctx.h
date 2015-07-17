@@ -57,7 +57,7 @@ void        myqttd_ctx_set_myqtt_ctx (MyQttdCtx * ctx,
  * @brief Allows to get the myqtt context associated to the
  * myqttd context provided.
  * 
- * @param _tbc_ctx The myqttd context which is required to return the
+ * @param _myqtt_ctx The myqttd context which is required to return the
  * myqtt context associated.
  * 
  * @return A reference to the myqtt context associated.

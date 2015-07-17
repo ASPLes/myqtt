@@ -409,6 +409,8 @@ server/modules/mod-web-socket/Makefile
 server/modules/mod-web-socket/mod-web-socket.xml
 server/modules/mod-status/Makefile
 server/modules/mod-status/mod-status.xml
+server/modules/mod-test/Makefile
+server/modules/mod-test/mod-test.xml
 client/Makefile
 py-myqtt/Makefile
 py-myqtt/test/Makefile

@@ -199,29 +199,22 @@ typedef int      (*MyQttReceive)                (MyQttConn          * connection
 typedef void     (*MyQttConnOnClose)      (MyQttConn * connection, axlPointer data);
 
 /** 
- * @brief Async handler definition to get a notification for
- * connections created at the server side (peer that is able to accept
- * incoming connections).
+ * @brief Async handler definition to get a notification when a new
+ * connection is received.
  *
  * This handler is executed once the connection is accepted and
  * registered in the myqtt engine. If the function return axl_false, the
  * connection will be dropped, without reporting any error to the
  * remote peer.
  *
- * This function could be used as a initial configuration for every
+ * Note this handler is called before any MQTT negotation has taken
+ * place, as opposed to \ref MyQttOnConnectHandler which is called
+ * once the CONNECT MQTT package has been received and fully parsed.
+ *
+ * This function can be used as a initial configuration for every
  * connection. So, if it is only required to make a connection
  * initialization, the handler provided must always return axl_true to
  * avoid dropping the connection.
- *
- * This handler is also used by the TUNNEL profile implementation to
- * notify the application layer if the incoming TUNNEL profile should
- * be accepted. 
- *
- * Note this handler is called twice on TLS activation: one for the
- * first connection and one for the connection creation after TLS
- * activation. This is because both connections are diferent objects
- * with different states. This also allows to setup or run different
- * configurations for non TLS or and for TLS enabled clients.
  *
  * This handler is used by:
  * 
@@ -260,7 +253,7 @@ typedef axlPointer   (* MyQttIoCreateFdGroup)        (MyQttCtx * ctx, MyQttIoWai
  * The reference that the handler will receive is the one created by
  * the \ref MyQttIoCreateFdGroup handler.
  * 
- * @param MyQttIoDestroyFdGroup The fd_set, opaque to myqtt, pointer
+ * @param fd_set The fd_set, opaque to myqtt, pointer
  * to a structure representing the fd set to be destroy.
  * 
  */
@@ -270,8 +263,8 @@ typedef void     (* MyQttIoDestroyFdGroup)        (axlPointer             fd_set
  * @brief IO handler definition to allow defining the method to be
  * invoked while clearing a fd set.
  * 
- * @param MyQttIoClearFdGroup The fd_set, opaque to myqtt, pointer
- * to a structure representing the fd set to be clear.
+ * @param fd_set The fd_set, opaque to myqtt, pointer to a structure
+ * representing the fd set to be clear.
  * 
  */
 typedef void     (* MyQttIoClearFdGroup)        (axlPointer             fd_set);
@@ -576,21 +569,26 @@ typedef int (*MyQttPortShareHandler) (MyQttCtx * ctx, MyQttConn * listener, MyQt
 
 
 /** 
- * @brief Set of handlers used by the library to check with user level
+ * @brief Set of handlers used by the library to delegate to user level
  * if the provided connection should be accepted. The function must
- * return of the codes available at \ref MyQttConnAckTypes to report
+ * return any of the codes available at \ref MyQttConnAckTypes to report
  * to the library what to do with the connection.
  *
  * This handler is used by the following functions:
  *
- * \ref myqtt_ctx_set_connect_handler
+ * \ref myqtt_ctx_set_on_connect
  *
  * You can use the following function to get various elements
- * associated to the CONNECT method. 
+ * associated to the CONNECT method:
  *
  * - \ref myqtt_conn_get_username
  * - \ref myqtt_conn_get_password
  * - \ref myqtt_conn_get_client_id 
+ *
+ * This function differs from \ref myqtt_listener_set_on_connection_accepted in the sense 
+ * that the handler configured in this function is called when CONNECT MQTT package has 
+ * been received and fully parsed while the handler configured at \ref myqtt_listener_set_on_connection_accepted is 
+ * called when the connection has been just received (but no protocol negotiation has taken place).
  *
  * @param ctx The context where the operation takes place.
  *
@@ -667,7 +665,7 @@ typedef MyQttPublishCodes (*MyQttOnPublish) (MyQttCtx * ctx, MyQttConn * conn, M
 typedef void (*MyQttPreRead) (MyQttCtx * ctx, MyQttConn * listener, MyQttConn * conn, MyQttConnOpts * opts, axlPointer user_data);
 
 /** 
- * @internal A handler that is called to establish the session that is
+ * @brief A handler that is called to establish the session that is
  * going to be used by the provided connetion.
  *
  * @param ctx The context where the operation takes place.
@@ -678,6 +676,8 @@ typedef void (*MyQttPreRead) (MyQttCtx * ctx, MyQttConn * listener, MyQttConn * 
  *
  * @param user_data Optionl user pointer defined by the user when
  * configured this handler.
+ *
+ * @return axl_true if the session was established, otherwise axl_false is returned.
  */
 typedef axl_bool (*MyQttSessionSetup) (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * opts, axlPointer user_data);
 

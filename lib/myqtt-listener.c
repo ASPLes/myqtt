@@ -840,6 +840,8 @@ MyQttConn * __myqtt_listener_new_common  (MyQttCtx                * ctx,
  *
  * @param user_data Optional user defined pointer that is passed into
  * the on_ready function (in the case the former is defined too).
+ *
+ * @return A reference to a newly created \ref MyQttConn object representing a listener (\ref MyQttRoleMasterListener - \ref myqtt_conn_get_role). Check that the listener was properly created by calling to \ref myqtt_conn_is_ok
  */
 MyQttConn * myqtt_listener_new (MyQttCtx             * ctx,
 				const char           * host, 
@@ -1140,12 +1142,15 @@ void myqtt_listener_cleanup (MyQttCtx * ctx)
  * denying as soon as possible. Though the handler receives a
  * reference to the \ref MyQttConn to be accepted/denied, it is only
  * provided to allow storing or reconfiguring the connection. 
+ *
+ * This function differs from \ref myqtt_ctx_set_on_connect in the
+ * sense that the handler configured in this function is called when a
+ * connection has been just received and the handler configured at
+ * \ref myqtt_ctx_set_on_connect is called when CONNECT MQTT package
+ * has been received and fully parsed.
  * 
  * In other words, when the handler is called, the MQTT session is
- * still not established. If you need to execute custom operations
- * once the connection is fully registered with the MQTT session
- * established, see \ref myqtt_conn_set_connection_actions with
- * \ref CONNECTION_STAGE_POST_CREATED.
+ * still not established. 
  *
  * This function supports setting up several handlers which will be
  * called in the order they were configured. The function is thread

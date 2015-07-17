@@ -146,7 +146,15 @@ void __myqttd_acquire_limits (MyQttdCtx * ctx)
  * @brief Starts myqttd execution, initializing all libraries
  * required by the server application.
  *
+ * @param ctx The context where the operation takes place.
+ *
+ * @param myqtt_ctx The MyQttCtx context to associate.
+ *
+ * @param config Location of the configuration file to use.
+ *
  * A call to \ref myqttd_exit is required before exit.
+ *
+ * @return axl_true in the case init operation finished without errors, otherwise axl_false is returned.
  */
 axl_bool  myqttd_init (MyQttdCtx   * ctx, 
 		       MyQttCtx    * myqtt_ctx,
@@ -439,6 +447,8 @@ void myqttd_error (MyQttdCtx * ctx, axl_bool ignore_debug, const char * file, in
 
 /** 
  * @brief Allows to check if the debug is activated (\ref msg type).
+ *
+ * @param ctx The context where the operation takes place.
  * 
  * @return axl_true if activated, otherwise axl_false is returned.
  */
@@ -456,9 +466,12 @@ axl_bool  myqttd_log_enabled (MyQttdCtx * ctx)
  * 
  * @param ctx The myqttd context to configure.  @param value The
  * value to configure to enable/disable console log.
+ *
+ * @param value he value to configure (1/axl_true to enable),
+ * otherwise, 0/axl_false.
  */
 void myqttd_log_enable       (MyQttdCtx * ctx, 
-				  int  value)
+			      int  value)
 {
 	v_return_if_fail (ctx);
 
@@ -477,6 +490,8 @@ void myqttd_log_enable       (MyQttdCtx * ctx,
 /** 
  * @brief Allows to check if the second level debug is activated (\ref
  * msg2 type).
+ *
+ * @param ctx The context where the operation takes place.
  * 
  * @return axl_true if activated, otherwise axl_false is returned.
  */
@@ -517,6 +532,8 @@ void myqttd_log2_enable      (MyQttdCtx * ctx,
 /** 
  * @brief Allows to check if the third level debug is activated (\ref
  * msg2 with additional information).
+ *
+ * @param ctx The context where the operation takes place.
  * 
  * @return axl_true if activated, otherwise axl_false is returned.
  */
@@ -1432,10 +1449,12 @@ int fchmod(int fildes, mode_t mode);
  * @param file_name The file name path to change perms.
  *
  * @param mode The mode to configure.
+ *
+ * @return axl_true if the operation was completed without errors, otherwise, axl_false is returned.
  */ 
 axl_bool        myqttd_change_fd_perms (MyQttdCtx * ctx,
-					    const char    * file_name,
-					    const char    * mode)
+					const char    * file_name,
+					const char    * mode)
 {
 #if defined(AXL_OS_UNIX)
 	mode_t value = strtol (mode, NULL, 8);
@@ -1534,8 +1553,15 @@ const char    * myqttd_ensure_str      (const char * string)
  * maintain Myqttd and its applications) and the developer manual
  * which includes information on how to extend Myqttd:
  *
+ * <b>Administrators and Users manuals: </b>
+ *
  * - \ref myqttd_administrator_manual
+ *
+ * <b>Developer manuals and API references:</b>
+ *
+ * - \ref libmyqtt_api_reference
  * - \ref myqttd_developer_manual
+ *
  *
  * <h2>Contact us</h2>
  *
@@ -1984,7 +2010,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * configured in the <b>&lt;modules></b> section. Here is an
  * example:
  *
- * \htmlinclude tbc-modules.xml-tmp
+ * \htmlinclude myqttd-modules.xml-tmp
  * 
  * Every directory configured contains myqttd xml module pointers
  * having the following content: 
@@ -2033,7 +2059,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  *   - \ref myqttd_developer_manual_creating_modules
  *   - \ref myqttd_developer_manual_creating_modules_manually
- *   - \ref myqttd_developer_manual_using_tbc_mod_gen
+ *   - \ref myqttd_developer_manual_using_myqttd_mod_gen
  *
  * <b>Section 2: Creating python apps (mod-python enabled)</b>
  *
@@ -2079,9 +2105,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * internal function.
  *
  * Myqttd core is really small. The rest of features are added as
- * modules. For example, Myqttd SASL support is a module which is
- * configurable to use a particular user database and, with the help
- * of some tools (<b>tbc-sasl-conf</b>), you can manage users that are allowed.
+ * modules. 
  *
  * In fact, Myqttd know anything about SASL because this is delegated to mod-sasl. \ref
  * myqttd_mod_sasl "Myqttd SASL module" installs and
@@ -2120,7 +2144,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * - <b>Makefile.am</b>: optional automake file used to build the module: <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqtt/modules/mod-test/Makefile.am"><b>[TXT]</b></a>
  * - <b>mod-test.xml.in</b>: xml module pointer, a file that is installed at the Myqttd modules dir to load the module: <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqtt/modules/mod-test/mod-test.xml.in"><b>[TXT]</b></a>
  *
- * \section myqttd_developer_manual_using_tbc_mod_gen Using tbc-mod-gen to create the module (recommended)
+ * \section myqttd_developer_manual_using_myqttd_mod_gen Using myqttd-mod-gen to create the module (recommended)
  *
  * This tool allows to create a XML template that is used to produce
  * the module output. Here is an example:
@@ -2130,7 +2154,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * \code
  * >> mkdir template
  * >> cd template
- * >> tbc-mod-gen --template --enable-autoconf --out-dir .
+ * >> myqttd-mod-gen --template --enable-autoconf --out-dir .
  * I: producing a template definition at the location provided
  * I: creating file:             ./template.xml
  * I: template created: OK
@@ -2148,7 +2172,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * ready to be compiled and installed:
  *
  * \code 
- *  >> tbc-mod-gen --compile template.xml --out-dir . --enable-autoconf
+ *  >> myqttd-mod-gen --compile template.xml --out-dir . --enable-autoconf
  *  I: creating file:             ./mod_template.c
  *  I: creating file:             ./Makefile.am
  *  I: found autoconf support files request..

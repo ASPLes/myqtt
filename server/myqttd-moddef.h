@@ -57,23 +57,7 @@
  * The module must return axl_true to signal the modules was
  * properly initialized so myqttd can register it as usable.
  *
- * This handler is called only once at myqttd startup and when a
- * child process is created (separate="yes" directive inside profile
- * path configuration, see \ref myqttd_execution_model and \ref profile_path_configuration). 
- *
- * To know if current init call is for a child process you can use:
- *
- * \code
- * if (myqttd_ctx_is_child (ctx) {
- *      // reinitialize 
- * } else {
- *      // normal init
- * }
- * \endcode
- *
- * Keep in mind child creation is implemented using fork() call
- * (without further exec()). This means you may require reinitialize
- * some structures (like mutex). 
+ * This handler is called only once at myqttd startup.
  *
  * @param ctx The myqttd context where the init operation is
  * taking place.
@@ -99,10 +83,6 @@ typedef void (*ModCloseFunc) (MyQttdCtx * ctx);
  * unload code required in the case myqttd ask the module
  * to stop its function.
  * 
- * Unload function is only called in the context of child process
- * created by myqttd to isolate some requests (modules and
- * profiles) to be handled by a low permissions user.
- *
  * @param ctx The myqttd context where the close operation is
  * taking place.
  */
@@ -126,7 +106,6 @@ typedef void (*ModReconfFunc) (MyQttdCtx * ctx);
  * This structure contains pointers to all functions that may
  * implement a myqttd module.
  *
- * See <a class="el" href="http://www.aspl.es/myqttd/extending.html">how to create MyQttd modules</a>.
  */
 typedef struct _MyQttdModDef {
 	/** 
