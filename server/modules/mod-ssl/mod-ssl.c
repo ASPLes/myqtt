@@ -112,7 +112,7 @@ MyQttConn * __mod_ssl_start_listener (MyQttdCtx * ctx, MyQttCtx * my_ctx, axlNod
 
 /** 
  * @brief Init function, perform all the necessary code to register
- * profiles, configure MyQtt, and any other init task. The function
+ * handlers, configure MyQtt, and any other init task. The function
  * must return true to signal that the module was properly initialized
  * Otherwise, false must be returned.
  */

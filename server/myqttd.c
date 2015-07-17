@@ -1170,7 +1170,8 @@ const char * __myqttd_system_path (MyQttdCtx * ctx, const char * path_name)
  * configurations:
  * 
  *  - etc/myqtt/myqtt.conf
- *  - etc/myqtt/sasl/sasl.conf
+ *  - etc/myqtt/tls/tls.conf
+ *  - etc/myqtt/web-socket/web-socket.conf
  *
  * @param ctx The myqttd ctx with the associated configuration
  * where we are getting the sysconfdir. If NULL is provided, default
@@ -1667,7 +1668,6 @@ const char    * myqttd_ensure_str      (const char * string)
  *   - \ref profile_path_flags_supported_by_allow_and_if_sucess
  *   - \ref profile_path_expressions_examples
  *   - \ref myqttd_execution_model
- *   - \ref myqttd_starting_without_profiles
  *   - \ref myqttd_profile_path_search
  *
  * <b>Section 4: Myqttd module management</b> 
@@ -1675,10 +1675,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *   - \ref myqttd_modules_configuration
  *   - \ref myqttd_modules_filtering
  *   - \ref myqttd_modules_activation
- *   - \ref myqttd_mod_sasl   "4.4 mod-sasl: SASL support for Myqttd (auth services)"
- *   - \ref myqttd_mod_python "4.6 mod-python: python language support for Myqttd"
  *   - \ref myqttd_mod_tls    "4.7 mod-tls: TLS support for Myqttd (secure connections)"
- *   - \ref myqttd_mod_radmin "4.8 mod-radmin: support for query runtime status"
  *
  * \section installing_myqtt 1.1 Installing MyQtt using packages available
  *
@@ -1764,13 +1761,6 @@ const char    * myqttd_ensure_str      (const char * string)
  *  <li>
  *    <b>&lt;modules></b>: Under this section is mainly configured
  * directories holding modules.
- *  </li>
- *
- * <li><b>&lt;profile-path-configuration></b>: Under this section is
- *  provided the profile path configuration, an administrative
- *  configuration which allows to mix, sequence, and select profiles
- *  to be provided to client peers according to several run time
- *  values such remote address, profiles already initiated, etc..
  *  </li>
  *
  * </ol>
@@ -1976,34 +1966,6 @@ const char    * myqttd_ensure_str      (const char * string)
  * killed. This is configured with <b><kill-childs-on-exit value="yes" /></b>
  * inside <global-settings> node.
  *
- * \section myqttd_starting_without_profiles 3.5 Making myqttd to start without profiles defined
- *
- * By default Myqttd checks after module start up (init method) if
- * there are at least one profile to serve. It is found that no
- * profile is still defined, Myqttd will refuse to continue. This
- * is done to prevent starting Myqttd with a wrong configuration. 
- *
- * To control or change this behaviour check
- * <b><allow-start-without-profiles value="yes or no" /></b> inside
- * <global-settings> node.
- *
- * \section myqttd_profile_path_search 3.6 Declaring additional search paths inside profile paths
- *
- * Some modules, like mod-sasl, mod-python, etc, may use a search path
- * to find configuration files. This search path uses default values
- * (profile path working directory or global system configuration
- * directory) but it is possible to declare alternative paths for
- * those files by using <b>&lt;search></b> node declarations inside
- * profile path.
- *
- * Here is an example:
- *
- * \htmlinclude search-path-example.xml-tmp
- *
- * The detail about what domain and what files are found with those
- * declarations is module especific. Check the particular module
- * documentation to find out how to use this.
- *
  * \section myqttd_modules_configuration 4.1 Myqttd modules configuration
  * 
  * Modules loaded by myqttd are found at the directories
@@ -2038,11 +2000,11 @@ const char    * myqttd_ensure_str      (const char * string)
  *   <li>On Windows: just copy the module pointer .xml file into the mods-enabled and restart myqttd.</li>
  *
  *   <li>On Unix: link the module pointer .xml file like this
- *   (assuming you want to enable mod-sasl and mods available and
+ *   (assuming you want to enable mod-tls and mods available and
  *   enabled folders are located at /etc/myqtt):
  *
  *    \code
- *    >> ln -s /etc/myqtt/mods-enabled/mod-sasl.xml /etc/myqtt/mods-available/mod-sasl.xml
+ *    >> ln -s /etc/myqtt/mods-enabled/mod-tls.xml /etc/myqtt/mods-available/mod-tls.xml
  *    \endcode
  *   ..and restart myqttd.
  *   </li>
@@ -2106,12 +2068,6 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * Myqttd core is really small. The rest of features are added as
  * modules. 
- *
- * In fact, Myqttd know anything about SASL because this is delegated to mod-sasl. \ref
- * myqttd_mod_sasl "Myqttd SASL module" installs and
- * configures SASL profiles provided by Myqtt, and using \ref
- * profile_path_configuration "Profile Path" (a Myqttd core
- * feature), the security provisioning is meet.
  *
  * Myqttd module form is fairly simple. It contains the following handlers (defined at \ref MyqttdModDef):
  * <ol>

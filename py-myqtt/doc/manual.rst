@@ -71,26 +71,11 @@ frame received handler::
 Creating a MQTT listener
 ========================
 
-1. The process of creating a BEEP listener is pretty
+1. The process of creating a MQTT listener is pretty
 straitforward. You have to follow the same initialization process as
-the client. Then, you have to register profiles that will be supported
-by your listener. This is done as follows::
+the client. This is done as follows::
 
-   def default_frame_received (conn, channel, frame, data):
-
-       print ("Frame content received: " + frame.payload)
-
-       # reply in the case of MSG received
-       if frame.type == 'MSG':
-       	  # reply doing an echo
-       	  channel.send_rpy (frame.payload, frame.payload_size, frame.msg_no)
-
-       return
-       # end default_frame_received 		   		   		       
-
-   # register support for a profile
-   vortex.register_profile (ctx, "urn:aspl.es:beep:profiles:my-profile",
-   			    frame_received=default_frame_received)
+   # define it
 
 2. After your listener signals its support for a particular profile,
 it is required to create a listener instance::

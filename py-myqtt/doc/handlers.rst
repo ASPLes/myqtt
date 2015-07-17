@@ -81,66 +81,6 @@ pipe). Its signature is the following::
         # handle connection close
         return
 
-.. _auth-notify-handler:
-
-======================
-SASL auth notification
-======================
-
-This handler is used to notify the termination status of a SASL
-authentication process started on a connection. Its signature is the
-following::
-
-    def sasl_status (conn, status, status_msg, queue):
-        # check status received
-	if status != vortex.status_OK:
-	     # SASL authentication failed
-	
-.. _sasl-auth-handler:
-
-========================
-SASL common auth handler
-========================
-
-This handler is used to complete the SASL authentication process. The
-handler must either return True or False to accept or deny the
-connection and, for some SASL profiles, the handler must return the
-password associated to the user being authenticated or None if it is
-required to deny auth operation.
-
-Here is an example of the handler signature and some code example to
-that access to the proper auth variable to finish the auth process::
-
-    def sasl_auth_handler (conn, auth_props, user_data):
-    
-        print ("Received request to complete auth process using profile: " + auth_props["mech"])
-        # check plain
-        if auth_props["mech"] == vortex.sasl.PLAIN:
-            if auth_props["auth_id"] == "bob" and auth_props["password"] == "secret":
-                return True
-
-        # check anonymous
-        if auth_props["mech"] == vortex.sasl.ANONYMOUS:
-            if auth_props["anonymous_token"] == "test@aspl.es":
-                return True
-
-        # check digest-md5
-        if auth_props["mech"] == vortex.sasl.DIGEST_MD5:
-            if auth_props["auth_id"] == "bob":
-                # set password notification
-                auth_props["return_password"] = True
-                return "secret"
-
-        # check cram-md5
-        if auth_props["mech"] == vortex.sasl.CRAM_MD5:
-            if auth_props["auth_id"] == "bob":
-                 # set password notification
-                 auth_props["return_password"] = True
-                 return "secret"
-    
-        # deny if not accepted
-        return False
-    
 .. _tls-notify-handler:
 
 ===============================
