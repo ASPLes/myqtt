@@ -853,16 +853,6 @@ void _myqtt_log2 (MyQttCtx        * ctx,
 #endif
 }
 
-/**
- * \defgroup myqtt MyQtt: Main MyQtt Library Module (initialization and exit stuff)
- */
-
-/**
- * \addtogroup myqtt
- * @{
- */
-
-
 /** 
  * @brief Context based myqtt library init. Allows to init the myqtt
  * library status on the provided context object (\ref MyQttCtx).
@@ -1367,6 +1357,8 @@ void        myqtt_sleep (long microseconds)
 #endif
 }
 
-/* @} */
+/** 
+ * @} 
+ */
 
 

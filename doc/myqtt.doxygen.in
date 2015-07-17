@@ -826,8 +826,8 @@ EXCLUDE_SYMBOLS        =
 
 EXAMPLE_PATH           = @top_srcdir@/test \
                          @top_srcdir@/doc \
-                         @top_srcdir@/server \
-                         @top_srcdir@/plugins/mod-mw
+                         @top_srcdir@/server 
+
 
 # If the value of the EXAMPLE_PATH tag contains directories, you can use the
 # EXAMPLE_PATTERNS tag to specify one or more wildcard pattern (like *.cpp and

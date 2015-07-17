@@ -225,12 +225,6 @@ axl_bool  myqttd_init (MyQttdCtx   * ctx,
 	/*** not required to initialize axl library, already done by myqtt ***/
 	msg ("myqttd internal init ctx: %p, myqtt ctx: %p", ctx, myqtt_ctx);
 
-	/* db list */
-	/* if (! myqttd_db_list_init (ctx)) {
-		abort_error ("failed to init the myqttd db-list module");
-		return axl_false;
-		} */ /* end if */ 
-
 	/* init myqttd-module.c */
 	myqttd_module_init (ctx);
 
@@ -242,13 +236,6 @@ axl_bool  myqttd_init (MyQttdCtx   * ctx,
 
 	/* configure serveral limits */
 	__myqttd_acquire_limits (ctx);
-
-	/* init profile path module: this initialization must be done
-	 * before calling to myqttd_run_config to avoid third
-	 * party modules to install handler with higher priority. */
-	/* if (! myqttd_ppath_init (ctx)) {
-		return axl_false;
-		} */ /* end if */
 
 	/* init connection manager */
 	myqttd_conn_mgr_init (ctx);
@@ -289,10 +276,6 @@ void     myqttd_reload_config       (MyQttdCtx * ctx, int value)
 	/* call to reload logs */
 	__myqttd_log_reopen (ctx);
 
-	/* reload myqttd here, before modules
-	 * reloading */
-	/* myqttd_db_list_reload_module (); */
-	
 	/* reload modules */
 	myqttd_module_notify_reload_conf (ctx);
 	myqtt_mutex_unlock (&ctx->exit_mutex);
@@ -327,17 +310,10 @@ void myqttd_exit (MyQttdCtx * ctx,
 	/* get the myqtt context assocaited */
 	myqtt_ctx = myqttd_ctx_get_myqtt_ctx (ctx);
 
-	/* terminate profile path */
-	/* myqttd_ppath_cleanup (ctx); */
-
 	/* close modules before terminating myqtt so they still can
 	 * use the Myqtt API to terminate its function. */
 	myqttd_module_notify_close (ctx);
 
-	/* terminate myqttd db list module at this point to avoid
-	 * modules referring to db-list to lost references */
-	/* myqttd_db_list_cleanup (ctx); */
-	
 	/* terminate myqttd mediator module */
 	/* myqttd_mediator_cleanup (ctx); */
 
@@ -1562,7 +1538,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * - \ref libmyqtt_api_reference
  * - \ref myqttd_developer_manual
- *
+ * - <a href="http://www.aspl.es/myqtt/py-myqtt/index.html">PyMyQtt API reference and manual</a>
  *
  * <h2>Contact us</h2>
  *
@@ -1607,7 +1583,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * enabled) for all transports supported (mqtt, mqtt-tls, mqtt-ws and
  * myqtt-wss).
  *
- * - <b>Full support for Python through <b>PyMyQtt</b>, see: http://www.aspl.es/myqtt/py-myqtt/index.html  
+ * - <b>Full support for Python</b> through <b>PyMyQtt</b>, see: http://www.aspl.es/myqtt/py-myqtt/index.html  
  *   (more bindings will be added).
  */
 
@@ -1658,17 +1634,13 @@ const char    * myqttd_ensure_str      (const char * string)
  *   - \ref myqttd_ports
  *   - \ref myqttd_smtp_notifications
  *   - \ref myqttd_configuring_log_files
- *   - \ref myqttd_db_list_management "2.7 Myqttd Db-List management"
  *   - \ref myqttd_configure_system_paths
  *   - \ref myqttd_configure_splitting
  *
  * <b>Section 3: MQTT management</b>
  *
- *   - \ref profile_path_configuration
- *   - \ref profile_path_flags_supported_by_allow_and_if_sucess
- *   - \ref profile_path_expressions_examples
  *   - \ref myqttd_execution_model
- *   - \ref myqttd_profile_path_search
+
  *
  * <b>Section 4: Myqttd module management</b> 
  *
@@ -1916,30 +1888,6 @@ const char    * myqttd_ensure_str      (const char * string)
  * myqttd.conf file after replacing all <b>includes</b> must be a
  * properly formated myqttd.conf file.
  *
- * It is also possible to load a set of configuration files from a
- * directory. This is useful for profile paths where all of them are
- * stored separated into /etc/myqtt/profile.d directory. That's
- * why the following declaration inside <profile-path-configuration>:
- *
- * \htmlinclude include-from-dir.xml-tmp
- *
- * Previous declaration import all content from files found in
- * <b>/etc/myqtt/profile.d</b> replacing the <b>include</b> node.
- *
- * \section profile_path_expressions_examples 3.3 Profile path configuration: expression examples
- *
- * For the case an expression is required to match source or
- * destination the following expressions area available:
- *
- * - <b>192.168.0.*</b> allows to match everything that matches the network IP part 192.168.0.X.
- *
- * - <b>not 192.168.0.*</b> allows to match everything that isn't the network IP part 192.168.0.X.
- *
- * - <b>192.168.1.132, 192.168.1.134</b> allows to match a list of ips.
- *
- * - <b>192.168.1.0, 192.168.0.*</b> allows to match a list of wilcard ips.
- *
- * - <b>not 192.168.1.0, 192.168.0.*</b> allows to inverse the previous match.
  *
  * \section myqttd_execution_model 3.4 Myqttd execution model (process security)
  *
@@ -1985,8 +1933,8 @@ const char    * myqttd_ensure_str      (const char * string)
  * \section myqttd_modules_filtering 4.2 Myqttd module filtering
  *
  * It is possible to configure Myqttd to skip some module so it is
- * not loaded. This is done by adding a <b><no-load /></b> declaration
- * with the set of modules to be skipped. This is done inside <b><modules /></b> section:
+ * not loaded. This is done by adding a <b>&lt;no-load /></b> declaration
+ * with the set of modules to be skipped. This is done inside <b>&lt;modules /></b> section:
  *
  * \htmlinclude module-skip.xml-tmp
  *
@@ -2021,13 +1969,8 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  *   - \ref myqttd_developer_manual_creating_modules
  *   - \ref myqttd_developer_manual_creating_modules_manually
- *   - \ref myqttd_developer_manual_using_myqttd_mod_gen
  *
- * <b>Section 2: Creating python apps (mod-python enabled)</b>
- *
- *  - \ref  myqttd_mod_python_writing_apps
- *
- * <b>Section 3: Myqtt 1.1 API</b>
+ * <b>Section 2: Myqtt 1.1 API</b>
  *
  *  Because Myqttd extends and it is built on top of Myqtt
  *  Library 1.1, it is required to keep in mind and use Myqtt
@@ -2035,7 +1978,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  *  - <a class="el" href="http://fact.aspl.es/files/af-arch/myqtt-1.1/html/index.html">Myqtt Library 1.1 Documentation Center</a>
  *
- * <b>Section 4: Myqttd API</b>
+ * <b>Section 3: Myqttd API</b>
  *
  *  The following is the API exposed to myqttd modules and
  *  tools. This is only useful for myqttd developers.
@@ -2043,7 +1986,6 @@ const char    * myqttd_ensure_str      (const char * string)
  *  - \ref myqttd
  *  - \ref myqttd_moddef
  *  - \ref myqttd_config
- *  - \ref myqttd_db_list
  *  - \ref myqttd_conn_mgr
  *  - \ref myqttd_handlers
  *  - \ref myqttd_types
@@ -2051,9 +1993,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *  - \ref myqttd_run
  *  - \ref myqttd_expr
  *  - \ref myqttd_loop
- *  - \ref myqttd_mediator
  *  - \ref myqttd_module
- *  - \ref myqttd_ppath
  *  - \ref myqttd_support
  *
  * \section myqttd_developer_manual_creating_modules How Myqttd module works
@@ -2069,7 +2009,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * Myqttd core is really small. The rest of features are added as
  * modules. 
  *
- * Myqttd module form is fairly simple. It contains the following handlers (defined at \ref MyqttdModDef):
+ * Myqttd module form is fairly simple. It contains the following handlers (defined at \ref MyQttdModDef):
  * <ol>
  *
  *  <li>Init (\ref ModInitFunc): A handler called by Myqttd to start the module. Here
@@ -2083,8 +2023,6 @@ const char    * myqttd_ensure_str      (const char * string)
  *  <li>Reconf (\ref ModReconfFunc): Called by Myqttd when a HUP signal is
  *  received. This is a notification that the module should reload its
  *  configuration files and start to behave as they propose.</li>
- *
- *  <li>Profile path selected (\ref ModPPathSelected): Called by Myqttd when the profile path for a connection was selected.</li>
  *
  * </ol>
  *
@@ -2100,65 +2038,6 @@ const char    * myqttd_ensure_str      (const char * string)
  * - <b>Makefile.am</b>: optional automake file used to build the module: <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqtt/modules/mod-test/Makefile.am"><b>[TXT]</b></a>
  * - <b>mod-test.xml.in</b>: xml module pointer, a file that is installed at the Myqttd modules dir to load the module: <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqtt/modules/mod-test/mod-test.xml.in"><b>[TXT]</b></a>
  *
- * \section myqttd_developer_manual_using_myqttd_mod_gen Using myqttd-mod-gen to create the module (recommended)
- *
- * This tool allows to create a XML template that is used to produce
- * the module output. Here is an example:
- *
- * First we create a xml empty module template:
- *
- * \code
- * >> mkdir template
- * >> cd template
- * >> myqttd-mod-gen --template --enable-autoconf --out-dir .
- * I: producing a template definition at the location provided
- * I: creating file:             ./template.xml
- * I: template created: OK
- * \endcode
- *
- * Now you should rename the file <b>template.xml</b> to something more
- * appropriate and edit the template content, changing the module name
- * and its description. Do not change the content of init, close and
- * reconf nodes for now:
- *
- * \htmlinclude template.xml-tmp
- *
- * Now, do the following to compile the content and produce a module
- * that is compatible with the Myqttd interface, and it is full
- * ready to be compiled and installed:
- *
- * \code 
- *  >> myqttd-mod-gen --compile template.xml --out-dir . --enable-autoconf
- *  I: creating file:             ./mod_template.c
- *  I: creating file:             ./Makefile.am
- *  I: found autoconf support files request..
- *  I: creating file:             ./autogen.sh
- *  I: making executable:         ./autogen.sh
- *  I: creating file:             ./configure.ac
- *  I: creating file:             ./gen-code
- *  I: making executable:         ./gen-code
- *  I: mod_template created!
- * \endcode
- *
- * Now take a look into the files created, specially
- * <b>mod_template.c</b>. Once you are ready, type the following to build the
- * module:
- *
- * \code
- *  >> ./autogen.sh
- *  >> make
- *  >> make install
- * \endcode
- *
- * If you are new to autotools, you have to now that the first command
- * (autogen.sh) is only execute once. Next times you can run
- * <b>./configure</b> which have the same effect and run faster. The
- * <b>autogen.sh</b> command is executed to bootstrap the project, adding all
- * missing files.
- *
- * Now you are ready to complete the module with your particular
- * code. For that, you'll have to use the Myqttd API and specially
- * the Myqtt API. <a href="http://www.aspl.es/myqtt/doc.html">See document section for more details.</a>
  */
 
 /** 
@@ -2178,7 +2057,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * \section Introduction
  *
  * Here you will find API reference for the C API provided by libMyQtt
- * and its additional components (like support for WebSocket and TLS).
+ * and its additional components (like support for WebSocket and TLS). <br>See also the following manual to have a global overview on how to use the libMyQtt API: \ref libmyqtt_api_manual
  *
  * <b>1. Core functions </b>
  *
@@ -2205,4 +2084,76 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * - \ref myqtt_io
  * - \ref myqtt_reader
+ */
+
+/** 
+ * \page libmyqtt_api_manual libMyQtt API Manual
+ *
+ * \section libmyqtt_api_manual_intro Introduction
+ *
+ * libMyQtt is a state-less, context based library that provides all
+ * core functions needed to create a MQTT broker and client. libMyQtt
+ * uses a threaded design and a set of handlers that the user must
+ * configure to get async notifications at right time when: a message
+ * is received, a connection is closed, etc..
+ *
+ * libMyQtt has core MQTT functions. Then, an independant and optional
+ * library is provided to support SSL/TLS functions
+ * (libMyQtt-TLS). The same happens with MQTT WebSocket support, which
+ * is provided by libMyQtt-WebSocket
+ *
+ * This manual assumes you already have libMyQtt installed in your
+ * system. If this is not the case, please, check the following
+ * install instructions:
+ *
+ * - \ref installing_myqtt
+ * - \ref installing_myqtt_from_sources
+ *
+ * At the same time, please, always have at hand the following links
+ * which are the regression tests used to validate libMyQtt across
+ * releases and changes done. They include lots of examples of working
+ * code for all the features provided by the library:
+ *
+ * - https://dolphin.aspl.es/svn/publico/myqtt/test/myqtt-regression-client.c    (Client code)
+ * - https://dolphin.aspl.es/svn/publico/myqtt/test/myqtt-regression-listener.c   (Listener code)
+ *
+ * \section libmyqtt_api_manual_creating_ctx Creating a MyQttContext (MyQttCtx)
+ *
+ * The very first thing we have to do is to create a \ref MyQttCtx
+ * (MyQtt context) which is the object that holds various
+ * configurations and the state required by the library to work. This
+ * is common to both client and brokers.
+ *
+ * \code
+ *  // context variable 
+ *  MyQttCtx * ctx;
+ *
+ *  // create an unitialized context 
+ *  ctx = myqtt_ctx_new ();
+ *
+ *  // start it along with all library functions 
+ *  if (! myqtt_init_ctx (ctx)) {
+ *	printf ("Error: unable to initialize MyQtt library..\n");
+ *	return NULL;
+ *  }
+ *
+ * \endcode
+ *
+ * After that we also have to configure the storage module to hold all
+ * messages in transit (received and sent). This is done by calling like this:
+ *
+ * \code
+ * // tell MyQtt to hold messages into this directory: .myqtt and to use 
+ * // the provided indication of hashing (recommended)
+ * myqtt_storage_set_path (ctx, ".myqtt", 4096);
+ * \endcode
+ *
+ * \section libmyqtt_api_manual_creating_conn Creating a MQTT Connection (MyQttConn)
+ *
+ * Now, with a context created, we can create a client connection by
+ * doing something like this:
+ *
+ * \code
+ * \endcode
+ *
  */
