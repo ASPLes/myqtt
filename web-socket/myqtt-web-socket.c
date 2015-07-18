@@ -43,6 +43,91 @@
 
 /** 
  * \defgroup myqtt_websocket MyQtt WebSocket: support functions to create MQTT over WebSocket connections and listeners
+ *
+ * \section myqtt_websocket_intro Introduction
+ *
+ * This module provides MQTT over WebSocket support by using noPoll
+ * API. The idea is that you create the listener o connection using
+ * noPoll and the handover that connection to the MyQtt WebSocket API
+ * to continue with the protocol negotation required to establish a
+ * MQTT connection. After that, the \ref MyQttConn connection created
+ * works the same way as it does a connection that would have been
+ * created with a regular function like \ref myqtt_conn_new or
+ * accepted via \ref myqtt_listener_new
+ *
+ * Please, always refer to regression tests published and used to test
+ * all library functions to get a more detailed view about all
+ * features provided:
+ *
+ * - https://dolphin.aspl.es/svn/publico/nopoll/trunk/test/nopoll-regression-client.c   (Client)
+ * - https://dolphin.aspl.es/svn/publico/nopoll/trunk/test/nopoll-regression-listener.c   (Listener)
+ *
+ * Also check noPoll API documentation for more details about the features that are available at noPoll's Website http://www.aspl.es/nopoll
+ *
+ *
+ * \section myqtt_websocket_listener_creating Creating a WebSocket listener (no SSL/TLS)
+ *
+ * To create a listener that is able to receive a MQTT over WebSocket
+ * connection use the following code. The idea is that you create a
+ * noPoll context (only once) and the a set of listeners as indicated
+ * (reusing that noPollCtx). Then those noPollConn references that
+ * represents a listener are used to create a MyQttConn that is fully
+ * functional for all the API provided by libMyQtt.
+ *
+ * \code
+ * // declare noPollCtx, noPollListener
+ * noPollCtx  * nopoll_ctx;
+ * noPollConn * nopoll_listener;
+ *
+ * // declare listener
+ * MyQttConn  * listener;
+ *
+ * // init it
+ * nopoll_ctx      = nopoll_ctx_new ();
+ *
+ * // Create listener and check it
+ * nopoll_listener = nopoll_listener_new (nopoll_ctx, listener_host, listener_websocket_port);
+ * if (! nopoll_conn_is_ok (nopoll_listener)) {
+ *      printf ("ERROR: failed to start WebSocket listener at %s:%s..\n", listener_host, listener_websocket_port);
+ *      return nopoll_false;
+ * } 
+ *
+ * // now start the MQTT over WebSocket listener
+ * listener = myqtt_web_socket_listener_new (ctx, nopoll_listener, NULL, NULL, NULL);
+ * if (! myqtt_conn_is_ok (listener, axl_false)) {
+ *      printf ("ERROR: failed to start WebSocket listener at: %s:%s..\n", listener_host, listener_websocket_port);
+ *      exit (-1);
+ * } 
+ * \endcode
+ *
+ * \section myqtt_websocket_connection_creating Creating a WebSocket connection
+ *
+ * To create a MQTT over WebSocket connection is pretty much the same as we did to create a listener (see \ref myqtt_websocket_listener_creating).
+ * Here is an example on how to do it:
+ *
+ * \code
+ * // declare variables
+ * noPollCtx  * nopoll_ctx;
+ * noPollConn * nopoll_conn;
+ *
+ *
+ * // create noPoll context and connection 
+ * nopoll_ctx   = nopoll_ctx_new ();
+ * nopoll_conn  = nopoll_conn_new (nopoll_ctx, listener_host, listener_websocket_port, NULL, NULL, NULL, NULL);
+ * if (! nopoll_conn_is_ok (nopoll_conn)) {
+ *      printf ("ERROR: failed to connect remote host through WebSocket..\n");
+ *      return nopoll_false;
+ * } 
+ *
+ * // now create MQTT connection using already working noPoll connection 
+ * conn = myqtt_web_socket_conn_new (ctx, NULL, axl_false, 30, nopoll_conn, NULL, NULL, NULL); 
+ * if (! myqtt_conn_is_ok (conn, axl_false)) {
+ *      printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_websocket_port);
+ *      return axl_false;
+ * } 
+ * 
+ * \endcode
+ * 
  */
 
 /** 
