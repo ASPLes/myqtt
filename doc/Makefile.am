@@ -2,13 +2,15 @@ tmp_xml_examples = \
 	     domain-settings-basic.xml-tmp \
 	     domain-settings-standard.xml-tmp \
 	     myqtt-domain.xml-tmp \
-	     running-user.xml-tmp
+	     running-user.xml-tmp \
+	     port-configuration.xml-tmp
 
 xml_examples = \
 	     domain-settings-basic.xml \
 	     domain-settings-standard.xml \
 	     myqtt-domain.xml \
-	     running-user.xml
+	     running-user.xml \
+	     port-configuration.xml
 
 EXTRA_DIST = $(tmp_xml_examples) $(xml_examples) myqtt.doxygen \
 	     myqtt.doxygen.in \
