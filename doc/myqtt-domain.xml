@@ -1,0 +1,4 @@
+    <!-- simple declaration for a domain with a set of users
+         (users-db) and where it is storing messages in transit
+         (storage) -->
+    <domain name="example.com" storage="/var/lib/myqtt/example.com" users-db="/var/lib/myqtt-dbs/example.com" use-settings="basic" />

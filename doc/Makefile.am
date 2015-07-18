@@ -1,4 +1,16 @@
-EXTRA_DIST = myqtt.doxygen \
+tmp_xml_examples = \
+	     domain-settings-basic.xml-tmp \
+	     domain-settings-standard.xml-tmp \
+	     myqtt-domain.xml-tmp \
+	     running-user.xml-tmp
+
+xml_examples = \
+	     domain-settings-basic.xml \
+	     domain-settings-standard.xml \
+	     myqtt-domain.xml \
+	     running-user.xml
+
+EXTRA_DIST = $(tmp_xml_examples) $(xml_examples) myqtt.doxygen \
 	     myqtt.doxygen.in \
 	     myqtt-footer.html \
 	     myqtt-header.html \
@@ -8,7 +20,8 @@ EXTRA_DIST = myqtt.doxygen \
 	     aspl-logo-header.png \
 	     hacha-100x171.png \
 	     myqtt-init.d \
-             myqtt-rpm-init.d
+             myqtt-rpm-init.d 
+
 
 bin_SCRIPTS = initial_build_doc
 
@@ -36,8 +49,10 @@ build_doc: prepare_xmls
 	cp $(top_srcdir)/doc/body_back.gif html
 	cp $(top_srcdir)/doc/hacha-100x171.png html
 
-prepare_xmls:
+prepare_xmls: $(tmp_xml_examples)
 	axl-knife -i ../server/myqtt.example.conf -o myqtt.example.conf.xml -e -p fragment
 
 all: build_doc
 
+.xml.xml-tmp:
+	axl-knife -i $< -o $@ -e -p fragment

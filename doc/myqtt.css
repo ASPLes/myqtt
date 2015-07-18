@@ -238,3 +238,52 @@ pre.fragment {
 .sponsored-content li { 
   list-style: square;
 }
+
+/* fragments css */
+pre.fragment,div.fragment {
+  margin: 0px;
+  padding: 10px;
+/*  background: #4a554a; */
+  background: #2e3436;
+  color: white;
+}
+
+pre.fragment .stringliteral { 
+  color: #e9b96e;
+}
+
+pre.fragment .keyword { 
+  color: #26c2b9;
+}
+
+pre.fragment .keywordflow { 
+  color: #26c2b9;
+}
+
+pre.fragment .keywordtype { 
+  color: #94f5ab;
+}
+
+div.xml-doc pre.fragment .keywordflow { 
+  color: white;
+}
+
+pre.fragment .code { 
+  color: #93c6ff;
+}
+
+span.comment { 
+  color: #ef2929;
+}
+
+span.attrvalue { 
+  color: #fcaf3e;
+}
+
+span.node { 
+  color: #ad7fa8;
+}
+
+span.header { 
+  color: #729fcf;
+}
