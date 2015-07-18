@@ -1,0 +1,20 @@
+  <global-settings>
+    <!-- port allocation configuration -->
+    <ports>
+      <!-- &lt;port [bind-addr='0.0.0.0'] [proto='mqtt']>__port_num__&lt;/port> -->
+
+      <!-- iana registered port for plain MQTT -->
+      <port proto="mqtt">1883</port> 
+
+      <!-- iana registered port for TLS MQTT -->
+      <port proto="mqtt-tls">8883</port> 
+
+      <!-- declaration for MQTT over WebSocket -->
+      <!-- &lt;port proto="mqtt-ws">80&lt;/port>  --> 
+
+      <!-- declaration for MQTT over TLS/SSL WebSocket -->
+      <!-- &lt;port proto="mqtt-wss">443&lt;/port>  --> 
+    </ports>
+
+    <!-- .. more declarations... -->
+  </global-settings>

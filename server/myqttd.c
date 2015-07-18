@@ -1385,7 +1385,7 @@ int myqttd_get_system_id  (MyQttdCtx * ctx, const char * value, axl_bool get_use
  * @brief Allows to change the owner (user and group) of the socket's
  * file associated.
  *
- * @param ctx The Myqttd context.
+ * @param ctx The MyQttD context.
  *
  * @param file_name  The file name path to change its owner.
  *
@@ -1421,7 +1421,7 @@ int fchmod(int fildes, mode_t mode);
 /** 
  * @brief Allows to change the permissions of the socket's file associated.
  *
- * @param ctx The Myqttd context.
+ * @param ctx The MyQttD context.
  *
  * @param file_name The file name path to change perms.
  *
@@ -1523,12 +1523,12 @@ const char    * myqttd_ensure_str      (const char * string)
  * MyQtt stack is Open Source releaesd under LGPL 2.1, which allows to
  * used by Open and Closed source projects. See licensing for more information: http://www.aspl.es/myqtt/licensing
  *
- * \section documentation Myqttd Documentation
+ * \section documentation MyQttD Documentation
  *
- * Myqttd documentation is separated into two sections:
+ * MyQttD documentation is separated into two sections:
  * administrators manuals (used by people that want to deploy and
- * maintain Myqttd and its applications) and the developer manual
- * which includes information on how to extend Myqttd:
+ * maintain MyQttD and its applications) and the developer manual
+ * which includes information on how to extend MyQttD:
  *
  * <b>Administrators and Users manuals: </b>
  *
@@ -1628,7 +1628,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *   - \ref installing_myqtt
  *   - \ref installing_myqtt_from_sources
  *
- * <b>Section 2: Myqttd configuration</b>
+ * <b>Section 2: MyQttD configuration</b>
  *
  *   - \ref configuring_myqttd
  *   - \ref myqttd_config_location
@@ -1643,12 +1643,12 @@ const char    * myqttd_ensure_str      (const char * string)
  *   - \ref myqttd_execution_model
 
  *
- * <b>Section 4: Myqttd module management</b> 
+ * <b>Section 4: MyQttD module management</b> 
  *
  *   - \ref myqttd_modules_configuration
  *   - \ref myqttd_modules_filtering
  *   - \ref myqttd_modules_activation
- *   - \ref myqttd_mod_tls    "4.7 mod-tls: TLS support for Myqttd (secure connections)"
+ *   - \ref myqttd_mod_tls    "4.7 mod-tls: TLS support for MyQttD (secure connections)"
  *
  * \section installing_myqtt 1.1 Installing MyQtt using packages available
  *
@@ -1657,7 +1657,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * \section installing_myqtt_from_sources 1.2 Installing MyQtt from sources
  *
- * Myqttd have the following dependencies:
+ * MyQttD have the following dependencies:
  *
  * <ol>
  *  <li> <b>Axl Library:</b> which provides all XML services and core infrastructure (located at: http://www.aspl.es/xml).</li>
@@ -1676,12 +1676,12 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  *
  *
- * <h3>Building Myqttd from source on POSIX / Unix environments</h3>
+ * <h3>Building MyQttD from source on POSIX / Unix environments</h3>
  * 
  * It is assumed you have a platform that have autoconf, libtool, and
  * the rest of GNU tools to build software. Get the source code at the download page: http://www.aspl.es/myqtt/downloads
  * 
- * Myqttd is compiled following the standard autoconf-compatible
+ * MyQttD is compiled following the standard autoconf-compatible
  * procedure:
  *
  * \code
@@ -1698,14 +1698,14 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * - For <b>PyMyQtt</b>: see http://www.aspl.es/myqtt/py-myqtt/index.html 
  *
- * - For <b>MyQttD</b>: now you must configure your Myqttd installation. Check the following section.
+ * - For <b>MyQttD</b>: now you must configure your MyQttD installation. Check the following section.
  *
  * 
- * \section configuring_myqttd 2.1 Myqttd configuration
+ * \section configuring_myqttd 2.1 MyQttD configuration
  * 
  * \section myqttd_config_location 2.2 Where myqttd is configured (configuration file location)
  *   
- * Myqttd is configured through XML 1.0 files. The intention is
+ * MyQttD is configured through XML 1.0 files. The intention is
  * provide an easy and extensible way to configure myqttd, allowing
  * third parties to build tools to update/reconfigure it.
  * 
@@ -1754,7 +1754,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * \section myqttd_config_location_how 2.3 How myqttd is configured
  * 
  *
- * Myqttd main configuration file includes several global
+ * MyQttD main configuration file includes several global
  * sections: 
  *
  * <ol>
@@ -1798,16 +1798,16 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * </ol>
  *
- * \section myqttd_ports 2.4 Myqttd addresses and ports used
+ * \section myqttd_ports 2.4 MyQttD addresses and ports used
  *
- * Ports and addresses used by Myqttd to listen are configured at
+ * Ports and addresses used by MyQttD to listen are configured at
  * the <b>&lt;global-settings></b> section. Here is an example:
  * 
- * \htmlinclude global-settings.xml-tmp
+ * \htmlinclude port-configuration.xml-tmp
  *
- * Previous example will make Myqttd to listen on ports 3206 and
+ * Previous example will make MyQttD to listen on ports 3206 and
  * 44010 for all addresses that are known for the server hosting
- * myqttd (0.0.0.0). Myqttd will understand this section
+ * myqttd (0.0.0.0). MyQttD will understand this section
  * listening on all addresses provided, for all ports.
  *
  * Alternatively, during development or when it is found a myqttd
@@ -1832,7 +1832,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * \section myqttd_smtp_notifications 2.5 Receiving SMTP notification on failures and error conditions
  *
- * Myqttd includes a small SMTP client that allows to report
+ * MyQttD includes a small SMTP client that allows to report
  * critical or interesting conditions. For example, this is used to
  * report backtraces on critical signal received. 
  *
@@ -1848,7 +1848,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * \section myqttd_configuring_log_files 2.6 Configuring myqttd log files
  *
- * Myqttd logs is sent to a set of files that are configured at
+ * MyQttD logs is sent to a set of files that are configured at
  * the <b>&lt;global-settings></b> section:
  *
  * \htmlinclude log-reporting.xml-tmp
@@ -1864,17 +1864,17 @@ const char    * myqttd_ensure_str      (const char * string)
  * to the following library functions: <b>msg</b>, <b>msg2</b>,
  * <b>wrn</b> and <b>error</b>. 
  *
- * By default, Myqttd server is started with no console
+ * By default, MyQttD server is started with no console
  * output. All log is sent to previous log files. The second
  * destination available is the console output. 
  *
  * Four command line options controls logs produced to the console by
- * Myqttd and tools associated:
+ * MyQttD and tools associated:
  *
  * <ol>
  *  
  * <li><p><b>--debug</b>: activates the console log, showing main
- * messages. Myqttd tools have this option implicitly activated. </p></li>
+ * messages. MyQttD tools have this option implicitly activated. </p></li>
  *
  * <li><p> <b>--debug2</b>: activates implicitly the <b>--debug</b>
  * option and shows previous messages plus new messages that are
@@ -1891,7 +1891,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * </ol>
  * 
- * If previous options are used Myqttd will register a log into
+ * If previous options are used MyQttD will register a log into
  * the appropriate file but also will send the same log to the
  * console.
  *
@@ -1904,7 +1904,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * \section myqttd_configure_system_paths 2.8 Alter default myqttd base system paths
  *
- * By default Myqttd has 3 built-in system paths used to locate
+ * By default MyQttD has 3 built-in system paths used to locate
  * configuration files (<b>sysconfdir</b>), find data files (<b>datadir</b>) and directories used at run
  * time (<b>runtime datadir</b>) to implement internal functions.
  *
@@ -1924,7 +1924,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * - <b>datadir</b>: base dir where static myqttd data files are located (${datadir}/myqtt).
  * - <b>runtime_datadir</b>: base directory where run time files are created (${runtime_datadir}/myqtt).
  *
- * Additionally many modules inside Myqttd and Myqtt Library find
+ * Additionally many modules inside MyQttD and Myqtt Library find
  * configuration and data files by call to
  * myqtt_support_domain_find_data_file. That function works by
  * finding the provided file under a particular search domain. Each
@@ -1950,9 +1950,9 @@ const char    * myqttd_ensure_str      (const char * string)
  * properly formated myqttd.conf file.
  *
  *
- * \section myqttd_execution_model 3.4 Myqttd execution model (process security)
+ * \section myqttd_execution_model 3.4 MyQttD execution model (process security)
  *
- * It is posible to configure Myqttd, through profile path
+ * It is posible to configure MyQttD, through profile path
  * configuration, to handle connections in the same master process or
  * using child processes. Here is a detailed list:
  *
@@ -1971,11 +1971,11 @@ const char    * myqttd_ensure_str      (const char * string)
  *     flag is provided so connections matching same profile path are
  *     handled by the same child process. 
  *
- * By default, when Myqttd is stopped, all created childs are
+ * By default, when MyQttD is stopped, all created childs are
  * killed. This is configured with <b><kill-childs-on-exit value="yes" /></b>
  * inside <global-settings> node.
  *
- * \section myqttd_modules_configuration 4.1 Myqttd modules configuration
+ * \section myqttd_modules_configuration 4.1 MyQttD modules configuration
  * 
  * Modules loaded by myqttd are found at the directories
  * configured in the <b>&lt;modules></b> section. Here is an
@@ -1991,9 +1991,9 @@ const char    * myqttd_ensure_str      (const char * string)
  * Each module have its own configuration file, which should use XML
  * as default configuration format. 
  *
- * \section myqttd_modules_filtering 4.2 Myqttd module filtering
+ * \section myqttd_modules_filtering 4.2 MyQttD module filtering
  *
- * It is possible to configure Myqttd to skip some module so it is
+ * It is possible to configure MyQttD to skip some module so it is
  * not loaded. This is done by adding a <b>&lt;no-load /></b> declaration
  * with the set of modules to be skipped. This is done inside <b>&lt;modules /></b> section:
  *
@@ -2024,7 +2024,7 @@ const char    * myqttd_ensure_str      (const char * string)
  */
 
 /** 
- * \page myqttd_developer_manual Myqttd Developer manual
+ * \page myqttd_developer_manual MyQttD Developer manual
  *
  * <b>Section 1: Creating myqttd modules (C language)</b>
  *
@@ -2033,13 +2033,13 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * <b>Section 2: Myqtt 1.1 API</b>
  *
- *  Because Myqttd extends and it is built on top of Myqtt
+ *  Because MyQttD extends and it is built on top of Myqtt
  *  Library 1.1, it is required to keep in mind and use Myqtt
  *  API. Here is the reference:
  *
  *  - <a class="el" href="http://fact.aspl.es/files/af-arch/myqtt-1.1/html/index.html">Myqtt Library 1.1 Documentation Center</a>
  *
- * <b>Section 3: Myqttd API</b>
+ * <b>Section 3: MyQttD API</b>
  *
  *  The following is the API exposed to myqttd modules and
  *  tools. This is only useful for myqttd developers.
@@ -2057,9 +2057,9 @@ const char    * myqttd_ensure_str      (const char * string)
  *  - \ref myqttd_module
  *  - \ref myqttd_support
  *
- * \section myqttd_developer_manual_creating_modules How Myqttd module works
+ * \section myqttd_developer_manual_creating_modules How MyQttD module works
  *
- * Myqttd is a listener application built on top of <a
+ * MyQttD is a listener application built on top of <a
  * href="http://www.aspl.es/myqtt">Myqtt Library</a>, which reads a
  * set of \ref configuring_myqttd "configuration files" to start
  * at some selected ports, etc, and then load all modules installed.
@@ -2067,21 +2067,21 @@ const char    * myqttd_ensure_str      (const char * string)
  * These modules could implement new MQTT features that extend MyQttd
  * internal function.
  *
- * Myqttd core is really small. The rest of features are added as
+ * MyQttD core is really small. The rest of features are added as
  * modules. 
  *
- * Myqttd module form is fairly simple. It contains the following handlers (defined at \ref MyQttdModDef):
+ * MyQttD module form is fairly simple. It contains the following handlers (defined at \ref MyQttdModDef):
  * <ol>
  *
- *  <li>Init (\ref ModInitFunc): A handler called by Myqttd to start the module. Here
+ *  <li>Init (\ref ModInitFunc): A handler called by MyQttD to start the module. Here
  *  the developer must place all calls required to install/configure a
  *  profile, init global variables, etc.</li>
  *
- *  <li>Close (\ref ModCloseFunc): Called by Myqttd to stop a module. Here the
+ *  <li>Close (\ref ModCloseFunc): Called by MyQttD to stop a module. Here the
  *  developer must stop and dealloc all resources used by its
  *  module.</li>
  *
- *  <li>Reconf (\ref ModReconfFunc): Called by Myqttd when a HUP signal is
+ *  <li>Reconf (\ref ModReconfFunc): Called by MyQttD when a HUP signal is
  *  received. This is a notification that the module should reload its
  *  configuration files and start to behave as they propose.</li>
  *
@@ -2089,7 +2089,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * \section myqttd_developer_manual_creating_modules_manually Creating a module from the scratch (dirty way)
  *
- * Maybe the easiest way to start writing a Myqttd Module is to
+ * Maybe the easiest way to start writing a MyQttD Module is to
  * take a look into mod-test source code. This module does anything
  * but is maintained across releases to contain all handlers required
  * and a brief help. You can use it as an official reference. A module
@@ -2097,7 +2097,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * - <b>mod-test.c</b>: base module source code: \ref myqttd_mod_test_c "mod-test.c" | <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqtt/modules/mod-test/mod-test.c"><b>[TXT]</b></a>
  * - <b>Makefile.am</b>: optional automake file used to build the module: <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqtt/modules/mod-test/Makefile.am"><b>[TXT]</b></a>
- * - <b>mod-test.xml.in</b>: xml module pointer, a file that is installed at the Myqttd modules dir to load the module: <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqtt/modules/mod-test/mod-test.xml.in"><b>[TXT]</b></a>
+ * - <b>mod-test.xml.in</b>: xml module pointer, a file that is installed at the MyQttD modules dir to load the module: <a href="https://dolphin.aspl.es/svn/publico/af-arch/trunk/myqtt/modules/mod-test/mod-test.xml.in"><b>[TXT]</b></a>
  *
  */
 
@@ -2106,7 +2106,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * You can copy and paste the following code to start a myqttd
  * module. This code is checked (through compilation) against
- * Myqttd source code.
+ * MyQttD source code.
  *
  * \include mod-test.c
  */
