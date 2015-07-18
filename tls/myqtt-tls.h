@@ -41,6 +41,11 @@
 
 #include <myqtt.h>
 
+/** 
+ * \addtogroup myqtt_tls
+ * @{
+ */
+
 BEGIN_C_DECLS
 
 /** 
@@ -279,8 +284,7 @@ typedef axlPointer (*MyQttSslContextCreator) (MyQttCtx       * ctx,
  * @brief Optional user defined handler that allows to execute SSL
  * post checks code before proceed.
  *
- * This handler is configured at \ref myqtt_tls_set_post_ssl_check
- * and allows to implement custom actions while additional
+ * This handler allows to implement custom actions while additional
  * verifications about certificate received, validation based on
  * certain attributes, etc.
  *
@@ -296,7 +300,7 @@ typedef axlPointer (*MyQttSslContextCreator) (MyQttCtx       * ctx,
  *
  * @param SSL The OpenSSL SSL object created for this connection.
  *
- * @param user_data User defined data that is received on this handler as configured at \ref myqtt_tls_set_post_ssl_check
+ * @param user_data User defined data that is received on this handler.
  */
 typedef axl_bool (*MyQttSslPostCheck) (MyQttCtx      * ctx,
 				       MyQttConn     * conn,
@@ -434,3 +438,7 @@ char             * myqtt_tls_get_digest_sized           (MyQttDigestMethod    me
 void               myqtt_tls_cleanup                    (MyQttCtx * ctx);
 
 #endif
+
+/** 
+ * @}
+ */

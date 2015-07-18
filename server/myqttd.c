@@ -1537,6 +1537,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * <b>Developer manuals and API references:</b>
  *
  * - \ref libmyqtt_api_reference
+ * - \ref libmyqtt_api_manual
  * - \ref myqttd_developer_manual
  * - <a href="http://www.aspl.es/myqtt/py-myqtt/index.html">PyMyQtt API reference and manual</a>
  *
@@ -2073,14 +2074,22 @@ const char    * myqttd_ensure_str      (const char * string)
  * - \ref myqtt_listener
  * - \ref myqtt_msg
  *
- * <b>3. Infrastructure functions</b>
+ * <b>3. SSL/TLS API (mqtt-tls)</b>
+ * 
+ * - \ref myqtt_tls
+ *
+ * <b>4. WebSocket API (mqtt-ws)</b>
+ * 
+ * - \ref myqtt_websocket
+ *
+ * <b>5. Infrastructure functions</b>
  *
  * - \ref myqtt_thread
  * - \ref myqtt_thread_pool
  * - \ref myqtt_storage
  * - \ref myqtt_hash
  *
- * <b>4. I/O and loop handling</b>
+ * <b>6. I/O and loop handling</b>
  *
  * - \ref myqtt_io
  * - \ref myqtt_reader

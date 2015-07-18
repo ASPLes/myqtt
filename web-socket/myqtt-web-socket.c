@@ -41,6 +41,17 @@
 #include <myqtt-listener-private.h>
 #include <myqtt-ctx-private.h>
 
+/** 
+ * \defgroup myqtt_websocket MyQtt WebSocket: support functions to create MQTT over WebSocket connections and listeners
+ */
+
+/** 
+ * \addtogroup myqtt_websocket
+ * @{
+ */
+
+
+
 void __myqtt_web_socket_ctx_unref (axlPointer nopoll_ctx)
 {
 	nopoll_ctx_unref (nopoll_ctx);
@@ -236,7 +247,7 @@ axl_bool __myqtt_web_socket_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQ
  * @brief Allows to create a new MQTT connection to a MQTT
  * broker/server running MQTT over WebSocket.
  *
- * @param The context where the operation will take place.
+ * @param ctx The context where the operation will take place.
  *
  * @param client_identifier The client identifier that uniquely
  * identifies this MQTT client from others.  It can be NULL to let
@@ -290,8 +301,7 @@ axl_bool __myqtt_web_socket_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQ
  *
  * If you enable automatic reconnect support after connection close
  * (\ref myqtt_conn_opts_set_reconnect), remember to also configure
- * the recover handler by using \ref
- * myqtt_conn_opts_set_recover_session_setup_ptr. That function should
+ * the recover handler by using \ref myqtt_conn_opts_set_init_session_setup_ptr. That function should
  * implement a complete reconnect and return a noPollConn reference
  * used by the internal session setup. If you don't configure this,
  * the function will disable reconnect support even if you enable it.
@@ -451,9 +461,7 @@ void __myqtt_web_socket_listener_ready (const char   * host,
  *
  * @param ctx The context where the operation takes place.
  *
- * @param host The local host address to list for incoming connections. 
- *
- * @param port The local port to listen on.
+ * @param listener The webSocket listener connection created on top of which MQTT over WebSocket is expected.
  *
  * @param opts Optional connection options to modify default behaviour.
  *
@@ -466,6 +474,10 @@ void __myqtt_web_socket_listener_ready (const char   * host,
  * the on_ready function (in the case the former is defined too).
  *
  * See \ref myqtt_listener_new for more information.
+ *
+ * @return A newly created connection listener reference (\ref
+ * MyQttConn). Use \ref myqtt_conn_is_ok to check listener was created
+ * without errors.
  */
 MyQttConn       * myqtt_web_socket_listener_new         (MyQttCtx             * ctx,
 							 noPollConn           * listener,
