@@ -41,6 +41,15 @@
 #include <myqtt-ctx-private.h>
 #include <myqtt-listener-private.h>
 
+/** 
+ * \defgroup myqtt_tls MyQtt SSL/TLS: support functions to create secured SSL/TLS MQTT connections and listeners
+ */
+
+/** 
+ * \addtogroup myqtt_tls
+ * @{
+ */
+
 #define LOG_DOMAIN "myqtt-tls"
 
 #include <openssl/x509v3.h>
@@ -209,6 +218,13 @@ void myqtt_tls_notify_failure_handler (MyQttCtx * ctx,
  *
  * See \ref MyQttSslContextCreator for more information about this
  * handler.
+ *
+ * @param ctx The context that will be configured.
+ *
+ * @param context_creator The context creator function that will be used by the engine
+ *
+ * @param user_data A user defined reference passed in into the
+ * context_creator handler.
  *
  */
 void           myqtt_tls_set_ssl_context_creator (MyQttCtx                * ctx,
@@ -633,7 +649,7 @@ axl_bool      myqtt_tls_init (MyQttCtx * ctx)
  *
  * Please, see \ref myqtt_conn_new for more notes. You must call \ref myqtt_tls_init first before creating any connection.
  *
- * @param The context where the operation will take place.
+ * @param ctx The context where the operation will take place.
  *
  * @param client_identifier The client identifier that uniquely
  * identifies this MQTT client from others.  It can be NULL to let
@@ -708,7 +724,7 @@ MyQttConn        * myqtt_tls_conn_new                   (MyQttCtx        * ctx,
  *
  * You must call \ref myqtt_tls_init first before creating any connection.
  *
- * @param The context where the operation will take place.
+ * @param ctx The context where the operation will take place.
  *
  * @param client_identifier The client identifier that uniquely
  * identifies this MQTT client from others.  It can be NULL to let
@@ -1290,6 +1306,10 @@ void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttC
  *
  * @param user_data Optional user defined pointer that is passed into
  * the on_ready function (in the case the former is defined too).
+ *
+ * @return A newly created connection listener reference (\ref
+ * MyQttConn). Use \ref myqtt_conn_is_ok to check listener was created
+ * without errors.
  */
 MyQttConn       * myqtt_tls_listener_new                (MyQttCtx             * ctx,
 							 const char           * host, 

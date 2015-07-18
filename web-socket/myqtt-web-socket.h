@@ -39,6 +39,13 @@
 #ifndef __MYQTT_WEB_SOCKET_H__
 #define __MYQTT_WEB_SOCKET_H__
 
+/** 
+ * \addtogroup myqtt_websocket
+ * @{
+ */
+
+
+
 #include <myqtt.h>
 #include <nopoll.h>
 
@@ -64,3 +71,7 @@ noPollConn      * myqtt_web_socket_get_conn             (MyQttConn * conn);
 noPollCtx       * myqtt_web_socket_get_ctx              (MyQttCtx * ctx);
 
 #endif
+
+/** 
+ * @}
+ */
