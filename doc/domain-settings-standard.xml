@@ -1,0 +1,7 @@
+      <!-- settings for standard domains -->
+      <domain-setting name="standard">
+      	<conn-limit value="10" /> <!-- amount of concurrent connections -->
+	<message-size-limit value="65536" /> <!-- 32k max message size allowed, use -1 for no limits (256MB) -->
+	<storage-messages-limit value="20000" /> <!-- max amount of messages in storage, use -1 for no limits -->
+	<storage-quota-limit value="204800" /> <!-- max amount of space used (200MB), value in KB -->
+      </domain-setting>

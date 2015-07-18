@@ -1703,7 +1703,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * 
  * \section configuring_myqttd 2.1 Myqttd configuration
  * 
- * \section myqttd_config_location 2.2 How myqttd is configured (configuration file location)
+ * \section myqttd_config_location 2.2 Where myqttd is configured (configuration file location)
  *   
  * Myqttd is configured through XML 1.0 files. The intention is
  * provide an easy and extensible way to configure myqttd, allowing
@@ -1713,7 +1713,11 @@ const char    * myqttd_ensure_str      (const char * string)
  * file should be found at the location provided by the following
  * command: 
  *
- * \include myqttd-config-location.txt
+ * \code
+ * >> myqttd --conf-location
+ * [..various indications..]
+ * Default configuration file: /etc/myqtt/myqtt.conf
+ * \endcode
  * 
  * Alternatively you can provide your own configuration file by using
  * the <b>--config</b> option: 
@@ -1721,6 +1725,34 @@ const char    * myqttd_ensure_str      (const char * string)
  * \code
  *  >> myqttd --conf my-myqttd.conf
  * \endcode
+ *
+ * If you are installing for the first time, you will not have that
+ * file but instead <b>/etc/myqtt/myqtt.example.conf</b> You can move
+ * it, review it and then restart the server like this:
+ *
+ * \code
+ * >> mv /etc/myqtt/myqtt.example.conf /etc/myqtt/myqtt.conf
+ * # review it (for now, leave it like this if you still have no preference)
+ * \endcode
+ *
+ * Now, if you are installing from source code, have a copy of the
+ * following file <b>doc/myqtt-init.d</b> (for debian/ubuntu) or
+ * <b>doc/myqtt-rpm-init.d</b> (for CentOS/Redhat) into
+ * <b>/etc/init.d</b>. For example, for debian systems it would be
+ * something like:
+ *
+ * \code
+ * >> cp ${myqtt_sources}/doc/myqtt-init.d /etc/init.d/myqtt
+ * \endcode
+ *
+ * After that, you should be eable to restart/start/stop your MyQttD server:
+ *
+ * \code
+ * >> /etc/init.d/myqtt restart
+ * \endcode
+ *
+ * \section myqttd_config_location_how 2.3 How myqttd is configured
+ * 
  *
  * Myqttd main configuration file includes several global
  * sections: 
@@ -1736,9 +1768,37 @@ const char    * myqttd_ensure_str      (const char * string)
  * directories holding modules.
  *  </li>
  *
+ *  <li>
+ *    <b>&lt;domain-settings></b>: Under this section are configured the group of settings that represent each <b>domain-setting</b>. MyQttD server allows to deliver a different set of configurations to limit each domain (conn-limit, message-size-limit, storage-messages-limit, etc). Each of the these groups have a name that is later used when a new MyQttD domain is declared. 
+ *
+ *    For example, if you have a set of users with basic needs, you can configure them the following group set:
+ *
+ *    \htmlinclude domain-settings-basic.xml-tmp
+ *
+ *    At the same time, if you a have a different set of users with more advanced needs, you can configuring the following group set:
+ *
+ *    \htmlinclude domain-settings-standard.xml-tmp
+ *
+ *
+ *  </li>
+ *  <li><b>&lt;myqtt-domains></b>: The last section includes all domains that are recognized by your MyQttd server. Each domain can have a separate storage location, a separate user's database and a different domain-settings configuration. Here is an example:
+ *
+ *   \htmlinclude myqtt-domain.xml-tmp
+ *
+ *   Of course, if you declare a new domain, you have to ensure that
+ *  the folders pointed by <b>users-db</b> and <b>storage</b>
+ *  attributes exists and are writable for the user that is running
+ *  the myqttd process.  
+ *
+ *  You can configure the running user inside the global section:
+ *
+ *  \htmlinclude running-user.xml-tmp
+ *
+ * </li>
+ *
  * </ol>
  *
- * \section myqttd_ports 2.3 Myqttd addresses and ports used
+ * \section myqttd_ports 2.4 Myqttd addresses and ports used
  *
  * Ports and addresses used by Myqttd to listen are configured at
  * the <b>&lt;global-settings></b> section. Here is an example:
@@ -1770,7 +1830,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * Inside production environment it is recommended <b>"ignore"</b>.
  *
- * \section myqttd_smtp_notifications 2.4 Receiving SMTP notification on failures and error conditions
+ * \section myqttd_smtp_notifications 2.5 Receiving SMTP notification on failures and error conditions
  *
  * Myqttd includes a small SMTP client that allows to report
  * critical or interesting conditions. For example, this is used to
@@ -1786,7 +1846,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * attribute or because the declaration is flagged with an
  * <b>is-default=yes</b>. 
  *
- * \section myqttd_configuring_log_files 2.5 Configuring myqttd log files
+ * \section myqttd_configuring_log_files 2.6 Configuring myqttd log files
  *
  * Myqttd logs is sent to a set of files that are configured at
  * the <b>&lt;global-settings></b> section:
@@ -1842,7 +1902,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * \htmlinclude log-reporting.syslog.xml-tmp
  *
- * \section myqttd_configure_system_paths 2.7 Alter default myqttd base system paths
+ * \section myqttd_configure_system_paths 2.8 Alter default myqttd base system paths
  *
  * By default Myqttd has 3 built-in system paths used to locate
  * configuration files (<b>sysconfdir</b>), find data files (<b>datadir</b>) and directories used at run
@@ -1872,7 +1932,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * particular domain to make your files available to each particular
  * module then use the syntax found in the example above.
  *
- * \section myqttd_configure_splitting 2.8 Splitting myqttd configuration
+ * \section myqttd_configure_splitting 2.9 Splitting myqttd configuration
  *
  * As we saw, myqttd has a main configuration file which is
  * <b>myqttd.conf</b>. However, it is possible to split this file
