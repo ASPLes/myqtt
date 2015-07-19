@@ -1706,7 +1706,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * <b>Section 4: Modules documentation</b> 
  *
  *   - \ref myqttd_mod_auth_xml    "4.1 mod-auth-xml: Authentication backend support through xml-files "
- *   - \ref myqttd_mod_tls    "4.2 mod-tls: TLS support for MyQttD (secure connections)"
+ *   - \ref myqttd_mod_tls    "4.2 mod-ssl: SSL/TLS support for MyQttD (secure connections)"
  *
  * \section configuring_myqttd 2.1 MyQttD configuration
  * 
@@ -2000,11 +2000,11 @@ const char    * myqttd_ensure_str      (const char * string)
  *   <li>On Windows: just copy the module pointer .xml file into the mods-enabled and restart myqttd.</li>
  *
  *   <li>On Unix: link the module pointer .xml file like this
- *   (assuming you want to enable mod-tls and mods available and
+ *   (assuming you want to enable mod-ssl and mods available and
  *   enabled folders are located at /etc/myqtt):
  *
  *    \code
- *    >> ln -s /etc/myqtt/mods-enabled/mod-tls.xml /etc/myqtt/mods-available/mod-tls.xml
+ *    >> ln -s /etc/myqtt/mods-enabled/mod-ssl.xml /etc/myqtt/mods-available/mod-ssl.xml
  *    \endcode
  *   ..and restart myqttd.
  *   </li>
