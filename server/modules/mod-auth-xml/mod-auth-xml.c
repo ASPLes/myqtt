@@ -262,3 +262,39 @@ MyQttdModDef module_def = {
 };
 
 END_C_DECLS
+
+
+/** 
+ * \page myqttd_mod_auth_xml mod-auth-xml Authentication backend supported on XML files
+ *
+ * \section myqttd_mod_auth_xml_intro Introduction to mod-auth-xml
+ *
+ * Authentication support for MyQttD is delegated to auth backends that are registered at run-time via \ref myqttd_users_register_backend
+ *
+ * This module provides an authentication backend supported through
+ * xml-files. Its function is pretty simple. The module expects to
+ * find a configuration file <b>users.xml</b> inside the
+ * <b>users-db</b> directive associated to the domain that is being
+ * checked for activation/authentication.
+ *
+ * \section myqttd_mod_auth_xml_configuring Configuring mod-auth-xml
+ *
+ * Let's suppose we have the following declaration inside your MyQttD
+ * configuration, located at the <b>myqtt-domains</b> section:
+ *
+ * \htmlinclude myqtt-domain.example.xml-tmp
+ *
+ * Ok, assuming this configuration, inside the following directory
+ * <b>/var/lib/myqtt-dbs/example.com</b> you have to place a file
+ * called <b>users.xml</b>, hence a full path of:
+ *
+ * - /var/lib/myqtt-dbs/example.com/users.xml
+ *
+ * Inside this directory, you have to follow the next example to
+ * declare users:
+ *
+ * \htmlinclude users.example.xml-tmp
+ * 
+ * 
+ *
+ */

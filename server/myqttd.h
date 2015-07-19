@@ -39,6 +39,11 @@
  *                        http://www.aspl.es/myqtt
  */
 
+/** 
+ * \addtogroup myqttd
+ * @{
+ */
+
 #ifndef __MYQTTD_H__
 #define __MYQTTD_H__
 

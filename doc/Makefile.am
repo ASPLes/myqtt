@@ -12,7 +12,8 @@ tmp_xml_examples = \
 	     include-from-file.xml-tmp \
 	     include-from-dir.xml-tmp \
 	     myqttd-modules.xml-tmp \
-	     module-conf.xml-tmp
+	     module-conf.xml-tmp \
+	     myqtt-domain.example.xml-tmp
 
 xml_examples = \
 	     domain-settings-basic.xml \
@@ -28,7 +29,8 @@ xml_examples = \
 	     include-from-file.xml \
 	     include-from-dir.xml \
 	     myqttd-modules.xml \
-	     module-conf.xml
+	     module-conf.xml \
+	     myqtt-domain.example.xml
 
 EXTRA_DIST = $(tmp_xml_examples) $(xml_examples) myqtt.doxygen \
 	     myqtt.doxygen.in \
@@ -72,6 +74,7 @@ build_doc: prepare_xmls
 
 prepare_xmls: $(tmp_xml_examples)
 	axl-knife -i ../server/myqtt.example.conf -o myqtt.example.conf.xml -r -e -p fragment
+	axl-knife -i ../server/modules/mod-auth-xml/users.example.xml -o users.example.xml-tmp  -e -p fragment
 
 all: build_doc
 

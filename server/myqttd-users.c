@@ -41,6 +41,15 @@
 #include <myqttd.h>
 #include <myqttd-ctx-private.h>
 
+/** 
+ * \defgroup myqttd_users MyQttD Users: authentication engine for MyQttD broker
+ */
+
+/** 
+ * \addtogroup myqttd_users
+ * @{
+ */
+
 typedef struct _MyQttdUserLoadData {
 	MyQttdCtx  * ctx;
 	MyQttConn  * conn;
@@ -79,7 +88,7 @@ axl_bool __myqttd_users_load (axlPointer _key,
 }
 
 /** 
- * @brief Allows to load a MyQttdUsers database reference from the
+ * @internal Allows to load a MyQttdUsers database reference from the
  * provided path.
  *
  * @param ctx The context where the operation will take place.
@@ -215,6 +224,8 @@ void __myqttd_users_release_backend_node (axlPointer _backend)
  * @param extensionPtr3 Without use for now
  *
  * @param extensionPtr4 Without use for now
+ *
+ * @return axl_true if the auth backend was registered, otherwise axl_false is returned.
  */
 axl_bool      myqttd_users_register_backend (MyQttdCtx          * ctx,
 					     const char         * backend_type,
@@ -285,3 +296,6 @@ void          myqttd_users_free (MyQttdUsers * users) {
 	return;
 }
 
+/** 
+ * @}
+ */
