@@ -1,0 +1,8 @@
+  <global-settings>
+    <!-- Send all to syslog -->
+    <log-reporting enabled="yes" use-syslog="yes">
+       <!-- logs declared here are ignored -->
+    </log-reporting>
+
+    <!-- .. more declarations... -->
+  </global-settings>

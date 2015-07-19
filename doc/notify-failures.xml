@@ -1,0 +1,11 @@
+  <global-settings>
+    <!-- general smtp servers and accounts that will be used to
+         produce notifications. The account declaration <smtp-server>
+         with is-default="yes" will be used as default system
+         notification. -->
+    <notify-failures>
+      <smtp-server id="default" server="localhost" port="25" mail-from="myqtt@example.com" mail-to="test@example.com" is-default="yes"/>
+    </notify-failures>
+
+    <!-- .. more declarations... -->
+  </global-settings>

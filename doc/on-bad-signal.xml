@@ -1,0 +1,18 @@
+  <global-settings>
+    <!-- crash settings 
+       [*] hold:   lock the current instance so a developer can attach to the
+                   process  to debug what's happening.
+
+       [*] ignore: just ignore the signal, and try to keep running.
+
+       [*] quit,exit: terminates myqtt execution.
+
+       [*] backtrace: allows to produce a backtrace located on a
+       file. 
+
+       All these values can be combined with mail-to to send a report.
+     -->
+    <on-bad-signal action="hold" mail-to="default"/>
+
+    <!-- .. more declarations... -->
+  </global-settings>
