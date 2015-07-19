@@ -37,6 +37,7 @@ help:
 
 initial_build_doc: 
 	@echo "checking documenation stamp..";
+	@rm -f *.xml-tmp
 	@test -e doc.stamp & make help
 	@test -e doc.stamp || make build_doc
 	@test -e doc.stamp || touch doc.stamp
@@ -52,7 +53,7 @@ build_doc: prepare_xmls
 	cp $(top_srcdir)/doc/hacha-100x171.png html
 
 prepare_xmls: $(tmp_xml_examples)
-	axl-knife -i ../server/myqtt.example.conf -o myqtt.example.conf.xml -e -p fragment
+	axl-knife -i ../server/myqtt.example.conf -o myqtt.example.conf.xml -r -e -p fragment
 
 all: build_doc
 

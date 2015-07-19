@@ -1532,6 +1532,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * <b>Administrators and Users manuals: </b>
  *
+ * - \ref myqtt_installation
  * - \ref myqttd_administrator_manual
  *
  * <b>Developer manuals and API references:</b>
@@ -1618,37 +1619,8 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  */
 
-
-
 /** 
- * \page myqttd_administrator_manual MyQtt Administrator manual
- *
- * <b>Section 1: Installation notes</b>
- *
- *   - \ref installing_myqtt
- *   - \ref installing_myqtt_from_sources
- *
- * <b>Section 2: MyQttD configuration</b>
- *
- *   - \ref configuring_myqttd
- *   - \ref myqttd_config_location
- *   - \ref myqttd_ports
- *   - \ref myqttd_smtp_notifications
- *   - \ref myqttd_configuring_log_files
- *   - \ref myqttd_configure_system_paths
- *   - \ref myqttd_configure_splitting
- *
- * <b>Section 3: MQTT management</b>
- *
- *   - \ref myqttd_execution_model
-
- *
- * <b>Section 4: MyQttD module management</b> 
- *
- *   - \ref myqttd_modules_configuration
- *   - \ref myqttd_modules_filtering
- *   - \ref myqttd_modules_activation
- *   - \ref myqttd_mod_tls    "4.7 mod-tls: TLS support for MyQttD (secure connections)"
+ * \page myqtt_installation Installing MyQtt  (libMyQtt + MyQttD)
  *
  * \section installing_myqtt 1.1 Installing MyQtt using packages available
  *
@@ -1698,9 +1670,43 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * - For <b>PyMyQtt</b>: see http://www.aspl.es/myqtt/py-myqtt/index.html 
  *
- * - For <b>MyQttD</b>: now you must configure your MyQttD installation. Check the following section.
+ * - For <b>MyQttD</b>: now you must configure your MyQttD installation. See \ref configuring_myqttd
  *
- * 
+ *
+ */
+
+
+
+/** 
+ * \page myqttd_administrator_manual MyQtt Administrator manual
+ *
+ * <b>Section 1: Installation notes</b>
+ *
+ *   - \ref installing_myqtt
+ *   - \ref installing_myqtt_from_sources
+ *
+ * <b>Section 2: MyQttD configuration</b>
+ *
+ *   - \ref configuring_myqttd
+ *   - \ref myqttd_config_location
+ *   - \ref myqttd_ports
+ *   - \ref myqttd_smtp_notifications
+ *   - \ref myqttd_configuring_log_files
+ *   - \ref myqttd_configure_system_paths
+ *   - \ref myqttd_configure_splitting
+ *
+ * <b>Section 3: MQTT management</b>
+ *
+ *   - \ref myqttd_execution_model
+
+ *
+ * <b>Section 4: MyQttD module management</b> 
+ *
+ *   - \ref myqttd_modules_configuration
+ *   - \ref myqttd_modules_filtering
+ *   - \ref myqttd_modules_activation
+ *   - \ref myqttd_mod_tls    "4.7 mod-tls: TLS support for MyQttD (secure connections)"
+ *
  * \section configuring_myqttd 2.1 MyQttD configuration
  * 
  * \section myqttd_config_location 2.2 Where myqttd is configured (configuration file location)
