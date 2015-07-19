@@ -277,6 +277,15 @@ END_C_DECLS
  * <b>users-db</b> directive associated to the domain that is being
  * checked for activation/authentication.
  *
+ * \section myqttd_mod_auth_xml_enabling Enabling mod-auth-xml 
+ *
+ * Don't forget to enable the module by running something like:
+ *
+ * \code
+ * >> ln -s /etc/myqtt/mods-available/mod-auth-xml.xml /etc/myqtt/mods-enabled/mod-auth-xml.xml
+ * >> service myqtt restart
+ * \endcode
+ *
  * \section myqttd_mod_auth_xml_configuring Configuring mod-auth-xml
  *
  * Let's suppose we have the following declaration inside your MyQttD
@@ -294,6 +303,25 @@ END_C_DECLS
  * declare users:
  *
  * \htmlinclude users.example.xml-tmp
+ * 
+ *
+ * As you can see, you can declare allowed users following the next format:
+ *
+ * - <b>&lt;user id="test_01" /></b>   -- to just support accepting connections from MQTT clients identifying themselves as "test_01" (client_id value)
+ * - <b>&lt;user id="test_02" username="login" password="user-password" /></b>  -- to authorize users providing that set of values
+ *
+ * There is a declaration for <b>password-format</b> in the header:
+ *
+ * - <b>&lt;myqtt-users password-format="plain"></b>
+ *
+ * This attr allows to configure the format expected for the password. Allowed values are:
+ *
+ * - <b>plain</b> : passwords stored as is (not recommended)
+ * - <b>md5</b> : passwords stored in md5
+ * - <b>sha1</b> : passwords stored in sha1
+ * 
+ *
+ * \note It is possible to use same database for different domains.
  * 
  * 
  *
