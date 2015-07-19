@@ -38,6 +38,7 @@
  *         info@aspl.es - http://www.aspl.es/mqtt
  *                        http://www.aspl.es/myqtt
  */
+
 #if defined(ENABLE_TERMIOS)
 # include <termios.h>
 # include <sys/stat.h>
@@ -1704,7 +1705,8 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * <b>Section 4: Modules documentation</b> 
  *
- *   - \ref myqttd_mod_tls    "4.1 mod-tls: TLS support for MyQttD (secure connections)"
+ *   - \ref myqttd_mod_auth_xml    "4.1 mod-auth-xml: Authentication backend support through xml-files "
+ *   - \ref myqttd_mod_tls    "4.2 mod-tls: TLS support for MyQttD (secure connections)"
  *
  * \section configuring_myqttd 2.1 MyQttD configuration
  * 
