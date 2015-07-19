@@ -1690,22 +1690,21 @@ const char    * myqttd_ensure_str      (const char * string)
  *   - \ref configuring_myqttd
  *   - \ref myqttd_config_location
  *   - \ref myqttd_ports
+ *   - \ref myqttd_bad_signal_handling
  *   - \ref myqttd_smtp_notifications
  *   - \ref myqttd_configuring_log_files
  *   - \ref myqttd_configure_system_paths
  *   - \ref myqttd_configure_splitting
  *
- * <b>Section 3: MQTT management</b>
- *
- *   - \ref myqttd_execution_model
-
- *
- * <b>Section 4: MyQttD module management</b> 
+ * <b>Section 3: MyQttD module management</b> 
  *
  *   - \ref myqttd_modules_configuration
  *   - \ref myqttd_modules_filtering
  *   - \ref myqttd_modules_activation
- *   - \ref myqttd_mod_tls    "4.7 mod-tls: TLS support for MyQttD (secure connections)"
+ *
+ * <b>Section 4: Modules documentation</b> 
+ *
+ *   - \ref myqttd_mod_tls    "4.1 mod-tls: TLS support for MyQttD (secure connections)"
  *
  * \section configuring_myqttd 2.1 MyQttD configuration
  * 
@@ -1811,15 +1810,16 @@ const char    * myqttd_ensure_str      (const char * string)
  * 
  * \htmlinclude port-configuration.xml-tmp
  *
- * Previous example will make MyQttD to listen on ports 3206 and
- * 44010 for all addresses that are known for the server hosting
- * myqttd (0.0.0.0). MyQttD will understand this section
- * listening on all addresses provided, for all ports.
+ * Previous example will make MyQttD to listen on ports 1883 running
+ * MQTT protocol (proto=mqtt) and 8883 running MQTT over TLS protocol (proto=mqtt-tls). Of cource, to have MQTT over TLS running, you will have to configure the right set of certificates. If they are not present, even though the port is declared, the listener will not start on that port. See how to configure those certificates in the following page: \ref myqttd_mod_tls
  *
- * Alternatively, during development or when it is found a myqttd
- * bug, it is handy to configure the default action to take on server
- * crash (bad signal received). This is done by configuring the
- * following:
+ * 
+ * \section myqttd_bad_signal_handling 2.5 MyQttD bad signal handling 
+ *
+ * When it is found a myqttd bug or a third part module is causing
+ * problems, it is handy to configure the default action to take on
+ * server crash (bad signal received). This is done by configuring the
+ * following under the global-settings:
  *
  * \htmlinclude on-bad-signal.xml-tmp
  *
@@ -1836,7 +1836,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * Inside production environment it is recommended <b>"ignore"</b>.
  *
- * \section myqttd_smtp_notifications 2.5 Receiving SMTP notification on failures and error conditions
+ * \section myqttd_smtp_notifications 2.6 Receiving SMTP notification on failures and error conditions
  *
  * MyQttD includes a small SMTP client that allows to report
  * critical or interesting conditions. For example, this is used to
@@ -1859,7 +1859,13 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * \htmlinclude log-reporting.xml-tmp
  *
- * These files hold logs for general information
+ * Log reporting in MyQttD works under two modes: 
+ *
+ * - 1) When enabling <b>use-syslog=yes</b> all logs are sent to the syslog server installed on the local system
+ *
+ * - 2) Otherwise, logs are sent to the configured files under the general-log, error-log and access-log, etc...
+ *
+ * If the administrator configures the second case, these files hold logs for general information
  *  (<b>&lt;general-log></b>), error information
  *  (<b>&lt;error-log></b>), client peer access information
  *  (<b>&lt;access-log></b>) and myqtt engine log produced by its
@@ -1908,7 +1914,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * \htmlinclude log-reporting.syslog.xml-tmp
  *
- * \section myqttd_configure_system_paths 2.8 Alter default myqttd base system paths
+ * \section myqttd_configure_system_paths 2.7 Alter default myqttd base system paths
  *
  * By default MyQttD has 3 built-in system paths used to locate
  * configuration files (<b>sysconfdir</b>), find data files (<b>datadir</b>) and directories used at run
@@ -1930,15 +1936,15 @@ const char    * myqttd_ensure_str      (const char * string)
  * - <b>datadir</b>: base dir where static myqttd data files are located (${datadir}/myqtt).
  * - <b>runtime_datadir</b>: base directory where run time files are created (${runtime_datadir}/myqtt).
  *
- * Additionally many modules inside MyQttD and Myqtt Library find
- * configuration and data files by call to
- * myqtt_support_domain_find_data_file. That function works by
- * finding the provided file under a particular search domain. Each
- * module has it own search domain. To add new search elements into a
- * particular domain to make your files available to each particular
- * module then use the syntax found in the example above.
+ * Additionally modules inside MyQttD and Myqtt Library find
+ * configuration and data files by calling to \ref
+ * myqtt_support_domain_find_data_file. That function works by finding
+ * the provided file under a particular search domain. Each module has
+ * it own search domain. To add new search elements into a particular
+ * domain to make your files available to each particular module then
+ * use the syntax found in the example above.
  *
- * \section myqttd_configure_splitting 2.9 Splitting myqttd configuration
+ * \section myqttd_configure_splitting 2.8 Splitting myqttd configuration
  *
  * As we saw, myqttd has a main configuration file which is
  * <b>myqttd.conf</b>. However, it is possible to split this file
@@ -1955,33 +1961,12 @@ const char    * myqttd_ensure_str      (const char * string)
  * myqttd.conf file after replacing all <b>includes</b> must be a
  * properly formated myqttd.conf file.
  *
+ * At the same time, you have the same features but for including
+ * files in a directory. For that use the following example:
  *
- * \section myqttd_execution_model 3.4 MyQttD execution model (process security)
+ * \htmlinclude include-from-dir.xml-tmp
  *
- * It is posible to configure MyQttD, through profile path
- * configuration, to handle connections in the same master process or
- * using child processes. Here is a detailed list:
- *
- * - <b>Single master process: </b> by default if no <b>separate=yes</b> flag
- *     is used at any profile path then all connections will be
- *     handled by the same single process.
- *
- * - <b>Handling at independent childs: </b> if <b>separate=yes</b> is
- *     configured on a profile path, once a connection matches it, a
- *     child process is created to handle it. In this context it is
- *     possible to configure running user (uid) or chroot to improve
- *     application separation.
- *
- * - <b>Handling at same childs: </b> because creating one child for
- *     each connection received may be resource expensive or it is required to share the same context (process) across connections to the same profile path, <b>reuse=yes</b>
- *     flag is provided so connections matching same profile path are
- *     handled by the same child process. 
- *
- * By default, when MyQttD is stopped, all created childs are
- * killed. This is configured with <b><kill-childs-on-exit value="yes" /></b>
- * inside <global-settings> node.
- *
- * \section myqttd_modules_configuration 4.1 MyQttD modules configuration
+ * \section myqttd_modules_configuration 3.1 MyQttD modules configuration
  * 
  * Modules loaded by myqttd are found at the directories
  * configured in the <b>&lt;modules></b> section. Here is an
@@ -1997,15 +1982,13 @@ const char    * myqttd_ensure_str      (const char * string)
  * Each module have its own configuration file, which should use XML
  * as default configuration format. 
  *
- * \section myqttd_modules_filtering 4.2 MyQttD module filtering
+ * \section myqttd_modules_filtering 3.2 MyQttD module filtering
  *
  * It is possible to configure MyQttD to skip some module so it is
  * not loaded. This is done by adding a <b>&lt;no-load /></b> declaration
- * with the set of modules to be skipped. This is done inside <b>&lt;modules /></b> section:
+ * with the set of modules to be skipped. This is done inside <b>&lt;modules /></b> section. See example above about <b>mod-skipped</b>
  *
- * \htmlinclude module-skip.xml-tmp
- *
- * \section myqttd_modules_activation 4.3 Enable a myqttd module
+ * \section myqttd_modules_activation 3.3 Enable a myqttd module
  *
  * To enable a myqttd module, just make the module pointer file to be
  * available in one of the directories listed inside <b>&lt;modules></b>. This is

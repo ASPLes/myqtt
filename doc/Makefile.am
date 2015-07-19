@@ -3,14 +3,32 @@ tmp_xml_examples = \
 	     domain-settings-standard.xml-tmp \
 	     myqtt-domain.xml-tmp \
 	     running-user.xml-tmp \
-	     port-configuration.xml-tmp
+	     port-configuration.xml-tmp \
+	     on-bad-signal.xml-tmp \
+	     notify-failures.xml-tmp \
+	     log-reporting.xml-tmp \
+	     override-system-paths.xml-tmp \
+	     log-reporting.syslog.xml-tmp \
+	     include-from-file.xml-tmp \
+	     include-from-dir.xml-tmp \
+	     myqttd-modules.xml-tmp \
+	     module-conf.xml-tmp
 
 xml_examples = \
 	     domain-settings-basic.xml \
 	     domain-settings-standard.xml \
 	     myqtt-domain.xml \
 	     running-user.xml \
-	     port-configuration.xml
+	     port-configuration.xml \
+	     on-bad-signal.xml \
+	     notify-failures.xml \
+	     log-reporting.xml \
+	     override-system-paths.xml \
+	     log-reporting.xml \
+	     include-from-file.xml \
+	     include-from-dir.xml \
+	     myqttd-modules.xml \
+	     module-conf.xml
 
 EXTRA_DIST = $(tmp_xml_examples) $(xml_examples) myqtt.doxygen \
 	     myqtt.doxygen.in \

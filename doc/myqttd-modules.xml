@@ -1,0 +1,17 @@
+  <modules>
+    
+    <!-- directory where to find modules to load -->
+    <directory src="/etc/myqtt/mods-enabled" /> 
+    <!-- alternative directory -->
+    <!-- <directory src="../mods-enabled" />  -->
+    <no-load>
+      <!-- signal modules to be not loaded even being available the
+           directories configured. The name configured can be the name
+           that is reporting the module or the module file name, like
+           mod_skipped (don't add .so). The difference is that
+           providing the file name will module from the loaded into
+           memory while providing a name will cause the module to be
+           loaded and then checked its name. -->
+      <module name="mod-skipped" />
+    </no-load>
+  </modules>

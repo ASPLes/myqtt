@@ -195,5 +195,5 @@ MyQttdModDef module_def = {
 END_C_DECLS
 
 /** 
- * \page myqttd_mod_tls MyQttd mod-ssl
+ * \page myqttd_mod_tls MyQttd mod-ssl configuration
  */

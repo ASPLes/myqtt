@@ -1,0 +1,12 @@
+  <global-settings>
+    <!-- log reporting configuration: if use-syslog=yes then the rest
+         of the logs are disabled and everything is sent to syslog -->
+    <log-reporting enabled="yes" use-syslog="yes">
+      <general-log file="/var/log/myqtt/main.log" />
+      <error-log  file="/var/log/myqtt/error.log" />
+      <access-log file="/var/log/myqtt/access.log" />
+      <myqtt-log file="/var/log/myqtt/myqtt.log" />
+    </log-reporting>
+
+    <!-- .. more declarations... -->
+  </global-settings>
