@@ -75,6 +75,7 @@ build_doc: prepare_xmls
 prepare_xmls: $(tmp_xml_examples)
 	axl-knife -i ../server/myqtt.example.conf -o myqtt.example.conf.xml -r -e -p fragment
 	axl-knife -i ../server/modules/mod-auth-xml/users.example.xml -o users.example.xml-tmp  -e -p fragment
+	axl-knife -i ../server/modules/mod-ssl/ssl.example.conf -o ssl.example.conf.tmp  -e -p fragment
 
 all: build_doc
 

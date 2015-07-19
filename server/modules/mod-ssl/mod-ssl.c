@@ -196,4 +196,48 @@ END_C_DECLS
 
 /** 
  * \page myqttd_mod_tls MyQttd mod-ssl configuration
+ *
+ * \section myqttd_mod_tls_intro Introduction to mod-ssl
+ *
+ * SSL/TLS configuration for MyQttD is handled through this module. In
+ * essence, this module allows to configure the list of certificates
+ * associated to the serverName (if available) so MyQttD can select
+ * the right certificate according to the connecting client.
+ *
+ * 
+ * \section myqttd_mod_ssl_enabling Enabling mod-ssl 
+ *
+ * The module expects to find a configuration file located, usually
+ * located at <b>/etc/myqtt/ssl/ssl.conf</b>. If you do not have it,
+ * you can use the example provided by running:
+ *
+ * \code
+ * >> mv /etc/myqtt/ssl/ssl.example.conf /etc/myqtt/ssl/ssl.conf 
+ * \endcode
+ *
+ * Before using it, you have to enable the module by running something like:
+ *
+ * \code
+ * >> ln -s /etc/myqtt/mods-available/mod-ssl.xml /etc/myqtt/mods-enabled/mod-ssl.xml
+ * >> service myqtt restart
+ * \endcode
+ *
+ * \section myqttd_mod_ssl_configuring Configuring mod-ssl
+ *
+ * Let's assume we have the default configuration provided by ssl.example.conf:
+ *
+ * \htmlinclude ssl.example.conf.tmp
+ *
+ * As you can see, the ssl.conf include a list of certificates
+ * associated to the <b>serverName</b> (the common name requested
+ * through SNI, or Host: header requested through the WebSocket
+ * bridge).
+ *
+ * The first certificate declared as <b>default="yes"</b> will be used
+ * in the case no serverName matches. If no certificate is declared as
+ * such, the first certificate on the list will be used as default
+ * certificate.
+ * 
+ *
  */
+
