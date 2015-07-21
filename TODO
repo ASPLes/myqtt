@@ -10,6 +10,9 @@
 
 --== things that should be reviewed ==--
 
+* Check tests from:
+  https://eclipse.org/paho/clients/testing/
+
 * Review:
   http://www.hivemq.com/mqtt-security-fundamentals-authorization/
 
