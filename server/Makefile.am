@@ -11,10 +11,6 @@ etcdir = $(sysconfdir)/myqtt
 etc_DATA = myqtt.example.conf
 
 # profile a flag to enable the source to code to react agaisnt the
-# pcre inclusion.
-if ENABLE_PCRE_SUPPORT
-INCLUDE_PCRE_SUPPORT=-DENABLE_PCRE_SUPPORT
-endif
 
 if ENABLE_TLS_SUPPORT
 INCLUDE_TLS_FLAGS=-DENABLE_TLS_SUPPORT $(TLS_CFLAGS) -I$(top_srcdir)/tls
@@ -31,7 +27,7 @@ INCLUDES = $(compiler_options) -DCOMPILATION_DATE=`date +%s` -D__COMPILING_MYQTT
 	   -DSYSCONFDIR=\""$(sysconfdir)"\" -DDEFINE_CHROOT_PROTO -DDEFINE_KILL_PROTO -DDEFINE_MKSTEMP_PROTO \
 	   -DPIDFILE=\""$(statusdir)/myqttd.pid"\" \
 	   -DMYQTTD_RUNTIME_DATADIR=\""$(runtimedatadir)"\" \
-	   -DMYQTTD_DATADIR=\""$(datadir)"\" $(INCLUDE_PCRE_SUPPORT) $(PCRE_CFLAGS) $(INCLUDE_TERMIOS) $(EXARG_FLAGS) \
+	   -DMYQTTD_DATADIR=\""$(datadir)"\" $(INCLUDE_TERMIOS) $(EXARG_FLAGS) \
 	   -D__MYQTTD_ENABLE_DEBUG_CODE__ \
 	   $(AXL_CFLAGS)  -g -Wall -Werror -Wstrict-prototypes $(INCLUDE_TLS_FLAGS) $(INCLUDE_WEBSOCKET_FLAGS)
 
@@ -93,7 +89,7 @@ libmyqttd_la_SOURCES = \
 	myqttd-domain.c \
 	myqttd-users.c
 
-libmyqttd_la_LIBADD = $(AXL_LIBS)  $(PCRE_LIBS) $(INCLUDE_TLS_LIBS)
+libmyqttd_la_LIBADD = $(AXL_LIBS)   $(INCLUDE_TLS_LIBS)
 libmyqttd_la_LDFLAGS = -Wl,-export-dynamic -ldl -no-undefined -export-symbols-regex '^(myqttd|__myqttd|exarg).*'
 
 libmyqttdincludedir = $(includedir)/myqttd
