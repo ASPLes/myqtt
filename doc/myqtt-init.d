@@ -12,8 +12,8 @@
 
 # default configuration
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DESC="Valvula server"
-NAME=valvulad
+DESC="MyQttD server"
+NAME=myqttd
 DAEMON=/usr/bin/$NAME
 DAEMON_ARGS=" --detach "
 PIDFILE=/var/run/$NAME.pid
