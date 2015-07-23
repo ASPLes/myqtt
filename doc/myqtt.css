@@ -249,7 +249,7 @@ pre.fragment,div.fragment {
 }
 
 pre.fragment .stringliteral { 
-  color: #e9b96e;
+  color: #c9c9c9  !important;
 }
 
 pre.fragment .keyword { 
@@ -286,4 +286,8 @@ span.node {
 
 span.header { 
   color: #729fcf;
+}
+
+span.stringliteral { 
+  color: #fcaf3e;  !important;
 }

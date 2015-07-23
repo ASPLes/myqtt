@@ -306,11 +306,12 @@ END_C_DECLS
  *
  * \htmlinclude users.example.xml-tmp
  * 
- *
  * As you can see, you can declare allowed users following the next format:
  *
  * - <b>&lt;user id="test_01" /></b>   -- to just support accepting connections from MQTT clients identifying themselves as "test_01" (client_id value)
  * - <b>&lt;user id="test_02" username="login" password="user-password" /></b>  -- to authorize users providing that set of values
+ *
+ * \note It is very important to understand that you can configure just <b>client-id</b> by using the <b>id</b> declaration, or <b>client-id + username + password</b>. If you just configure <b>username + password</b> it will not work.
  *
  * There is a declaration for <b>password-format</b> in the header:
  *
