@@ -141,6 +141,8 @@ axlPointer __myqtt_reader_async_run_proxy (axlPointer _data)
 {
 	MyQttReaderAsyncData * data = _data;
 	MyQttCtx             * ctx  = data->conn->ctx;
+
+	/* printf ("**\n** __myqtt_reader_async_run_proxy: Conn-id=%d Conn=%p Ctx=%p  (refs=%d, is_ok: %d)\n**\n", data->conn->id, data->conn, ctx, data->conn->ref_count, myqtt_conn_is_ok (data->conn, axl_false)); */
 	
 	/* call function */
 	data->func (ctx, data->conn, data->msg, NULL);
@@ -605,6 +607,8 @@ void __myqtt_reader_subscribe (MyQttCtx * ctx, const char * client_identifier, M
 		axl_hash_insert_full (sub_hash, strdup (client_identifier), axl_free, INT_TO_PTR (qos), NULL);
 	} else {
 		myqtt_log (MYQTT_LEVEL_DEBUG, "   ..storing connection %p with qos %d on conn hash %p for topic_filter='%s'", conn, qos, sub_hash, topic_filter);
+		/*printf ("**\n** Adding conn Conn=%p conn-id=%d into subhash %p, inside ctx=%p conn->ctx=%p, topic=%s\n**\n",
+		  conn, conn->id, sub_hash, ctx, conn->ctx, topic_filter); */
 		axl_hash_insert (sub_hash, conn, INT_TO_PTR (qos));
 	} /* end if */
 
@@ -729,6 +733,7 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg
 		} /* end if */
 
 		/** CONNECTION REGISTRY **/
+		/* printf ("**\n** __myqtt_reader_handle_subscribe : calling to __myqtt_reader_subscribe..\n**\n"); */
 		__myqtt_reader_subscribe (ctx, conn->client_identifier, conn, topic_filter, qos, /* offline */ axl_false);
 		
 	} /* end while */
@@ -797,6 +802,7 @@ void __myqtt_reader_move_online_to_offline_aux (MyQttCtx * ctx, MyQttConn * conn
 		qos          = PTR_TO_INT (axl_hash_cursor_get_value (cursor));
 
 		/* register and create a new reference to topic_filter */
+		/* printf ("**\n** __myqtt_reader_move_online_to_offline_aux : calling to __myqtt_reader_subscribe..\n**\n"); */
 		__myqtt_reader_subscribe (ctx, conn->client_identifier, NULL, axl_strdup (topic_filter), qos, axl_true /* offline */);
 
 		/* go for the next registry */
@@ -1137,6 +1143,8 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 		} /* end if */
 	} /* end if */
 
+	/* printf ("**\n** Doing publish operation from conn-id=%d, conn=%p, ctx=%p, conn->ctx=%p\n**\n", conn->id, conn, ctx, conn->ctx); */
+
 	/**** SERVER HANDLING ****
 	 *
 	 * NOTES: the following try to "signal" how many operations are taking place right now. 
@@ -1170,6 +1178,8 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 
 			/* get connection and qos */
 			conn = axl_hash_cursor_get_key (cursor);
+
+			/* printf ("**\n** Handling publishing on connection conn=%p ctx=%p\n**\n", conn, ctx);*/
 
 			/* skip connection because it is not ok */
 			if (! myqtt_conn_is_ok (conn, axl_false)) {
@@ -1452,6 +1462,7 @@ void __myqtt_reader_process_socket (MyQttCtx  * ctx,
 		break;
 	case MYQTT_PUBLISH:
 		/* handle PUBLISH packet */
+	        /* printf ("**\n** __calling __myqtt_reader_handler_publish: Conn-id=%d Conn=%p Ctx=%p  (refs=%d, is_ok: %d)\n**\n", conn->id, conn, ctx, conn->ref_count, myqtt_conn_is_ok (conn, axl_false)); */
 		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_publish, axl_false);
 		break;
 	case MYQTT_PUBACK:
@@ -2031,6 +2042,7 @@ axlPointer __myqtt_reader_remove_conn_refs_aux (axlPointer _conn)
 	__myqtt_reader_check_and_trigger_will (ctx, conn);
 
 	/* connection isn't ok, unref it */
+	/* printf ("**\n** __myqtt_reader_remove_conn_refs_aux myqtt_conn_unref: Conn-id=%d Conn=%p Ctx=%p  (refs=%d, is_ok: %d)\n**\n", conn->id, conn, ctx, conn->ref_count, myqtt_conn_is_ok (conn, axl_false));*/
 	myqtt_conn_unref (conn, "myqtt reader (build set)");
 
 	return NULL;

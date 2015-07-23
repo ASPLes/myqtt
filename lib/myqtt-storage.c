@@ -806,6 +806,7 @@ void __myqtt_storage_sub_conn_register (MyQttCtx * ctx, const char * client_iden
 
 	/* call to register */
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Recovering subs for %s qos=%d sub=%s", client_identifier, qos, topic_filter);
+	/* printf ("**\n** __myqtt_storage_sub_conn_register : calling to __myqtt_reader_subscribe (ctx=%p, conn=%p)..\n**\n", ctx, conn); */
 	__myqtt_reader_subscribe (ctx, client_identifier, conn, topic_filter, qos, __is_offline);
 
 	/* it is not required to release topic_filter here, that
@@ -1888,9 +1889,9 @@ axl_bool myqtt_storage_session_recover (MyQttCtx * ctx, MyQttConn * conn)
 }
 
 /** 
- * @internal Function that allows to client identifiers and
- * subscriptions from load local storage. This function is only useful
- * for server side and it is not meant to be used directly by API
+ * @internal Function that allows to recover client identifiers and
+ * subscriptions from local storage. This function is only useful for
+ * server side and it is not meant to be used directly by API
  * consumers.
  *
  * @return Return the number of subscription that were loaded.
