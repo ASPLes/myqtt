@@ -2414,6 +2414,13 @@ const char    * myqttd_ensure_str      (const char * string)
  * >> myqtt-client --host localhost --port 1883 --client-id test_01 --publish "0,myqtt/this/is/a/test,This is a test message"
  * \endcode
  *
+ * \section myqtt_quick_install_automatic 9. Configuring automatic server start on boot
+ *
+ * Now everything is running as expected, you can configure the init.d script to have it started on every boot up by doing something like:
+ *
+ * \code
+ * >> cd /usr/src/myqtt
+ * >> cp 
  * 
  *
  * 

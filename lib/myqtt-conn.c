@@ -3329,7 +3329,7 @@ void                myqtt_conn_opts_free     (MyQttConnOpts  * opts)
 }
 
 
-/**
+/** 
  * @internal Reference counting update implementation.
  */
 axl_bool               myqtt_conn_ref_internal                    (MyQttConn * connection, 
@@ -3339,6 +3339,7 @@ axl_bool               myqtt_conn_ref_internal                    (MyQttConn * c
 #if defined(ENABLE_MYQTT_LOG)
 	MyQttCtx * ctx;
 #endif
+	int        ref_count;
 
 	v_return_val_if_fail (connection, axl_false);
 	if (check_ref)
@@ -3355,15 +3356,17 @@ axl_bool               myqtt_conn_ref_internal                    (MyQttConn * c
 	/* increase and log the connection increased */
 	connection->ref_count++;
 
+	ref_count = connection->ref_count;
+
 	myqtt_log (MYQTT_LEVEL_DEBUG, "%d increased connection id=%d (%p) reference to %d by %s\n",
-		    myqtt_getpid (),
-		    connection->id, connection,
-		    connection->ref_count, who ? who : "??" ); 
+		   myqtt_getpid (),
+		   connection->id, connection,
+		   ref_count, who ? who : "??"); 
 
 	/* unlock ref/unref options over this connection */
 	myqtt_mutex_unlock (&connection->ref_mutex);
 
-	return axl_true;
+	return ref_count > 1;
 }
 
 /** 
