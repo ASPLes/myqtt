@@ -103,13 +103,6 @@ myqttd_domain_init
 myqttd_ensure_str
 myqttd_error
 myqttd_exit
-myqttd_expr_check_negative_expr
-myqttd_expr_compile
-myqttd_expr_copy_and_escape
-myqttd_expr_free
-myqttd_expr_get_expression
-myqttd_expr_has_escapable_chars
-myqttd_expr_match
 myqttd_file_is_fullpath
 myqttd_file_name
 myqttd_file_test_v

@@ -64,7 +64,6 @@ libmyqttdinclude_HEADERS    = \
 	myqttd-config.h \
 	myqttd-support.h \
 	myqttd-ctx.h \
-	myqttd-expr.h \
 	myqttd-signal.h \
 	myqttd-moddef.h \
 	myqttd-run.h \
@@ -83,7 +82,6 @@ libmyqttd_la_SOURCES = \
 	myqttd-config.c \
 	myqttd-support.c \
 	myqttd-ctx.c \
-	myqttd-expr.c \
 	myqttd-signal.c \
 	myqttd-run.c \
 	myqttd-module.c \
