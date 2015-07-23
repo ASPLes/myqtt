@@ -143,6 +143,7 @@ MyQttdUsers * myqttd_users_load (MyQttdCtx  * ctx,
 
 	/* release local data and report database */
 	axl_free (data);
+	msg ("Backend loaded at %s (%p)", path, users);
 	return users;
 }
 
