@@ -1,24 +1,24 @@
-#!/bin/bash
+ #!/bin/bash
 #
-# valvulad        Advanced policy server
+# myqttd        Advanced policy server
 #
 # chkconfig: 2345 12 88
-# valvulad        Advanced policy server
+# myqttd        Advanced policy server
 ### BEGIN INIT INFO
-# Provides: $valvulad
+# Provides: $myqttd
 # Required-Start: $local_fs
 # Required-Stop: $local_fs
 # Default-Start:  2 3 4 5
 # Default-Stop: 0 1 6
-# Short-Description: start and stop the valvulad server
-# Description: valvulad advanced policy server
+# Short-Description: start and stop the myqttd server
+# Description: myqttd advanced policy server
 ### END INIT INFO
 
 # Source function library.
 . /etc/init.d/functions
 
-DESC="Valvulad server"
-NAME=valvulad
+DESC="MyQttD server"
+NAME=myqttd
 DAEMON=/usr/bin/$NAME
 DAEMON_ARGS=" --detach "
 PIDFILE=/var/run/$NAME.pid
@@ -26,7 +26,7 @@ SCRIPTNAME=/etc/init.d/$NAME
 
 RETVAL=0
 
-prog=valvulad
+prog=myqttd
 exec=/usr/bin/$NAME
 lockfile=/var/lock/subsys/$prog
 
