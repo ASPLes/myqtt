@@ -297,7 +297,9 @@ MyQttdDomain    * myqttd_domain_find_by_indications (MyQttdCtx  * ctx,
 	/* reached this point, the item wasn't found by taking a lookt
 	   at the different caches, try to find by the data */
 	if (server_Name && strlen (server_Name) > 0) {
+
 		msg ("Finding domain by serverName=%s", server_Name ? server_Name : "");
+
 		/* get domain by serverName indicated */
 		domain = myqttd_domain_find_by_serverName (ctx, server_Name);
 		if (domain) {
@@ -306,12 +308,13 @@ MyQttdDomain    * myqttd_domain_find_by_indications (MyQttdCtx  * ctx,
 			 * credentials */
 			if (myqttd_domain_do_auth (ctx, domain, conn, username, password, client_id)) 
 				return domain; /* domain found, report it to the caller */
-
+			
 			/* domain found but authentication failed */
 			error ("Domain was found (%s) for authentication failed username=%s client-id=%s server-name=%s : domain found but authentication failed",
 			       domain->name, username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
 			return NULL;
 		} /* end if */
+
 	} /* end if */
 
 	/* find by username + client id, or just client id or just username */
