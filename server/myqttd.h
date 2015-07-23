@@ -62,7 +62,6 @@
 #include <myqttd-types.h>
 #include <myqttd-handlers.h>
 #include <myqttd-ctx.h>
-#include <myqttd-expr.h>
 #include <myqttd-support.h>
 #include <myqttd-signal.h>
 #include <myqttd-moddef.h>
