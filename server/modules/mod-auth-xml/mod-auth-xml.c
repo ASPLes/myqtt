@@ -46,8 +46,10 @@ BEGIN_C_DECLS
 MyQttdCtx * ctx = NULL;
 
 typedef struct _ModAuthXmlBackend {
+
 	char   * full_path;
 	axlDoc * doc;
+
 } ModAuthXmlBackend;
 
 /** Implementation for MyQttdUsersLoadDb **/
@@ -106,6 +108,14 @@ axl_bool     __mod_auth_xml_user_exists (MyQttdCtx  * ctx,
 		/* report failure because username and client id is not defined */
 		return axl_false;
 	} /* end if */
+
+	msg ("Trying to find client-id=%s, username=%s in mode=%d", 
+	     /* client-id */
+	     client_id ? client_id : "",
+	     /* user-name */
+	     user_name ? user_name : "",
+	     /* check mode */
+	     check_mode);
 
 	while (node) {
 		switch (check_mode) {

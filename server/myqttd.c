@@ -2043,7 +2043,6 @@ const char    * myqttd_ensure_str      (const char * string)
  *  - \ref myqttd_types
  *  - \ref myqttd_ctx
  *  - \ref myqttd_run
- *  - \ref myqttd_expr
  *  - \ref myqttd_loop
  *  - \ref myqttd_module
  *  - \ref myqttd_support
@@ -2216,4 +2215,183 @@ const char    * myqttd_ensure_str      (const char * string)
  * \code
  * \endcode
  *
+ */
+
+/** 
+ * \page myqtt_quick_install Quick install steps to get MyQttD installed (Linux/Unix)
+ *
+ * \section myqtt_quick_install_index Index
+ *
+ * - \ref myqtt_quick_install_intro
+ * - \ref myqtt_quick_install_deps
+ * - \ref myqtt_quick_install_myqtt
+ * - \ref myqtt_quick_install_setting_up
+ * - \ref myqtt_quick_install_enabling_modules
+ * - \ref myqtt_quick_install_creating_first_domain
+ * - \ref myqtt_quick_install_create_user
+ *
+ * \section myqtt_quick_install_intro 1. Introduction
+ *
+ * The following notes are designed as a quick install steps to
+ * quickly have libMyQtt and MyQttD installed.
+ *
+ * Please, always refer to the following page to find ready to use
+ * packages for your distribution:
+ *
+ * http://www.aspl.es/myqtt/downloads
+ *
+ * \section myqtt_quick_install_deps 2. Getting dependencies installed
+ *
+ * Get into the directory you would like to have your sources compiled. In our case, we will use <b>/usr/src/</b>. 
+ *
+ * Let's have libaxl installed (xml and infrastructure):
+ *
+ * \code
+ * >> cd /usr/src
+ * >> svn co https://dolphin.aspl.es/svn/publico/af-arch/trunk/libaxl
+ * >> cd libaxl
+ * >> ./autogen.sh --prefix=/usr --sysconfdir=/etc
+ * # previous command should finish without issues, fix all reported problems
+ *
+ * >> make
+ * # last make should finish Ok ;-)
+ *
+ * >> make install
+ * \endcode
+ *
+ * Now, let's have noPoll installed:
+ *
+ * \code
+ * >> cd /usr/src
+ * >> svn co https://dolphin.aspl.es/svn/publico/nopoll/trunk nopoll
+ * >> cd nopoll
+ * >> ./autogen.sh --prefix=/usr --sysconfdir=/etc
+ * # previous command should finish without issues, fix all reported problems
+ *
+ * >> make
+ * # last make should finish Ok ;-)
+ *
+ * >> make install
+ * \endcode
+ *
+ * \section myqtt_quick_install_myqtt 3. Installing libMyQtt and MyQttD sources and files:
+ *
+ * \code
+ * >> /usr/src
+ * >> svn co https://dolphin.aspl.es/svn/publico/myqtt
+ * >> cd myqtt
+ *
+ * >> ./autogen.sh --prefix=/usr --sysconfdir=/etc
+ * # previous command should finish without issues, fix all reported problems
+ *
+ * >> make
+ * # last make should finish Ok ;-)
+ *
+ * >> make install
+ * \endcode
+ *
+ * <b>NOTE:</b> reached this point, you already have
+ * <b>libMyQtt</b>. If that's you want, you are done. Now check the
+ * following manuals to get started with libMyQtt:
+ * 
+ *   - \ref libmyqtt_api_manual
+ *   - \ref libmyqtt_api_reference
+ *
+ * If you need to have MyQttD up and running, keep on reading
+ *
+ * \section myqtt_quick_install_setting_up 4. Getting MyQttD up and running with all modules enabled and a set of users
+ *
+ * Let's create default configuration from example installed:
+ *
+ * \code
+ * >> cd /etc/myqtt/
+ * >> mv myqtt.example.conf myqtt.conf
+ * \endcode
+ *
+ * Now, open the file with a file editor /etc/myqtt/myqtt.conf and do the following changes:
+ *
+ * <ul>
+ * <li>Updated &lt;ports> to enable/uncomment ports 80 and 443 to have support for WebSocket:</li>
+ *
+ * <li>Go down into the the file and comment out the declaration to support <b>example.com</b> domain.</li>
+ *
+ * <li>Now, ensure you have the requested running user. Create it or adjust it into the declaration &lt;running-user uid='myqttd' gid='myqttd' /> found inside the global-settings. In the case you want to create it: 
+ *  \code
+ *  # for debian and similar
+ *  >> adduser --gecos "MyQttD running user" --disabled-login --disabled-password --no-create-home --force-badname myqttd
+ *
+ *  # for centos and similar
+ *  >> adduser --comment "Descripcion" -s /bin/false -M myqttd
+ *  \endcode
+ *
+ *  </li>
+ * </ul>
+ *
+ *
+ * \section myqtt_quick_install_enabling_modules 5. Enabling some modules
+ *
+ * \code
+ * >> cd /etc/myqtt/web-socket
+ * >> mv web-socket.example.conf web-socket.conf
+ * 
+ * >> cd /etc/myqtt/ssl
+ * >> mv ssl.example.conf ssl.conf
+ *
+ * >> cd /etc/myqtt/mods-enabled
+ * >> ln -s ../mods-available/mod-ssl.xml
+ * >> ln -s ../mods-available/mod-web-socket.xml
+ * >> ln -s ../mods-available/mod-auth-xml.xml
+ * >> ln -s ../mods-available/mod-status.xml
+ * 
+ * \endcode
+ *
+ * \section myqtt_quick_install_creating_first_domain 6. Creating a domain for your work
+ *
+ * For that, create the directory refered by the configuration:
+ *
+ * \code
+ * >> mkdir /etc/myqtt/domains.d
+ * \endcode
+ *
+ * Now, create a file with the following format, matching a domain where you want to group a set of
+ * users, storage and configuration, for example: <b>/etc/myqtt/domains.d/myqtt.yourdomain.com</b>
+ *
+ * Inside, it should have something like:
+ *
+ * \htmlinclude myqtt.yourdomain.com.xml-tmp
+ *
+ * Of course update the content of the file and directory paths to match your scenario. After than, create directories like this and assign permissions to the right user:
+ *
+ * \code
+ * >> mkdir -p /var/lib/myqtt-dbs/myqtt.yourdomain.com /var/lib/myqtt/myqtt.yourdomain.com
+ * >> chmod og-rwx /var/lib/myqtt-dbs/myqtt.yourdomain.com /var/lib/myqtt/myqtt.yourdomain.com
+ * >> chown myqttd:myqttd /var/lib/myqtt-dbs/myqtt.yourdomain.com /var/lib/myqtt/myqtt.yourdomain.com
+ * \endcode
+ *
+ * \section myqtt_quick_install_create_user 7. Creating a user/client id to authenticate
+ *
+ * Now, it only remains to create a user to authenticate (or just the
+ * client_id whatever your prefer). For that, create the following
+ * file: <b>/var/lib/myqtt-dbs/myqtt.yourdomain.com/users.xml</b>
+ *
+ * ...and declare users you want to be recognized like this:
+ *
+ * \htmlinclude users.example.xml-tmp
+ *
+ * \section myqtt_quick_install_test 8. Test server configuration 
+ *
+ * Now, to test everything before leaving it running in background run:
+ *
+ * >> myqttd --color-debug
+ *
+ * \note It should start and report something like: I: Myqttd STARTED OK (pid: 32435, myqtt ctx refs: 11)
+ *
+ * \note Some errors my appear associated to missing certificates. You can ignored them for know but in the case you need MQTT over WebSocket TLS or TLS-MQTT, you'll have to configure them.
+ *
+ * Now, connect in with a client to 
+ *
+ * 
+ *
+ * 
+ * 
  */

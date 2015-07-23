@@ -13,7 +13,8 @@ tmp_xml_examples = \
 	     include-from-dir.xml-tmp \
 	     myqttd-modules.xml-tmp \
 	     module-conf.xml-tmp \
-	     myqtt-domain.example.xml-tmp
+	     myqtt-domain.example.xml-tmp \
+	     myqtt.yourdomain.com.xml-tmp
 
 xml_examples = \
 	     domain-settings-basic.xml \
@@ -30,7 +31,8 @@ xml_examples = \
 	     include-from-dir.xml \
 	     myqttd-modules.xml \
 	     module-conf.xml \
-	     myqtt-domain.example.xml
+	     myqtt-domain.example.xml \
+	     myqtt.yourdomain.com.xml
 
 EXTRA_DIST = $(tmp_xml_examples) $(xml_examples) myqtt.doxygen \
 	     myqtt.doxygen.in \
