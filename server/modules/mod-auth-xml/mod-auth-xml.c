@@ -109,14 +109,6 @@ axl_bool     __mod_auth_xml_user_exists (MyQttdCtx  * ctx,
 		return axl_false;
 	} /* end if */
 
-	msg ("Trying to find client-id=%s, username=%s in mode=%d", 
-	     /* client-id */
-	     client_id ? client_id : "",
-	     /* user-name */
-	     user_name ? user_name : "",
-	     /* check mode */
-	     check_mode);
-
 	while (node) {
 		switch (check_mode) {
 		case 3:

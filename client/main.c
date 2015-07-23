@@ -60,8 +60,10 @@ at <myqtt@lists.aspl.es>. \n\
 Some examples: \n\n\
 - Publish: \n\
   >> myqtt-client --host localhost --port 1883 --client-id aspl --username aspl --password test1234 --publish \"0,myqtt/this/is a test,This is a test message for this case\"\n\n\
-- Subscribe:\n\
+- Subscribe: (note this operation do not blocks, it just subscribs and returns)\n\
   >> myqtt-client --host localhost --port 1883 --client-id aspl --username aspl --password test1234 --subscribe \"0,myqtt/this/is a test\"\n\n\
+- Get messages: (note this operations blocks and prints all messages received due to subscriptions)\n\
+  >> myqtt-client --host localhost --port 1883 --client-id aspl --username aspl --password test1234 --get-msgs\n\n\
 "
 
 
