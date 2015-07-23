@@ -1,13 +1,13 @@
 #! /bin/sh
 
 ### BEGIN INIT INFO
-# Provides:          valvulad
+# Provides:          myqttd
 # Required-Start:    $local_fs $remote_fs $syslog $named $network $time $mysql
 # Required-Stop:     $local_fs $remote_fs $syslog $named $network
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6  
-# Short-Description: start and stop the valvulad server
-# Description:       start and stop the valvulad server
+# Short-Description: start and stop the myqttd server
+# Description:       start and stop the myqttd server
 ### END INIT INFO
 
 # default configuration
