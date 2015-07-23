@@ -2316,6 +2316,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * <li>Go down into the the file and comment out the declaration to support <b>example.com</b> domain.</li>
  *
  * <li>Now, ensure you have the requested running user. Create it or adjust it into the declaration &lt;running-user uid='myqttd' gid='myqttd' /> found inside the global-settings. In the case you want to create it: 
+ *
  *  \code
  *  # for debian and similar
  *  >> adduser --gecos "MyQttD running user" --disabled-login --disabled-password --no-create-home --force-badname myqttd
@@ -2382,13 +2383,36 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * Now, to test everything before leaving it running in background run:
  *
+ * \code
  * >> myqttd --color-debug
+ * \endcode
  *
- * \note It should start and report something like: I: Myqttd STARTED OK (pid: 32435, myqtt ctx refs: 11)
+ * It should start and report something like: 
+ * \code
+ * I: Myqttd STARTED OK (pid: 32435, myqtt ctx refs: 11)
+ * \endcode
  *
  * \note Some errors my appear associated to missing certificates. You can ignored them for know but in the case you need MQTT over WebSocket TLS or TLS-MQTT, you'll have to configure them.
  *
- * Now, connect in with a client to 
+ * Now, connect in with a client to publish some messages. For that,
+ * using the client id, user and passsword if have created, subscribe
+ * to a topic:
+ *
+ * \code
+ * >> myqtt-client --host localhost --port 1883 --client-id test_01 --subscribe "0,myqtt/this/is/a/test"
+ * \endcode
+ *
+ * Now, in the same terminal, login and let the client wait and print incoming messages:
+ *
+ * \code
+ * >> myqtt-client  --host localhost --port 1883 --client-id test_01  --get-msgs
+ * \endcode
+ *
+ * Now, in a different terminal, with a different client id, publish:
+ * 
+ * \code
+ * >> myqtt-client --host localhost --port 1883 --client-id test_01 --publish "0,myqtt/this/is/a/test,This is a test message"
+ * \endcode
  *
  * 
  *
