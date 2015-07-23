@@ -691,8 +691,10 @@ MyQttConn * __myqttd_run_internal_copy (MyQttCtx * ctx, MyQttConn * ref)
 	/* clean_session */
 	conn->clean_session = ref->clean_session;
 
-	/* client_identifier */
-	conn->client_identifier = ref->client_identifier; ref->client_identifier = NULL;
+	/* client_identifier: especial case: do copy to avoid problems
+	   with log reporting. This includes not nullifying the
+	   reference */
+	conn->client_identifier = axl_strdup (ref->client_identifier);
 
 	/* wait_replies */
 	conn->wait_replies = ref->wait_replies; ref->wait_replies = NULL;
@@ -731,12 +733,19 @@ MyQttConn * __myqttd_run_internal_copy (MyQttCtx * ctx, MyQttConn * ref)
 	conn->will_msg   = ref->will_msg; ref->will_msg = NULL;
 	conn->will_qos   = ref->will_qos; 
 
-	/* serverName */
-	conn->serverName = ref->serverName; ref->serverName = NULL;
+	/* serverName: especial case: do copy to avoid problems
+	   with log reporting. This includes not nullifying the
+	   reference */
+	conn->serverName = axl_strdup (ref->serverName);
 
-	/* username */
-	conn->username = ref->username; ref->username = NULL;
-	/* conn->password = ref->password; ref->password = NULL; */
+	/* username: especial case: do copy to avoid problems
+	   with log reporting. This includes not nullifying the
+	   reference */
+	conn->username = axl_strdup (ref->username); 
+	/* password: : especial case: do copy to avoid problems
+	   with log reporting. This includes not nullifying the
+	   reference */
+	conn->password = axl_strdup (ref->password);
 
 	/* ssl */
 	conn->ssl_ctx = ref->ssl_ctx; ref->ssl_ctx = NULL;
@@ -816,29 +825,6 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 		} /* end if */
 	} /* end if */
 
-	/*** PHASE 2: init session storage for the connection (if any) ***/
-	/* init storage if it has session */
-	if (! conn->clean_session) {
-
-		if (! myqtt_storage_init (domain->myqtt_ctx, conn, MYQTT_STORAGE_ALL)) {
-			error ("Login failed for username=%s client-id=%s server-name=%s : Unable to init storage service for provided client identifier '%s', unable to accept connection",
-			       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "", conn->client_identifier);
-
-			return MYQTT_CONNACK_SERVER_UNAVAILABLE;
-		} /* end if */
-
-		if (! myqtt_storage_session_recover (domain->myqtt_ctx, conn)) {
-			error ("Login failed for username=%s client-id=%s server-name=%s : Failed to recover session for the provided connection, unable to accept connection",
-			       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
-
-			return MYQTT_CONNACK_SERVER_UNAVAILABLE;
-		} /* end if */
-
-		/* session recovered, now remove offline subscriptions */
-		__myqtt_reader_move_offline_to_online (domain->myqtt_ctx, conn);
-
-	} /* end if */
-
 	/*** PHASE 3: update client id hashes ***/
 	/* register client identifier */
 	myqtt_mutex_lock (&domain->myqtt_ctx->client_ids_m);
@@ -876,12 +862,27 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 
 	/* duplicate connection : this function creates a reference that is released at the end */
 	conn2 = __myqttd_run_internal_copy (domain->myqtt_ctx, conn);
+	if (conn2 == NULL) {
+	        error ("ERROR: failed to allocate copy for incoming connection, rejecting connection");
+		return MYQTT_CONNACK_SERVER_UNAVAILABLE;
+	} /* end if */
 
 	/* insert into connections table */
 	axl_hash_insert_full (domain->myqtt_ctx->client_ids, 
 			      axl_strdup (conn2->client_identifier), axl_free,
 			      conn2, NULL);
 	myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
+
+
+	/* init storage if it has session */
+	if (! conn2->clean_session) {
+		if (! myqtt_storage_init (domain->myqtt_ctx, conn2, MYQTT_STORAGE_ALL)) {
+			error ("Login failed for username=%s client-id=%s server-name=%s : Unable to init storage service for provided client identifier '%s', unable to accept connection",
+			       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "", conn2->client_identifier);
+
+			return MYQTT_CONNACK_SERVER_UNAVAILABLE;
+		} /* end if */
+	} /* end if */
 
 	/* remove registry from parent context */
 	myqtt_mutex_lock (&myqtt_ctx->client_ids_m);
@@ -892,9 +893,9 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 	myqtt_reader_watch_connection (domain->myqtt_ctx, conn2);
 
 	/* resend messages queued */
-	if (myqtt_storage_queued_messages (domain->myqtt_ctx, conn) > 0) {
+	if (myqtt_storage_queued_messages (domain->myqtt_ctx, conn2) > 0) {
 		/* we have pending messages, order to deliver them */
-		myqtt_storage_queued_flush (domain->myqtt_ctx, conn);
+		myqtt_storage_queued_flush (domain->myqtt_ctx, conn2);
 	} /* end if */
 
 	/* send reply */
@@ -902,6 +903,8 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 
 	/* un-register this connection from current reader */
 	myqtt_reader_unwatch_connection (ctx->myqtt_ctx, conn, NULL, NULL);
+
+	/* printf ("**\n** Accepted connection conn-id=%d conn=%p (from old conn=%p, parent ctx=%p, domain ctx=%p, refs=%d)\n**\n", conn2->id, conn2, conn, ctx->myqtt_ctx, domain->myqtt_ctx, conn2->ref_count);*/
 
 	/* release reference no longer needed */
 	myqtt_conn_unref (conn2, "__myqttd_run_internal_copy");
@@ -955,7 +958,10 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 
 	/* reached this point, the connecting user is enabled and authenticated */
 	msg ("Connection accepted for username=%s client-id=%s server-name=%s conn-id=%d : selected domain=%s",
-	     myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name), conn->id, domain->name);
+	     myqttd_ensure_str (username), 
+	     myqttd_ensure_str (client_id), 
+	     myqttd_ensure_str (server_Name), 
+	     conn->id, domain->name);
 	
 	/* report connection accepted */
 	return codes;

@@ -1851,12 +1851,13 @@ void            myqtt_conn_send_connect_reply (MyQttConn * conn, MyQttConnAckTyp
 	if (! conn->clean_session && response == MYQTT_CONNACK_ACCEPTED) {
 		if (! ctx->skip_storage_init) {
 			/* move subscriptions from offline to online */
-			if (! myqtt_storage_session_recover (ctx, conn)) {
-				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to recover session for the provided connection, unable to accept connection");
-				response = MYQTT_CONNACK_SERVER_UNAVAILABLE;
-			} else {
-				/* session recovered, now remove offline subscriptions */
+			if (myqtt_storage_session_recover (ctx, conn)) {
+			        /* session recovered, now remove offline subscriptions */
 				__myqtt_reader_move_offline_to_online (ctx, conn);
+			} else {
+			        /* session recover failed, report it */
+			        myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to recover session for the provided connection, unable to accept connection");
+				response = MYQTT_CONNACK_SERVER_UNAVAILABLE;
 			} /* end if */
 		} /* end if */
 	} /* end if */
@@ -3488,6 +3489,7 @@ void               myqtt_conn_unref                  (MyQttConn * connection,
 
 	/* if counf is 0, free the connection */
 	if (count == 0) {
+	        /* printf ("**\n** Releasing conn-id=%d conn=%p (refs=0)\n**\n", connection->id, connection); */
 		myqtt_conn_free (connection);
 	} /* end if */
 

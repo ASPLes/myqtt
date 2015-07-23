@@ -1600,6 +1600,119 @@ axl_bool  test_10 (void) {
 	return axl_true;
 }
 
+axl_bool  test_10a (void) {
+	
+	MyQttdCtx       * ctx;
+	MyQttCtx        * myqtt_ctx;
+	MyQttConn       * conn;
+	MyQttConn       * conn2;
+	MyQttAsyncQueue * queue;
+	int               sub_result;
+	MyQttMsg        * msg;
+
+	/* call to init the base library and close it */
+	printf ("Test 10-a: init library and server engine (using test_02.conf)..\n");
+	ctx       = common_init_ctxd (NULL, "test_02.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	myqtt_ctx = common_init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+	
+	printf ("Test 10-a: connect to the server (running test_02.conf)\n");
+	/* connect and subscribe: client_identifier = tset_01, clean_session = axl_false */
+	conn = myqtt_conn_new (myqtt_ctx, "test_01", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 10-a: subscribe myqtt/test (running test_02.conf)\n");
+	/* lets subscribe */
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
+	        printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		return axl_false;
+	} /* end if */	
+
+	/* now disconnect and recover */
+	printf ("Test 10-a: close connection..\n");
+	myqtt_conn_close (conn);
+
+	printf ("Test 10-a: reconnect again\n");
+	/* connect and subscribe: client_identifier = tset_01, clean_session = axl_false */
+	conn = myqtt_conn_new (myqtt_ctx, "test_01", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* configure reception */
+	printf ("Test 10-a: configure queue reception..\n");
+	queue  = common_configure_reception (conn);
+
+	printf ("Test 10-a: connect with client_identifier=test_02_0..\n");
+	/* now, publish a message into that topic with a different connection */
+	conn2 = myqtt_conn_new (myqtt_ctx, "test_02_0", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn2, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* publish message */
+	printf ("Test 10-a: now publish a message into the expected topic..\n");
+	if (! common_send_msg (conn2, "myqtt/test", "test", MYQTT_QOS_0)) {
+		printf ("ERROR: expected to be able to send a message but it failed..\n");
+		return axl_false;
+	} /* end if */
+
+	/* receieve message */
+	msg  = myqtt_async_queue_timedpop (queue, 5000000);
+	myqtt_async_queue_unref (queue);
+
+	if (msg == NULL) {
+	        printf ("ERROR: received null reference...\n");
+	        return axl_false;
+	} /* end if */
+
+	if (myqtt_msg_get_app_msg_size (msg) != 4) {
+		printf ("ERROR: expected payload size of %d but found %d\n", 
+			4,
+			(int) myqtt_msg_get_app_msg_size (msg));
+		return axl_false;
+	} /* end if */
+
+	if (myqtt_msg_get_type (msg) != MYQTT_PUBLISH) {
+		printf ("ERROR: expected to receive PUBLISH message but found: %s\n", myqtt_msg_get_type_str (msg));
+		return axl_false;
+	} /* end if */
+
+	/* check content */
+	if (! axl_cmp ((const char *) myqtt_msg_get_app_msg (msg), "test")) {
+		printf ("ERROR (test-01 dkfrf): expected to find different content. Received '%s', expected '%s'..\n",
+			(const char *) myqtt_msg_get_app_msg (msg), "test");
+		return axl_false;
+	} /* end if */
+
+	/* release message */
+	myqtt_msg_unref (msg);
+
+	/* close the connetion */
+	myqtt_conn_close (conn);
+	myqtt_conn_close (conn2);
+
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+	printf ("Test 10: finishing MyQttdCtx..\n");
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+	
+	return axl_true;
+}
+
 #if defined(ENABLE_TLS_SUPPORT)
 axl_bool  test_11 (void) {
 	
@@ -2285,6 +2398,9 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_10")
 	run_test (test_10, "Test 10: checking client id (<drop-conn-same-client-id value=\"no\" />)");
+
+	CHECK_TEST("test_10a")
+	run_test (test_10a, "Test 10-a: checking client id (<drop-conn-same-client-id value=\"no\" />)");
 
 #if defined(ENABLE_TLS_SUPPORT)
 	CHECK_TEST("test_11")
