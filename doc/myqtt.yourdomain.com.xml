@@ -1,0 +1,1 @@
+    <domain name="myqtt.yourdomain.com" storage="/var/lib/myqtt/myqtt.yourdomain.com" users-db="/var/lib/myqtt-dbs/myqtt.yourdomain.com" use-settings="basic" />
