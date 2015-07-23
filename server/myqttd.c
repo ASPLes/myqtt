@@ -1510,8 +1510,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * MyQtt stack is focused on security, very well tested and stable
  * across releases (regression tests are used to check all components
  * libMyQtt, MyQttD and PyMyQtt) to ensure features and behaviour
- * provided is stable and robust across releases and changes
- * introduced.
+ * provided are stable and robust across releases.
  *
  * See some of the features provided:
  *
@@ -1534,6 +1533,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * <b>Administrators and Users manuals: </b>
  *
  * - \ref myqtt_installation
+ * - \ref myqtt_quick_install
  * - \ref myqttd_administrator_manual
  *
  * <b>Developer manuals and API references:</b>
@@ -1679,7 +1679,7 @@ const char    * myqttd_ensure_str      (const char * string)
 
 
 /** 
- * \page myqttd_administrator_manual MyQtt Administrator manual
+ * \page myqttd_administrator_manual MyQttD Administrator manual (reference manual)
  *
  * <b>Section 1: Installation notes</b>
  *
@@ -2229,6 +2229,8 @@ const char    * myqttd_ensure_str      (const char * string)
  * - \ref myqtt_quick_install_enabling_modules
  * - \ref myqtt_quick_install_creating_first_domain
  * - \ref myqtt_quick_install_create_user
+ * - \ref myqtt_quick_install_test
+ * - \ref myqtt_quick_install_automatic
  *
  * \section myqtt_quick_install_intro 1. Introduction
  *
@@ -2420,9 +2422,22 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * \code
  * >> cd /usr/src/myqtt
- * >> cp 
+ * >> cp doc/myqtt-init.d /etc/init.d/myqtt
+ * >> chmod +x /etc/init.d/myqtt
  * 
+ * >> /etc/init.d/myqtt restart
+ * \endcode
  *
+ * Now you can see logs at syslog, with something like:
+ *
+ * \code
+ * >> tail -f /var/log/syslog
+ * \endcode
+ *
+ * That's all, now you should have MyQttD running in your box. See the
+ * following resources for further reading:
+ *
+ *  - \ref myqttd_administrator_manual
  * 
  * 
  */
