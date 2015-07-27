@@ -509,6 +509,8 @@ void   myqtt_sleep (long microseconds);
 int  setenv  (const char *name, const char *value, int overwrite);
 #endif
 
+int    myqtt_mkdir (const char * path, int mode);
+
 END_C_DECLS
 
 /* @} */

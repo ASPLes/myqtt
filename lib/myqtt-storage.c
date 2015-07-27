@@ -78,7 +78,7 @@ int __myqtt_storage_check (MyQttCtx * ctx, const char * client_identifier, axl_b
 
 	/* check 2 */
 	if (client_identifier == NULL || strlen (client_identifier) == 0) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Clean session is enabled or client identifier is not defined or it is empty");
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Client identifier is not defined or it is empty");
 		return axl_false;
 	}
 
@@ -1237,8 +1237,8 @@ axl_bool       myqtt_storage_retain_msg_set (MyQttCtx            * ctx,
 		__myqtt_storage_sub_exists (ctx, full_path, topic_name, strlen (topic_name), axl_true, axl_true, NULL, NULL, NULL);
 	} else {
 		/* directory is not present, try to create it */
-		if (mkdir (full_path, 0700)) {
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create directory %s, unable to storage retained message", full_path);
+		if (myqtt_mkdir (full_path, 0700)) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create directory %s, unable to storage retained message, mkdir() failed, errno=%d", full_path, errno);
 			axl_free (hash_value);
 			axl_free (full_path);
 			return axl_false;

@@ -1358,6 +1358,66 @@ void        myqtt_sleep (long microseconds)
 }
 
 /** 
+ * @brief Allows to create the provided directory by checking and
+ * creating all the middle components. If some of the components
+ * fails, the call will return. This call differs from mkdir() in the
+ * sense it is able to handle cases like a/b/c
+ *
+ * @param path The path to create
+ *
+ * @param mode The mode to create each directory component in the route
+ *
+ * @return 0 in the case all components in the directory were created,
+ * otherwise -1 is returned. Function also returns -1 when path is
+ * NULL or mode is less than 0.
+ */
+int    myqtt_mkdir (const char * path, int mode)
+{
+	char ** items;
+	char  * full_path;
+	char  * aux;
+	int     iterator;
+	int     value = 0;
+	
+	if (path == NULL || mode < 0)
+		return -1;
+
+	items     = axl_stream_split (path, 1, "/");
+	full_path = axl_strdup (items[0]);
+	iterator  = 1;
+
+	while (full_path) {
+		/* check if the directory exists */
+		if (! myqtt_support_file_test (full_path, FILE_EXISTS)) {
+			/* it doesn't exists, try to create it*/
+			value = mkdir (full_path, mode);
+			if (value != 0)
+				break; /* creation failed, report to
+					* the caller but first break
+					* the loop */
+		}
+
+		/* now check if the next component is defined and
+		 * repeat operation */
+		if (! items[iterator]) 
+			break;
+
+		/* expand path to the next component */
+		aux       = full_path;
+		full_path = myqtt_support_build_filename (full_path, items[iterator], NULL);
+		axl_free (aux);
+
+		/* next position */
+		iterator ++;
+
+	}
+	axl_freev (items);
+	axl_free (full_path);
+
+	return value;
+}
+
+/** 
  * @} 
  */
 

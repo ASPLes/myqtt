@@ -159,6 +159,10 @@ PTHREAD_LIBS="$myqtt_cv_pthreads_lib"
 AC_SUBST(PTHREAD_CFLAGS)
 AC_SUBST(PTHREAD_LIBS)
 
+dnl check mosquitto client library
+AC_CHECK_HEADER(mosquitto.h, enable_mosquitto=yes, enable_mosquitto=no)
+AM_CONDITIONAL(ENABLE_MOSQUITTO, test "x$enable_mosquitto" = "xyes")
+
 dnl check for poll support
 AC_CHECK_HEADER(sys/poll.h, enable_poll=yes, enable_poll=no)
 AM_CONDITIONAL(ENABLE_POLL_SUPPORT, test "x$enable_poll" = "xyes")
@@ -453,6 +457,7 @@ else
    echo "     have to install doxygen tool. Then run again"
    echo "     configure process."
 fi
+
 echo
 echo "------------------------------------------"
 echo "--            Let's MQTT!               --"
