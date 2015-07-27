@@ -22,13 +22,18 @@ INCLUDE_WEBSOCKET_SUPPORT = -DENABLE_WEBSOCKET_SUPPORT -I$(top_srcdir)/web-socke
 WEBSOCKET_SUPPORT_LIBS = $(top_builddir)/web-socket/libmyqtt-web-socket-1.0.la
 endif
 
+if ENABLE_MOSQUITTO
+INCLUDE_MOSQUITTO = -DENABLE_MOSQUITTO
+INCLUDE_MOSQUITTO_LIBS = -lmosquitto
+endif
+
 noinst_PROGRAMS = myqtt-regression-client myqtt-regression-listener
 
 INCLUDES = -I$(top_srcdir)/lib $(AXL_CFLAGS)  $(PTHREAD_CFLAGS) \
 	-I$(READLINE_PATH)/include $(compiler_options) -D__axl_disable_broken_bool_def__   \
-        -DVERSION=\""$(MYQTT_VERSION)"\" -I$(top_srcdir)/lib $(INCLUDE_MYQTT_POLL) $(INCLUDE_MYQTT_EPOLL) $(INCLUDE_MYQTT_LOG) $(INCLUDE_TLS_SUPPORT) $(INCLUDE_WEBSOCKET_SUPPORT)
+        -DVERSION=\""$(MYQTT_VERSION)"\" -I$(top_srcdir)/lib $(INCLUDE_MYQTT_POLL) $(INCLUDE_MYQTT_EPOLL) $(INCLUDE_MYQTT_LOG) $(INCLUDE_TLS_SUPPORT) $(INCLUDE_WEBSOCKET_SUPPORT) $(INCLUDE_MOSQUITTO)
 
-LIBS            = $(AXL_LIBS) $(PTHREAD_LIBS) $(ADDITIONAL_LIBS) $(NOPOLL_LIBS) $(TLS_SUPPORT_LIBS) $(WEBSOCKET_SUPPORT_LIBS)
+LIBS            = $(AXL_LIBS) $(PTHREAD_LIBS) $(ADDITIONAL_LIBS) $(NOPOLL_LIBS) $(TLS_SUPPORT_LIBS) $(WEBSOCKET_SUPPORT_LIBS) $(INCLUDE_MOSQUITTO_LIBS)
 
 # client
 myqtt_regression_client_SOURCES        = myqtt-regression-client.c

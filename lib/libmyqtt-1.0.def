@@ -231,6 +231,7 @@ myqtt_log_is_enabled
 myqtt_log_is_enabled_acquire_mutex
 myqtt_log_set_handler
 myqtt_log_set_prepare_log
+myqtt_mkdir
 myqtt_msg_build
 myqtt_msg_decode_remaining_length
 myqtt_msg_encode_remaining_length

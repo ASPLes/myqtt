@@ -200,7 +200,7 @@ int      myqtt_msg_decode_remaining_length (MyQttCtx * ctx, unsigned char * inpu
 	unsigned char encoded_byte;
 
 	do {
-		myqtt_log (MYQTT_LEVEL_DEBUG, "%d) current value is %d", iterator, value);
+		/* myqtt_log (MYQTT_LEVEL_DEBUG, "%d) current value is %d", iterator, value); */
 		encoded_byte = input[iterator];
 		value += (encoded_byte & 0x7f) * multiplier;
 		multiplier = multiplier * 128;

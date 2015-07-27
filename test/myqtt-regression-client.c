@@ -49,6 +49,10 @@
 #include <myqtt-web-socket.h>
 #endif
 
+#if defined(ENABLE_MOSQUITTO)
+#include <mosquitto.h>
+#endif
+
 typedef enum {
 	TEST_FILES = 1,
 	TEST_DIRS  = 2
@@ -622,6 +626,52 @@ character.                                                                    |"
 
 	test_00_b_check_and_exit ("Esto es una prueba para detectar que todo es correcto!", axl_true);
 
+	return axl_true;
+}
+
+axl_bool test_00_c (void) {
+
+	/* 1 */
+	if (system ("rm -rf test-00-c") != 0)
+		printf ("Test 00-c: no need to remove old directory..\n");
+
+	if (myqtt_mkdir ("test-00-c/prueba/value/test", 0700)) {
+		printf ("ERROR: failed to create directory (1)..\n");
+		return axl_false;
+	}
+	if (! myqtt_support_file_test ("test-00-c/prueba/value/test", FILE_EXISTS | FILE_IS_DIR))
+		printf ("ERROR: expected to find a directory (1)..\n");
+
+	/* 2 */
+	if (system ("rm -rf test-00-c") != 0)
+		printf ("Test 00-c: no need to remove old directory..\n");
+
+	if (myqtt_mkdir ("test-00-c", 0700)) {
+		printf ("ERROR: failed to create directory (2)..\n");
+		return axl_false;
+	}
+	if (! myqtt_support_file_test ("test-00-c", FILE_EXISTS | FILE_IS_DIR))
+		printf ("ERROR: expected to find a directory (1)..\n");
+
+	/* 3 */
+	if (system ("rm -rf test-00-c") != 0)
+		printf ("Test 00-c: no need to remove old directory..\n");
+
+	if (myqtt_mkdir ("test-00-c/prueba", 0700)) {
+		printf ("ERROR: failed to create directory (3)..\n");
+		return axl_false;
+	}
+	if (! myqtt_support_file_test ("test-00-c/prueba", FILE_EXISTS | FILE_IS_DIR))
+		printf ("ERROR: expected to find a directory (3)..\n");
+
+	/* 4 */
+	if (myqtt_mkdir ("test-00-c/prueba/value/test", 0700)) {
+		printf ("ERROR: failed to create directory (1)..\n");
+		return axl_false;
+	}
+	if (! myqtt_support_file_test ("test-00-c/prueba/value/test", FILE_EXISTS | FILE_IS_DIR))
+		printf ("ERROR: expected to find a directory (1)..\n");
+	
 	return axl_true;
 }
 
@@ -2377,7 +2427,7 @@ axl_bool test_17_publish_and_check (MyQttConn * conn, MyQttAsyncQueue * queue, a
 
 	/* it should be received */
 	if (msg == NULL) {
-		printf ("ERROR: we should  have received a message after subscription...BUT null was received..\n");
+		printf ("ERROR: we should  have received a message after subscription (should_be_received=%d)...BUT null was received..\n", should_be_received);
 		return axl_false;
 	} /* end if */
 
@@ -2462,7 +2512,7 @@ axl_bool test_17 (void) {
 	printf ("Test 17: ensuring we don't get a message as a consequence of this subscription (3 seconds)..\n");
 	msg   = myqtt_async_queue_timedpop (queue, 3000000);
 	if (msg != NULL) {
-		printf ("ERROR: we shouldn't have received a message after subscription...topic: %s\n", myqtt_msg_get_topic (msg));
+		printf ("ERROR: we shouldn't have received a message after subscription... but we did! topic: [%s]\n", myqtt_msg_get_topic (msg));
 		return axl_false;
 	} /* end if */
 
@@ -3351,6 +3401,128 @@ axl_bool test_23 (void)
 	return axl_true;
 }
 
+#if defined(ENABLE_MOSQUITTO)
+void test_mosquitto_queue_message (struct mosquitto * mosq, void * _queue, const struct mosquitto_message * msg)
+{
+	struct mosquitto_message * dst = axl_new (struct mosquitto_message, 1);
+
+	mosquitto_message_copy (dst, msg);
+
+	/* copy message received */
+	myqtt_async_queue_push (_queue, dst);
+	return;
+}
+
+void test_mosquitto_on_subscribe (struct mosquitto * mosq, void * _queue, int mid, int qos_count, const int * granted_qos)
+{
+	myqtt_async_queue_push (_queue, INT_TO_PTR (granted_qos[0] + 10));
+	return;
+}
+
+axl_bool test_mosquitto_01 (void)
+{
+	const char * client_id = "test01";
+	int port = 1909;
+	int keepalive          = 60;
+	axl_bool clean_session = axl_true;
+	struct mosquitto *mosq = NULL;
+	int                      err_value;
+	MyQttAsyncQueue * queue;
+	struct mosquitto_message * msg;
+	int granted_qos;
+	int iterator;
+
+	/* new queue */
+	queue = myqtt_async_queue_new ();
+
+	printf ("Test mosquitto-01: creating mosq reference..\n");
+	mosq = mosquitto_new (client_id, clean_session, queue);
+	if (! mosq) {
+		printf ("Test mosquitto-01: Error: Out of memory, errno=%d (ENOMEM=%d, EINVAL=%d)\n",
+			errno, errno == ENOMEM, errno == EINVAL);
+		return axl_false;
+	} /* end if */
+
+	/* mosquitto_message_callback_set (mosq, my_message_callback); */
+
+	printf ("Test mosquitto-01: connectin with clean_session=%d\n", clean_session);
+	if (mosquitto_connect (mosq, listener_host, port, keepalive)){
+		printf ("Test mosquitto-01: Unable to connect.\n");
+		return axl_false;
+	}
+	printf ("Test mosquitto-01: Connected without problems..\n");
+
+	/* configure on message */
+	mosquitto_subscribe_callback_set (mosq, test_mosquitto_on_subscribe);
+
+	/* subscribe to the topic */
+	printf ("Test mosquitto-01: Subscribing to myqtt/mosquitto/test..\n");
+	err_value = mosquitto_subscribe (mosq, NULL, "myqtt/mosquitto/test", 2);
+	if (err_value != MOSQ_ERR_SUCCESS) {
+		printf ("ERROR: failed to subscribe, error was: %d\n", err_value);
+		return axl_false;
+	} /* end if */
+
+	/* wait for a reply */
+	while (axl_true) {
+		mosquitto_loop (mosq, -1, 1);
+		granted_qos = PTR_TO_INT (myqtt_async_queue_timedpop (queue, 10000));
+		if (granted_qos > 0) {
+			printf ("Test mosquitto-01: received granted QoS: %d\n", granted_qos - 10);
+			break;
+		}
+	} /* end while */
+
+	/* configure on message */
+	mosquitto_message_callback_set (mosq, test_mosquitto_queue_message);
+
+	printf ("Test mosquitto-01: Publishing a message..\n");
+	err_value = mosquitto_publish (mosq, NULL, "myqtt/mosquitto/test", 39, "This is a test from mosquitto library..", 0, axl_false);
+	if (err_value != MOSQ_ERR_SUCCESS) {
+		printf ("ERROR: failed to publish message...err_value=%d\n", err_value);
+		return axl_false;
+	}
+
+	/* wait to receive message */
+	printf ("Test mosquitto-01: Waiting to receive published message.....\n");
+	iterator = 0;
+	while (axl_true) {
+		mosquitto_loop (mosq, -1, 1);
+		msg = myqtt_async_queue_timedpop (queue, 10000);
+		if (msg)
+			break;
+
+		if (msg == NULL && iterator == 3) {
+			printf ("ERROR: received NULL message when expected a valid message..\n");
+			return axl_false;
+		}
+		iterator++;
+	} /* end if */
+
+	/* check content */
+	if (! axl_memcmp (msg->payload, "This is a test from mosquitto library..", 39)) {
+		printf ("ERROR: expected to receive different content...\n");
+		return axl_false;
+	} /* end if */
+
+	/* free message */
+	mosquitto_message_free (&msg);
+
+	/* now call to close */
+	printf ("Test mosquitto-01: Disconnected without problems..\n");
+	err_value = mosquitto_disconnect (mosq);
+	if (err_value != MOSQ_ERR_SUCCESS) {
+		printf ("ERROR: failed to disconnect, error was: err_value=%d\n", 
+			err_value);
+		return axl_false;
+	}
+	
+	mosquitto_destroy (mosq);
+
+	return axl_true;
+}
+#endif
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -3418,6 +3590,9 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_00_b")
 	run_test (test_00_b, "Test 00-b: test utf-8 check support");
+
+	CHECK_TEST("test_00_c")
+	run_test (test_00_c, "Test 00-c: check myqtt_mkdir ()");
 
 	CHECK_TEST("test_01")
 	run_test (test_01, "Test 01: basic listener startup and client connection");
@@ -3504,6 +3679,17 @@ int main (int argc, char ** argv)
 	/* check on connect deferred */
 	CHECK_TEST("test_23")
 	run_test (test_23, "Test 23: check on connect deferred"); 
+	
+#if defined(ENABLE_MOSQUITTO)
+	/* call to enable mosquitto library globally */
+	mosquitto_lib_init();
+
+	CHECK_TEST("test_mosquitto_01")
+	run_test (test_mosquitto_01, "Test mosquitto-01: check basi connect"); 
+
+	/* finish globally mosquitto */
+	mosquitto_lib_cleanup();
+#endif
 
 	/* support for message retention when subscribed with a wild
 	   card topic filter that matches different topic names */

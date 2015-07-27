@@ -223,12 +223,12 @@ void __myqtt_reader_async_run (MyQttConn * conn, MyQttMsg * msg, MyQttReaderHand
 	return;
 }
 
-axl_bool __myqtt_reader_check_client_id (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, MyQttConnAckTypes * response)
+axl_bool __myqtt_reader_check_client_id (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, MyQttConnAckTypes * response, int connect_flags_index)
 {
 	struct timeval stamp;
 
 	/* get clean session status */
-	conn->clean_session = myqtt_get_bit (msg->payload[7], 1);
+	conn->clean_session = myqtt_get_bit (msg->payload[connect_flags_index], 1);
 
 	if (strlen (conn->client_identifier) == 0) {
 		/* check MQTT-3.1.3-7 */
@@ -354,6 +354,9 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	 */
 	MyQttConnAckTypes   response = MYQTT_CONNACK_ACCEPTED;
 	int                 desp;
+	int                 connect_flags_index;
+	char              * payload;
+	
 
 	/* const char * username = NULL;
 	   const char * password = NULL; */
@@ -368,25 +371,40 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	/* flag that CONNECT message was received over this connection */
 	conn->connect_received = axl_true;
 
-	/* check protocol declaration */
-	if (! axl_memcmp ((const char * ) msg->payload + 2, "MQTT", 4)) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to receive MQTT indication, but found something different, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
+	/* check protocol declaration (MQTT v.3.1.1 or v.3.1) */
+	payload = __myqtt_reader_get_utf8_string (ctx, msg->payload, msg->size);
+	if (! axl_cmp (payload, "MQTT") && ! axl_cmp (payload, "MQIsdp")) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to receive MQTT indication on CONNECT, but found something different [%s], closing conn-id=%d from %s:%s", 
+			   payload ? payload : "",
+			   conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
 		return;
 	} /* end if */
 
-	/* check protocol level */
-	if (msg->payload[6] != 4) {
-		myqtt_log (MYQTT_LEVEL_WARNING, "Expected to receive MQTT protocol level 4 but found %d, conn-id=%d from %s:%s", 
-			   msg->payload[6], conn->id, conn->host, conn->port);
-		
-	} /* end if */
+	/* declare initial desp */
+	desp = 2 + strlen (payload);
+	axl_free (payload);
+	payload = NULL;
 
-	/* get keep alive configuration */
-	conn->keep_alive = myqtt_get_16bit (msg->payload + 8);
+	/* here, desp points to the protocol level */
+
+	/* check protocol level: 3 -> MQTT v.3.1, 4 -> MQTT v.3.1.1 */
+	if (msg->payload[desp] != 4 && msg->payload[desp] != 3) {
+		myqtt_log (MYQTT_LEVEL_WARNING, "Expected to receive MQTT protocol level 3 or 4 but found %d, conn-id=%d from %s:%s", 
+			   msg->payload[desp], conn->id, conn->host, conn->port);
+		myqtt_conn_shutdown (conn);
+		return;
+	} /* end if */
+	
+	desp++;
+	connect_flags_index = desp;
+	desp++;
+
+	/* get keep alive configuration: desp */
+	conn->keep_alive = myqtt_get_16bit (msg->payload + desp);
 
 	/* get client identifier */
-	desp = 10;
+	desp = desp + 2;
 	conn->client_identifier = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
 	if (! conn->client_identifier) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Undefined client identifier, closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
@@ -401,11 +419,11 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	} /* end if */
 
 	/* check client identifier */
-	if (! __myqtt_reader_check_client_id (ctx, conn, msg, &response)) 
+	if (! __myqtt_reader_check_client_id (ctx, conn, msg, &response, connect_flags_index)) 
 		goto connect_send_reply;
 
 	/* now get the will topic if indicated */
-	if (myqtt_get_bit (msg->payload[7], 2)) {
+	if (myqtt_get_bit (msg->payload[connect_flags_index], 2)) {
 		/* will flag is on, find will topic and will message */
 		conn->will_topic = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
 		if (! conn->will_topic) {
@@ -426,9 +444,9 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 		} /* end if */
 
 		/* get will qos */
-		if (myqtt_get_bit (msg->payload[7], 4))
+		if (myqtt_get_bit (msg->payload[connect_flags_index], 4))
 			conn->will_qos = MYQTT_QOS_2;
-		else if (myqtt_get_bit (msg->payload[7], 3))
+		else if (myqtt_get_bit (msg->payload[connect_flags_index], 3))
 			conn->will_qos = MYQTT_QOS_1;
 		else
 			conn->will_qos = MYQTT_QOS_0; /* this statement is not neccessary but helps understanding the code */
@@ -438,7 +456,7 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	} /* end if */
 
 	/* now get user and password */
-	if (myqtt_get_bit (msg->payload[7], 7)) {
+	if (myqtt_get_bit (msg->payload[connect_flags_index], 7)) {
 		/* username flag on, get username */
 		conn->username = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
 		if (! conn->username) {
@@ -452,7 +470,7 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	} /* end if */
 
 	/* now get password */
-	if (myqtt_get_bit (msg->payload[7], 6)) {
+	if (myqtt_get_bit (msg->payload[connect_flags_index], 6)) {
 		/* username flag on, get username */
 		conn->password = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
 		if (! conn->password) {
@@ -1092,22 +1110,20 @@ void __myqtt_reader_queue_offline (MyQttCtx * ctx, MyQttMsg * msg, axlHash * sub
  * @internal Handle retained message (see if we have to store it,
  * release,..)
  */
-void __myqtt_reader_handle_retained_msg (MyQttCtx * ctx, MyQttMsg * msg)
+axl_bool __myqtt_reader_handle_retained_msg (MyQttCtx * ctx, MyQttMsg * msg)
 {
 	/* do nothing if retain flag is not set */
 	if (! msg->retain)
-		return;
+		return axl_true;
 
 	if (msg->qos == MYQTT_QOS_0 || msg->app_message_size == 0) {
 		/* remove retained message if any */
 		myqtt_storage_retain_msg_release (ctx, msg->topic_name);
-		return;
+		return axl_true;
 	} /* end if */
 
 	/* save message for later publication */
-	myqtt_storage_retain_msg_set (ctx, msg->topic_name, msg->qos, msg->app_message, msg->app_message_size);
-
-	return;
+	return myqtt_storage_retain_msg_set (ctx, msg->topic_name, msg->qos, msg->app_message, msg->app_message_size);
 } /* end if */
       
 
@@ -1434,11 +1450,13 @@ void __myqtt_reader_process_socket (MyQttCtx  * ctx,
 	if (msg == NULL) 
 		return;
 
+	/* myqtt_log (MYQTT_LEVEL_DEBUG, "Handling message received %p, type: %s", msg, myqtt_msg_get_type_str (msg)); */
+
 	/* according to message type, handle it */
 	switch (msg->type) {
 	case MYQTT_CONNECT:
 		/* handle CONNECT packet */
-		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_connect, axl_false); 
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_connect, axl_false);  
 		break;
 	case MYQTT_DISCONNECT:
 		/* handle DISCONNECT packet */
