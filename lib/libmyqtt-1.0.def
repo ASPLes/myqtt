@@ -248,6 +248,7 @@ myqtt_msg_get_qos
 myqtt_msg_get_topic
 myqtt_msg_get_type
 myqtt_msg_get_type_str
+myqtt_msg_get_type_str2
 myqtt_msg_receive_raw
 myqtt_msg_ref
 myqtt_msg_ref_count

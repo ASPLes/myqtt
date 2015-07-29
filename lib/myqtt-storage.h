@@ -150,6 +150,8 @@ axl_bool myqtt_storage_set_path         (MyQttCtx      * ctx,
 					 int             hash_size);
 
 /*** internal API: don't use it, it may change at any time ***/
+void     __myqtt_storage_get_values_from_file_name (MyQttCtx * ctx, const char * file_name, int * packet_id, int * size, int * qos);
+
 int      __myqtt_storage_get_size_from_file_name (MyQttCtx * ctx, const char * file_name, int * position);
 
 #endif

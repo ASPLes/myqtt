@@ -67,6 +67,13 @@ axl_bool myqtt_sequencer_queue_data (MyQttCtx * ctx, MyQttSequencerData * data)
 		return axl_false;
 	} /* end if */
 
+	/* increase pending messages to be sent : this is to help and
+	 * ensure myqtt_conn_close flushes all messages before closing
+	 * the connection */
+	myqtt_mutex_lock (&data->conn->op_mutex);
+	data->conn->sequencer_messages++;
+	myqtt_mutex_unlock (&data->conn->op_mutex);
+
 	/* lock connection and queue message */
 	myqtt_mutex_lock (&ctx->pending_messages_m);
 
@@ -194,7 +201,8 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 
 			/* check connection is working */
 			if (! myqtt_conn_is_ok (conn, axl_false)) {
-				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send MQTT message, connection is not working, closing");
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send MQTT %s message, connection is not working, closing (conn=%p, conn-id=%d, size=%d)",
+					   myqtt_msg_get_type_str2 (data->type), conn, conn->id, data->message_size);
 				goto release_message;
 			} /* end if */
 
@@ -220,6 +228,11 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 				/* notify message sent */
 				if (conn->on_msg_sent)
 					conn->on_msg_sent (ctx, conn, data->message, data->message_size, data->type, conn->on_msg_sent_data);
+
+				/* decrease pending messages to be sent */
+				myqtt_mutex_lock (&conn->op_mutex);
+				conn->sequencer_messages--;
+				myqtt_mutex_unlock (&conn->op_mutex);
 
 				/* release connection */
 				myqtt_conn_unref (conn, "sequencer");
