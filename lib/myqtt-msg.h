@@ -52,6 +52,8 @@ MyQttMsgType  myqtt_msg_get_type              (MyQttMsg    * msg);
 
 const char  * myqtt_msg_get_type_str          (MyQttMsg    * msg);
 
+const char  * myqtt_msg_get_type_str2         (MyQttMsgType  type);
+
 axl_bool      myqtt_msg_send_raw              (MyQttConn            * conn, 
 					       const unsigned char  * msg, 
 					       int                    msg_size);

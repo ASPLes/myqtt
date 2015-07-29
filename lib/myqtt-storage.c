@@ -342,6 +342,31 @@ axl_bool myqtt_storage_init (MyQttCtx * ctx, MyQttConn * conn, MyQttStorage stor
 	return result;
 }
 
+void      __myqtt_storage_get_values_from_file_name (MyQttCtx * ctx, const char * file_name, 
+						     int * packet_id, int * size, int * qos)
+{
+	int pos;
+	int desp = 0;
+
+	/* get packet_id */
+	pos          = 0;
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Getting packet_id from position: %s", file_name + desp + 1);
+	(*packet_id) = __myqtt_storage_get_size_from_file_name (ctx, file_name, &pos);
+	desp         = pos;
+	
+	/* get size */
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Getting size from position: %s", file_name + desp + 1);
+	(*size)      = __myqtt_storage_get_size_from_file_name (ctx, file_name + desp + 1, &pos);
+	desp        += (pos + 1);
+	
+	/* get qos */
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Getting qos from position: %s", file_name + desp + 1);
+	(*qos)       = __myqtt_storage_get_size_from_file_name (ctx, file_name + desp + 1, &pos);
+	desp        += (pos + 1);
+
+	return;
+}
+
 int      __myqtt_storage_get_size_from_file_name (MyQttCtx * ctx, const char * file_name, int * position)
 {
 	int  iterator = 0;
@@ -1594,9 +1619,7 @@ void myqtt_storage_queued_flush_work (MyQttCtx * ctx, MyQttConn * conn)
 	struct dirent   * entry;
 	char            * aux_path;
 
-	int               pos;
-	int               desp;
-	MyQttQos          qos;
+	int               qos;
 	int               packet_id;
 	unsigned char   * msg;
 	int               size;
@@ -1633,17 +1656,10 @@ void myqtt_storage_queued_flush_work (MyQttCtx * ctx, MyQttConn * conn)
 			/* ok, now parse each message to get */
 
 			/* get packet_id */
-			pos       = 0;
-			packet_id = __myqtt_storage_get_size_from_file_name (ctx, entry->d_name, &pos);
-			desp      = pos;
+			__myqtt_storage_get_values_from_file_name (ctx, entry->d_name, &packet_id, &size, &qos);
 
-			/* get size */
-			size      = __myqtt_storage_get_size_from_file_name (ctx, entry->d_name + desp + 1, &pos);
-			desp      += pos;
-
-			/* get qos */
-			qos        = __myqtt_storage_get_size_from_file_name (ctx, entry->d_name + desp + 1, &pos);
-			desp      += pos;
+			myqtt_log (MYQTT_LEVEL_DEBUG, "Sending offline queued message to conn-id=%d conn=%p packet_id=%d size=%d qos=%d handle=%s",
+				   conn->id, conn, packet_id, size, qos, entry->d_name);
 
 			/* open message into memory */
 			msg        = axl_new (unsigned char, size + 1);
@@ -1731,6 +1747,9 @@ void      myqtt_storage_queued_flush            (MyQttCtx   * ctx,
 	/* flag we are flushing */
 	conn->flushing = axl_true;
 	myqtt_mutex_unlock (&conn->op_mutex);
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Flushing queued messages for conn-id=%d, conn=%p",
+		   conn->id, conn);
 
 	/* call to flush */
 	myqtt_thread_pool_new_task (ctx, __myqtt_storage_queued_flush_proxy, conn);

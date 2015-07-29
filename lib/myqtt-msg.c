@@ -706,8 +706,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	msg->qos     = (header[0] & 0x06) >> 1;
 	msg->dup     = myqtt_get_bit (header[0], 3);
 	msg->retain  = myqtt_get_bit (header[0], 0);
-	myqtt_log (MYQTT_LEVEL_DEBUG, "New packet received: %s (QoS %d, dup: %d, retain: %d), header size indication is: %d (iterator=%d)", 
-		   myqtt_msg_get_type_str (msg), msg->qos, msg->dup, msg->retain, remaining, iterator);
+
 
 	/* check qos value here */
 	if (msg->qos < MYQTT_QOS_0 || msg->qos > MYQTT_QOS_2) {
@@ -737,6 +736,9 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	/* associate the next msg id available */
 	msg->id   = __myqtt_msg_get_next_id (ctx, "get-next");
 	msg->ctx  = ctx;
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "New packet received: %s (msg-id=%d, type=%d, QoS=%d, dup=%d, retain=%d, conn-id=%d, conn=%p), header size indication is: %d (iterator=%d)", 
+		   myqtt_msg_get_type_str (msg), msg->id, msg->type, msg->qos, msg->dup, msg->retain, connection->id, connection, remaining, iterator);
 
 	if (msg->size == 0) {
 		/* report message with empty payload */
@@ -798,6 +800,9 @@ process_buffer:
 	/* get a reference to the buffer to dealloc it */
 	msg->buffer    = buffer;
 
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Returning message: %s (msg-id=%d, type=%d, QoS=%d, dup=%d, retain=%d, conn-id=%d, conn=%p), message-size: %d",
+		   myqtt_msg_get_type_str (msg), msg->id, msg->type, msg->qos, msg->dup, msg->retain, connection->id, connection, msg->size);
+
 	/* nullify */
 
 	return msg;
@@ -830,8 +835,22 @@ MyQttMsgType  myqtt_msg_get_type              (MyQttMsg    * msg)
 const char  * myqtt_msg_get_type_str          (MyQttMsg    * msg)
 {
 	if (msg == NULL)
-		return "UNKNONW";
-	switch (msg->type) {
+		return "UNKNOWN";
+	return myqtt_msg_get_type_str2 (msg->type);
+}
+
+/** 
+ * @brief Allows to get the MQTT message type from the provided type value.
+ *
+ * This function is similar to \ref myqtt_msg_get_type_str but this one reports a string.
+ *
+ * @param type The type to get the string from.
+ *
+ * @return The message type in the form of a string.
+ */
+const char  * myqtt_msg_get_type_str2         (MyQttMsgType  type)
+{
+	switch (type) {
 	case MYQTT_CONNECT:
 		return "CONNECT";
 	case MYQTT_CONNACK:
@@ -1103,21 +1122,12 @@ int           myqtt_msg_ref_count             (MyQttMsg * msg)
  **/
 void          _myqtt_msg_free (MyQttMsg * msg, const char * caller)
 {
-#if defined(ENABLE_MYQTT_LOG)
-	MyQttCtx * ctx;
-#endif
 	axlPointer ref;
 
 	if (msg == NULL)
 		return;
 
 	/* printf ("%s : releasing %p\n", caller, msg); */
-
-	/* log a msg deallocated message */
-#if defined(ENABLE_MYQTT_LOG)
-	ctx = msg->ctx;
-	myqtt_log (MYQTT_LEVEL_DEBUG, "deallocating msg id=%d", msg->id);
-#endif
 
 	/* free msg payload (first checking for content, and, if not
 	 * defined, then payload) */

@@ -734,7 +734,7 @@ axl_bool test_02 (void) {
 
 	/* subscribe to a topic */
 	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
@@ -807,7 +807,7 @@ axl_bool test_03 (void) {
 
 	/* subscribe to a topic */
 	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
@@ -894,12 +894,12 @@ axl_bool test_04 (void) {
 
 
 	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
 	if (! myqtt_conn_unsub (conn, "myqtt/test", 10)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
@@ -1202,7 +1202,7 @@ axl_bool test_08 (void) {
 	}
 
 	if (! myqtt_conn_sub (conn2, 10, "I lost connection", 0, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
@@ -1296,7 +1296,7 @@ axl_bool test_09 (void) {
 	}
 
 	if (! myqtt_conn_sub (conn2, 10, "I lost connection", 0, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
@@ -1337,6 +1337,12 @@ axl_bool test_10 (void) {
 	int               iterator;
 	char            * sub_str;
 	int               pos;
+	
+	int               packet_id;
+	int               qos;
+	int               size;
+
+
 	if (! ctx)
 		return axl_false;
 
@@ -1351,6 +1357,14 @@ axl_bool test_10 (void) {
 	}
 	if (__myqtt_storage_get_size_from_file_name (ctx, "1432969-16856208-1408293505-274202", &pos) != 1432969 || pos != 7) {
 		printf ("ERROR: failed conversion: %d...\n", __myqtt_storage_get_size_from_file_name (ctx, "1432969-16856208-1408293505-274202", NULL));
+		return axl_false;
+	}
+
+	__myqtt_storage_get_values_from_file_name (ctx, "10-47-2-1438039660-798316", &packet_id, &size, &qos);
+	printf ("Test 10: values received from test packet_id=%d, size=%d, qos=%d\n",
+		packet_id, size, qos);
+	if (packet_id != 10 || size != 47 || qos != 2) {
+		printf ("ERROR: expected diffferent values for packet_id or size or qos (1)\n");
 		return axl_false;
 	}
 
@@ -1527,17 +1541,17 @@ axl_bool test_11 (void) {
 	} /* end if */
 
 	if (! myqtt_conn_sub (conn, 10, "a/subs/1", 0, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
 	if (! myqtt_conn_sub (conn, 10, "a/subs/2", 0, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
 	if (! myqtt_conn_sub (conn, 10, "a/subs/3", 0, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
@@ -1685,7 +1699,7 @@ axl_bool test_12 (void) {
 	} /* end if */
 
 	if (! myqtt_conn_sub (conn, 10, "a/subs/1", MYQTT_QOS_2, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
@@ -1774,7 +1788,7 @@ axl_bool test_13 (void) {
 	} /* end if */
 
 	if (! myqtt_conn_sub (conn, 10, "a/subs/1", MYQTT_QOS_2, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
@@ -1896,17 +1910,17 @@ axl_bool test_14 (void) {
 	/* subscribe to the topics referenced before */
 	printf ("Test 14: subscribing to the topics..\n");
 	if (! myqtt_conn_sub (conn, 10, "test/message/1", MYQTT_QOS_2, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
 	if (! myqtt_conn_sub (conn, 10, "test/message/2", MYQTT_QOS_2, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
 	if (! myqtt_conn_sub (conn, 10, "test/message/3", MYQTT_QOS_2, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
@@ -2084,12 +2098,20 @@ axl_bool test_14a (void) {
 	
 	return axl_true;
 }
-axl_bool __test_15_check (MyQttMsg * msg)
+axl_bool __test_15_check (MyQttMsg * msg, int * count_qos0, int * count_qos1, int * count_qos2)
 {
 	if (msg == NULL || myqtt_msg_get_type (msg) != MYQTT_PUBLISH) {
-		printf ("ERROR: empty reference received or wrong type..\n");
+		printf ("ERROR: empty reference received or wrong type: msg=%p (%s)..\n",
+			msg, msg ? myqtt_msg_get_type_str (msg) : "UNKNOWN");
 		return axl_false;
 	}
+
+	if (myqtt_msg_get_qos (msg) == MYQTT_QOS_0)
+		(*count_qos0)++;
+	if (myqtt_msg_get_qos (msg) == MYQTT_QOS_1)
+		(*count_qos1)++;
+	if (myqtt_msg_get_qos (msg) == MYQTT_QOS_2)
+		(*count_qos2)++;
 
 	/* more checks here */
 	printf ("Test 15: received msg with topic: %s\n", myqtt_msg_get_topic (msg));
@@ -2109,6 +2131,7 @@ axl_bool test_15 (void) {
 	int               sub_result;
 	MyQttAsyncQueue * queue; 
 	char            * ref;
+	int               count_qos0 = 0, count_qos1 = 0, count_qos2 = 0;
 
 	if (! ctx)
 		return axl_false;
@@ -2125,17 +2148,17 @@ axl_bool test_15 (void) {
 	/* subscribe to the topics referenced before */
 	printf ("Test 15: subscribing to the topics..\n");
 	if (! myqtt_conn_sub (conn, 10, "test/message/1", MYQTT_QOS_2, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
 	if (! myqtt_conn_sub (conn, 10, "test/message/2", MYQTT_QOS_2, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
 	if (! myqtt_conn_sub (conn, 10, "test/message/3", MYQTT_QOS_2, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
@@ -2159,22 +2182,22 @@ axl_bool test_15 (void) {
 
 		/* next message on queue */
 		ref = axl_strdup_printf ("This is a test message: %d..", iterator);
-		if (! myqtt_conn_pub (conn, "test/message/1", ref, strlen (ref), MYQTT_QOS_0, axl_false, 0)) {
+		if (! myqtt_conn_pub (conn, "test/message/1", ref, strlen (ref), MYQTT_QOS_0, axl_false, 10)) {
 			printf ("ERROR: unable to publish messages on qos 0..\n");
 			return axl_false;
 		} /* end if */
 		axl_free (ref);
 
 		ref = axl_strdup_printf ("This is a test message: %d..", iterator);
-		if (! myqtt_conn_pub (conn, "test/message/2", ref, strlen (ref), MYQTT_QOS_1, axl_false, 0)) {
-			printf ("ERROR: unable to publish messages on qos 0..\n");
+		if (! myqtt_conn_pub (conn, "test/message/2", ref, strlen (ref), MYQTT_QOS_1, axl_false, 10)) {
+			printf ("ERROR: unable to publish messages on qos 1..\n");
 			return axl_false;
 		} /* end if */
 		axl_free (ref);
 
 		ref = axl_strdup_printf ("This is a test message: %d..", iterator);
-		if (! myqtt_conn_pub (conn, "test/message/3", ref, strlen (ref), MYQTT_QOS_2, axl_false, 0)) {
-			printf ("ERROR: unable to publish messages on qos 0..\n");
+		if (! myqtt_conn_pub (conn, "test/message/3", ref, strlen (ref), MYQTT_QOS_2, axl_false, 10)) {
+			printf ("ERROR: unable to publish messages on qos 2..\n");
 			return axl_false;
 		} /* end if */
 		axl_free (ref);
@@ -2231,25 +2254,49 @@ axl_bool test_15 (void) {
 	while (iterator < 10) {
 		/* get first message */
 		msg = myqtt_async_queue_timedpop (queue, 3000000);
-		if (! __test_15_check (msg))
+		if (! __test_15_check (msg, &count_qos0, &count_qos1, &count_qos2))
 			return axl_false;
 
 		/* get first message */
 		msg = myqtt_async_queue_timedpop (queue, 3000000);
-		if (! __test_15_check (msg))
+		if (! __test_15_check (msg, &count_qos0, &count_qos1, &count_qos2))
 			return axl_false;
 
 		/* get first message */
 		msg = myqtt_async_queue_timedpop (queue, 3000000);
-		if (! __test_15_check (msg))
+		if (! __test_15_check (msg, &count_qos0, &count_qos1, &count_qos2))
 			return axl_false;
 
 		/* next position */
 		iterator++;
 	} /* end if */
 
+	if ((count_qos2 + count_qos1 + count_qos0) != 30) {
+		printf ("ERROR: expected to find a total count of messages received of 30 but found something different..\n");
+		return axl_false;
+	} /* end if */
+
+	if (count_qos0 != 10) {
+		printf ("ERROR: expected to receive 10 messages with QoS 0 but received a different count..\n");
+		return axl_false;
+	}
+
+	if (count_qos1 != 10) {
+		printf ("ERROR: expected to receive 10 messages with QoS 1 but received a different count..\n");
+		return axl_false;
+	}
+
+	if (count_qos2 != 10) {
+		printf ("ERROR: expected to receive 10 messages with QoS 2 but received a different count..\n");
+		return axl_false;
+	}
+
+	printf ("Test 15: all messages received OK, now closing connection..\n");
+
 	/* close connection */
 	myqtt_conn_close (conn);
+
+	printf ("Test 15: connection closed, now connect again to check we don't receive any message..\n");
 
 	/* client_identifier -> "test15@identifier.com", clean_session -> axl_false */
 	conn = myqtt_conn_new (ctx, "test15@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
@@ -2413,7 +2460,7 @@ axl_bool test_17_publish_and_check (MyQttConn * conn, MyQttAsyncQueue * queue, a
 	MyQttMsg * msg;
 
 	if (! myqtt_conn_sub (conn, 14, "this/is/a/test", 0, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
@@ -2504,7 +2551,7 @@ axl_bool test_17 (void) {
 
 	/* subscribe to a topic without retained message */
 	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
@@ -3361,7 +3408,7 @@ axl_bool test_23 (void)
 
 	/* subscribe to a topic */
 	if (! myqtt_conn_sub (conn, 10, "myqtt/test/deferred", 0, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
@@ -3505,6 +3552,17 @@ axl_bool test_mosquitto_01 (void)
 		return axl_false;
 	} /* end if */
 
+	/* check topic name */
+	if (! axl_cmp (msg->topic, "myqtt/mosquitto/test")) {
+		printf ("ERROR: expected to have a particular topic but found something different..\n");
+		return axl_false;
+	} /* end if */
+
+	if (msg->qos != 0) {
+		printf ("ERROR: expected to have a quality of service of 0 but found: %d\n", msg->qos);
+		return axl_false;
+	}
+
 	/* free message */
 	mosquitto_message_free (&msg);
 
@@ -3521,6 +3579,158 @@ axl_bool test_mosquitto_01 (void)
 
 	return axl_true;
 }
+
+void __mosquitto_log (struct mosquitto * mosq, void * user_data, int level, const char * message)
+{
+	const char * label = "UNKNOWN";
+	switch (level) {
+	case MOSQ_LOG_INFO:
+		label = "INFO";
+		break;
+	case MOSQ_LOG_NOTICE:
+		label = "NOTICE";
+		break;
+	case MOSQ_LOG_WARNING:
+		label = "WARNING";
+		break;
+	case MOSQ_LOG_ERR:
+		label = "ERR";
+		break;
+	case MOSQ_LOG_DEBUG:
+		label = "DEBUG";
+		break;
+	}
+
+	printf ("%s: %s\n", label, message);
+	return;
+}
+
+axl_bool test_mosquitto_02 (void)
+{
+	const char * client_id = "test01";
+	int port = 1909;
+	int keepalive          = 60;
+	axl_bool clean_session = axl_true;
+	struct mosquitto *mosq = NULL;
+	int                      err_value;
+	MyQttAsyncQueue * queue;
+	struct mosquitto_message * msg;
+	int granted_qos;
+	int iterator;
+
+	/* new queue */
+	queue = myqtt_async_queue_new ();
+
+	printf ("Test mosquitto-02: creating mosq reference..\n");
+	mosq = mosquitto_new (client_id, clean_session, queue);
+	if (! mosq) {
+		printf ("Test mosquitto-02: Error: Out of memory, errno=%d (ENOMEM=%d, EINVAL=%d)\n",
+			errno, errno == ENOMEM, errno == EINVAL);
+		return axl_false;
+	} /* end if */
+
+	/* configure log */
+	mosquitto_log_callback_set (mosq, __mosquitto_log);
+
+	/* mosquitto_message_callback_set (mosq, my_message_callback); */
+
+	printf ("Test mosquitto-02: connectin with clean_session=%d\n", clean_session);
+	if (mosquitto_connect (mosq, listener_host, port, keepalive)){
+		printf ("Test mosquitto-01: Unable to connect.\n");
+		return axl_false;
+	}
+	printf ("Test mosquitto-02: Connected without problems..\n");
+
+	/* configure on message */
+	mosquitto_subscribe_callback_set (mosq, test_mosquitto_on_subscribe);
+
+	/* subscribe to the topic */
+	printf ("Test mosquitto-02: Subscribing to myqtt/mosquitto/test..\n");
+	err_value = mosquitto_subscribe (mosq, NULL, "myqtt/mosquitto/test", 2);
+	if (err_value != MOSQ_ERR_SUCCESS) {
+		printf ("ERROR: failed to subscribe, error was: %d\n", err_value);
+		return axl_false;
+	} /* end if */
+
+	/* wait for a reply */
+	while (axl_true) {
+		mosquitto_loop (mosq, -1, 1);
+		granted_qos = PTR_TO_INT (myqtt_async_queue_timedpop (queue, 10000));
+		if (granted_qos > 0) {
+			printf ("Test mosquitto-01: received granted QoS: %d\n", granted_qos - 10);
+			break;
+		}
+	} /* end while */
+
+	if ((granted_qos - 10) != 2) {
+		printf ("ERROR: expected granted QoS of 2 but found: %d\n", granted_qos);
+		return axl_false;
+	} /* end if */
+
+	/* configure on message */
+	mosquitto_message_callback_set (mosq, test_mosquitto_queue_message);
+
+	printf ("Test mosquitto-02: Publishing a message with QoS 2..\n");
+	err_value = mosquitto_publish (mosq, NULL, "myqtt/mosquitto/test", 47, "This is a test from mosquitto library (QoS 2)..", 2, axl_false);
+	if (err_value != MOSQ_ERR_SUCCESS) {
+		printf ("ERROR: failed to publish message...err_value=%d\n", err_value);
+		return axl_false;
+	}
+
+	/* wait to receive message */
+	printf ("Test mosquitto-02: Waiting to receive published message (QoS 2).....\n");
+	iterator = 0;
+	while (axl_true) {
+		mosquitto_loop (mosq, -1, 1);
+		msg = myqtt_async_queue_timedpop (queue, 10000);
+		if (msg)
+			break;
+
+		if (msg == NULL && iterator == 20) {
+			printf ("ERROR: received NULL message when expected a valid message iterator=%d..\n", iterator);
+			return axl_false;
+		}
+		iterator++;
+	} /* end if */
+
+	/* check content */
+	if (! axl_memcmp (msg->payload, "This is a test from mosquitto library (QoS 2)..", 47)) {
+		printf ("ERROR: expected to receive different content...\n");
+		return axl_false;
+	} /* end if */
+
+	/* check topic name */
+	if (! axl_cmp (msg->topic, "myqtt/mosquitto/test")) {
+		printf ("ERROR: expected to have a particular topic but found something different..\n");
+		return axl_false;
+	} /* end if */
+
+	if (msg->qos != 2) {
+		printf ("ERROR: expected to have a quality of service of 0 but found: %d\n", msg->qos);
+		return axl_false;
+	}
+
+	/* free message */
+	mosquitto_message_free (&msg);
+
+	mosquitto_loop (mosq, -1, 1);
+	mosquitto_loop (mosq, -1, 1);
+	mosquitto_loop (mosq, -1, 1);
+
+	/* now call to close */
+	printf ("Test mosquitto-02: Disconnected without problems..\n");
+	err_value = mosquitto_disconnect (mosq);
+	if (err_value != MOSQ_ERR_SUCCESS) {
+		printf ("ERROR: failed to disconnect, error was: err_value=%d\n", 
+			err_value);
+		return axl_false;
+	}
+	
+	mosquitto_destroy (mosq);
+
+	return axl_true;
+}
+
 #endif
 
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
@@ -3685,7 +3895,10 @@ int main (int argc, char ** argv)
 	mosquitto_lib_init();
 
 	CHECK_TEST("test_mosquitto_01")
-	run_test (test_mosquitto_01, "Test mosquitto-01: check basi connect"); 
+	run_test (test_mosquitto_01, "Test mosquitto-01: check basic connect, subscribe and PUBLISH QoS 0"); 
+
+	CHECK_TEST("test_mosquitto_02")
+	run_test (test_mosquitto_02, "Test mosquitto-01: check PUBLISH QoS 2"); 
 
 	/* finish globally mosquitto */
 	mosquitto_lib_cleanup();

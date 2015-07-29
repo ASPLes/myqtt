@@ -336,6 +336,18 @@ struct _MyQttConn {
 	 * replies received for a certain pkd id.
 	 */
 	axlHash                   * wait_replies;
+	/** 
+	 * @internal See relevant notes about this attribute at
+	 * myqtt-reader.c:1755 inside
+	 * __myqtt_reader_prepare_wait_reply's documentation.
+	 */
+	axlHash                   * peer_wait_replies;
+
+	/** 
+	 * @internal Count of messages that are pending on the
+	 * sequencer to be sent.
+	 */
+	int                         sequencer_messages;
 
 	/*** subscriptions ***/
 	axlHash                   * subs;

@@ -290,6 +290,7 @@ MyQttConn * myqtt_conn_new_empty_from_conn (MyQttCtx        * ctx,
 
 	/* wait reply hash */
 	connection->wait_replies       = axl_hash_new (axl_hash_int, axl_hash_equal_int);
+	connection->peer_wait_replies  = axl_hash_new (axl_hash_int, axl_hash_equal_int);
 
 	/* subscriptions **/
 	connection->subs               = axl_hash_new (axl_hash_string, axl_hash_equal_string);
@@ -1559,6 +1560,7 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 
 	/* wait reply hash */
 	data->connection->wait_replies        = axl_hash_new (axl_hash_int, axl_hash_equal_int);
+	data->connection->peer_wait_replies   = axl_hash_new (axl_hash_int, axl_hash_equal_int);
 
 	/* subscriptions **/
 	data->connection->subs                = axl_hash_new (axl_hash_string, axl_hash_equal_string);
@@ -1953,7 +1955,7 @@ const char        * myqtt_conn_get_code_to_err (MyQttConnAckTypes code)
  * @internal Get the next package id available over the provided
  * connection.
  */
-int __myqtt_conn_get_next_pkgid (MyQttCtx * ctx, MyQttConn * conn, MyQttQos qos)
+int __myqtt_conn_get_next_pkgid_aux (MyQttCtx * ctx, MyQttConn * conn, MyQttQos qos)
 {
 	int      pkg_id = 1;
 	int      value;
@@ -1972,7 +1974,7 @@ int __myqtt_conn_get_next_pkgid (MyQttCtx * ctx, MyQttConn * conn, MyQttQos qos)
 	if (conn->sent_pkgids == NULL)
 		conn->sent_pkgids = axl_list_new (axl_list_equal_int, NULL);
 
-	if (axl_list_length (conn->sent_pkgids) == 0) {
+	if (axl_list_length (conn->sent_pkgids) == 0 && axl_hash_items (conn->wait_replies) == 0) {
 		while (pkg_id < 65535 && ! myqtt_storage_lock_pkgid (ctx, conn, pkg_id)) {
 			/* id is already in use, go for the next */
 			pkg_id ++;
@@ -1990,6 +1992,14 @@ int __myqtt_conn_get_next_pkgid (MyQttCtx * ctx, MyQttConn * conn, MyQttQos qos)
 			if (pkg_id == value) {
 				pkg_id ++;
 			} else if (pkg_id < value) {
+
+				/* check there is no wait reply still looked on the provided hash which represents 
+				   wait replies for packages sent which are still waiting */
+				if (axl_hash_exists (conn->wait_replies, INT_TO_PTR (pkg_id))) {
+					pkg_id ++;
+					iterator++;
+					continue;
+				} /* end if */
 
 				/* we have session support, so we have to ensure we can use this packet id, 
 				   that is, it is not used by any other operation in progress */
@@ -2020,6 +2030,15 @@ int __myqtt_conn_get_next_pkgid (MyQttCtx * ctx, MyQttConn * conn, MyQttQos qos)
 
 	/* unlock operation mutex */
 	myqtt_mutex_unlock (&conn->op_mutex);
+
+	return pkg_id;
+}
+
+int __myqtt_conn_get_next_pkgid (MyQttCtx * ctx, MyQttConn * conn, MyQttQos qos) {
+	int pkg_id = __myqtt_conn_get_next_pkgid_aux (ctx, conn, qos);
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Reporting next available pkg-id=%d for ctx=%p conn=%p conn-id=%d qos=%d",
+		   pkg_id, ctx, conn, conn->id, qos);
 
 	return pkg_id;
 }
@@ -2065,10 +2084,11 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 
 	if (((qos & MYQTT_QOS_1) == MYQTT_QOS_1 || (qos & MYQTT_QOS_2) == MYQTT_QOS_2) && wait_publish > 0) {
 		/* prepare reply */
-		__myqtt_reader_prepare_wait_reply (conn, packet_id);
+		__myqtt_reader_prepare_wait_reply (conn, packet_id, axl_false);
 	} /* end if */
 
 	/* configure package to send */
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Sending PUBLISH with packet_id=%d conn-id=%d conn=%p qos=%d", packet_id, conn->id, conn, qos);
 	if (! myqtt_sequencer_send (conn, MYQTT_PUBLISH, msg, size)) {
 		/* release packet id */
 		__myqtt_conn_release_pkgid (ctx, conn, packet_id);
@@ -2093,9 +2113,10 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 	/* now wait here for PUBACK in the case of QoS 1 */
 	if ((qos & MYQTT_QOS_1) == MYQTT_QOS_1 && wait_publish > 0) {
 		/* wait here for puback reply limiting wait by wait_sub */
-		reply = __myqtt_reader_get_reply (conn, packet_id, wait_publish);
+		reply = __myqtt_reader_get_reply (conn, packet_id, wait_publish, axl_false);
 		if (reply == NULL || reply->type != MYQTT_PUBACK || reply->packet_id != packet_id) {
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expecting PUBACK, received empty reply, wrong reply type or different packet id in reply");
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expecting PUBACK, received empty reply, wrong reply type or different packet id in reply=%p (%s) (packet id=%d != %d) conn=%p conn-id=%d",
+				   reply, reply ? myqtt_msg_get_type_str (reply) : "UNKNOWN", reply ? reply->packet_id : -1, packet_id, conn, conn->id);
 			result = axl_false; /* signal that publication didn't work */
 		} /* end if */
 		myqtt_msg_unref (reply);
@@ -2104,12 +2125,14 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 	/* now wait here for PUBREC in the case of QoS 2 */
 	if ((qos & MYQTT_QOS_2) == MYQTT_QOS_2 && wait_publish > 0) {
 		/* wait here for puback reply limiting wait by wait_sub */
-		reply = __myqtt_reader_get_reply (conn, packet_id, wait_publish);
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Getting PUBREC reply for packet_id=%d conn-id=%d conn=%p", packet_id, conn->id, conn);
+		reply = __myqtt_reader_get_reply (conn, packet_id, wait_publish, axl_false);
 		if (reply == NULL || reply->type != MYQTT_PUBREC || reply->packet_id != packet_id) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expecting PUBREC, received empty reply (%p), wrong reply type (%s) or different packet id in reply (%d ? %d)",
 				   reply, reply ? myqtt_msg_get_type_str (reply) : "UNKNOWN", reply ? reply->packet_id : -1, packet_id);
 			result = axl_false; /* signal that publication didn't work */
 		} /* end if */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Received PUBREC reply for packet_id=%d conn-id=%d conn=%p (ok matches)", packet_id, conn->id, conn);
 
 		/* release reply */
 		myqtt_msg_unref (reply);
@@ -2135,10 +2158,10 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 		/* ok, so far, so good, now send pubrel, reusing packet id */
 		/* build QOS=1/2 message */
 		/* dup = axl_false, qos = 1, retain = axl_false */
-		msg       = myqtt_msg_build  (ctx, MYQTT_PUBREL, axl_false, MYQTT_QOS_1, axl_false, &size,  /* 2 bytes */
-					      /* packet id */
-					      MYQTT_PARAM_16BIT_INT, packet_id,
-					      MYQTT_PARAM_END);		
+		msg  = myqtt_msg_build  (ctx, MYQTT_PUBREL, axl_false, MYQTT_QOS_1, axl_false, &size,  /* 2 bytes */
+					 /* packet id */
+					 MYQTT_PARAM_16BIT_INT, packet_id,
+					 MYQTT_PARAM_END);		
 		if (msg == NULL || size == 0) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create PUBREL message, empty/NULL value reported by myqtt_msg_build()");
 
@@ -2149,9 +2172,10 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 		} /* end if */
 
 		/* prepare reply */
-		__myqtt_reader_prepare_wait_reply (conn, packet_id);
+		__myqtt_reader_prepare_wait_reply (conn, packet_id, axl_false);
 
 		/* configure package to send */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Sending PUBREL for packet_id=%d conn-id=%d conn=%p", packet_id, conn->id, conn);
 		if (! myqtt_sequencer_send (conn, MYQTT_PUBREL, msg, size)) {
 			/* release packet id */
 			__myqtt_conn_release_pkgid (ctx, conn, packet_id);
@@ -2166,11 +2190,14 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 		} /* end if */
 
 		/* wait here for puback reply limiting wait by wait_sub */
-		reply = __myqtt_reader_get_reply (conn, packet_id, wait_publish);
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Getting PUBCOMP reply for packet_id=%d conn-id=%d conn=%p", packet_id, conn->id, conn);
+		reply = __myqtt_reader_get_reply (conn, packet_id, wait_publish, axl_false);
 		if (reply == NULL || reply->type != MYQTT_PUBCOMP || reply->packet_id != packet_id) {
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expecting PUBCOMP, received empty reply, wrong reply type or different packet id in reply");
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expecting PUBCOMP, received empty reply (%p), wrong reply type (%s) or different packet id in reply (%d != %d)",
+				   reply, reply ? myqtt_msg_get_type_str (reply) : "UNKNOWN", reply ? reply->packet_id : -1, packet_id);
 			result = axl_false; /* signal that publication didn't work */
 		} /* end if */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Received PUBCOMP reply for packet_id=%d conn-id=%d conn=%p (ok matches)", packet_id, conn->id, conn);
 		myqtt_msg_unref (reply);
 
 	} /* end if */
@@ -2384,8 +2411,11 @@ axl_bool            myqtt_conn_offline_pub     (MyQttCtx            * ctx,
 	axlPointer      handle;
 
 
-	if (client_identifier == NULL || strlen (client_identifier) == 0)
+	if (client_identifier == NULL || strlen (client_identifier) == 0) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "offline publish failed (myqtt_conn_offline_pub) because client_identifier=%p (%s) is not defined or it is empty",
+			   client_identifier, client_identifier ? client_identifier : "");
 		return axl_false;
+	}
 
 	if (! topic_name || strlen (topic_name) > 65535) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Topic name is bigger than 65535 and this is not allowed by MQTT");
@@ -2481,6 +2511,9 @@ axl_bool            myqtt_conn_offline_pub     (MyQttCtx            * ctx,
 
 	/* free message now it is stored */
 	myqtt_msg_free_build (ctx, msg, size);
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Offline publish message stored at: %s for client_identifier=%s",
+		   handle, client_identifier);
 
 	/* release handle */
 	axl_free (handle);
@@ -2647,7 +2680,7 @@ axl_bool            myqtt_conn_sub             (MyQttConn           * conn,
 
 	/* prepare wait reply */
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Creating wait reply for conn %p, packet id: %d", conn, packet_id);
-	__myqtt_reader_prepare_wait_reply (conn, packet_id);
+	__myqtt_reader_prepare_wait_reply (conn, packet_id, axl_false);
 
 	/* configure package to send */
 	data->conn         = conn;
@@ -2670,7 +2703,7 @@ axl_bool            myqtt_conn_sub             (MyQttConn           * conn,
 		wait_sub = 10000000;
 
 	/* wait here for suback reply limiting wait by wait_sub */
-	reply = __myqtt_reader_get_reply (conn, packet_id, wait_sub);
+	reply = __myqtt_reader_get_reply (conn, packet_id, wait_sub, axl_false);
 	if (reply == NULL) {
 		/* release pkgid */
 		__myqtt_conn_release_pkgid (ctx, conn, packet_id);
@@ -2795,7 +2828,7 @@ axl_bool            myqtt_conn_unsub           (MyQttConn           * conn,
 
 	if (wait_unsub > 0) {
 		/* prepare wait reply */
-		__myqtt_reader_prepare_wait_reply (conn, packet_id);
+		__myqtt_reader_prepare_wait_reply (conn, packet_id, axl_false);
 	} /* end if */
 
 	/* queue package to be sent */
@@ -2822,7 +2855,7 @@ axl_bool            myqtt_conn_unsub           (MyQttConn           * conn,
 	} /* end if */
 
 	/* wait here for suback reply limiting wait by wait_sub */
-	reply = __myqtt_reader_get_reply (conn, packet_id, wait_unsub);
+	reply = __myqtt_reader_get_reply (conn, packet_id, wait_unsub, axl_false);
 	if (reply == NULL) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received NULL reply while waiting for reply (UNSUBACK) to UNSUBSCRIBE request");
 
@@ -3011,6 +3044,20 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
 			myqtt_conn_opts_free (connection->opts);
 			connection->opts = NULL;
 		} /* end if */
+	}
+
+	/* ensure that all messages were sent before closing the
+	 * connection in the case it is found to be working */
+	while (connection->sequencer_messages > 0 && myqtt_conn_is_ok (connection, axl_false)) {
+
+		if (connection->sequencer_messages > 0) {
+
+			/* still pending messages, wait a little bit */
+			myqtt_sleep (10000);
+
+			continue;
+		}
+		break; /* messages pending are zero */
 	}
 
 	/* close this connection */
@@ -3835,6 +3882,10 @@ void               myqtt_conn_free (MyQttConn * connection)
 	/* wait reply hash */
 	axl_hash_free (connection->wait_replies);
 	connection->wait_replies = NULL;
+
+	/* peer wait reply hash */
+	axl_hash_free (connection->peer_wait_replies);
+	connection->peer_wait_replies = NULL;
 
 	/* wild subs */
 	axl_hash_free (connection->subs);

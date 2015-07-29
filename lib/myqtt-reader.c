@@ -484,10 +484,11 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	} /* end if */
 
 	/* report that we've received a connection */
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Received CONNECT request conn-id=%d from %s:%s, client-identifier=%s, keep alive=%d, username=%s, password=%s", 
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Received CONNECT request conn-id=%d from %s:%s, client-identifier=%s, keep-alive=%d, clean-session=%d, username=%s, password=%s", 
 		   conn->id, conn->host, conn->port, 
 		   conn->client_identifier ? conn->client_identifier : "",
 		   conn->keep_alive,
+		   conn->clean_session,
 		   conn->username ? conn->username : "",
 		   conn->password ? "*****" : "");
 
@@ -872,25 +873,30 @@ void __myqtt_reader_handle_disconnect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn
 void __myqtt_reader_handle_wait_reply (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _data)
 {
 	MyQttAsyncQueue        * queue;
+	char                   * str;
 
  	/* check if this is a listener */
 	if (conn->role != MyQttRoleInitiator) {
-		if (msg->type == MYQTT_SUBACK)
-			myqtt_conn_report_and_close (conn, "Received SUBACK request over a connection that is not an initiator");
-		else if (msg->type == MYQTT_UNSUBACK)
-			myqtt_conn_report_and_close (conn, "Received UNSUBACK request over a connection that is not an initiator");
-		else if (msg->type == MYQTT_PINGRESP)
-			myqtt_conn_report_and_close (conn, "Received PINGRESP request over a connection that is not an initiator");
-		else if (msg->type == MYQTT_PUBREC)
-			myqtt_conn_report_and_close (conn, "Received PUBREC request over a connection that is not an initiator");
-		else if (msg->type == MYQTT_PUBCOMP)
-			myqtt_conn_report_and_close (conn, "Received PUBCOMP request over a connection that is not an initiator");
+		switch (msg->type) {
+		case MYQTT_SUBACK:
+		case MYQTT_UNSUBACK:
+		case MYQTT_PINGRESP:
 
-		return;
+			/* create message, report, release and stop  */
+			str = axl_strdup_printf ("Received %s request over a connection that is not an initiator", myqtt_msg_get_type_str (msg));
+			myqtt_conn_report_and_close (conn, str);
+			axl_free (str);
+			return;
+
+		default:
+			break;
+		} /* end switch */
+
 	} /* end if */
 
+	/* check poorly formed messages */
 	if ((msg->type == MYQTT_PUBACK   && msg->size != 2) || 
-	    (msg->type == MYQTT_PUBREC   && msg->size != 2) || 
+	    (msg->type == MYQTT_PUBREC   && msg->size != 2) ||  
 	    (msg->type == MYQTT_PUBCOMP  && msg->size != 2) || 
 	    (msg->type == MYQTT_SUBACK   && msg->size < 3) || 
 	    (msg->type == MYQTT_UNSUBACK && msg->size < 2) || 
@@ -918,7 +924,7 @@ void __myqtt_reader_handle_wait_reply (MyQttCtx * ctx, MyQttConn * conn, MyQttMs
 		msg->packet_id = -1;
 	else
 		msg->packet_id = myqtt_get_16bit (msg->payload);
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Pushing %s msg=%d, for packet-id=%d", myqtt_msg_get_type_str (msg), msg->id, msg->packet_id);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Pushing %s msg=%d, for packet-id=%d conn-id=%d conn=%p", myqtt_msg_get_type_str (msg), msg->id, msg->packet_id, conn->id, conn);
 
 	/* now call to wait queue if defined */
 	myqtt_mutex_lock (&conn->op_mutex);
@@ -926,8 +932,15 @@ void __myqtt_reader_handle_wait_reply (MyQttCtx * ctx, MyQttConn * conn, MyQttMs
 	/* get queue and remove it from the set of wait replies */
 	if (msg->type == MYQTT_PINGRESP)
 		queue = conn->ping_resp_queue;
-	else
-		queue = axl_hash_get (conn->wait_replies, INT_TO_PTR (msg->packet_id));
+	else {
+		/* notes about selecting conn->wait_replies or conn->peer_wait_replies */
+		if (msg->type == MYQTT_PUBREL)
+			queue = axl_hash_get (conn->peer_wait_replies, INT_TO_PTR (msg->packet_id));
+		else {
+			/* rest of replies uses conn->wait_replies */
+			queue = axl_hash_get (conn->wait_replies, INT_TO_PTR (msg->packet_id));
+		}
+	}
 
 	/* release lock */
 	myqtt_mutex_unlock (&conn->op_mutex);
@@ -1219,8 +1232,9 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 			/* publish message */
 			myqtt_log (MYQTT_LEVEL_DEBUG, "Publishing topic name '%s', qos: %d (app msg size: %d) on conn %p", 
 				   msg->topic_name, qos, msg->app_message_size, conn);
+
 			/* retain = axl_false always : MQTT-2.1.2-11 */
-			if (! myqtt_conn_pub (conn, msg->topic_name, (axlPointer) msg->app_message, msg->app_message_size, qos, axl_false, 0))
+			if (! myqtt_conn_pub (conn, msg->topic_name, (axlPointer) msg->app_message, msg->app_message_size, qos, axl_false, 10))
 				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to publish message message, errno=%d", errno); 
 			
 			/* next item */
@@ -1260,6 +1274,7 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	/* local variables */
 	int                      desp = 0;
 	unsigned char          * reply;
+	MyQttMsg               * response;
 
 	/* parse content received inside message */
 	msg->topic_name = __myqtt_reader_get_utf8_string (ctx, msg->payload, msg->size);
@@ -1290,35 +1305,35 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	msg->app_message         = msg->payload + desp;
 	msg->app_message_size    = msg->size - desp;
 
-	myqtt_log (MYQTT_LEVEL_DEBUG, "PUBLISH: received request to publish (qos: %d, topic name: %s, packet id: %d, app msg size: %d, msg size: %d)",
+	myqtt_log (MYQTT_LEVEL_DEBUG, "PUBLISH: incoming publish request received (qos: %d, topic name: %s, packet id: %d, app msg size: %d, msg size: %d)",
 		   msg->qos, msg->topic_name, msg->packet_id, msg->app_message_size, msg->size);
 
-	/**** CLIENT HANDLING **** 
-	 * we have received a PUBLISH packet as client, we have to
-	 * notify it to the application level */
-	if (conn->role == MyQttRoleInitiator) {
-		/* call to notify message */
-		if (conn->on_msg)
-			conn->on_msg (ctx, conn, msg, conn->on_msg_data);
-		else if (ctx->on_msg)
-			ctx->on_msg (ctx, conn, msg, ctx->on_msg_data);
-		return;
-	} /* end if */
-
-	/* call to do publish */
-	__myqtt_reader_do_publish (ctx, conn, msg);
-
 	/* now, for QoS1 we have to reply with a puback */
-	if (msg->qos == MYQTT_QOS_1 || msg->qos == MYQTT_QOS_2) {
+	if (msg->qos == MYQTT_QOS_2) {
+
+		/** 
+		 *		Req        Resp      Req        Resp
+		 *
+		 * QoS 0 :   PUBLISH ->  (*) no reply                      : no need to reply for now
+		 *
+		 * QoS 1 :   PUBLISH ->  (*) PUBACK                        : no need to reply for now, we will notify 
+		 *                                                           to application level or do publish before 
+		 *                                                           sending PUBACK
+		 *
+		 * QoS 2 :   PUBLISH ->  (*) PUBREC ->  PUBREL ->  PUBCOMP : save message and send PUBREC
+		 *
+		 * (*) where we are
+		 */
+
+		/* save message localy */
+
 		/* configure header */
 		reply    = axl_new (unsigned char, 4);
 		if (reply == NULL)
 			return;
 
-		if (msg->qos == MYQTT_QOS_1)
-			reply[0] = (( 0x00000f & MYQTT_PUBACK) << 4);
-		else
-			reply[0] = (( 0x00000f & MYQTT_PUBREC) << 4);
+		/* prepare PUBREC reply */
+		reply[0] = (( 0x00000f & MYQTT_PUBREC) << 4);
 
 		/* configure remaining length */
 		reply[1] = 2;
@@ -1327,57 +1342,104 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 		/* myqtt_log (MYQTT_LEVEL_DEBUG, "Saving packet id %d on desp=%d", packet_id, desp + 1); */
 		myqtt_set_16bit (msg->packet_id, reply + 2);
 
+		/* prepare reply to receive: peer_ids = axl_true */
+		__myqtt_reader_prepare_wait_reply (conn, msg->packet_id, axl_true);
+
 		/* send message */
-		if (! myqtt_sequencer_send (conn, (msg->qos == MYQTT_QOS_1) ? MYQTT_PUBACK : MYQTT_PUBREC, reply, 4))
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send %s message, errno=%d", (msg->qos == MYQTT_QOS_1) ? "PUBACK" : "PUBREC", errno);
-	} /* end if */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Sending reply PUBCREC (%d) to packet-id=%d, conn-id=%d (%p)", 
+			   reply[1], msg->packet_id, conn->id, conn);
 
-	return;
-}
-
-/** 
- * @internal PUBREL handling..
- */
-void __myqtt_reader_handle_pubrel (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _data)
-{
-	/* local variables */
-	int                      desp = 0;
-	unsigned char          * reply;
-
-	/* request to release message and acknoledge message
-	 * publication. Currently we have no mean to notify if we
-	 * finished but that's is a minor problem because we have
-	 * stored all messages to be sent so they will be delivered
-	 * because devices are connected or because the message is
-	 * queued to be sent on next connection */
+		if (! myqtt_sequencer_send (conn, MYQTT_PUBREC, reply, 4))
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send PUBREC message, errno=%d", errno);
 		
-	/**** CLIENT HANDLING ****/
-	if (conn->role == MyQttRoleInitiator) {
-		/* do nothing */
-
-		return;
 	} /* end if */
 
-	/* get packet id */
-	msg->packet_id   = myqtt_get_16bit (msg->payload + desp); 
 
-	/* configure header */
-	reply    = axl_new (unsigned char, 4);
-	if (reply == NULL)
-		return;
+	if (conn->role == MyQttRoleInitiator) {
+		/**** CLIENT HANDLING **** 
+		 * we have received a PUBLISH packet as client, we have to
+		 * notify it to the application level */
 
-	reply[0] = (( 0x00000f & MYQTT_PUBCOMP) << 4);
+		/* call to notify message */
+		if (conn->on_msg)
+			conn->on_msg (ctx, conn, msg, conn->on_msg_data);
+		else if (ctx->on_msg)
+			ctx->on_msg (ctx, conn, msg, ctx->on_msg_data);
 
-	/* configure remaining length */
-	reply[1] = 2;
+	} else if (conn->role == MyQttRoleListener) {
+		/**** SERVER HANDLING ****
+		 * we have received a publish package as server, notify to all subscribers */
 
-	/* set packet id in reply */
-	/* myqtt_log (MYQTT_LEVEL_DEBUG, "Saving packet id %d on desp=%d", packet_id, desp + 1); */
-	myqtt_set_16bit (msg->packet_id, reply + 2);
+		/* call to do publish with all subscribers */
+		__myqtt_reader_do_publish (ctx, conn, msg);
 
-	/* send message */
-	if (! myqtt_sequencer_send (conn, MYQTT_PUBCOMP, reply, 4))
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send PUBCOMP message, errno=%d", errno);
+	} /* end if */
+
+	/* now, for QoS1 and QoS2 produce the pending replies needed */
+	if (msg->qos == MYQTT_QOS_1 || msg->qos == MYQTT_QOS_2) {
+
+		/** 
+		 *		Req        Resp      Req        Resp
+		 *
+		 * QoS 0 :   PUBLISH ->  no reply
+		 *
+		 * QoS 1 :   PUBLISH ->  (*) PUBACK                         : send PUBACK to notify peer message delivered
+		 *
+		 * QoS 2 :   PUBLISH ->  PUBREC ->  (*) PUBREL ->  PUBCOMP  : wait for PUBREL and send PUBCOMP
+		 *
+		 */
+
+		if (msg->qos == MYQTT_QOS_2) {
+			/* get PUBREL as reply of our last PUBREC message */
+			myqtt_log (MYQTT_LEVEL_DEBUG, "Waiting for PUBREL reply for packet-id=%d conn-id=%d (%p)", msg->packet_id, conn->id, conn);
+			response = __myqtt_reader_get_reply (conn, msg->packet_id, 60, axl_true);
+			if (response == NULL) {
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected PUBREL package response for packet-id=%d conn-id=%d (%p) but received NULL message",
+					   msg->packet_id, conn->id, conn);
+				return;
+			}
+
+			if (response->type != MYQTT_PUBREL) {
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected PUBREL for packet-id=%d conn-id=%d (%p) but received %s", msg->packet_id, conn->id, conn, 
+					   myqtt_msg_get_type_str (response));
+				myqtt_msg_unref (response);
+				return;
+			} /* end if */
+
+			/* notify operation completed */
+			myqtt_log (MYQTT_LEVEL_DEBUG, "PUBREL reply for packet-id=%d conn-id=%d (%p) received, sending PUBCOMP", msg->packet_id, conn->id, conn);
+			myqtt_msg_unref (response);
+
+			/* release the message from local persistent
+			 * storage */
+		} /* end if */
+
+		/* configure header to send PUBACK or PUBCOMP according to the QoS */
+		reply    = axl_new (unsigned char, 4);
+		if (reply == NULL)
+			return;
+
+		if (msg->qos == MYQTT_QOS_1)
+			reply[0] = (( 0x00000f & MYQTT_PUBACK) << 4);
+		else
+			reply[0] = (( 0x00000f & MYQTT_PUBCOMP) << 4);
+
+		/* configure remaining length */
+		reply[1] = 2;
+
+		/* set packet id in reply */
+		myqtt_set_16bit (msg->packet_id, reply + 2);
+
+
+		/* send message */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Sending reply %s (%d) to packet-id=%d, conn-id=%d (%p)", 
+			   (msg->qos == MYQTT_QOS_1) ? "PUBACK" : "PUBCOMP", reply[1], msg->packet_id, conn->id, conn);
+
+		if (! myqtt_sequencer_send (conn, (msg->qos == MYQTT_QOS_1) ? MYQTT_PUBACK : MYQTT_PUBCOMP, reply, 4))
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send %s message, errno=%d", (msg->qos == MYQTT_QOS_1) ? "PUBACK" : "PUBCOMP", errno);
+
+		/* notification completed */
+	} /* end if */
 
 	return;
 }
@@ -1488,12 +1550,12 @@ void __myqtt_reader_process_socket (MyQttCtx  * ctx,
 		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_wait_reply, axl_false);
 		break;
 	case MYQTT_PUBREC:
-		/* handle PUBREC packet */
+		/* handle PUBREC packet: first reply for PUBLISH sent when enabled QoS 2 */
 		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_wait_reply, axl_false);
 		break;
 	case MYQTT_PUBREL:
 		/* handle PUBREC packet */
-		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_pubrel, axl_false);
+		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_wait_reply, axl_false);
 		break;
 	case MYQTT_PUBCOMP:
 		/* handle PUBCOMP packet */
@@ -1684,11 +1746,24 @@ void myqtt_reader_foreach_impl (MyQttCtx        * ctx,
  * allowing to call then to __myqtt_reader_get_reply.
  *
  * @param packet_id The packet id we are going to wait.
+ *
+ * @param peer_ids axl_true to indicate that this packet_id wasn't
+ * requeted via local __myqtt_conn_get_next_pkgid() which also means
+ * that this packet id represents a value generated by the remote peer
+ * and hence, it is a package exchange that was initiated by the
+ * remote peer. The idea is that client and server uses and generates
+ * packet_id values that can be the same value but working in an
+ * independent manner. Therefore, it is needed to indicate who created the packet_id: 
+ *
+ *  - peer_ids = axl_false -> this MQTT instance by calling to __myqtt_conn_get_next_pkgid () 
+ *  - peer_ids = axl_true  -> remote MQTT peer as a consequence of a received PUBLISH QoS 2 operation,
+ *   which is the only way to have problems with clashing packet_ids.
  */
-void        __myqtt_reader_prepare_wait_reply (MyQttConn * conn, int packet_id)
+void        __myqtt_reader_prepare_wait_reply (MyQttConn * conn, int packet_id, axl_bool peer_ids)
 {
 	MyQttCtx        * ctx;
 	MyQttAsyncQueue * queue;
+	axlHash         * hash;
 
 	if (conn == NULL)
 		return;
@@ -1701,12 +1776,18 @@ void        __myqtt_reader_prepare_wait_reply (MyQttConn * conn, int packet_id)
 	/* register wait reply method */
 	myqtt_mutex_lock (&conn->op_mutex);
 
+	if (peer_ids)
+		hash = conn->peer_wait_replies;
+	else
+		hash = conn->wait_replies;
+
 	/* check */
-	if (axl_hash_get (conn->wait_replies, INT_TO_PTR (packet_id)))
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Enabling wait reply for a packet_id=%d that is already waiting for a reply...someone is going to miss a reply");
+	if (axl_hash_get (hash, INT_TO_PTR (packet_id)))
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Enabling wait reply for a packet_id=%d peer_ids=%d that is already waiting for a reply...someone is going to miss a reply",
+			   peer_ids);
 
 	/* add queue to implement the wait operation */
-	axl_hash_insert (conn->wait_replies, INT_TO_PTR (packet_id), queue);
+	axl_hash_insert (hash, INT_TO_PTR (packet_id), queue);
 
 	myqtt_mutex_unlock (&conn->op_mutex);
 
@@ -1732,13 +1813,18 @@ void __myqtt_reader_get_reply_on_close (MyQttConn * conn, axlPointer data)
  * @param packet_id The packet id we are waiting for.
  *
  * @param timeout The timeout we are going to wait or 0 if it is
- * required to wait forever.
+ * required to wait forever. This is measured in seconds
+ *
+ * @param peer_ids See relevant notes about this parameter at
+ * __myqtt_reader_prepare_wait_reply's documentation (around line
+ * 1755).
  */
-MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, int timeout)
+MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, int timeout, axl_bool peer_ids)
 {
 	MyQttAsyncQueue * queue;
 	MyQttMsg        * msg = NULL;
 	MyQttCtx        * ctx;
+	axlHash         * hash;
 
 	if (conn == NULL)
 		return NULL;
@@ -1746,28 +1832,42 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 	/* get wait to wait on */
 	myqtt_mutex_lock (&conn->op_mutex);
 
+	if (peer_ids)
+		hash = conn->peer_wait_replies;
+	else
+		hash = conn->wait_replies;
+
 	/* get queue and remove it from the set of wait replies */
-	queue = axl_hash_get (conn->wait_replies, INT_TO_PTR (packet_id));
+	queue = axl_hash_get (hash, INT_TO_PTR (packet_id));
 
 	/* release lock */
 	myqtt_mutex_unlock (&conn->op_mutex);
 
+	/* get context to log */
+	ctx = conn->ctx;
+
 	if (queue == NULL) {
-		/* get context to log */
-		ctx = conn->ctx;
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to find a queue reference for packet_id=%d, conn-id=%d, but found NULL",
 			   packet_id, conn->id);
 		return NULL;
 	} /* end if */
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "QUEUE: Getting reply on queue=%p packet_id=%d conn-id=%d conn=%p peer-ids=%d", queue, packet_id, conn->id, conn, peer_ids);
 	
 	/* install a connection on close handler before calling to wait */
 	myqtt_conn_set_on_close (conn, axl_false, __myqtt_reader_get_reply_on_close, queue);
 	if (myqtt_conn_is_ok (conn, axl_false)) {
 		/* call to wait for message */
 		if (timeout > 0)
-			msg = myqtt_async_queue_pop (queue);
+			msg = myqtt_async_queue_timedpop (queue, timeout * 1000000);
 		else
-			msg = myqtt_async_queue_timedpop (queue, timeout * 1000);
+			msg = myqtt_async_queue_pop (queue);
+
+	} else {
+		myqtt_log (MYQTT_LEVEL_WARNING, "Connection close detected during __myqtt_reader_get_reply call conn-id=%d, packet_id=%d, timeout=%d",
+			   conn->id, packet_id, timeout);
+		if (myqtt_async_queue_items (queue) > 0)
+			msg = myqtt_async_queue_pop (queue);
 	} /* end if */
 
 	/* remove connection close after finishing wait */
@@ -1776,13 +1876,16 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 	if (PTR_TO_INT (msg) == -1) 
 		msg = NULL;
 
+	myqtt_log (MYQTT_LEVEL_DEBUG, "QUEUE: reply received msg=%p msg-id=%d from queue=%p packet_id=%d conn-id=%d conn=%p", 
+		   msg, msg ? msg->id : -1, queue, packet_id, conn->id, conn);
+
 	/* null reference received, try to remove the queue but first
 	 * we have to acquire the reference */
 	myqtt_mutex_lock (&conn->op_mutex);
 
 	/* get the queue to release it */
-	queue = axl_hash_get (conn->wait_replies, INT_TO_PTR (packet_id));
-	axl_hash_delete (conn->wait_replies, INT_TO_PTR (packet_id));
+	queue = axl_hash_get (hash, INT_TO_PTR (packet_id));
+	axl_hash_delete (hash, INT_TO_PTR (packet_id));
 	
 	/* release lock */
 	myqtt_mutex_unlock (&conn->op_mutex);
