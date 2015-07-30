@@ -3577,6 +3577,9 @@ axl_bool test_mosquitto_01 (void)
 	
 	mosquitto_destroy (mosq);
 
+	/* release queue */
+	myqtt_async_queue_unref (queue);
+
 	return axl_true;
 }
 
@@ -3727,6 +3730,9 @@ axl_bool test_mosquitto_02 (void)
 	}
 	
 	mosquitto_destroy (mosq);
+
+	/* release queue */
+	myqtt_async_queue_unref (queue);
 
 	return axl_true;
 }
