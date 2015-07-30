@@ -224,7 +224,7 @@ void   myqtt_support_free (int params, ...)
  * certificates and so on. 
  *
  * You can also use this API to install and configure application
- * level files that will be used by your profile implementation.
+ * level files that will be used by your MQTT solution.
  * 
  * Once a path is added, \ref myqtt_support_find_data_file function
  * will lookup on the provided paths.
@@ -458,11 +458,6 @@ void     myqtt_support_add_domain_search_path_ref (MyQttCtx * ctx,
  * function are used to allows MyQtt Library API consumers to produce
  * easily application level code that is platform/directory-structure
  * independent as possible. 
- * 
- * Because profile definitions needs DTD files, certificates, xml
- * documents, etc, a common problem to face is how to locate this
- * files not only into the development environment but also into the
- * production one.
  * 
  * MyQtt Library allows to configure known file locations using \ref
  * myqtt_support_add_search_path and \ref myqtt_support_add_search_path_ref. 

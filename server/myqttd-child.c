@@ -92,8 +92,7 @@ MyQttdChild * myqttd_child_new (MyQttdCtx * ctx)
 	/* free temporal directory */
 	axl_free (temp_dir);
 	
-	/* set profile path and context */
-	/* result->ppath = def; */
+	/* set context */
 	result->ctx   = ctx;
 
 	/* set default reference counting */
@@ -173,13 +172,12 @@ void              myqttd_child_unref (MyQttdChild * child)
 }
 
 /** 
- * @brief Allows to get the serverName string included in the profile
- * path configuration that triggered this child.
+ * @brief Allows to get the serverName string included in the domain configuration that triggered this child.
  *
- * Every child process created by myqttd is because there is a
- * profile path configuration that instructs it. In this context, this
- * function allows to get the serverName value of the provided profile
- * path configuration that triggered the creation of this child. This
+ * Every child process created by myqttd is because there is a domain
+ * configuration that instructs it. In this context, this function
+ * allows to get the serverName value of the provided domain
+ * configuration that triggered the creation of this child. This
  * function is useful to get a reference to the serverName
  * configuration that triggered this child to allow additional
  * configurations that may be necessary during child initialization or
@@ -189,7 +187,7 @@ void              myqttd_child_unref (MyQttdChild * child)
  * child.
  *
  * @return A reference to the serverName expression configured in the
- * profile path or NULL if it fails. 
+ * domain or NULL if it fails. 
  */
 const char      * myqttd_child_get_serverName (MyQttdCtx * ctx)
 {
@@ -310,7 +308,7 @@ axl_bool          myqttd_child_build_from_init_string (MyQttdCtx * ctx,
 		return axl_false;
 	child->serverName = axl_strdup (items[5]);
 	axl_freev (items);
-	msg ("CHILD: profile path serverName for this child: %s", child->serverName);
+	msg ("CHILD: domain serverName for this child: %s", child->serverName);
 
 	/* set default reference counting */
 	child->ref_count = 1;
@@ -351,23 +349,13 @@ axl_bool          myqttd_child_post_init (MyQttdCtx * ctx)
 	/* get child reference */
 	child = ctx->child;
 
-	/* define profile path */
-	msg ("Setting profile path id for child %s", child->init_string_items[10] ? child->init_string_items[10] : "<not defined>");
-	/* def = myqttd_ppath_find_by_id (ctx, atoi (child->init_string_items[10])); */
+	/* define domain */
+	msg ("Setting id for child %s", child->init_string_items[10] ? child->init_string_items[10] : "<not defined>");
 	if (def == NULL) {
-		error ("Unable to find profile path associated to id %d, unable to complete post init", atoi (child->init_string_items[10]));
+		error ("Unable to find domain associated to id %d, unable to complete post init", atoi (child->init_string_items[10]));
 		return axl_false;
 	}
-	/* msg ("  Set path: '%s'", myqttd_ppath_get_name (def));
-	   ctx->child->ppath = def; */
 
-	/* check here to change root path, in the case it is defined
-	 * now we still have priviledges */
-	/* myqttd_ppath_change_root (ctx, def); */
-
-	/* check here for setuid support */
-	/* myqttd_ppath_change_user_id (ctx, def); */
-	
 	/* create loop to watch child->child_connection */
 	child->child_conn_loop = myqttd_loop_create (ctx);
 	myqttd_loop_watch_descriptor (child->child_conn_loop, child->child_connection, 

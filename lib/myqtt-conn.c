@@ -219,7 +219,7 @@ typedef struct _MyQttConnOnCloseData {
  *
  * This function also sets the default handler for sending and
  * receiving data using the send and recv operations. If you are
- * developing a profile which needs to notify the way data is actually
+ * developing a MQTT solution which needs to notify the way data is actually
  * sent or received you should change that behavior after calling
  * this function. This is done by using:
  *
@@ -3423,25 +3423,16 @@ axl_bool               myqtt_conn_ref_internal                    (MyQttConn * c
  * Because MyQtt Library design, several on going threads shares
  * references to the same connection for several purposes. 
  * 
- * Conn reference counting allows to every on going thread to
- * notify the system that connection reference is no longer be used
- * so, if the reference counting reach a zero value, connection
- * resources will be deallocated.
+ * Conn reference counting allows to every on going thread to notify
+ * the system that connection reference is no longer in use so, if the
+ * reference counting reachs zero, connection resources will be
+ * collected.
  *
- * While using the MyQtt Library is not required to use this function
- * especially for those applications which are built on top of a
- * profile which is layered on MyQtt Library. 
- *
- * This is because connection handling is done through functions such
- * \ref myqtt_conn_new and \ref myqtt_conn_close (which
- * automatically handles connection reference counting for you).
- *
- * Keep in mind that using this function implied to use \ref
- * myqtt_conn_unref function in all code path implemented. For
- * each call to \ref myqtt_conn_ref it should exist a call to
- * \ref myqtt_conn_unref. Failing on doing this will cause
+ * Keep in mind that using this function also implies to use \ref
+ * myqtt_conn_unref . For each call to \ref myqtt_conn_ref it should
+ * exist a call to \ref myqtt_conn_unref. Failing to do so will cause
  * either memory leak or memory corruption because improper connection
- * deallocations.
+ * collection.
  * 
  * The function return axl_true to signal that the connection reference
  * count was increased in one unit. If the function return axl_false, the
@@ -3474,7 +3465,7 @@ axl_bool               myqtt_conn_ref                    (MyQttConn * connection
 	return myqtt_conn_ref_internal (connection, who, axl_true);
 }
 
-/**
+/** 
  * @brief Allows to perform a ref count operation on the connection
  * provided without checking if the connection is working (no call to
  * \ref myqtt_conn_is_ok).
@@ -5002,9 +4993,8 @@ MyQttReceive   myqtt_conn_set_receive_handler (MyQttConn     * connection,
  * used while sending and receiving data from the underlying
  * transport. This functions are usually not required API consumers.
  *
- * This function allows to returns to the default handlers used by the
- * MyQtt Library to perform these operations. This useful to
- * implement handler restoring when the tuning profile have failed.
+ * This function allows to configure the default handlers to be used
+ * by the MyQtt Library. This useful to implement handler restoring.
  * 
  * @param connection The connection where the handler restoring will
  * take place.
