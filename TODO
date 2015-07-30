@@ -30,8 +30,6 @@
   <drop-conn-same-client-id value="yes" /> to implement the standard
   (even though it makes no sense):  http://2lemetry.com/2014/10/24/avoiding-mqtt-pitfalls/
 
-* Remove references to ppath concept inside myqttd
-
 * Limit subscription size somehow. It could be a memory problem.
 
 * Make client library to try to connect with 3.1.1 and if it fails, with 
@@ -101,4 +99,4 @@ Disculpad mi osadia
 I against I 
 Todos duermen ya
 Jugar al azar
-Al corriente enseña el caminio hacia el mar
+La corriente enseña el caminio hacia el mar

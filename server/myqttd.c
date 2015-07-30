@@ -2064,8 +2064,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * <ol>
  *
  *  <li>Init (\ref ModInitFunc): A handler called by MyQttD to start the module. Here
- *  the developer must place all calls required to install/configure a
- *  profile, init global variables, etc.</li>
+ *  the developer must place all calls required to install/configure the module, init global variables, etc.</li>
  *
  *  <li>Close (\ref ModCloseFunc): Called by MyQttD to stop a module. Here the
  *  developer must stop and dealloc all resources used by its

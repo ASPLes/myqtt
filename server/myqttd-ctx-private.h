@@ -142,7 +142,7 @@ struct _MyQttdChild {
 
 	/** 
 	 * @brief This is a reference to the serverName configuration
-	 * that is found in the profile path that started this child.
+	 * that is found in the domain that started this child.
 	 */
 	char               * serverName;
 

@@ -1087,7 +1087,7 @@ axl_bool myqttd_run_domain_settings_load (MyQttdCtx * ctx, axlDoc * doc)
  * @internal Takes current configuration, and starts all settings
  * required to run the server.
  * 
- * Later, all modules will be loaded adding profile configuration.
+ * Later, all modules will be loaded adding domain configuration.
  *
  * @return axl_false if the function is not able to properly start
  * myqttd or the configuration will produce bad results.

@@ -237,7 +237,7 @@ int        myqttd_conn_mgr_count       (MyQttdCtx            * ctx)
 /** 
  * @brief Allows to check if the provided connection has to be proxied
  * on the parent master process in the case it is required to be sent
- * to a child process due to profile path configuration.
+ * to a child process due to domain configuration.
  *
  * To flag a connection in such way will create an especial
  * configuration at the parent process to read content over the
@@ -250,7 +250,7 @@ int        myqttd_conn_mgr_count       (MyQttdCtx            * ctx)
  *
  * NOTE: This function only flags! it does not actually send the
  * connection to a particular child (that only will happens when the
- * site administrator configures the profile path to make it).
+ * site administrator configures the domain to make it).
  *
  * @param conn The connection that is flagged to be proxied on parent. 
  *
@@ -295,7 +295,7 @@ void __myqttd_conn_mgr_proxy_reads (MyQttCtx * myqtt_ctx, MyQttConn * listener, 
 	/* check status and close the other connection if found that */
 	bytes_read = myqtt_msg_receive_raw (conn, (unsigned char *) buffer, 4096);
 
-	/* msg ("PROXY-beep: Read %d bytes from conn-id=%d, sending them to child socket=%d (refs: %d, status: %d, errno=%d%s%s)",
+	/* msg ("PROXY-mqtt: Read %d bytes from conn-id=%d, sending them to child socket=%d (refs: %d, status: %d, errno=%d%s%s)",
 	     bytes_read, myqtt_conn_get_id (conn), _socket,
 	     myqtt_conn_ref_count (conn), myqtt_conn_is_ok (conn, axl_false), errno,
 	     errno != 0 ? " : " : "",
@@ -304,7 +304,7 @@ void __myqttd_conn_mgr_proxy_reads (MyQttCtx * myqtt_ctx, MyQttConn * listener, 
 	if (bytes_read > 0) {
 		/* send content */
 		if (send (_socket, buffer, bytes_read, 0) != bytes_read) {
-			wrn ("PROXY-beep: closing conn-id=%d because socket=%d isn't working", 
+			wrn ("PROXY-mqtt: closing conn-id=%d because socket=%d isn't working", 
 			     myqtt_conn_get_id (conn), _socket); 
 
 			/* remove preread handler and shutdown */
@@ -313,7 +313,7 @@ void __myqttd_conn_mgr_proxy_reads (MyQttCtx * myqtt_ctx, MyQttConn * listener, 
 		} /* end if */
 
 		/* buffer[bytes_read] = 0;
-		   msg ("PROXY-beep: sent content (beep conn-id=%d -> socket=%d): %s", myqtt_conn_get_id (conn), _socket, buffer); */
+		   msg ("PROXY-mqtt: sent content (mqtt conn-id=%d -> socket=%d): %s", myqtt_conn_get_id (conn), _socket, buffer); */
 	} /* end if */
 
 	return;
@@ -519,7 +519,7 @@ axl_bool count_channels (axlPointer key, axlPointer _value, axlPointer user_data
 #endif
 	
 	/* count */
-	msg2 ("Adding %d to current count %d (profile: %s)", *count, value, (const char *) key);
+	msg2 ("Adding %d to current count %d (domain: %s)", *count, value, (const char *) key);
 	(*count) = (*count) + value;
 
 	return axl_false; /* iterate over all items found in the

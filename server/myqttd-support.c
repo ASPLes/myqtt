@@ -153,11 +153,11 @@ char          * myqttd_support_get_backtrace (MyQttdCtx * ctx, int pid)
 	msg ("Running: %s, exit status: %d", command, status);
 	axl_free (command);
 
-	/* get profile path id */
+	/* get domain id */
 	if (ctx->child == NULL) 
 		command  = axl_strdup_printf ("echo \"Failure found at main process.\" >> %s", backtrace_file);
 	else {
-		/* get profile path associated to child process */
+		/* get domain associated to child process */
 		command   = axl_strdup_printf ("echo \"Failure found at child process.\" >> %s", backtrace_file);
 	}
 	status   = system (command);

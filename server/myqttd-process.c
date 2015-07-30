@@ -170,7 +170,7 @@ void myqttd_process_check_for_finish (MyQttdCtx * ctx)
 
 	/* check if the child process was configured with a reuse
 	   flag, if not, notify exist right now */
-	/* if (! ctx->child->ppath->reuse) { */
+	/* if (! ctx->child->domain->reuse) { */
 	/*	        msg ("CHILD: unlocking listener to finish: %p..", ctx->myqtt_ctx); */
 		/* so it is a child process without reuse flag
 		   activated, exit now */
@@ -677,7 +677,7 @@ axl_bool __myqttd_process_common_new_connection (MyQttdCtx      * ctx,
 	}
 
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
-		error ("CHILD: Connection id=%d is not working after notifying ppath selected handler..", myqtt_conn_get_id (conn));
+		error ("CHILD: Connection id=%d is not working after notifying domain selected handler..", myqtt_conn_get_id (conn));
 		myqtt_conn_close (conn);
 		return axl_false;
 	}
@@ -864,7 +864,7 @@ MyQttConn * __myqttd_process_handle_connection_received (MyQttdCtx      * ctx,
 	/* set TLS status */
 	if (has_tls > 0) {
 		conn->tls_on = axl_true;
-		msg ("CHILD: flagging the connection to have tls enabled (for profile path activation, fake TLS socket), conn-id=%d (%d)",
+		msg ("CHILD: flagging the connection to have tls enabled (for domain activation, fake TLS socket), conn-id=%d (%d)",
 		     myqtt_conn_get_id (conn), conn->tls_on);
 	} 
 
@@ -971,10 +971,10 @@ void __myqttd_process_release_parent_connections_foreach  (MyQttConn * conn, axl
  * @internal This function ensures that all connections that the
  * parent handles but the child must't are closed properly so the
  * child process only have access to connections associated to its
- * profile path.
+ * domain.
  *
  * The idea is that the parent (main process) may have a number of
- * running connections serving certain profile paths...but when it is
+ * running connections serving certain domains...but when it is
  * required to create a child, a fork is done (unix) and all sockets
  * associated running at the parent, are available and the child so it
  * is required to release all this stuff.
@@ -1029,7 +1029,7 @@ void __myqttd_process_prepare_logging (MyQttdCtx * ctx, axl_bool is_parent, int 
 }
 
 /** 
- * @internal Allows to check child limit (global and profile path
+ * @internal Allows to check child limit (global and domain
  * limits).
  *
  * @param ctx The context where the limit is being checked.
@@ -1037,7 +1037,7 @@ void __myqttd_process_prepare_logging (MyQttdCtx * ctx, axl_bool is_parent, int 
  * @param conn The connection that triggered the child creation
  * process.
  *
- * @param def The profile path def selected for this connection.
+ * @param def The domain def selected for this connection.
  *
  * @return axl_true in the case the limit was reched and the
  * connection was closed, otherwise axl_false is returned.
@@ -1215,7 +1215,7 @@ void myqttd_process_create_child (MyQttdCtx           * ctx,
 	int                error_log[2]   = {-1, -1};
 	int                access_log[2]  = {-1, -1};
 	int                myqtt_log[2]  = {-1, -1};
-	/* const char    * ppath_name;*/
+	/* const char    * domain_name;*/
 	int                error_code;
 	char            ** cmds;
 	int                iterator = 0;
@@ -1239,9 +1239,9 @@ void myqttd_process_create_child (MyQttdCtx           * ctx,
 		return;
 	} /* end if */
 
-	/* get profile path name */
-	/* ppath_name     = myqttd_ppath_get_name (def) ? myqttd_ppath_get_name (def) : "";
-	   msg2 ("Calling to create child process to handle profile path: %s..", ppath_name); */
+	/* get domain name */
+	/* domain_name     = myqttd_domain_get_name (def) ? myqttd_domain_get_name (def) : "";
+	   msg2 ("Calling to create child process to handle domain name: %s..", domain_name); */
 
 	MYQTTD_PROCESS_LOCK_CHILD ();
 
@@ -1258,11 +1258,11 @@ void myqttd_process_create_child (MyQttdCtx           * ctx,
 	/* enable SIGCHLD handling */
 	myqttd_signal_sigchld (ctx, axl_true);
 
-	/* msg2 ("LOCK acquired: calling to create child process to handle profile path: %s..", ppath_name); */
+	/* msg2 ("LOCK acquired: calling to create child process to handle domain: %s..", domain_name); */
 	
-	/* check if child associated to the given profile path is
+	/* check if child associated to the given domain is
 	   defined and if reuse flag is enabled */
-	/* child = myqttd_process_get_child_from_ppath (ctx, def, axl_false); */
+	/* child = myqttd_process_get_child_from_domain (ctx, def, axl_false); */
 	if (/* def->reuse && */ child) {
 		msg ("Found child process reuse flag and child already created (%p), sending connection id=%d",
 		     child, myqtt_conn_get_id (conn));
@@ -1278,7 +1278,7 @@ void myqttd_process_create_child (MyQttdCtx           * ctx,
 			       serverName, msg);
 		} else {
 		     
-			/* reuse profile path */
+			/* reuse domain */
 			myqttd_process_send_connection_to_child (
 			       ctx, child, conn, 
 			       handle_reply, serverName, msg);
@@ -1413,7 +1413,7 @@ void myqttd_process_create_child (MyQttdCtx           * ctx,
 				      /* data and destroy func */
 				      child, (axlDestroyFunc) myqttd_child_unref);
 
-		/* update number of childs running this profile path */
+		/* update number of childs running this domain */
 		/* def->childs_running++; */
 
 		MYQTTD_PROCESS_UNLOCK_CHILD ();
@@ -1712,7 +1712,7 @@ axl_bool myqttd_process_child_exists  (MyQttdCtx * ctx, int pid)
 	if (ctx == NULL || pid < 0)
 		return axl_false;
 
-	return axl_false; /* (myqttd_process_find_pid_from_ppath_id (ctx, pid) != -1); */
+	return axl_false; /* (myqttd_process_find_pid_from_domain_id (ctx, pid) != -1); */
 }
 
 /** 

@@ -564,7 +564,7 @@ PyMODINIT_FUNC initlibpy_myqtt_tls_10 (void)
 
 	/* register myqtt module */
 	module = Py_InitModule3 ("libpy_myqtt_tls_10", py_myqtt_tls_methods, 
-				 "TLS binding support for myqtt library TLS profile");
+				 "MQTT LTS Support for MyQtt");
 	if (module == NULL) {
 		py_myqtt_log (PY_MYQTT_CRITICAL, "failed to create tls module");
 		return;
