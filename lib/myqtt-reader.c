@@ -1881,14 +1881,18 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "QUEUE: Getting reply on queue=%p packet_id=%d conn-id=%d conn=%p peer-ids=%d", queue, packet_id, conn->id, conn, peer_ids);
 	
-	/* install a connection on close handler before calling to wait */
-	myqtt_conn_set_on_close (conn, axl_false, __myqtt_reader_get_reply_on_close, queue);
 	if (myqtt_conn_is_ok (conn, axl_false)) {
+		/* install a connection on close handler before calling to wait */
+		myqtt_conn_set_on_close (conn, axl_false, __myqtt_reader_get_reply_on_close, queue);
+
 		/* call to wait for message */
 		if (timeout > 0)
 			msg = myqtt_async_queue_timedpop (queue, timeout * 1000000);
 		else
 			msg = myqtt_async_queue_pop (queue);
+
+		/* remove connection close after finishing wait */
+		myqtt_conn_remove_on_close (conn, __myqtt_reader_get_reply_on_close, queue);
 
 	} else {
 		myqtt_log (MYQTT_LEVEL_WARNING, "Connection close detected during __myqtt_reader_get_reply call conn-id=%d, packet_id=%d, timeout=%d",
@@ -1896,9 +1900,6 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 		if (myqtt_async_queue_items (queue) > 0)
 			msg = myqtt_async_queue_pop (queue);
 	} /* end if */
-
-	/* remove connection close after finishing wait */
-	myqtt_conn_remove_on_close (conn, __myqtt_reader_get_reply_on_close, queue);
 
 	if (PTR_TO_INT (msg) == -1) 
 		msg = NULL;
@@ -1918,8 +1919,23 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 	myqtt_mutex_unlock (&conn->op_mutex);
 
 	/* release queue if defined */
-	if (queue)
-		myqtt_async_queue_unref (queue);
+	if (queue) {
+		/* check if the connection is ok: if that's the case,
+		 * then we can safely release the queue reference
+		 * because we can be sure that the connection on_close
+		 * wasn't called  */
+		if (myqtt_conn_is_ok (conn, axl_false))
+			myqtt_async_queue_unref (queue);
+		else {
+			/* thread planner playing with us, on
+			 * connection close was called, but may have
+			 * been freezed in the middle but we have to
+			 * release the queue, so for that, link the
+			 * queue to the connection os that it is
+			 * released when the connection is finished */ 
+			myqtt_conn_set_data_full (conn, axl_strdup_printf ("%p", queue), queue, axl_free, (axlDestroyFunc) myqtt_async_queue_unref);
+		}
+	}
 
 	return msg;
 }
