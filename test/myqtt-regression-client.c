@@ -1934,6 +1934,7 @@ axl_bool test_14 (void) {
 	int               sub_result;
 	MyQttAsyncQueue * queue; 
 	int               value;
+	const char      * msg_str;
 
 	if (! ctx)
 		return axl_false;
@@ -2022,18 +2023,24 @@ axl_bool test_14 (void) {
 
 		/* more checks here */
 		if (axl_cmp (myqtt_msg_get_topic (msg), "test/message/1")) {
-			if (! axl_cmp (myqtt_msg_get_app_msg (msg), "This is a test message 1 for offline publication..")) {
-				printf ("ERROR: expected different test but found: %s\n", (char *) myqtt_msg_get_app_msg (msg));
+			msg_str = "This is a test message 1 for offline publication..";
+			if (! axl_cmp (myqtt_msg_get_app_msg (msg), msg_str)) {
+				printf ("ERROR: 14.1, expected different test but found (1): %s\n", (char *) myqtt_msg_get_app_msg (msg));
+				printf ("       message expected: %s\n", msg_str);
 				return axl_false;
 			} /* end if */
 		} else if (axl_cmp (myqtt_msg_get_topic (msg), "test/message/2")) {
-			if (! axl_cmp (myqtt_msg_get_app_msg (msg), "This is a test message 2 for offline publication..")) {
-				printf ("ERROR: expected different test but found: %s\n", (char *) myqtt_msg_get_app_msg (msg));
+			msg_str = "This is a test message 2 for offline publication..";
+			if (! axl_cmp (myqtt_msg_get_app_msg (msg), msg_str)) {
+				printf ("ERROR: 14.2, expected different test but found (2): %s\n", (char *) myqtt_msg_get_app_msg (msg));
+				printf ("       message expected: %s\n", msg_str);
 				return axl_false;
 			} /* end if */
 		} else if (axl_cmp (myqtt_msg_get_topic (msg), "test/message/3")) {
-			if (! axl_cmp (myqtt_msg_get_app_msg (msg), "This is a test message 3 for offline publication..")) {
-				printf ("ERROR: expected different test but found: %s\n", (char *) myqtt_msg_get_app_msg (msg));
+			msg_str = "This is a test message 3 for offline publication..";
+			if (! axl_cmp (myqtt_msg_get_app_msg (msg), msg_str)) {
+				printf ("ERROR: 14.3, expected different test but found (3): %s\n", (char *) myqtt_msg_get_app_msg (msg));
+				printf ("       message expected: %s\n", msg_str);
 				return axl_false;
 			} /* end if */
 		} else {
