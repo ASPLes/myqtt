@@ -751,6 +751,53 @@ axl_bool test_02 (void) {
 	return axl_true;
 }
 
+axl_bool test_02_a (void) {
+
+	MyQttCtx  * ctx = init_ctx ();
+	MyQttConn * conn;
+	int         sub_result;
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 02-a: creating connection..\n");
+
+	/* now connect to the listener:
+	   client_identifier -> test_02
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	conn = myqtt_conn_new (ctx, "test_02", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 02-a: connected without problems..\n");
+
+	/* subscribe to a topic */
+	if (! myqtt_conn_sub (conn, 10, "myqtt/+", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* subscribe to a topic */
+	if (! myqtt_conn_sub (conn, 10, "test/#", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* close connection */
+	printf ("Test 02-a: closing connection..\n");
+	myqtt_conn_close (conn);
+
+	/* release context */
+	printf ("Test 02-a: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+
+
+
+	return axl_true;
+}
+
 void test_03_on_message (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 {
 	MyQttAsyncQueue * queue = user_data;
@@ -764,10 +811,12 @@ void test_03_on_message (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPo
 void test_03_fail (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
 {
 	printf ("ERROR: this handler shouldn't be called because this connection has no subscriptions..\n");
+	printf ("ERROR: received message with topic=%s and content=%s\n", myqtt_msg_get_topic (msg), (const char *) myqtt_msg_get_app_msg (msg));
+	exit (-1);
 	return;
 } 
 
-axl_bool test_03 (void) {
+axl_bool test_03_common (int wildcard) {
 
 	MyQttCtx        * ctx = init_ctx ();
 	MyQttConn       * conn;
@@ -775,6 +824,7 @@ axl_bool test_03 (void) {
 	int               sub_result;
 	MyQttAsyncQueue * queue;
 	MyQttMsg        * msg;
+	const char      * label;
 
 	if (! ctx)
 		return axl_false;
@@ -806,7 +856,14 @@ axl_bool test_03 (void) {
 	printf ("Test 03: connected without problems (without subscriptions)..\n");
 
 	/* subscribe to a topic */
-	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
+	label = "myqtt/test";
+	if (wildcard == 1)
+		label = "myqtt/+";
+	else if (wildcard == 2)
+		label = "myqtt/#";
+
+	printf ("Test 03: subscribing to %s\n", label);
+	if (! myqtt_conn_sub (conn, 10, label, 0, &sub_result)) {
 		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
@@ -826,7 +883,6 @@ axl_bool test_03 (void) {
 	/* waiting for reply */
 	printf ("Test 03: waiting for reply..\n");
 	msg   = myqtt_async_queue_pop (queue);
-	myqtt_async_queue_unref (queue);
 	if (msg == NULL) {
 		printf ("ERROR: expected to find message from queue, but NULL was found..\n");
 		return axl_false;
@@ -858,13 +914,30 @@ axl_bool test_03 (void) {
 	myqtt_conn_close (conn);
 	myqtt_conn_close (conn2);
 
+	myqtt_async_queue_unref (queue);
+
 	/* release context */
-	printf ("Test 03: releasing context..\n");
+	printf ("Test 03: releasing context refs=%d..\n", myqtt_ctx_ref_count (ctx));
 	myqtt_exit_ctx (ctx, axl_true);
 
 
 
 	return axl_true;
+}
+
+axl_bool test_03 (void) {
+	/* wildcard = 0 */
+	return test_03_common (0);
+}
+
+axl_bool test_03a (void) {
+	/* wildcard = 1 -> + */
+	return test_03_common (1);
+}
+
+axl_bool test_03b (void) {
+	/* wildcard = 2 -> # */
+	return test_03_common (2);
 }
 
 axl_bool test_04 (void) {
@@ -4009,8 +4082,17 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_02")
 	run_test (test_02, "Test 02: basic subscribe function (QOS 0)");
 
+	CHECK_TEST("test_02a")
+	run_test (test_02_a, "Test 02-a: basic subscribe function with wild-cards (QOS 0)");
+
 	CHECK_TEST("test_03")
 	run_test (test_03, "Test 03: basic subscribe function (QOS 0) and publish");
+
+	CHECK_TEST("test_03a")
+	run_test (test_03a, "Test 03-a: basic subscribe function (QOS 0) and publish (wildcard +)");
+
+	CHECK_TEST("test_03b")
+	run_test (test_03b, "Test 03-a: basic subscribe function (QOS 0) and publish (wildcard #)");
 
 	CHECK_TEST("test_04")
 	run_test (test_04, "Test 04: basic unsubscribe function (QOS 0)");

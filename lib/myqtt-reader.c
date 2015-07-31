@@ -1208,19 +1208,19 @@ void __myqtt_reader_handle_unsubscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttM
 		while (ctx->publish_ops > 0)
 			myqtt_cond_timedwait (&ctx->subs_c, &ctx->subs_m, 10000);
 		
-		/* now get connection hash handling that topic */
+		/* remove the connection from the context subs hash */
 		sub_hash = axl_hash_get (ctx->subs, (axlPointer) topic_filter);
-		if (! sub_hash) {
-			/* not finding the subhash isn't an error any more */
-			/* myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to find connection hash under the topic %s but found NULL reference [internal engine error]..", 
-			   topic_filter); */
-			/* release lock */
-			myqtt_mutex_unlock (&ctx->subs_m);
-			continue;
+		if (sub_hash) {
+			/* remove the connection from that connection hash */
+			axl_hash_remove (sub_hash, conn);
 		} /* end if */
 
-		/* remove the connection from that connection hash */
-		axl_hash_remove (sub_hash, conn);
+		/* remove the connection from the wild subs */
+		sub_hash = axl_hash_get (ctx->wild_subs, (axlPointer) topic_filter);
+		if (sub_hash) {
+			/* remove the connection from that connection hash */
+			axl_hash_remove (sub_hash, conn);
+		} /* end if */
 
 		/* release lock */
 		myqtt_mutex_unlock (&ctx->subs_m);
@@ -1314,6 +1314,47 @@ axl_bool __myqtt_reader_handle_retained_msg (MyQttCtx * ctx, MyQttMsg * msg)
 	/* save message for later publication */
 	return myqtt_storage_retain_msg_set (ctx, msg->topic_name, msg->qos, msg->app_message, msg->app_message_size);
 } /* end if */
+
+/** @internal call to do publish with the provided connection pointed
+ * by the provided cursor and message
+ */
+void __myqtt_reader_do_publish_aux (MyQttCtx * ctx, axlHashCursor * cursor, MyQttMsg * msg)
+{
+	MyQttQos    qos;
+	MyQttConn * conn;
+
+	/* get connection and qos */
+	conn = axl_hash_cursor_get_key (cursor);
+	
+	/* printf ("**\n** Handling publishing on connection conn=%p ctx=%p\n**\n", conn, ctx);*/
+	
+	/* skip connection because it is not ok */
+	if (! myqtt_conn_is_ok (conn, axl_false)) 
+		return;
+	
+	/* get qos to publish */
+	qos  = msg->qos;
+	
+	/* check to downgrade publication qos to the
+	 * value of the subscription */
+	if (qos > PTR_TO_INT (axl_hash_cursor_get_value (cursor)))
+		qos = PTR_TO_INT (axl_hash_cursor_get_value (cursor));
+	
+	/* skip storage for qos1 because it is already stored on the sender */
+	if (qos == MYQTT_QOS_1)
+		qos |= MYQTT_QOS_SKIP_STORAGE;
+	
+	/* publish message */
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Publishing topic name '%s', qos: %d (app msg size: %d) on conn %p", 
+		   msg->topic_name, qos, msg->app_message_size, conn);
+	
+	/* retain = axl_false always : MQTT-2.1.2-11 */
+	/* printf ("INFO: publshing %s on conn=%p conn-id=%d\n", myqtt_msg_get_topic (msg), conn, conn->id); */
+	if (! myqtt_conn_pub (conn, msg->topic_name, (axlPointer) msg->app_message, msg->app_message_size, qos, axl_false, 10))
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to publish message message, errno=%d", errno); 
+	
+	return;
+}
       
 
 /** 
@@ -1325,7 +1366,8 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 	MyQttPublishCodes        pub_codes;
 	axlHash                * sub_hash;
 	axlHashCursor          * cursor;
-	MyQttQos                 qos;
+	axlHashCursor          * cursor2;
+	const char             * topic_filter;
 
 	if (ctx->on_publish) {
 		/* call to on publish */
@@ -1372,6 +1414,7 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 	ctx->publish_ops++;
 	myqtt_mutex_unlock (&ctx->subs_m);
 
+	/*** PUBLISH in topics without wild cards ***/
 	/* get the hash */
 	sub_hash = axl_hash_get (ctx->subs, (axlPointer) msg->topic_name);
 	if (sub_hash) {
@@ -1380,58 +1423,88 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 		cursor = axl_hash_cursor_new (sub_hash);
 		axl_hash_cursor_first (cursor);
 		while (axl_hash_cursor_has_item (cursor)) {
-
-			/* get connection and qos */
-			conn = axl_hash_cursor_get_key (cursor);
-
-			/* printf ("**\n** Handling publishing on connection conn=%p ctx=%p\n**\n", conn, ctx);*/
-
-			/* skip connection because it is not ok */
-			if (! myqtt_conn_is_ok (conn, axl_false)) {
-				/* next item */
-				axl_hash_cursor_next (cursor);
-				continue;
-			} /* end if */
-
-			/* get qos to publish */
-			qos  = msg->qos;
-
-			/* check to downgrade publication qos to the
-			 * value of the subscription */
-			if (qos > PTR_TO_INT (axl_hash_cursor_get_value (cursor)))
-				qos = PTR_TO_INT (axl_hash_cursor_get_value (cursor));
-
-			/* skip storage for qos1 because it is already stored on the sender */
-			if (qos == MYQTT_QOS_1)
-				qos |= MYQTT_QOS_SKIP_STORAGE;
-
-			/* publish message */
-			myqtt_log (MYQTT_LEVEL_DEBUG, "Publishing topic name '%s', qos: %d (app msg size: %d) on conn %p", 
-				   msg->topic_name, qos, msg->app_message_size, conn);
-
-			/* retain = axl_false always : MQTT-2.1.2-11 */
-			if (! myqtt_conn_pub (conn, msg->topic_name, (axlPointer) msg->app_message, msg->app_message_size, qos, axl_false, 10))
-				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to publish message message, errno=%d", errno); 
+			
+			/* call to do publish */
+			/* printf ("INFO: found matching topic %s\n", msg->topic_name); */
+			__myqtt_reader_do_publish_aux (ctx, cursor, msg);
 			
 			/* next item */
 			axl_hash_cursor_next (cursor);
 		} /* end if */
-
+		
 		/* release cursor */
 		axl_hash_cursor_free (cursor);
 	} else {
 		/* no one interested in this, no one subscribed to received this */
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Published topic name '%s' but no one was subscribed to it", msg->topic_name);
-	}
+	} /* end if */
 
-	/* publish on wild subs */
 
-	/* publish on offline subs */
+	/*** PUBLISH in topics with wild cards ***/
+	/* get groups of connections that matches the provided topic */
+	cursor = axl_hash_cursor_new (ctx->wild_subs);
+	while (axl_hash_cursor_has_item (cursor)) {
+		
+		/* get the topic filter and try a match */
+		topic_filter = axl_hash_cursor_get_key (cursor);
+		if (! myqtt_reader_topic_filter_match (msg->topic_name, topic_filter)) {
+			/* it doesn't match, go with the next */
+			axl_hash_cursor_next (cursor);
+			continue;
+		} /* end if */
+		
+		/* filter matches, iterate the provided hash
+		 * to publish over all connections there */
+		sub_hash     = axl_hash_cursor_get_value (cursor);
+		cursor2      = axl_hash_cursor_new (sub_hash);
+		while (axl_hash_cursor_has_item (cursor2)) {
+			
+			/* call to do publish */
+			printf ("INFO: found matching topic %s [%s]\n", msg->topic_name, topic_filter);
+			__myqtt_reader_do_publish_aux (ctx, cursor2, msg);
+			
+			/* next connection */
+			axl_hash_cursor_next (cursor2);
+		} /* end while */
+		
+		/* release cursor */
+		axl_hash_cursor_free (cursor2);
+		
+		/* it doesn't match, go with the next */
+		axl_hash_cursor_next (cursor);
+	} /* end while */
+	
+	/* release cursor */
+	axl_hash_cursor_free (cursor);
+
+	/* publish on offline subs (if any) */
 	sub_hash = axl_hash_get (ctx->offline_subs, (axlPointer) msg->topic_name);
 	__myqtt_reader_queue_offline (ctx, msg, sub_hash);
 
 	/* publish on offline wild subs */
-
+	cursor = axl_hash_cursor_new (ctx->offline_wild_subs);
+	while (axl_hash_cursor_has_item (cursor)) {
+		
+		/* get the topic filter and try a match */
+		topic_filter = axl_hash_cursor_get_key (cursor);
+		if (! myqtt_reader_topic_filter_match (msg->topic_name, topic_filter)) {
+			/* it doesn't match, go with the next */
+			axl_hash_cursor_next (cursor);
+			continue;
+		} /* end if */
+		
+		/* filter matches, iterate the provided hash
+		 * to publish over all connections there */
+		sub_hash     = axl_hash_cursor_get_value (cursor);
+		__myqtt_reader_queue_offline (ctx, msg, sub_hash);
+		
+		/* it doesn't match, go with the next */
+		axl_hash_cursor_next (cursor);
+	} /* end while */
+	
+	/* release cursor */
+	axl_hash_cursor_free (cursor);
+		
 	/* notify we have finished publishing */
 	myqtt_mutex_lock (&ctx->subs_m);
 	ctx->publish_ops--;
@@ -1451,11 +1524,22 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	int                      desp = 0;
 	unsigned char          * reply;
 	MyQttMsg               * response;
+	axl_bool                 have_wild_cards;
 
 	/* parse content received inside message */
 	msg->topic_name = __myqtt_reader_get_utf8_string (ctx, msg->payload, msg->size);
 	if (! msg->topic_name ) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received PUBLISH message without topic name closing conn-id=%d from %s:%s", conn->id, conn->host, conn->port);
+		myqtt_conn_shutdown (conn);
+
+		return;
+	} /* end if */
+
+	/* check if this publish operation have wild cards */
+	have_wild_cards = (strstr (msg->topic_name, "#") != NULL) || (strstr (msg->topic_name, "+") != NULL);
+	if (have_wild_cards) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Received PUBLISH message with wildcard %s on the topic name closing conn-id=%d from %s:%s", 
+			   msg->topic_name, conn->id, conn->host, conn->port);
 		myqtt_conn_shutdown (conn);
 
 		return;
@@ -2202,7 +2286,7 @@ axl_bool      myqtt_reader_read_pending (MyQttCtx  * ctx,
 /** 
  * @internal
  */
-void       __myqtt_reader_remove_conn_from_hash (MyQttConn * conn, axlHashCursor * cursor)
+void       __myqtt_reader_remove_conn_from_hash (MyQttConn * conn, axlHashCursor * cursor, axl_bool wild_card_hash)
 {
 	axlHash       * sub_hash;
 	const char    * topic_filter;
@@ -2223,12 +2307,12 @@ void       __myqtt_reader_remove_conn_from_hash (MyQttConn * conn, axlHashCursor
 		} /* end if */
 		
 		/* now get connection hash handling that topic */
-		sub_hash    = axl_hash_get (ctx->subs, (axlPointer) topic_filter);
+		sub_hash    = axl_hash_get (wild_card_hash ? ctx->wild_subs : ctx->subs, (axlPointer) topic_filter);
 		if (! sub_hash) {
 			/** 
 			 * IMPORTANT NOTE: the following error message is real but in the context of using
 			 * libMyqtt + MyQttd it produces wrong error reporting because MyQttd move connections
-			 * between connections...and in that context, when the losing context wants to release
+			 * between contexts...and in that context, when the losing context wants to release
 			 * the connection, it finds the hash has not this information.
 			 *
 			 * myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to find connection hash under the topic %s but found NULL reference [internal engine error]..", 
@@ -2241,6 +2325,7 @@ void       __myqtt_reader_remove_conn_from_hash (MyQttConn * conn, axlHashCursor
 		} /* end if */
 
 		/* remove the connection from that connection hash */
+		/* printf ("INFO: removing conn=%p conn-id=%d from sub_hash=%p\n", conn, conn->id, sub_hash); */
 		axl_hash_remove (sub_hash, conn);
 
 		/* get next */
@@ -2325,7 +2410,7 @@ axlPointer __myqtt_reader_remove_conn_refs_aux (axlPointer _conn)
 			myqtt_cond_timedwait (&ctx->subs_c, &ctx->subs_m, 10000);
 
 		/* call to remove connection from this hash */
-		__myqtt_reader_remove_conn_from_hash (conn, cursor);
+		__myqtt_reader_remove_conn_from_hash (conn, cursor, axl_false);
 
 		/* release lock */
 		myqtt_mutex_unlock (&ctx->subs_m);
@@ -2344,7 +2429,7 @@ axlPointer __myqtt_reader_remove_conn_refs_aux (axlPointer _conn)
 			myqtt_cond_timedwait (&ctx->subs_c, &ctx->subs_m, 10000);
 
 		/* call to remove connection from this hash */
-		__myqtt_reader_remove_conn_from_hash (conn, cursor);
+		__myqtt_reader_remove_conn_from_hash (conn, cursor, axl_true);
 
 		/* release lock */
 		myqtt_mutex_unlock (&ctx->subs_m);
