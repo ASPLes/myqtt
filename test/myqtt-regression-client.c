@@ -940,18 +940,27 @@ axl_bool test_03b (void) {
 	return test_03_common (2);
 }
 
-axl_bool test_04 (void) {
+axl_bool test_04_common (int wildcard) {
 
 	MyQttCtx        * ctx = init_ctx ();
 	MyQttConn       * conn;
 	int               sub_result;
 	MyQttAsyncQueue * queue;
 	MyQttMsg        * msg;
+	const char      * sub_topic;
+	const char      * test_label;
 
 	if (! ctx)
 		return axl_false;
 
-	printf ("Test 04: creating connection..\n");
+	test_label = "04";
+	if (wildcard == 1)
+		test_label = "04-a";
+	if (wildcard == 2)
+		test_label = "04-b";
+	
+
+	printf ("Test %s: creating connection..\n", test_label);
 
 	/* now connect to the listener:
 	   client_identifier -> test_03
@@ -963,15 +972,20 @@ axl_bool test_04 (void) {
 		return axl_false;
 	} /* end if */
 
-	printf ("Test 04: connected without problems..\n");
+	printf ("Test %s: connected without problems..\n", test_label);
 
+	sub_topic = "myqtt/test";
+	if (wildcard == 1)
+		sub_topic = "myqtt/+";
+	if (wildcard == 2)
+		sub_topic = "myqtt/#";
 
-	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
+	if (! myqtt_conn_sub (conn, 10, sub_topic, 0, &sub_result)) {
 		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
-	if (! myqtt_conn_unsub (conn, "myqtt/test", 10)) {
+	if (! myqtt_conn_unsub (conn, sub_topic, 10)) {
 		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
@@ -986,7 +1000,7 @@ axl_bool test_04 (void) {
 	} /* end if */
 
 	/* waiting for reply */
-	printf ("Test 04: waiting for reply (we shouldn't get one, waiting 3 seconds)..\n");
+	printf ("Test %s: waiting for reply (we shouldn't get one, waiting 3 seconds)..\n", test_label);
 	queue = myqtt_async_queue_new ();
 	msg   = myqtt_async_queue_timedpop (queue, 3000000);
 	myqtt_async_queue_unref (queue);
@@ -996,16 +1010,26 @@ axl_bool test_04 (void) {
 	} /* end if */
 
 	/* close connection */
-	printf ("Test 04: closing connection..\n");
+	printf ("Test %s: closing connection..\n", test_label);
 	myqtt_conn_close (conn);
 
 	/* release context */
-	printf ("Test 04: releasing context..\n");
+	printf ("Test %s: releasing context..\n", test_label);
 	myqtt_exit_ctx (ctx, axl_true);
 
-
-
 	return axl_true;
+}
+
+axl_bool test_04 (void) {
+	return test_04_common (0);
+}
+
+axl_bool test_04a (void) {
+	return test_04_common (1);
+}
+
+axl_bool test_04b (void) {
+	return test_04_common (2);
 }
 
 axl_bool test_05 (void) {
@@ -4103,6 +4127,12 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_04")
 	run_test (test_04, "Test 04: basic unsubscribe function (QOS 0)");
+
+	CHECK_TEST("test_04a")
+	run_test (test_04a, "Test 04-a: basic unsubscribe function (QOS 0), wildcard +");
+
+	CHECK_TEST("test_04b")
+	run_test (test_04b, "Test 04-b: basic unsubscribe function (QOS 0), wildcard #");
 
 	CHECK_TEST("test_05")
 	run_test (test_05, "Test 05: test ping server (PINGREQ)");

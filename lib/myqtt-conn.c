@@ -1846,6 +1846,9 @@ void            myqtt_conn_send_connect_reply (MyQttConn * conn, MyQttConnAckTyp
 		return;
 	} /* end if */
 
+	if (! myqtt_conn_ref (conn, "send_connect_reply")) 
+		return;
+
 	/* get reference to the context used by the connection */
 	ctx = conn->ctx;
 
@@ -1895,6 +1898,9 @@ void            myqtt_conn_send_connect_reply (MyQttConn * conn, MyQttConnAckTyp
 		conn->initial_accept = axl_false;
 
 	} /* end if */
+
+	/* release connection reference */
+	myqtt_conn_unref (conn, "send_connect_reply");
 
 	return;
 }

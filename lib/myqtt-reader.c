@@ -1118,6 +1118,19 @@ void __myqtt_reader_handle_wait_reply (MyQttCtx * ctx, MyQttConn * conn, MyQttMs
 		}
 	}
 
+	/* acquire a reference to the queue during the push operation */
+	if (! myqtt_async_queue_ref (queue)) {
+
+		/* release lock */
+		myqtt_mutex_unlock (&conn->op_mutex);
+
+		/* too late, unable to deliver message to wait reply */
+		myqtt_log (MYQTT_LEVEL_WARNING, 
+			   "Received a %s message but queue to handle reply wasn't ready to acquire a reference (myqtt_async_queue_ref() failed)...it seems we arrived too late or packet id=%d do not match anything on our side",
+			   myqtt_msg_get_type_str (msg), msg->packet_id);
+		return;
+	} /* end if */
+
 	/* release lock */
 	myqtt_mutex_unlock (&conn->op_mutex);
 
@@ -1134,7 +1147,12 @@ void __myqtt_reader_handle_wait_reply (MyQttCtx * ctx, MyQttConn * conn, MyQttMs
 
 	/* acquire reference and push content */
 	myqtt_msg_ref (msg);
+
+	/* push message */
 	myqtt_async_queue_push (queue, msg);
+
+	/* release the queue here */
+	myqtt_async_queue_unref (queue);
 
 	/* NOTE: do not call to release myqtt_msg_unref because we are "delegating" this reference to the queue waiter */
 
@@ -1460,7 +1478,7 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 		while (axl_hash_cursor_has_item (cursor2)) {
 			
 			/* call to do publish */
-			printf ("INFO: found matching topic %s [%s]\n", msg->topic_name, topic_filter);
+			/*printf ("INFO: found matching topic %s [%s]\n", msg->topic_name, topic_filter); */
 			__myqtt_reader_do_publish_aux (ctx, cursor2, msg);
 			
 			/* next connection */
@@ -2082,6 +2100,7 @@ void __myqtt_reader_get_reply_on_close (MyQttConn * conn, axlPointer data)
 MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, int timeout, axl_bool peer_ids)
 {
 	MyQttAsyncQueue * queue;
+	MyQttAsyncQueue * queue2;
 	MyQttMsg        * msg = NULL;
 	MyQttCtx        * ctx;
 	axlHash         * hash;
@@ -2109,6 +2128,17 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 	if (queue == NULL) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Expected to find a queue reference for packet_id=%d, conn-id=%d, but found NULL",
 			   packet_id, conn->id);
+		return NULL;
+	} /* end if */
+
+	/* get a reference during the whole operation */
+	if (! myqtt_conn_ref (conn, "__myqtt_reader_get_reply")) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to get reply (__myqtt_reader_get_reply()), conn reference failed (myqtt_conn_ref) for packet_id=%d, conn-id=%d, conn=%p",
+			   packet_id, conn->id, conn);
+
+		/* failed to acquire reference, it is not safe to
+		 * continue, release the queue */
+		myqtt_async_queue_unref (queue);
 		return NULL;
 	} /* end if */
 
@@ -2144,9 +2174,26 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 	 * we have to acquire the reference */
 	myqtt_mutex_lock (&conn->op_mutex);
 
-	/* get the queue to release it */
-	queue = axl_hash_get (hash, INT_TO_PTR (packet_id));
-	axl_hash_delete (hash, INT_TO_PTR (packet_id));
+	/* get the queue to release it: the following code is fighting
+	 * against the thread planner which may return the (queue)
+	 * reference before this code, then serve the code and just
+	 * before calling here freezes this thread, and allows another
+	 * thread to install a new queue into the hash with the same
+	 * packet_id: isn't it fun? 
+	 *
+	 * As a measure, we get the queue in a critical section and
+	 * compare the reference, if it is the same, then remove from
+	 * the hash if not, it has been removed previously...
+	 *
+	 * ...and the most imporant thing, that the (queue) reference
+	 * is not updated with a reference to a queue which is not the
+	 * one we want to remove. */
+	queue2 = axl_hash_get (hash, INT_TO_PTR (packet_id)); 
+	if (queue2 == queue)
+		axl_hash_delete (hash, INT_TO_PTR (packet_id));
+	/* else : let the queue as is because it will be released by
+	 * another call to this function that is taking place right
+	 * now */
 	
 	/* release lock */
 	myqtt_mutex_unlock (&conn->op_mutex);
@@ -2169,6 +2216,9 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 			myqtt_conn_set_data_full (conn, axl_strdup_printf ("%p", queue), queue, axl_free, (axlDestroyFunc) myqtt_async_queue_unref);
 		}
 	}
+
+	/* release reference counting */
+	myqtt_conn_unref (conn, "__myqtt_reader_get_reply");
 
 	return msg;
 }

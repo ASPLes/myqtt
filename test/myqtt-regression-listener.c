@@ -290,6 +290,8 @@ axl_bool reply_deferred (MyQttCtx * ctx, axlPointer _conn, axlPointer _user_data
 	printf ("Sending ok reply..\n");
 	myqtt_conn_send_connect_reply (conn, MYQTT_CONNACK_ACCEPTED);
 
+	myqtt_conn_unref (conn, "reply_deferred");
+
 	return axl_true; /* finish this call */
 }
 
@@ -315,6 +317,7 @@ MyQttConnAckTypes on_connect (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_
 
 	if (axl_cmp (myqtt_conn_get_client_id (conn), "test_23")) {
 		printf ("Deferring connection accept for user aspl..\n");
+		myqtt_conn_ref (conn, "reply_deferred");
 		myqtt_thread_pool_new_event (ctx, 2000000, reply_deferred, conn, NULL);
 		
 		/* user and/or password is wrong */
