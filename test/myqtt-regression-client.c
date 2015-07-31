@@ -3448,6 +3448,195 @@ axl_bool test_23 (void)
 	return axl_true;
 }
 
+void wrong_sub (const char * topic_filter, axl_bool should_fail) {
+	axl_bool is_wrong = myqtt_reader_is_wrong_topic (topic_filter);
+
+	if (! is_wrong && should_fail) {
+		printf ("ERROR: expected to find notified as wrong topic [%s] but it wasn't\n", topic_filter);
+		exit (-1);
+	}
+
+	if (is_wrong && ! should_fail) {
+		printf ("ERROR: expected proper topic declatation [%s] but it was found considered wrong\n",
+			topic_filter);
+		exit (-1);
+	}
+
+	return;
+}
+
+
+void match_topic (const char * topic, const char * filter, axl_bool should_match) {
+
+	axl_bool match;
+
+	wrong_sub (filter, axl_false);
+
+	/* call match */
+	match = myqtt_reader_topic_filter_match (topic, filter);
+	if (should_match && match) {
+		printf ("Test --: [%s] matches with [%s]\n", topic, filter);
+		return;
+	}
+
+	if (should_match && ! match) {
+		printf ("ERROR: expected topic [%s] to be matched by [%s] but it was not\n",
+			topic, filter);
+		exit (-1);
+	}
+
+	if (! should_match && match) {
+		printf ("ERROR: expected topic [%s] to NOT be matched by [%s] but it was\n",
+			topic, filter);
+		exit (-1);
+	}
+
+	printf ("Test --: [%s] NOT matches with [%s]\n", topic, filter);
+	return;
+}
+
+axl_bool test_00_d (void)
+{
+
+	/* set 0 */
+	match_topic ("hola", "hola", axl_true);
+
+	match_topic ("hola/", "hola/", axl_true);
+
+	match_topic ("/", "/", axl_true);
+
+	/* set 1 */
+	match_topic ("sensors/my-pc/temperature/disk-0", "sensors/+/temperature/+", axl_true);
+
+	match_topic ("sensors/my-pc/temperature/disk-0", "sensors/+/temperature", axl_false);
+
+	match_topic ("sensors/my-pc/temperature/disk-0", "+/temperature/+", axl_false);
+	
+
+	/* set 2 */
+	match_topic ("a/b/c/d", "+/b/c/d", axl_true);
+
+	match_topic ("a/b/c/d", "a/+/c/d", axl_true);
+
+	match_topic ("a/b/c/d", "a/+/+/d", axl_true);
+
+	match_topic ("a/b/c/d", "+/+/+/+", axl_true);
+
+	
+	/* set 3 */
+	match_topic ("a/b/c/d", "a/b/c", axl_false);
+
+	match_topic ("a/b/c/d", "b/+/c/d", axl_false);
+
+	match_topic ("a/b/c/d", "+/+/+", axl_false);
+
+
+	/* set 4 */
+	match_topic ("a/b/c/d", "#", axl_true);
+
+	match_topic ("a/b/c/d", "a/#", axl_true);
+
+	match_topic ("a/b/c/d", "a/b/#", axl_true);
+
+	match_topic ("a/b/c/d", "a/b/c/#", axl_true);
+
+	match_topic ("a/b/c/d", "+/b/c/#", axl_true);
+
+	
+
+	/* set 5 */
+	match_topic ("a//topic", "a/+/topic", axl_true);
+
+	match_topic ("a//topic", "a/+/topic", axl_true);
+
+	match_topic ("/a/topic", "+/a/topic", axl_true);
+
+	match_topic ("/a/topic", "#", axl_true);
+
+	match_topic ("/a/topic", "/#", axl_true);
+
+	match_topic ("value/a/topic", "/#", axl_false);
+
+
+	/* set  6 */
+
+	match_topic ("a/topic/", "a/topic/+", axl_true);
+
+	match_topic ("a/topic/", "a/topic/#", axl_true);
+
+
+	
+	/* set 7 */
+
+	match_topic ("sport/tennis/player1", "sport/tennis/player1/#", axl_true);
+
+	match_topic ("sport/tennis/player1/ranking", "sport/tennis/player1/#", axl_true);
+
+	match_topic ("sport/tennis/player1/score/wimbledon", "sport/tennis/player1/#", axl_true);
+
+
+	/* set 8 */
+
+	match_topic ("sport", "sport/#", axl_true);
+
+
+	/* set 9 */
+
+	match_topic ("sport/tennis/player1", "sport/tennis/+", axl_true);
+
+	match_topic ("sport/tennis/player2", "sport/tennis/+", axl_true);
+
+	match_topic ("sport/tennis/player1/ranking", "sport/tennis/+", axl_false);
+
+	
+	/* set 10 */
+
+	match_topic ("sport", "sport/+", axl_false);
+
+	match_topic ("sport/", "sport/+", axl_true);
+
+
+	/* set 11 */
+
+
+	match_topic ("/finance", "+/+", axl_true);
+
+	match_topic ("/finance", "/+", axl_true);
+
+	match_topic ("/finance", "+", axl_false);
+
+
+	/* set 12 */
+
+	match_topic ("$SYS", "#", axl_false);
+
+	match_topic ("$SYS", "+", axl_false);
+
+	match_topic ("$SYS/monitor/Clients", "+/monitor/Clients", axl_false);
+
+	match_topic ("$SYS/", "$SYS/#", axl_true);
+
+	match_topic ("$SYS/monitor/Clients", "$SYS/monitor/+", axl_true);
+
+
+	/* set 13 */
+
+	match_topic ("ACCOUNTS", "Accounts", axl_false);
+
+	match_topic ("finance", "/finance", axl_false);
+
+
+	/* not valid subscriptions */
+	
+	wrong_sub ("sport/tennis#", axl_true);
+
+	wrong_sub ("sport/tennis/#/ranking", axl_true);
+
+	wrong_sub ("sport+", axl_true);
+
+	return axl_true;
+}
+
 #if defined(ENABLE_MOSQUITTO)
 void test_mosquitto_queue_message (struct mosquitto * mosq, void * _queue, const struct mosquitto_message * msg)
 {
@@ -3810,6 +3999,10 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_00_c")
 	run_test (test_00_c, "Test 00-c: check myqtt_mkdir ()");
 
+	/* check wildcard subscription */
+	CHECK_TEST("test_00_d")
+	run_test (test_00_d, "Test 00-d: wildcard pattern matching"); 
+
 	CHECK_TEST("test_01")
 	run_test (test_01, "Test 01: basic listener startup and client connection");
 
@@ -3895,7 +4088,7 @@ int main (int argc, char ** argv)
 	/* check on connect deferred */
 	CHECK_TEST("test_23")
 	run_test (test_23, "Test 23: check on connect deferred"); 
-	
+
 #if defined(ENABLE_MOSQUITTO)
 	/* call to enable mosquitto library globally */
 	mosquitto_lib_init();

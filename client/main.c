@@ -206,6 +206,8 @@ int  main_init_exarg (int argc, char ** argv)
 			   "If supported by the server, allows to get current subscriptions registered by the connecting client.");
 	exarg_install_arg ("get-msgs", "m", EXARG_NONE,
 			   "Connect to the server and wait for messages to arrive. Every incoming message received will be printed to the console.");
+	exarg_install_arg ("topic-match", "c", EXARG_STRING,
+			   "Allows to check topic matching with a given expression. Try myqtt-client -c '+/accounts' 'balance/accounts'.");
 	exarg_install_arg ("clean-session", "e", EXARG_NONE,
 			   "Request client session on the next connect operation.");
 
@@ -518,6 +520,22 @@ void client_handle_get_msgs_operation (int argc, char ** argv)
 	return;
 }
 
+void client_handle_topic_match (int argc, char ** argv)
+{
+	printf ("INFO: checking filter: %s\n", exarg_get_string ("topic-match"));
+	printf ("      with topic name: %s\n", argv[3]);
+
+	if (myqtt_reader_topic_filter_match (argv[3], exarg_get_string ("topic-match"))) {
+		printf ("INFO: Matches!\n");
+		exit (0);
+	} else {
+		printf ("ERROR: It does not match\n");
+		exit (-1);
+	}
+	
+	return;
+}
+
 int main (int argc, char ** argv)
 {
 	/*** init exarg library ***/
@@ -540,6 +558,8 @@ int main (int argc, char ** argv)
 		client_handle_get_subscriptions_operation (argc, argv);
 	else if (exarg_is_defined ("get-msgs"))
 		client_handle_get_msgs_operation (argc, argv);
+	else if (exarg_is_defined ("topic-match"))
+		client_handle_topic_match (argc, argv);
 	else {
 		printf ("ERROR: no operation defined, please run %s --help to get information\n", argv[0]);
 		exit (-1);
