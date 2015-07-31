@@ -1495,22 +1495,23 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * \section intro MyQtt Introduction
  *
- * MyQtt is an Open Source professional MQTT stack written in ANSI C,
- * focused on providing support to create MQTT servers/brokers.  MyQtt has a
+ * MyQtt is an <b>Open Source</b> professional MQTT stack <b>written in ANSI C</b>,
+ * focused on providing support <b>to create MQTT servers/brokers</b>.  MyQtt has a
  * modular design that allows creating MQTT brokers by using the API
  * provided by <b>libMyQtt</b> (which in fact is composed by several
- * libraries: libmyqtt, libmyqtt-tls, libmyqtt-websocket). It is also
- * provided a ready to use MQTT broker called <b>MyQttD</b> which is
+ * libraries: libmyqtt, libmyqtt-tls, libmyqtt-websocket), but it is also
+ * provided <b>a ready to use MQTT broker</b> called <b>MyQttD</b> which is
  * built on top of <b>libMyQtt</b>. <b>MyQttD</b> server is extensible
  * by adding C plugins.
  *
- * At this point it is also provided a Python interface to libMyQtt so
- * it's possible to write fully functional MQTT brokers in Python.
+ * At this point it is also provided a <b>Python interface to libMyQtt</b> so
+ * it's possible <b>to write fully functional MQTT brokers in Python</b>.
  *
- * MyQtt stack is focused on security, very well tested and stable
- * across releases (regression tests are used to check all components
- * libMyQtt, MyQttD and PyMyQtt) to ensure features and behaviour
- * provided are stable and robust.
+ * MyQtt stack is <b>focused on security</b>, <b>very well tested and
+ * stable</b> across releases (<b>thorough regression tests</b> are
+ * used to check all components libMyQtt, MyQttD and PyMyQtt) to
+ * ensure features and behaviour provided are stable and robust (no
+ * surprises and predictable expected functionality after updates). 
  *
  * See some of the features provided:
  *
@@ -1527,14 +1528,15 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * MyQttD documentation is separated into two sections:
  * administrators manuals (used by people that want to deploy and
- * maintain MyQttD and its applications) and the developer manual
- * which includes information on how to extend MyQttD:
+ * maintain libMyQtt/MyQttD and its applications) and the developer manual
+ * which includes information on how to extend MyQttD and use libMyQtt:
  *
  * <b>Administrators and Users manuals: </b>
  *
  * - \ref myqtt_installation
  * - \ref myqtt_quick_install
  * - \ref myqttd_administrator_manual
+ * - \ref myqtt_client_manual
  *
  * <b>Developer manuals and API references:</b>
  *
@@ -2439,4 +2441,67 @@ const char    * myqttd_ensure_str      (const char * string)
  *  - \ref myqttd_administrator_manual
  * 
  * 
+ */
+
+/** 
+ * \page myqtt_client_manual MyQtt-Client : command line MQTT client manual (myqtt-client)
+ *
+ * \section myqtt_client_manual_index Index
+ * 
+ * - \ref myqtt_client_manual_intro
+ * - \ref myqtt_client_manual_subscribe
+ * - \ref myqtt_client_manual_messages
+ * - \ref myqtt_client_manual_publish
+ * - \ref myqtt_client_manual_login
+ * - \ref myqtt_client_manual_topic_match
+ *
+ * \section myqtt_client_manual_intro Introduction
+ *
+ * MyQtt-Client (<b>myqtt-client</b>) is a command line MQTT client
+ * built on top of <b>libMyQtt</b> which provides some ready to use
+ * functions to interact with MQTT servers.
+ *
+ * Here are examples on how to use the tool. For more information, please use: <b>myqtt-client --help</b>
+ *
+ * \section myqtt_client_manual_subscribe Subscribing topics
+ *
+ * Use the following command to subscribe to a given topic with a particular QoS:
+ *
+ *  \code
+ * >> myqtt-client --host localhost --port 1883 --client-id test_01 --subscribe "0,myqtt/this/is/a/test"
+ * \endcode
+ *
+ * \section myqtt_client_manual_messages Getting all messages received because server configuration and topics subscribed
+ *
+ * Use the following command will show all messages as they are received, leaving the client blocked.
+ *
+ * \code
+ * >> myqtt-client  --host localhost --port 1883 --client-id test_01  --get-msgs
+ * \endcode
+ *
+ * \section myqtt_client_manual_publish Publishing to a particular topic
+ *
+ * \code
+ * >> myqtt-client --host localhost --port 1883 --client-id test_01 --publish "0,myqtt/this/is/a/test,This is a test message"
+ * \endcode
+ *
+ * \section myqtt_client_manual_login Login using username and password
+ *
+ * You can implement any of the mentioned operations by using the following options to provide username (<b>--username</b>) and password (<b>--password</b>):
+ *
+ * 
+ * \code
+ * >> myqtt-client --host localhost --port 1883 --client-id test_01 --username my-login --password my-secret --publish "0,myqtt/this/is/a/test,This is a test message"
+ * \endcode
+ * 
+ *
+ * \section myqtt_client_manual_topic_match MQTT Matching topic filters from the command line
+ *
+ * In the case you need to do some testing or you are developing an
+ * application that needs to match topics with a given filter without
+ * running an actual MQTT test, use the following:
+ *
+ * \code
+ * >> myqtt-client -c '+/accounts' 'balance/accounts'
+ * \endcode
  */

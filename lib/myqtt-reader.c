@@ -646,6 +646,145 @@ void __myqtt_reader_subscribe (MyQttCtx * ctx, const char * client_identifier, M
 	return;
 }
 
+axl_bool myqtt_reader_is_wrong_topic (const char * topic_filter) {
+	 
+	axl_bool found_hash = axl_false;
+
+	if (topic_filter == NULL || strlen (topic_filter) == 0)
+		return axl_true; /* wrong: empty topic filter */
+
+	int iterator = 0;
+	while (topic_filter[iterator] != 0) {
+		if (topic_filter[iterator] == '#')
+			found_hash = axl_true;
+
+		if (topic_filter[iterator] == '/' && found_hash)
+			return axl_true; /* found #/ declaration which is not allowed */
+
+		if (topic_filter[iterator] == '+' || topic_filter[iterator] == '#') {
+			if (topic_filter[iterator + 1] != 0 && topic_filter[iterator + 1] != '/')
+				return axl_true; /* wrong: next value to +/# cannot be something different to \0 and / */
+			
+			if (iterator > 0) {
+				if (topic_filter[iterator - 1] != '/')
+					return axl_true; /* wrong: previous value to +/# cannot be something different to / */
+			}
+		}
+
+		iterator++;
+	} /* end while */
+
+	return axl_false; /* is not wrong topic */
+}
+
+axl_bool myqtt_reader_topic_filter_match (const char * topic_name, const char * topic_filter) {
+
+	int iterator;
+	int iterator2;
+
+	if (topic_filter == NULL || strlen (topic_filter) == 0)
+		return axl_false; /* empty topic filter never matches */
+
+	/* basic cases */
+	if (axl_cmp (topic_filter, "#") && topic_name[0] != '$')
+		return axl_true;
+
+	/* check both are equal */
+	if (axl_cmp (topic_name, topic_filter))
+		return axl_true;
+
+	iterator  = 0;
+	iterator2 = 0;
+	while (topic_name[iterator] != 0 && topic_filter[iterator2] != 0) {
+		
+		/* printf ("  ..start: ----------------\n");
+		printf ("  ..matching: iterator=%d %s\n", iterator, topic_name + iterator);
+		printf ("             iterator2=%d %s\n", iterator2, topic_filter + iterator2); */
+			
+		
+		if (topic_filter[iterator2] == '/') {
+			/* case where empty topic level was found in
+			 * the filter */
+			if (topic_name[iterator] != topic_filter[iterator2]) {
+				/* printf (".1.1 : iterator=%d (%c) != (%d) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2); */
+				return axl_false; /* mismatch found in empty topic level */
+			}
+
+			/* reached this point, found both empty move them both */
+			iterator++;
+			iterator2++;
+			continue;
+			
+		} else if (topic_filter[iterator2] == '+' && topic_name[iterator] != '$') {
+			/* found filter topic level wild card, discard that topic matching */
+			while (topic_name[iterator] != 0 && topic_name[iterator] != '/')
+				iterator++;
+
+			if (topic_name[iterator] != '/' && topic_name[iterator] != 0) {
+				/* printf (".1.2 : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2); */
+				return axl_false; /* mismatch, expected to find / at the end */
+			}
+
+			/* printf ("  ..case 1.2 : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2); */
+
+			/* next step */
+			if (topic_name[iterator] != 0)
+				iterator++;
+
+			iterator2++;
+			if (topic_filter[iterator2] != 0)
+				iterator2++;
+			continue;
+			
+			
+		} else if (topic_filter[iterator2] == '#' && topic_name[iterator] != '$') {
+			/* printf ("  ..case 1.5 : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2); */
+
+			return axl_true; /* matches the reset */
+		} else {
+			/* printf ("  ..case 1.3 : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2); */
+
+			/* basic case where each byte must match piece by piece */
+			while (topic_name[iterator] != 0 && topic_filter[iterator2] != 0) {
+				if (topic_name[iterator] != topic_filter[iterator2]) {
+					/* printf (".1.3 : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2); */
+					return axl_false; /* mismatch found */
+				}
+
+				/* printf ("  ..matched : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2); */
+
+				iterator++;
+				iterator2++;
+
+				if (topic_name[iterator - 1] == '/') 
+					break;
+
+			} /* end while */
+		} /* end */
+		
+	} /* end if */
+
+	if (topic_name[iterator] == 0) {
+		if (topic_filter[iterator2] == '+' && topic_filter[iterator2 + 1] == 0)
+			return axl_true; /* matches last case dkdkd/ dkdkd/+ */
+		if (topic_filter[iterator2] == '#' && topic_filter[iterator2 + 1] == 0)
+			return axl_true; /* matches last case dkdkd/ dkdkd/# */
+		if (topic_filter[iterator2] == '/' && topic_filter[iterator2 + 1] == '#' && topic_filter[iterator2 + 2] == 0)
+			return axl_true; /* matches last case dkdkd dkdkd/# */
+		
+	} /* end if */
+
+	
+
+	if (topic_name[iterator] != topic_filter[iterator2]) {
+		/* printf (".1.4 : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2);	 */
+		return axl_false;
+	}
+
+	/* printf (".1.4.1 : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2);	 */
+	return topic_name[iterator] == topic_filter[iterator2]; /* topic matches */
+}
+
 /** 
  * @internal
  */
@@ -696,6 +835,16 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg
 			axl_free (topic_filter);
 			return;
 		} /* end if */
+
+		if (myqtt_reader_is_wrong_topic (topic_filter)) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Received SUBSCRIBE message with wrong TOPIC format (%s) conn-id=%d from %s:%s", topic_filter, conn->id, conn->host, conn->port);
+			myqtt_conn_shutdown (conn);
+
+			/* release memory */
+			axl_free (replies_mem);
+			axl_free (topic_filter);
+			return;
+		}
 
 		/* increase desp */
 		desp += (strlen (topic_filter) + 2);

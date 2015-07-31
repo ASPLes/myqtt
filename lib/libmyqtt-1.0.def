@@ -262,6 +262,7 @@ myqtt_reader_connections_watched
 myqtt_reader_foreach
 myqtt_reader_foreach_impl
 myqtt_reader_foreach_offline
+myqtt_reader_is_wrong_topic
 myqtt_reader_notify_change_done_io_api
 myqtt_reader_notify_change_io_api
 myqtt_reader_read_pending
@@ -270,6 +271,7 @@ myqtt_reader_register_watch
 myqtt_reader_restart
 myqtt_reader_run
 myqtt_reader_stop
+myqtt_reader_topic_filter_match
 myqtt_reader_unwatch_connection
 myqtt_reader_watch_connection
 myqtt_reader_watch_listener

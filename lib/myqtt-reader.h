@@ -96,4 +96,9 @@ void               __myqtt_reader_subscribe (MyQttCtx   * ctx,
 
 void __myqtt_reader_move_offline_to_online  (MyQttCtx * ctx, MyQttConn * conn);
 
+axl_bool myqtt_reader_is_wrong_topic  (const char * topic_filter);
+
+axl_bool myqtt_reader_topic_filter_match (const char * topic_name, const char * topic_filter);
+
+
 #endif

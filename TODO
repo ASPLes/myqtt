@@ -10,6 +10,9 @@
 
 --== things that should be reviewed ==--
 
+* Publish small note about how to check if a topic filter matches from
+  the command line: myqtt-client -c '+/accounts' 'balance/accounts'
+
 * Check tests from:
   https://eclipse.org/paho/clients/testing/
 
@@ -95,6 +98,11 @@
 
 --== release names ==--
 
+Enter the ninja
+Thriller
+Seven Nation Army
+Evil Boy
+Be like a squirrel
 Disculpad mi osadia
 I against I 
 Todos duermen ya
