@@ -1898,18 +1898,33 @@ axl_bool test_12b (void){
 	return test_12_common (2);
 }
 
-axl_bool test_13 (void) {
+axl_bool test_13_common (int wildcard) {
 
 	MyQttCtx        * ctx = init_ctx ();
 	MyQttConn       * conn;
 	MyQttMsg        * msg; 
 	int               sub_result;
 	MyQttAsyncQueue * queue;
+	
+	const char      * sub_topic;
+	const char      * test_label;
+
+	sub_topic = "a/subs/1";
+	test_label = "13";
+	if (wildcard == 1) {
+		sub_topic = "a/subs/+";
+		test_label = "13-a";
+	}
+	if (wildcard == 2) {
+		sub_topic = "a/subs/#";
+		test_label = "13-b";
+	}
+		
 
 	if (! ctx)
 		return axl_false;
 
-	printf ("Test 13: creating connections..\n");
+	printf ("Test %s: creating connections..\n", test_label);
 	
 	/* now try again connecting with session but providing a client identifier */
 	/* client_identifier -> "test13@identifier.com", clean_session -> axl_false */
@@ -1919,7 +1934,7 @@ axl_bool test_13 (void) {
 		return axl_false;
 	} /* end if */
 
-	if (! myqtt_conn_sub (conn, 10, "a/subs/1", MYQTT_QOS_2, &sub_result)) {
+	if (! myqtt_conn_sub (conn, 10, sub_topic, MYQTT_QOS_2, &sub_result)) {
 		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
@@ -1935,7 +1950,7 @@ axl_bool test_13 (void) {
 	} /* end if */
 
 	/* get message */
-	printf ("Test 13: get QoS 2 message from server (limit wait to 3 seconds)\n");
+	printf ("Test %s: get QoS 2 message from server (limit wait to 3 seconds)\n", test_label);
 	msg = myqtt_async_queue_timedpop (queue, 3000000);
 
 	if (msg == NULL) {
@@ -1964,9 +1979,15 @@ axl_bool test_13 (void) {
 	myqtt_msg_unref (msg);
 
 	/* check pkgids on this connection */
-	printf ("Test 13: checking local sending packet ids: %d..\n", axl_list_length (conn->sent_pkgids));
+	printf ("Test %s: checking local sending packet ids: %d..\n", test_label, axl_list_length (conn->sent_pkgids));
 	if (axl_list_length (conn->sent_pkgids) != 0) {
 		printf ("ERROR: expected to find sent pkgid ids list 0 but found pending %d\n", axl_list_length (conn->sent_pkgids));
+		return axl_false;
+	} /* end if */
+
+	/* unsubscribe */
+	if (! myqtt_conn_unsub (conn, sub_topic, 10)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
@@ -1977,10 +1998,22 @@ axl_bool test_13 (void) {
 	myqtt_async_queue_unref (queue);
 
 	/* release context */
-	printf ("Test 13: releasing context..\n");
+	printf ("Test %s: releasing context..\n", test_label);
 	myqtt_exit_ctx (ctx, axl_true);
 
 	return axl_true;
+}
+
+axl_bool test_13 (void) {
+	return test_13_common (0);
+}
+
+axl_bool test_13a (void) {
+	return test_13_common (1);
+}
+
+axl_bool test_13b (void) {
+	return test_13_common (2);
 }
 
 axl_bool test_14 (void) {
@@ -4201,6 +4234,12 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_13")
 	run_test (test_13, "Test 13: test QoS 2 messages");
+
+	CHECK_TEST("test_13a")
+	run_test (test_13a, "Test 13-a: test QoS 2 messages");
+
+	CHECK_TEST("test_13b")
+	run_test (test_13b, "Test 13-b: test QoS 2 messages");
 
 	CHECK_TEST("test_14")
 	run_test (test_14, "Test 14: offline PUB test messages queued to be sent on next connection (client)");  
