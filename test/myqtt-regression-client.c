@@ -2365,7 +2365,7 @@ axl_bool __test_15_check (MyQttMsg * msg, int * count_qos0, int * count_qos1, in
 }
 
 
-axl_bool test_15 (void) {
+axl_bool test_15_common (int wildcard) {
 
 	MyQttCtx        * ctx = init_ctx ();
 	MyQttConn       * conn;
@@ -2375,11 +2375,25 @@ axl_bool test_15 (void) {
 	MyQttAsyncQueue * queue; 
 	char            * ref;
 	int               count_qos0 = 0, count_qos1 = 0, count_qos2 = 0;
+	const char      * sub_topic  = NULL;
+	const char      * test_label = "15";
 
 	if (! ctx)
 		return axl_false;
 
-	printf ("Test 15: connecting with session, subscribe and disconnect..\n");
+	switch (wildcard) {
+	case 1:
+		sub_topic  = "test/message/+";
+		test_label = "15-a";
+		break;
+	case 2:
+		sub_topic  = "test/message/#";
+		test_label = "15-b";
+		break;
+	}
+	
+
+	printf ("Test %s: connecting with session, subscribe and disconnect..\n", test_label);
 
 	/* client_identifier -> "test15@identifier.com", clean_session -> axl_false */
 	conn = myqtt_conn_new (ctx, "test15@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
@@ -2389,26 +2403,38 @@ axl_bool test_15 (void) {
 	} /* end if */
 
 	/* subscribe to the topics referenced before */
-	printf ("Test 15: subscribing to the topics..\n");
-	if (! myqtt_conn_sub (conn, 10, "test/message/1", MYQTT_QOS_2, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
-		return axl_false;
-	} /* end if */
+	switch (wildcard) {
+	case 0:
+		printf ("Test %s: subscribing to the topics..\n", test_label);
+		if (! myqtt_conn_sub (conn, 10, "test/message/1", MYQTT_QOS_2, &sub_result)) {
+			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+			return axl_false;
+		} /* end if */
+		
+		if (! myqtt_conn_sub (conn, 10, "test/message/2", MYQTT_QOS_2, &sub_result)) {
+			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+			return axl_false;
+		} /* end if */
+		
+		if (! myqtt_conn_sub (conn, 10, "test/message/3", MYQTT_QOS_2, &sub_result)) {
+			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+			return axl_false;
+		} /* end if */
+		break;
+	case 1:
+	case 2:
+		printf ("Test %s: subscribing to the topic %s..\n", test_label, sub_topic);
+		if (! myqtt_conn_sub (conn, 10, sub_topic, MYQTT_QOS_2, &sub_result)) {
+			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+			return axl_false;
+		} /* end if */
+		break;
+	}
 
-	if (! myqtt_conn_sub (conn, 10, "test/message/2", MYQTT_QOS_2, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
-		return axl_false;
-	} /* end if */
-
-	if (! myqtt_conn_sub (conn, 10, "test/message/3", MYQTT_QOS_2, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
-		return axl_false;
-	} /* end if */
-
-	printf ("Test 15: close connection..\n");
+	printf ("Test %s: close connection..\n", test_label);
 	myqtt_conn_close (conn);
 
-	printf ("Test 15: connect again..\n");
+	printf ("Test %s: connect again..\n", test_label);
 
 	/* now connect with a different connection and send messages
 	 * to previous topics */
@@ -2418,7 +2444,7 @@ axl_bool test_15 (void) {
 		return axl_false;
 	} /* end if */
 
-	printf ("Test 15: publishing messages..\n");
+	printf ("Test %s: publishing messages..\n", test_label);
 	/* publish messages */
 	iterator = 0;
 	while (iterator < 10) {
@@ -2450,7 +2476,7 @@ axl_bool test_15 (void) {
 	} /* end while */
 
 	/* set on publish handler */	
-	printf ("Test 15: getting queued messages..\n");
+	printf ("Test %s: getting queued messages..\n", test_label);
 	queue  = myqtt_async_queue_new ();
 	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
 
@@ -2467,7 +2493,7 @@ axl_bool test_15 (void) {
 		return axl_false;
 	}
 
-	printf ("Test 15: stored messages for test15@identifier.com are: %s\n", (const char *) myqtt_msg_get_app_msg (msg));
+	printf ("Test %s: stored messages for test15@identifier.com are: %s\n", test_label, (const char *) myqtt_msg_get_app_msg (msg));
 	if (! axl_cmp ("30", (const char *) myqtt_msg_get_app_msg (msg))) {
 		printf ("ERROR: expected to find 30 messages waiting but found: %s\n", (const char *) myqtt_msg_get_app_msg (msg));
 		return axl_false;
@@ -2478,7 +2504,7 @@ axl_bool test_15 (void) {
 	/* close connection */
 	myqtt_conn_close (conn);
 
-	printf ("Test 15: reconnecting again with initial connection (2 seconds simulated wait)..\n");
+	printf ("Test %s: reconnecting again with initial connection (2 seconds simulated wait)..\n", test_label);
 	myqtt_async_queue_timedpop (queue, 2000000);
 
 	/* now seting on message received */
@@ -2534,12 +2560,12 @@ axl_bool test_15 (void) {
 		return axl_false;
 	}
 
-	printf ("Test 15: all messages received OK, now closing connection..\n");
+	printf ("Test %s: all messages received OK, now closing connection..\n", test_label);
 
 	/* close connection */
 	myqtt_conn_close (conn);
 
-	printf ("Test 15: connection closed, now connect again to check we don't receive any message..\n");
+	printf ("Test %s: connection closed, now connect again to check we don't receive any message..\n", test_label);
 
 	/* client_identifier -> "test15@identifier.com", clean_session -> axl_false */
 	conn = myqtt_conn_new (ctx, "test15@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
@@ -2549,7 +2575,7 @@ axl_bool test_15 (void) {
 	} /* end if */
 
 	/* ensure we don't get more messages because we didn't publish anything new */
-	printf ("Test 15: checking no more messages are published (3 seconds)..\n");
+	printf ("Test %s: checking no more messages are published (3 seconds)..\n", test_label);
 	msg = myqtt_async_queue_timedpop (queue, 3000000);
 	if (msg != NULL) {
 		printf ("ERROR (15.1): we shouldn't have received any message but we did!\nMessage received, topic='%s'\nmsg='%s'\nsize='%d'\nqos='%d'\n",
@@ -2560,6 +2586,33 @@ axl_bool test_15 (void) {
 		return axl_false;
 	} /* end if */
 
+	/* subscribe to the topics referenced before */
+	switch (wildcard) {
+	case 0:
+		if (! myqtt_conn_unsub (conn, "test/message/1", 10)) {
+			printf ("ERROR: unable to unsubscribe, myqtt_conn_unsub () failed\n");
+			return axl_false;
+		} /* end if */
+		
+		if (! myqtt_conn_unsub (conn, "test/message/2", 10)) {
+			printf ("ERROR: unable to unsubscribe, myqtt_conn_unsub () failed\n");
+			return axl_false;
+		} /* end if */
+		
+		if (! myqtt_conn_unsub (conn, "test/message/3", 10)) {
+			printf ("ERROR: unable to unsubscribe, myqtt_conn_unsub () failed\n");
+			return axl_false;
+		} /* end if */
+		break;
+	case 1:
+	case 2:
+		if (! myqtt_conn_unsub (conn, sub_topic, 10)) {
+			printf ("ERROR: unable to unsubscribe, myqtt_conn_unsub () failed\n");
+			return axl_false;
+		} /* end if */
+		break;
+	}
+
 	/* close connection */
 	myqtt_conn_close (conn);
 
@@ -2567,10 +2620,22 @@ axl_bool test_15 (void) {
 	myqtt_async_queue_unref (queue);
 	
 	/* release context */
-	printf ("Test 15: releasing context..\n");
+	printf ("Test %s: releasing context..\n", test_label);
 	myqtt_exit_ctx (ctx, axl_true);
 
 	return axl_true;
+}
+
+axl_bool test_15 (void) {
+	return test_15_common (0);
+}
+
+axl_bool test_15a (void) {
+	return test_15_common (1);
+}
+
+axl_bool test_15b (void) {
+	return test_15_common (2);
 }
 
 axl_bool test_16 (void) {
@@ -4326,6 +4391,12 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_15")
 	run_test (test_15, "Test 15: test reception of messages when you are disconnected (with sessions)"); 
+
+	CHECK_TEST("test_15a")
+	run_test (test_15a, "Test 15-a: test reception of messages when you are disconnected (with sessions), wildcard +"); 
+
+	CHECK_TEST("test_15b")
+	run_test (test_15b, "Test 15-a: test reception of messages when you are disconnected (with sessions), wildcard #"); 
 	
 	CHECK_TEST("test_16")
 	run_test (test_16, "Test 16: check message retention"); 
