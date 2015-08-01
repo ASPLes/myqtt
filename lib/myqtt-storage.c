@@ -880,9 +880,6 @@ int __myqtt_storage_sub_count_aux (MyQttCtx * ctx, const char * client_identifie
 
 		axl_free (full_path);
 #endif
-
-
-
 		/* next file */
 		entry = readdir (files);
 	}
@@ -1407,26 +1404,25 @@ axl_bool      myqtt_storage_retain_msg_recover (MyQttCtx       * ctx,
 
 	if (ctx == NULL || ctx->storage_path_hash_size == 0)
 		return axl_false;
-	
+
 	/* hash topic filter */
 	hash_value = axl_strdup_printf ("%u", axl_hash_string ((axlPointer) topic_name) % ctx->storage_path_hash_size);
 	if (hash_value == NULL)
 		return axl_false;
-
+	
 	/* call to check subscription in the provided directory. If it exists, remove it */	
 	full_path = myqtt_support_build_filename (ctx->storage_path, "retained", hash_value, NULL);
 	axl_free (hash_value);
 	if (full_path == NULL) 
 		return axl_false;
-
+	
 	/* remove subscription (well, in fact topic name) and message associated if it exists */
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Recovering retained message for subscription %s at %s", topic_name, full_path);
 	result = __myqtt_storage_sub_exists (ctx, full_path, topic_name, strlen (topic_name), axl_true, axl_true, qos, app_msg, app_msg_size);
 	axl_free (full_path);
-
+	
 	return result; /* by default report error */
 }
-
 
 /** 
  * @brief Allows to get current queued messages pending to be
@@ -2033,6 +2029,153 @@ axl_bool     myqtt_storage_set_path (MyQttCtx * ctx, const char * storage_path, 
 	myqtt_mutex_unlock (&ctx->ref_mutex);
 
 	return axl_true;
+}
+
+void __myqtt_storage_get_retained_topics_dir (MyQttCtx * ctx, const char * topic_filter, const char * full_path, axlList * list)
+{
+	unsigned char * topic_name = NULL;
+	int             ref_size   = 0;
+	DIR           * sub_dir;
+	struct dirent * entry;
+	char          * aux_path;
+
+	/* try to open path */
+	sub_dir = opendir (full_path);
+	if (sub_dir == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to open %s, error was: %s", full_path, myqtt_errno_get_error (errno));
+		return;
+	} /* end if */
+
+	entry   = readdir (sub_dir);
+	while (sub_dir && entry) {
+
+		/* get next entry and skip those we are not interested in */
+		if (axl_cmp (".", entry->d_name) || axl_cmp ("..", entry->d_name)) {
+			entry = readdir (sub_dir);
+			continue;
+		} /* end if */
+
+		/* create full path and do some checks */
+		aux_path = myqtt_support_build_filename (full_path, entry->d_name, NULL);
+		if (! myqtt_support_file_test (aux_path, FILE_EXISTS | FILE_IS_REGULAR)) {
+			entry = readdir (sub_dir);
+			axl_free (aux_path);
+			continue;
+		} /* end if */
+
+		/* skip those files that includes .msg (which is the content of the message retained) */
+		if (strstr (aux_path, ".msg")) {
+			entry = readdir (sub_dir);
+			axl_free (aux_path);
+			continue;
+		}
+		
+		/* skip known extensions that aren't valid */
+		if (strstr (aux_path, "~")) {
+			entry = readdir (sub_dir);
+			axl_free (aux_path);
+			continue;
+		}
+
+		/* call to load the content from the file */
+		topic_name = NULL;
+		__myqtt_storage_read_content_into_reference (ctx, aux_path, &topic_name, &ref_size);
+		axl_free (aux_path);
+
+		/* save into the list the topic name recovered */
+		if (topic_name && strlen ((const char *) topic_name) > 0) {
+			/* check if the topic matches with the filter */
+			if (myqtt_reader_topic_filter_match ((const char *) topic_name, topic_filter))
+				axl_list_append (list, topic_name);
+		} /* end if */
+
+		/* get next entry */
+		entry   = readdir (sub_dir);
+	} /* end if */
+
+	closedir (sub_dir);
+
+	return;
+}
+
+/** 
+ * @brief Allows to get the list of topics with message retention
+ * stored, filtered by the provided topic_filter
+ *
+ * @param ctx The context where the operation takes place
+ *
+ * @param topic_filter The filter to allow selecting those topics that
+ * matches and have a message pending due to retain flag configured in
+ * the last publish
+ *
+ * @return A list of retained topics or NULL if it fails. The list
+ * returned may be empty. Use axl_list_free (to release result
+ * reported).
+ */
+axlList * myqtt_storage_get_retained_topics (MyQttCtx * ctx, const char * topic_filter)
+{
+
+	char          * full_path;
+	char          * aux_path;
+	DIR           * sub_dir;
+	struct dirent * entry;
+	axlList       * list;
+
+	/* get full path to subscriptions */
+	full_path = myqtt_support_build_filename (ctx->storage_path, "retained", NULL);
+	if (full_path == NULL) 
+		return NULL; /* allocation failure */
+
+	if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
+		axl_free (full_path);
+		return NULL; /* directory do not exists */
+	} /* end if */
+
+	/* try to open path */
+	sub_dir = opendir (full_path);
+	if (sub_dir == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to open %s, error was: %s", full_path, myqtt_errno_get_error (errno));
+		axl_free (full_path);
+		return NULL;
+	} /* end if */
+
+	/* create list */
+	list = axl_list_new (axl_list_always_return_1, axl_free);
+
+	entry   = readdir (sub_dir);
+	while (sub_dir && entry) {
+
+		/* get next entry and skip those we are not interested in */
+		if (axl_cmp (".", entry->d_name) || axl_cmp ("..", entry->d_name)) {
+			entry = readdir (sub_dir);
+			continue;
+		} /* end if */
+
+		/* check if it is a directory */
+#if defined(_DIRENT_HAVE_D_TYPE)
+		if ((entry->d_type & DT_DIR) == DT_DIR) {
+			/* count subscriptions */
+			aux_path  = myqtt_support_build_filename (full_path, entry->d_name, NULL);
+			__myqtt_storage_get_retained_topics_dir (ctx, topic_filter, aux_path, list);
+			axl_free (aux_path);
+		}
+#else 
+		aux_path = myqtt_support_build_filename (full_path, entry->d_name, NULL);
+		if (myqtt_support_file_test (aux_path, FILE_EXISTS | FILE_IS_DIR)) {
+			/* load into list topic filters found */
+			__myqtt_storage_get_retained_topics_dir (ctx, topic_filter, aux_path, list);
+		}
+		axl_free (aux_path);
+#endif
+
+		/* get next entry */
+		entry   = readdir (sub_dir);
+	}
+
+	closedir (sub_dir);
+	axl_free (full_path);
+
+	return list;
 }
        
 /** 
