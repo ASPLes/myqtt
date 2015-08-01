@@ -2641,11 +2641,15 @@ axl_bool test_15b (void) {
 axl_bool test_16 (void) {
 
 	MyQttCtx        * ctx = init_ctx ();
-	if (! ctx)
-		return axl_false;
 	MyQttQos          qos;
 	unsigned char   * app_msg;
 	int               app_size;
+	axlList         * list;
+	axlListCursor   * cursor;
+	const char      * topic;
+
+	if (! ctx)
+		return axl_false;
 
 	printf ("Test 16: checking message retention\n");
 
@@ -2688,6 +2692,36 @@ axl_bool test_16 (void) {
 		printf ("ERROR (5): failed to queue retained message..\n");
 		return axl_false;
 	} /* end if */
+
+	/* get the list of retained topics */
+	list = myqtt_storage_get_retained_topics (ctx, "#");
+	if (list == NULL || axl_list_length (list) == 0) {
+		printf ("ERROR (5.1): expected to find a list of retained messages but found NULL or empty..\n");
+		return axl_false;
+	} /* end if */
+
+	if (axl_list_length (list) != 2) {
+		printf ("ERROR (5.2): expected to find 2 elements into the list but found: %d\n", axl_list_length (list));
+		return axl_false;
+	}
+
+	/* create the cursor */
+	cursor = axl_list_cursor_new (list);
+	while (axl_list_cursor_has_item (cursor)) {
+		/* get the topic */
+		topic = (const char *) axl_list_cursor_get (cursor);
+		printf ("Test --: retained topic found: %s\n", topic);
+		if (! axl_cmp (topic, "this/is/a/test") &&
+		    ! axl_cmp (topic, "this/is/a/test/b")) {
+			printf ("ERROR: found topic that is not expected (tgk34): %s\n", topic);
+			return axl_false;
+		} /* end if */
+
+		/* next position */
+		axl_list_cursor_next (cursor);
+	}
+	axl_list_cursor_free (cursor);
+	axl_list_free (list);
 
 	/* count number of files in test directory */
 	if (test_count_in_dir ("myqtt-test-16", TEST_FILES) != 4) {
@@ -2762,18 +2796,19 @@ axl_bool test_16 (void) {
 	return axl_true;
 }
 
-axl_bool test_17_publish_and_check (MyQttConn * conn, MyQttAsyncQueue * queue, axl_bool should_be_received)
+axl_bool test_17_publish_and_check (MyQttConn * conn, MyQttAsyncQueue * queue, axl_bool should_be_received, int wildcard, const char * sub_topic, const char * test_label)
 {
 	int        sub_result;
 	MyQttMsg * msg;
+	
 
-	if (! myqtt_conn_sub (conn, 14, "this/is/a/test", 0, &sub_result)) {
+	if (! myqtt_conn_sub (conn, 14, sub_topic, 0, &sub_result)) {
 		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
 		return axl_false;
 	} /* end if */
 
 	/* get message (ensure we don't receive anything) */
-	printf ("Test 17: now wait for message (for 3 seconds)\n");
+	printf ("Test %s: now wait for message (for 3 seconds)\n", test_label);
 	msg   = myqtt_async_queue_timedpop (queue, 3000000);
 
 	/* it should not be received */
@@ -2802,13 +2837,18 @@ axl_bool test_17_publish_and_check (MyQttConn * conn, MyQttAsyncQueue * queue, a
 		return axl_false;
 	} /* end if */
 
+	if (! myqtt_conn_unsub (conn, sub_topic, 14)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_unsub () failed, sub_result=%d\n", sub_result);
+		return axl_false;
+	} /* end if */
+
 	/* release message */
 	myqtt_msg_unref (msg);
 
 	return axl_true;
 }
 
-axl_bool test_17 (void) {
+axl_bool test_17_common (int wildcard) {
 
 	MyQttCtx        * ctx = init_ctx ();
 
@@ -2817,10 +2857,28 @@ axl_bool test_17 (void) {
 	MyQttMsg        * msg;
 	MyQttConn       * conn;
 
+	const char      * sub_topic  = NULL;
+	const char      * test_label = NULL;
+
+	switch (wildcard) {
+	case 0:
+		sub_topic  = "this/is/a/test";
+		test_label = "17";
+		break;
+	case 1:
+		sub_topic  = "this/is/a/+";
+		test_label = "17-a";
+		break;
+	case 2:
+		sub_topic  = "this/is/a/#";
+		test_label = "17-b";
+		break;
+	}
+
 	if (! ctx)
 		return axl_false;
 
-	printf ("Test 17: checking message retention\n");
+	printf ("Test %s: checking message retention\n", test_label);
 
 	/* do a simple connection */
 	conn = myqtt_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
@@ -2829,7 +2887,7 @@ axl_bool test_17 (void) {
 		return axl_false;
 	} /* end if */
 
-	printf ("Test 17: connection created..\n");
+	printf ("Test %s: connection created..\n", test_label);
 
 	/* publish a message with retention */
 	if (! myqtt_conn_pub (conn, "this/is/a/test", "This is a retained message for future subscribers..", 51, MYQTT_QOS_2, axl_true, 10)) {
@@ -2837,7 +2895,7 @@ axl_bool test_17 (void) {
 		return axl_false;
 	} /* end if */
 
-	printf ("Test 17: message published..\n");
+	printf ("Test %s: message published..\n", test_label);
 
 	/* close connection */
 	myqtt_conn_close (conn);
@@ -2855,7 +2913,7 @@ axl_bool test_17 (void) {
 	/* set on message received */
 	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
 
-	printf ("Test 17: sending new subscription..\n");
+	printf ("Test %s: sending new subscription..\n", test_label);
 
 	/* subscribe to a topic without retained message */
 	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
@@ -2864,7 +2922,7 @@ axl_bool test_17 (void) {
 	} /* end if */
 
 	/* get message (ensure we don't receive anything) */
-	printf ("Test 17: ensuring we don't get a message as a consequence of this subscription (3 seconds)..\n");
+	printf ("Test %s: ensuring we don't get a message as a consequence of this subscription (3 seconds)..\n", test_label);
 	msg   = myqtt_async_queue_timedpop (queue, 3000000);
 	if (msg != NULL) {
 		printf ("ERROR: we shouldn't have received a message after subscription... but we did! topic: [%s]\n", myqtt_msg_get_topic (msg));
@@ -2872,13 +2930,13 @@ axl_bool test_17 (void) {
 	} /* end if */
 
 	/* now subscribe to a topic with a retained message */
-	printf ("Test 17: subscribe and check we receive the message..\n");
-	if (! test_17_publish_and_check (conn, queue, axl_true))
+	printf ("Test %s: subscribe and check we receive the message..\n", test_label);
+	if (! test_17_publish_and_check (conn, queue, axl_true, wildcard, sub_topic, test_label))
 		return axl_false;
 
 	/* now subscribe to a topic with a retained message */
-	printf ("Test 17: subscribe with the same connection but without receiving message..\n");
-	if (! test_17_publish_and_check (conn, queue, axl_false))
+	printf ("Test %s: subscribe with the same connection but without receiving message..\n", test_label);
+	if (! test_17_publish_and_check (conn, queue, axl_false, wildcard, sub_topic, test_label))
 		return axl_false;
 
 	/* close connection and release message */
@@ -2888,10 +2946,22 @@ axl_bool test_17 (void) {
 	myqtt_async_queue_unref (queue);
 
 	/* release context */
-	printf ("Test 17: releasing context..\n");
+	printf ("Test %s: releasing context..\n", test_label);
 	myqtt_exit_ctx (ctx, axl_true);
 
 	return axl_true;
+}
+
+axl_bool test_17 (void) {
+	return test_17_common (0);
+}
+
+axl_bool test_17a (void) {
+	return test_17_common (1);
+}
+
+axl_bool test_17b (void) {
+	return test_17_common (2);
 }
 
 #if defined(ENABLE_TLS_SUPPORT)
@@ -4403,6 +4473,12 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_17")
 	run_test (test_17, "Test 17: check message retention"); 
+
+	CHECK_TEST("test_17a")
+	run_test (test_17a, "Test 17-a: check message retention (wildcard +)"); 
+
+	CHECK_TEST("test_17b")
+	run_test (test_17b, "Test 17-b: check message retention (wildcard #)"); 
 
 #if defined(ENABLE_TLS_SUPPORT)
 	CHECK_TEST("test_18")

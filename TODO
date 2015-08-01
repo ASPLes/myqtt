@@ -1,12 +1,10 @@
 --== roadmap ==--
 
-* Add wildcard support (for message retention too).
-
 * Big message support (review and strenghten current limits).
 
 * High load support (review and strenghten current limits).
 
-* Add support for cluster support
+* Add support for clustering for epic configurations
 
 --== things that should be reviewed ==--
 

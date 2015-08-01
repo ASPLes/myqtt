@@ -149,6 +149,8 @@ axl_bool myqtt_storage_set_path         (MyQttCtx      * ctx,
 					 const char    * storage_path, 
 					 int             hash_size);
 
+axlList  * myqtt_storage_get_retained_topics  (MyQttCtx * ctx, const char * topic_filter);
+
 /*** internal API: don't use it, it may change at any time ***/
 void     __myqtt_storage_get_values_from_file_name (MyQttCtx * ctx, const char * file_name, int * packet_id, int * size, int * qos);
 

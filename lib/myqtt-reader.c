@@ -524,19 +524,61 @@ void __myqtt_reader_recover_retained_message (MyQttCtx * ctx, MyQttConn * conn, 
 	unsigned char * app_msg;
 	int             app_msg_size;
 	MyQttQos        qos;
+	axlList       * retained_topics;
+	axlListCursor * cursor;
+	const char    * topic_name;
+	axl_bool        have_wild_cards;
 
 	/* recover message with direct topic_filter */
-	/* basic case: topic filter that aren't wild cards */
-	
-	if (! myqtt_storage_retain_msg_recover (ctx, topic_filter, &qos, &app_msg, &app_msg_size))
-		return; /* nothing found */
 
-	/* found message, send it to the client */
-	if (! myqtt_conn_pub (conn, topic_filter, app_msg, app_msg_size, qos, axl_true /* report this is retained */, 0))
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to send message due to retained subscription, myqtt_conn_pub() failed");
-	
-	/* now release content */
-	axl_free (app_msg);
+	/* get have wild card status */
+	have_wild_cards = (strstr (topic_filter, "#") != NULL) || (strstr (topic_filter, "+") != NULL);
+	if (have_wild_cards) {
+		/* get list of retained topics filtered with the
+		 * provided topic filter: the following returns the
+		 * list of topics that were published with retain
+		 * enabled */
+		retained_topics = myqtt_storage_get_retained_topics (ctx, topic_filter);
+		cursor          = axl_list_cursor_new (retained_topics);
+		while (axl_list_cursor_has_item (cursor)) {
+			/* get topic name */
+			topic_name = axl_list_cursor_get (cursor);
+
+			/* recover this topic and send it */
+			if (! myqtt_storage_retain_msg_recover (ctx, topic_name, &qos, &app_msg, &app_msg_size)) {
+				/* nothing was found recovering retained message so, next position */
+				axl_list_cursor_next (cursor);
+				continue;
+			} /* end if */
+
+			/* found message, send it to the client */
+			if (! myqtt_conn_pub (conn, topic_name, app_msg, app_msg_size, qos, axl_true /* report this is retained */, 0))
+				myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to send message due to retained subscription, myqtt_conn_pub() failed");
+
+			/* now release content */
+			axl_free (app_msg);
+
+			/* next position */
+			axl_list_cursor_next (cursor);
+		} /* end while */
+		
+		/* release cursor and list */
+		axl_list_cursor_free (cursor);
+		axl_list_free (retained_topics);
+	} else {
+
+		/* basic case: topic filter that aren't wild cards */
+		if (! myqtt_storage_retain_msg_recover (ctx, topic_filter, &qos, &app_msg, &app_msg_size))
+			return; /* nothing found */
+
+		/* found message, send it to the client */
+		if (! myqtt_conn_pub (conn, topic_filter, app_msg, app_msg_size, qos, axl_true /* report this is retained */, 0))
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to send message due to retained subscription, myqtt_conn_pub() failed");
+
+		/* now release content */
+		axl_free (app_msg);
+	}
+
 	return;
 }
 
