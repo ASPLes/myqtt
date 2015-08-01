@@ -2016,7 +2016,7 @@ axl_bool test_13b (void) {
 	return test_13_common (2);
 }
 
-axl_bool test_14 (void) {
+axl_bool test_14_common (int wildcard) {
 
 	MyQttCtx        * ctx = init_ctx ();
 	MyQttConn       * conn;
@@ -2027,11 +2027,24 @@ axl_bool test_14 (void) {
 	MyQttAsyncQueue * queue; 
 	int               value;
 	const char      * msg_str;
+	
+	const char      * sub_topic = NULL;
+	const char      * test_label = "14";
+
+	if (wildcard == 1) {
+		sub_topic = "test/message/+";
+		test_label = "14-a";
+	}
+	if (wildcard == 2) {
+		sub_topic = "test/message/#";
+		test_label = "14-b";
+	}
+
 
 	if (! ctx)
 		return axl_false;
 
-	printf ("Test 14: queueing 3 messages (offline PUB)..\n");
+	printf ("Test %s: queueing 3 messages (offline PUB)..\n", test_label);
 	if (system ("find .myqtt-regression-client/test14@identifier.com/msgs/ -type f -exec rm {} \\;") != 0)
 		printf ("WARNING: failed to clean messages from local storage..\n");
 
@@ -2066,7 +2079,7 @@ axl_bool test_14 (void) {
 
 	/* now connect with a different client id and subscribe to previous messages */
 	/* client_identifier -> "test13@identifier.com", clean_session -> axl_false */
-	printf ("Test 14: now connect with a second connection that expects to receive those queued messages for the other identifier..\n");
+	printf ("Test %s: now connect with a second connection that expects to receive those queued messages for the other identifier..\n", test_label);
 	conn = myqtt_conn_new (ctx, "test14-2@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: expected LOGIN  but found LOGIN FAILURE operation from %s:%s..\n", listener_host, listener_port);
@@ -2074,28 +2087,40 @@ axl_bool test_14 (void) {
 	} /* end if */
 
 	/* subscribe to the topics referenced before */
-	printf ("Test 14: subscribing to the topics..\n");
-	if (! myqtt_conn_sub (conn, 10, "test/message/1", MYQTT_QOS_2, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
-		return axl_false;
-	} /* end if */
-
-	if (! myqtt_conn_sub (conn, 10, "test/message/2", MYQTT_QOS_2, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
-		return axl_false;
-	} /* end if */
-
-	if (! myqtt_conn_sub (conn, 10, "test/message/3", MYQTT_QOS_2, &sub_result)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
-		return axl_false;
-	} /* end if */
+	printf ("Test %s: subscribing to the topics (%s)..\n", test_label, sub_topic ? sub_topic : "test/message/1,2,3");
+	switch (wildcard) {
+	case 0:
+		if (! myqtt_conn_sub (conn, 10, "test/message/1", MYQTT_QOS_2, &sub_result)) {
+			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+			return axl_false;
+		} /* end if */
+		
+		if (! myqtt_conn_sub (conn, 10, "test/message/2", MYQTT_QOS_2, &sub_result)) {
+			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+			return axl_false;
+		} /* end if */
+		
+		if (! myqtt_conn_sub (conn, 10, "test/message/3", MYQTT_QOS_2, &sub_result)) {
+			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+			return axl_false;
+		} /* end if */
+		break;
+	case 1:
+	case 2:
+		if (! myqtt_conn_sub (conn, 10, sub_topic, MYQTT_QOS_2, &sub_result)) {
+			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+			return axl_false;
+		} /* end if */
+		break;
+	}
+		
 
 	/* set on publish handler */	
 	queue  = myqtt_async_queue_new ();
 	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
 
 	/* now connect with the client id with queued messages */
-	printf ("Test 14: now connect with the initial connection that has queued messages..\n");
+	printf ("Test %s: now connect with the initial connection that has queued messages..\n", test_label);
 	conn2 = myqtt_conn_new (ctx, "test14@identifier.com", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn2, axl_false)) {
 		printf ("ERROR: expected LOGIN  but found LOGIN FAILURE operation from %s:%s..\n", listener_host, listener_port);
@@ -2106,7 +2131,7 @@ axl_bool test_14 (void) {
 	iterator = 0;
 	while (iterator < 3) {
 		/* next message on queue */
-		printf ("Test 14: waiting for messages to arrive (at most 3 seconds waiting before failing..\n");
+		printf ("Test %s: waiting for messages to arrive (at most 3 seconds waiting before failing..\n", test_label);
 		msg = myqtt_async_queue_timedpop (queue, 3000000);
 		if (msg == NULL || myqtt_msg_get_type (msg) != MYQTT_PUBLISH) {
 			printf ("ERROR: received NULL message or wrong type..\n");
@@ -2160,16 +2185,62 @@ axl_bool test_14 (void) {
 
 	/* close both connections */
 	myqtt_conn_close (conn2);
+
+
+
+	switch (wildcard) {
+	case 0:
+		/* unsubscribe */
+		if (! myqtt_conn_unsub (conn, "test/message/1", 10)) {
+			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+			return axl_false;
+		} /* end if */
+
+		if (! myqtt_conn_unsub (conn, "test/message/2", 10)) {
+			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+			return axl_false;
+		} /* end if */
+
+		if (! myqtt_conn_unsub (conn, "test/message/3", 10)) {
+			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+			return axl_false;
+		} /* end if */
+
+
+
+		break;
+	case 1:
+	case 2:
+		/* unsubscribe */
+		if (! myqtt_conn_unsub (conn, sub_topic, 10)) {
+			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+			return axl_false;
+		} /* end if */
+		break;
+	}
+
 	myqtt_conn_close (conn);
 
 	/* release queue */
 	myqtt_async_queue_unref (queue);
 	
 	/* release context */
-	printf ("Test 14: releasing context..\n");
+	printf ("Test %s: releasing context..\n", test_label);
 	myqtt_exit_ctx (ctx, axl_true);
 
 	return axl_true;
+}
+
+axl_bool test_14 (void) {
+	return test_14_common (0);
+}
+
+axl_bool test_14b (void) {
+	return test_14_common (1);
+}
+
+axl_bool test_14c (void) {
+	return test_14_common (2);
 }
 
 axl_bool test_14a_subs (MyQttCtx * ctx, const char * client_id)
@@ -4246,6 +4317,12 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_14a")
 	run_test (test_14a, "Test 14a: checking server side subscription loading on startup");  
+
+	CHECK_TEST("test_14b")
+	run_test (test_14b, "Test 14: offline PUB test messages queued to be sent on next connection (client), wildcard +");  
+
+	CHECK_TEST("test_14c")
+	run_test (test_14c, "Test 14: offline PUB test messages queued to be sent on next connection (client), wildcard #");  
 
 	CHECK_TEST("test_15")
 	run_test (test_15, "Test 15: test reception of messages when you are disconnected (with sessions)"); 
