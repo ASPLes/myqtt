@@ -448,6 +448,40 @@ MyQttPublishCodes __myqttd_run_on_publish_msg (MyQttCtx * myqtt_ctx, MyQttConn *
 	return MYQTT_PUBLISH_OK; /* allow publish */
 }
 
+
+MyQttQos __myqttd_run_on_subscribe_msg (MyQttCtx * myqtt_ctx, MyQttConn * conn, const char * topic_filter, MyQttQos qos, axlPointer user_data)
+{
+	/* get reference to the domain */
+	MyQttdDomain * domain          = user_data;
+	MyQttdCtx    * ctx             = domain->ctx;
+
+	/* check if the subscription received have wildcards */
+	axl_bool       have_wild_cards = (strstr (topic_filter, "#") != NULL) || (strstr (topic_filter, "+") != NULL);
+
+	/* check wildcards disabled on the domain */
+	/* printf ("Domain: %p, settings: %p\n", domain, domain ? domain->settings : NULL); */
+	if (domain->settings && domain->settings->disable_wildcard_support) {
+		if (have_wild_cards) {
+			error ("%s : Rejected wildcard subscribe [%s] on domain=%s because administrative configuration",
+			       domain->name, topic_filter);
+			return MYQTT_QOS_DENIED;
+		} /* end if */
+	} /* end if */
+
+	/* check if wildcards disabled on the server */
+	/* printf ("Ctx: %p, default_settings: %p, value: %d\n", ctx, ctx ? ctx->default_setting : NULL, ctx && ctx->default_setting ? ctx->default_setting->disable_wildcard_support : 0); */
+	if (ctx->default_setting && ctx->default_setting->disable_wildcard_support) {
+		if (have_wild_cards) {
+			error ("%s : Rejected wildcard subscribe [%s] at the server because administrative configuration",
+			       domain->name, topic_filter);
+			return MYQTT_QOS_DENIED;
+		} /* end if */
+	}
+
+	/* return same qos as received */
+	return qos;
+}
+
 axl_bool __myqttd_run_on_header_msg (MyQttCtx * myqtt_ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _domain)
 {
 	MyQttdDomain        * domain   = _domain;
@@ -598,6 +632,9 @@ void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 
 	/* configure on header msg */
 	myqtt_ctx_set_on_header (domain->myqtt_ctx, __myqttd_run_on_header_msg, domain);
+
+	/* configure on subscribe msg */
+	myqtt_ctx_set_on_subscribe (domain->myqtt_ctx, __myqttd_run_on_subscribe_msg, domain);
 
 	/* configure store and release */
 	myqtt_ctx_set_on_store (domain->myqtt_ctx, __myqttd_run_on_store_msg, domain);
@@ -1016,8 +1053,11 @@ axl_bool myqttd_run_domain_settings_load (MyQttdCtx * ctx, axlDoc * doc)
 	/* restrict-ids */
 	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/restrict-ids", "boolean", &(ctx->default_setting->restrict_ids), axl_false);
 
-	/* restrict-ids */
+	/* drop-conn-same-client-id */
 	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/drop-conn-same-client-id", "boolean", &(ctx->default_setting->drop_conn_same_client_id), axl_false);
+
+	/* disable-wildcard-support */
+	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/disable-wildcard-support", "boolean", &(ctx->default_setting->disable_wildcard_support), axl_false);
 
 	/* conn-limit */
 	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/conn-limit", "int", &(ctx->default_setting->conn_limit), -1);
@@ -1063,6 +1103,9 @@ axl_bool myqttd_run_domain_settings_load (MyQttdCtx * ctx, axlDoc * doc)
 		/* drop-conn-same-client-id */
 		__myqttd_run_get_value_by_node (ctx, node, "drop-conn-same-client-id", "boolean", &(setting->drop_conn_same_client_id),
 						ctx->default_setting->drop_conn_same_client_id);
+		/* disable-wildcard-support */
+		__myqttd_run_get_value_by_node (ctx, node, "disable-wildcard-support", "boolean", &(setting->disable_wildcard_support),
+						ctx->default_setting->disable_wildcard_support);
 		/* conn-limit */
 		__myqttd_run_get_value_by_node (ctx, node, "conn-limit", "int", &(setting->conn_limit),
 						ctx->default_setting->conn_limit);

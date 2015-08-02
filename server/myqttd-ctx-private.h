@@ -250,6 +250,9 @@ struct _MyQttdDomainSetting {
 
 	/* storage quota per user */
 	int         storage_quota_limit;
+
+	/* reference to disable_wild_card_support */
+	axl_bool       disable_wildcard_support;
 	
 };
 

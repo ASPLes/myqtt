@@ -2285,6 +2285,7 @@ axl_bool  test_16 (void) {
 	MyQttConn       * conn;
 	MyQttCtx        * myqtt_ctx;
 	int               sub_result = -1;
+	MyQttdDomain    * domain;
 
 	/* call to init the base library and close it */
 	printf ("Test 16: init library and server engine..\n");
@@ -2311,7 +2312,17 @@ axl_bool  test_16 (void) {
 	} /* end if */
 
 	/* try to subscribe to a wildcarid topic */
-	if (myqtt_conn_sub (conn, 10, "myqtt/#", 0, &sub_result)) {
+	myqtt_conn_sub (conn, 10, "myqtt/#", 10, &sub_result);
+
+	/* get domain by name */
+	domain = myqttd_domain_find_by_name (ctx, "test_01.context");
+	if (domain == NULL) {
+		printf ("ERROR: expected to find domain by name [test_01.context] but found NULL reference..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 16: items in the hash: %d (ctx->myqtt_ctx->wild_subs = %p)\n", axl_hash_items (domain->myqtt_ctx->wild_subs), domain->myqtt_ctx->wild_subs);
+	if (axl_hash_items (domain->myqtt_ctx->wild_subs) > 0) {
 		printf ("ERROR: it shouldn't allow us to subscribe to the provided topic, but it was allowed..\n");
 		return axl_false;
 	} /* end if */	

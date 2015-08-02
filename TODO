@@ -11,6 +11,11 @@
 * Publish small note about how to check if a topic filter matches from
   the command line: myqtt-client -c '+/accounts' 'balance/accounts'
 
+* Publish small note about how to disable wildcard subscription globally
+  or by domain or by user.
+
+* Disable wildcard subscription for certain users.
+
 * Check tests from:
   https://eclipse.org/paho/clients/testing/
 
@@ -36,8 +41,6 @@
 
 * Make client library to try to connect with 3.1.1 and if it fails, with 
   3.1.
-
-* Disable wildcard subscription for certain users.
 
 * After publishing first or second release, make the way to have myqtt
   listed under: http://mqtt.org/wiki/doku.php/server_support
