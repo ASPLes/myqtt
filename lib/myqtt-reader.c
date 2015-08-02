@@ -2111,6 +2111,9 @@ void        __myqtt_reader_prepare_wait_reply (MyQttConn * conn, int packet_id, 
 
 	myqtt_mutex_unlock (&conn->op_mutex);
 
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Installed queue=%p for wait reply in hash %p (%s), packet_id=%d conn=%p conn-id=%d", 
+		   queue, hash, peer_ids ? "conn->peer_wait_replies" : "conn->wait_replies", packet_id, conn, conn->id);
+
 	return;
 }
 
