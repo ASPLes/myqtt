@@ -1343,6 +1343,7 @@ axl_bool  test_09 (void) {
 	myqttd_ctx_add_on_publish (ctx, test_09_handle_publish, NULL);
 
 	/* configure reception */
+	printf ("Test 09: configure queue reception..\n");
 	queue = common_configure_reception (conn);
 	if (! common_send_msg (conn, "get-subscriptions", "---", MYQTT_QOS_0)) {
 		printf ("ERROR: unable to send get-subscriptions message..\n");
@@ -1350,14 +1351,19 @@ axl_bool  test_09 (void) {
 	} /* end if */
 
 	/* now get result */
+	printf ("Test 09: configure queue reception..\n");
 	if (! common_receive_and_check (queue, "get-subscriptions", "myqtt/test", MYQTT_QOS_0, axl_false)) {
 		printf ("ERROR: expected different content..\n");
 		return axl_false;
 	} /* end if */
 
 	/* now close connection to overload quota */
+	printf ("Test 09: calling to close connection=%p, with client_id=test_05..\n", conn);
 	myqtt_async_queue_unref (queue);
 	myqtt_conn_close (conn);
+
+	printf ("Test 09: waiting 100ms to ensure conn is released on remote side..\n");
+	myqtt_sleep (100000);
 
 	/* checking that the subscription is recorded at the remote server at the offline storage */
 	printf ("Test 09: checking subscription in domain selected (offline storage)..\n");
@@ -1384,8 +1390,10 @@ axl_bool  test_09 (void) {
 	iterator = 0;
 	while (iterator < 10) {
 		printf ("Test 09: sending message...(iterator=%d, message=%d)\n", iterator, (int) strlen (message));
-		if (! myqtt_conn_pub (conn, "myqtt/test", (axlPointer) message, (int) strlen (message), MYQTT_QOS_2, axl_false, 10))
-			printf ("ERROR: failed to publish message in reply..\n");
+		if (! myqtt_conn_pub (conn, "myqtt/test", (axlPointer) message, (int) strlen (message), MYQTT_QOS_2, axl_false, 10)) {
+			printf ("ERROR: failed to publish message in reply (1)..\n");
+			return axl_false;
+		} /* end if */
 
 		/* next iterator */
 		iterator++;
@@ -1403,8 +1411,10 @@ axl_bool  test_09 (void) {
 	iterator = 0;
 	while (iterator < 8) {
 		printf ("Test 09: sending message...(iterator=%d, message=%d)\n", iterator, (int) strlen (message));
-		if (! myqtt_conn_pub (conn, "myqtt/test", (axlPointer) message, (int) strlen (message), MYQTT_QOS_2, axl_false, 10))
-			printf ("ERROR: failed to publish message in reply..\n");
+		if (! myqtt_conn_pub (conn, "myqtt/test", (axlPointer) message, (int) strlen (message), MYQTT_QOS_2, axl_false, 10)) {
+			printf ("ERROR: failed to publish message in reply (2)..\n");
+			return axl_false;
+		}
 
 		/* next iterator */
 		iterator++;
@@ -1422,8 +1432,10 @@ axl_bool  test_09 (void) {
 	iterator = 0;
 	while (iterator < 10) {
 		printf ("Test 09: sending message...(iterator=%d, message=%d)\n", iterator, (int) strlen (message));
-		if (! myqtt_conn_pub (conn, "myqtt/test", (axlPointer) message, (int) strlen (message), MYQTT_QOS_2, axl_false, 10))
-			printf ("ERROR: failed to publish message in reply..\n");
+		if (! myqtt_conn_pub (conn, "myqtt/test", (axlPointer) message, (int) strlen (message), MYQTT_QOS_2, axl_false, 10)) {
+			printf ("ERROR: failed to publish message in reply (3)..\n");
+			return axl_false;
+		}
 
 		/* next iterator */
 		iterator++;

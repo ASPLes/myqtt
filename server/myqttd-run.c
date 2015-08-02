@@ -697,7 +697,8 @@ MyQttConn * __myqttd_run_internal_copy (MyQttCtx * ctx, MyQttConn * ref)
 	conn->client_identifier = axl_strdup (ref->client_identifier);
 
 	/* wait_replies */
-	conn->wait_replies = ref->wait_replies; ref->wait_replies = NULL;
+	conn->wait_replies      = ref->wait_replies;      ref->wait_replies = NULL;
+	conn->peer_wait_replies = ref->peer_wait_replies; ref->peer_wait_replies = NULL;
 
 	/* wild_subs */
 	conn->wild_subs = ref->wild_subs; ref->wild_subs = NULL;

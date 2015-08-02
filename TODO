@@ -19,6 +19,7 @@
 
 * Review fuzzing tool and use to check myqtt stack:
   https://groups.google.com/d/msg/mqtt/XoHva7vPsDM/UJhytUsmBLcJ
+  https://github.com/F-Secure/mqtt_fuzz
 
 * Add support to get a list of active topics: 
   https://groups.google.com/d/msg/mqtt/03QiWpz4kHY/1g52eTb9ou4J
