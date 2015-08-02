@@ -63,9 +63,13 @@ void        myqtt_ctx_set_on_publish            (MyQttCtx                       
 						 MyQttOnPublish                   on_publish,
 						 axlPointer                       user_data);
 
-void        myqtt_ctx_set_on_msg                (MyQttCtx             * ctx,
-						 MyQttOnMsgReceived     on_msg,
-						 axlPointer             on_msg_data);
+void        myqtt_ctx_set_on_msg                (MyQttCtx               * ctx,
+						 MyQttOnMsgReceived       on_msg,
+						 axlPointer               on_msg_data);
+
+void        myqtt_ctx_set_on_subscribe          (MyQttCtx               * ctx,
+						 MyQttOnSubscribeHandler  on_subscribe,
+						 axlPointer               on_subscribe_data);
 
 void        myqtt_ctx_set_on_header             (MyQttCtx               * ctx,
 						 MyQttOnHeaderReceived    on_header,

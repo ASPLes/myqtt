@@ -2279,6 +2279,56 @@ axl_bool  test_15 (void) {
 	
 }
 
+axl_bool  test_16 (void) {
+
+	MyQttdCtx       * ctx;
+	MyQttConn       * conn;
+	MyQttCtx        * myqtt_ctx;
+	int               sub_result = -1;
+
+	/* call to init the base library and close it */
+	printf ("Test 16: init library and server engine..\n");
+	ctx       = common_init_ctxd (NULL, "test_16.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 16: library and server engine started.. ok (ctxd = %p, ctx = %p\n", ctx, MYQTTD_MYQTT_CTX (ctx));
+
+	/* create connection to local server and test domain support */
+	myqtt_ctx = common_init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 16: connecting to myqtt server (client ctx = %p)..\n", myqtt_ctx);
+	conn = myqtt_conn_new (myqtt_ctx, "test_01", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it shouldn't connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* try to subscribe to a wildcarid topic */
+	if (myqtt_conn_sub (conn, 10, "myqtt/#", 0, &sub_result)) {
+		printf ("ERROR: it shouldn't allow us to subscribe to the provided topic, but it was allowed..\n");
+		return axl_false;
+	} /* end if */	
+
+	/* close connection */
+	myqtt_conn_close (conn);
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+
+	printf ("Test 16: finishing MyQttdCtx..\n");
+
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+		
+	return axl_true;
+	
+}
+
 #endif /* defined(ENABLE_WEBSOCKET_SUPPORT) */
 
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
@@ -2433,6 +2483,8 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_15")
 	run_test (test_15, "Test 15: test auth fails when no backend is enabled");
 
+	CHECK_TEST("test_16")
+	run_test (test_16, "Test 16: check wildcard subscription can be disabled globally or at certain domain or for a certain user");
 
 	/* check support to limit amount of subscriptions a user can
 	 * do */

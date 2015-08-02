@@ -264,6 +264,37 @@ void        myqtt_ctx_set_on_header             (MyQttCtx               * ctx,
 }
 
 /** 
+ * @brief Allows toconfigure a handler that will be called everything
+ * a subscription request is received. The function must return the
+ * QoS that will accept or even return \ref MYQTT_QOS_DENIED to reject
+ * the subscription.
+ *
+ * Only can be one handler configured at time.
+ *
+ * @param ctx The context where the operation takes place.
+ * 
+ * @param on_subscribe The handler to be called when a subscription is received. See \ref MyQttOnSubscribeHandler for more information.
+ *
+ * @param on_subscribe_data A user defined pointer to be passed to the handler configured when it is called.
+ *
+ */
+void        myqtt_ctx_set_on_subscribe          (MyQttCtx               * ctx,
+						 MyQttOnSubscribeHandler  on_subscribe,
+						 axlPointer               on_subscribe_data)
+{
+	if (ctx == NULL)
+		return;
+
+	/* configure handlers */
+	myqtt_mutex_lock (&ctx->ref_mutex);
+	ctx->on_subscribe_data = on_subscribe_data;
+	ctx->on_subscribe      = on_subscribe;
+	myqtt_mutex_unlock (&ctx->ref_mutex);
+
+	return;
+}
+
+/** 
  * @brief Allows to configure the on store handler at context level.
  *
  * The handler configured here affects to all client connections
