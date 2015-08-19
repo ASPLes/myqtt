@@ -26,5 +26,5 @@ endif
 	@diff myqtt/tls.py ../tls.py || cp ../tls.py myqtt/
 
 check:
-	python myqtty-regression-client.py
+	python myqtt-regression-client.py
 
