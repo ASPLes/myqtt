@@ -77,13 +77,6 @@ Depends: libmyqtt-1.0 (= ${Source-Version}), python,
 Description: Python bindings for libMyQtt
  Python bindings for MyQtt (base library)
 
-Package: python-myqtt-dev
-Section: libdevel
-Architecture: any
-Depends: libmyqtt-1.0-dev (= ${Source-Version}), python-myqtt
-Description: Development headers for MyQtt Python bindings
-  Python MyQtt bindings development headers.
-
 Package: python-myqtt-tls
 Section: libs
 Architecture: any
@@ -91,32 +84,6 @@ Depends: libmyqtt-1.0 (= ${Source-Version}), python-myqtt,
   libmyqtt-tls-1.0 (= ${Source-Version})
 Description: Python bindings for MyQtt TLS support
  Python bindings for MyQtt TLS support.
-
-Package: python-myqtt-tls-dev
-Section: libdevel
-Architecture: any
-Depends: libmyqtt-1.0-dev (= ${Source-Version}), python-myqtt,
-  libmyqtt-tls-1.0-dev (= ${Source-Version}),
-  python-myqtt-tls (= ${Source-Version})
-Description: Development headers for Python MyQtt TLS bindings
-  Python MyQtt TLS  bindings development headers.
-
-Package: python-myqtt-websocket
-Section: libs
-Architecture: any
-Depends: libmyqtt-1.0 (= ${Source-Version}), python-myqtt,
-  libmyqtt-websocket-1.0 (= ${Source-Version})
-Description: Python bindings for MyQtt WebSocket support
- Python bindings for MyQtt WebSocket support
-
-Package: python-myqtt-websocket-dev
-Section: libdevel
-Architecture: any
-Depends: libmyqtt-1.0-dev (= ${Source-Version}), python-myqtt,
-  libmyqtt-websocket-1.0-dev (= ${Source-Version}),
-  python-myqtt-websocket (= ${Source-Version})
-Description: Development headers for Python MyQtt WebSocket bindings
-  Python MyQtt WebSocket  bindings development headers.
 
 Package: libmyqttd-server-1.0
 Section: libs
