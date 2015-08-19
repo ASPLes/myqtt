@@ -30,7 +30,7 @@ Package: libmyqtt-tls-1.0
 Section: libs
 Architecture: any
 Depends: libc6, libaxl1 (>= 0.7.0), libmyqtt-1.0 (= ${Source-Version}),
-  libssl0.9.8
+  libssl1.0.0
 Description: TLS extension support for libMyQtt
  This package contains the extension library to add support for TLS
  to libMyQtt
