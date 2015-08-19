@@ -254,7 +254,7 @@ void client_handle_publish_operation (int argc, char ** argv)
 	MyQttConn         * conn;
 	axl_bool            retain       = axl_false;
 	int                 wait_publish = 10; /* by default wait 10 */
-	MyQttAsyncQueue   * queue;
+	MyQttAsyncQueue   * queue        = NULL;
 
 	/* get argument */
 	arg = exarg_get_string ("publish");
