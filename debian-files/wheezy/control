@@ -73,7 +73,7 @@ Package: python-myqtt
 Section: libs
 Architecture: any
 Depends: libmyqtt-1.0 (= ${Source-Version}), python,
-  libpython2.6 | python2.5
+  libpython2.7
 Description: Python bindings for libMyQtt
  Python bindings for MyQtt (base library)
 
