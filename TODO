@@ -74,6 +74,7 @@
 
 * Some way of dynamically configuring/starting/stopping bridges, either
   via messages or via files (a directory watched by the daemon).
+  http://dev.eclipse.org/mhonarc/lists/mosquitto-dev/msg00771.html
 
 * More hooks to implement via plugin system, hook on store messages,
   hook on send message, hook on receive message.
