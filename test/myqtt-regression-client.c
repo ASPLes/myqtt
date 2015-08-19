@@ -1782,7 +1782,7 @@ axl_bool test_12_common (int wildcard) {
 	int               sub_result;
 	MyQttAsyncQueue * queue;
 	const char      * sub_topic;
-	const char      * test_label;
+	const char      * test_label = "12";
 
 	if (! ctx)
 		return axl_false;
