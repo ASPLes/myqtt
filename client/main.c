@@ -121,6 +121,8 @@ MyQttConn * make_connection (void)
 	/* get proto if defined */
 	if (exarg_is_defined ("proto") && exarg_get_string ("proto"))
 		proto = exarg_get_string ("proto");
+	if (exarg_is_defined ("protocol") && exarg_get_string ("protocol"))
+		proto = exarg_get_string ("protocol");
 
 	/* disable verification */
 	opts = myqtt_conn_opts_new ();
