@@ -85,6 +85,8 @@ Requires: libmyqtt-1.0
 %description  -n libmyqtt-1.0-dev
 Development headers required to create myqtt modules or tools.
 %files -n libmyqtt-1.0-dev
+  /usr/include/myqtt-1.0/myqtt-hash-private.h
+  /usr/include/myqtt-1.0/myqtt-types.h
   /usr/include/myqtt-1.0/myqtt-ctx-private.h
   /usr/include/myqtt-1.0/myqtt.h
   /usr/include/myqtt-1.0/myqtt-sequencer.h
@@ -106,6 +108,7 @@ Development headers required to create myqtt modules or tools.
   /usr/include/myqtt-1.0/myqtt-addrinfo.h
   /usr/include/myqtt-1.0/myqtt-ctx.h
   /usr/include/myqtt-1.0/myqtt-errno.h
+  /usr/lib64/pkgconfig/myqtt-1.0.pc
 
 # myqttd-server package
 %package -n myqttd-server
@@ -115,6 +118,7 @@ Requires: libmyqtt-1.0
 %description  -n myqttd-server
   Opensource MQTT Server -- MyQttD server 
 %files -n myqttd-server
+  /etc/init.d/myqtt
   /usr/bin/myqttd
   /etc/myqtt/mods-available
   /etc/myqtt/myqtt.example.conf
@@ -127,6 +131,34 @@ if [ ! -f /etc/myqtt/myqtt.conf ]; then
         cp /etc/myqtt/myqtt.example.conf /etc/myqtt/myqtt.conf
 fi
 service myqtt restart
+
+# libmyqttd-server-1.0-dev package
+%package -n libmyqttd-server-1.0-dev
+Summary: libMyQttD server (develpment headers)
+Group: System Environment/Libraries
+Requires: libaxl-dev
+Requires: libmyqtt-1.0-dev
+%description  -n libmyqttd-server-1.0-dev
+libMyQttD server (develpment headers)
+%files -n libmyqttd-server-1.0-dev
+   /usr/include/myqttd/exarg.h
+   /usr/include/myqttd/myqttd-child.h
+   /usr/include/myqttd/myqttd-config.h
+   /usr/include/myqttd/myqttd-conn-mgr.h
+   /usr/include/myqttd/myqttd-ctx.h
+   /usr/include/myqttd/myqttd-domain.h
+   /usr/include/myqttd/myqttd-handlers.h
+   /usr/include/myqttd/myqttd-log.h
+   /usr/include/myqttd/myqttd-loop.h
+   /usr/include/myqttd/myqttd-moddef.h
+   /usr/include/myqttd/myqttd-module.h
+   /usr/include/myqttd/myqttd-process.h
+   /usr/include/myqttd/myqttd-run.h
+   /usr/include/myqttd/myqttd-signal.h
+   /usr/include/myqttd/myqttd-support.h
+   /usr/include/myqttd/myqttd-types.h
+   /usr/include/myqttd/myqttd-users.h
+   /usr/include/myqttd/myqttd.h
 
 # libmyqtt-tls-1.0 package
 %package -n libmyqtt-tls-1.0
@@ -210,6 +242,23 @@ MyQtt command line client
 %files -n python-myqtt
   /usr/lib/python2.6/site-packages/myqtt/*
 
+# python-myqtt-dev package
+%package -n python-myqtt-dev
+Summary: PyMyQtt devel files
+Group: System Environment/Libraries
+Requires: libmyqtt-1.0
+Requires: python
+%description  -n python-myqtt-dev
+PyMyQtt devel files
+%files -n python-myqtt-dev
+   /usr/include/py_myqtt/py_myqtt.h
+   /usr/include/py_myqtt/py_myqtt_async_queue.h
+   /usr/include/py_myqtt/py_myqtt_conn.h
+   /usr/include/py_myqtt/py_myqtt_conn_opts.h
+   /usr/include/py_myqtt/py_myqtt_ctx.h
+   /usr/include/py_myqtt/py_myqtt_handle.h
+   /usr/include/py_myqtt/py_myqtt_msg.h
+   /usr/include/py_myqtt/py_myqtt_tls.h
 
 # python-myqtt-tls package
 %package -n python-myqtt-tls
@@ -220,11 +269,11 @@ Requires: python
 %description  -n python-myqtt-tls
 Python bindings for libMyQtt TLS
 %files -n python-myqtt-tls
-  /usr/lib/python2.6/dist-packages/myqtt/libpy_myqtt_tls_10.so.0
-  /usr/lib/python2.6/dist-packages/myqtt/tls.py
-  /usr/lib/python2.6/dist-packages/myqtt/libpy_myqtt_tls_10.so.0.0.0
-  /usr/lib/python2.6/dist-packages/myqtt/libpy_myqtt_tls_10.so
-  /usr/lib/python2.6/dist-packages/myqtt/libpy_myqtt_tls_10.a
+  /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_tls_10.so.0
+  /usr/lib/python2.6/site-packages/myqtt/tls.py
+  /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_tls_10.so.0.0.0
+  /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_tls_10.so
+  /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_tls_10.a
 
 
 # libmyqttd-server-1.0 package
