@@ -26,7 +26,7 @@ xml_examples = \
 	     notify-failures.xml \
 	     log-reporting.xml \
 	     override-system-paths.xml \
-	     log-reporting.xml \
+	     log-reporting.syslog.xml \
 	     include-from-file.xml \
 	     include-from-dir.xml \
 	     myqttd-modules.xml \

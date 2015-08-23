@@ -71,10 +71,10 @@ libraries: libmyqtt, libmyqtt-tls, libmyqtt-websocket). It is also
 provided a ready to use MQTT broker called MyQttD which is built on
 top of libMyQtt. MyQttD server is extensible by adding C plugins.
 %files -n libmyqtt-1.0
-  /usr/lib/libmyqtt-1.0.a
-  /usr/lib/libmyqtt-1.0.so
-  /usr/lib/libmyqtt-1.0.so.0
-  /usr/lib/libmyqtt-1.0.so.0.0.0
+  /usr/lib64/libmyqtt-1.0.a
+  /usr/lib64/libmyqtt-1.0.so
+  /usr/lib64/libmyqtt-1.0.so.0
+  /usr/lib64/libmyqtt-1.0.so.0.0.0
        
 # libmyqtt-1.0-dev package
 %package -n libmyqtt-1.0-dev
@@ -137,11 +137,10 @@ Requires: libmyqtt-1.0
 %description  -n libmyqtt-tls-1.0
 TLS extension support for libMyQtt
 %files -n libmyqtt-tls-1.0
-  /usr/lib/libmyqtt-tls-1.0.so.0
-  /usr/lib/libmyqtt-tls-1.0.so
-  /usr/lib/libmyqtt-tls-1.0.so.0.0.0
-  /usr/lib/libmyqtt-tls-1.0.la
-  /usr/lib/libmyqtt-tls-1.0.a
+  /usr/lib64/libmyqtt-tls-1.0.so.0
+  /usr/lib64/libmyqtt-tls-1.0.so
+  /usr/lib64/libmyqtt-tls-1.0.so.0.0.0
+  /usr/lib64/libmyqtt-tls-1.0.a
 
 
 # libmyqtt-tls-1.0-dev package
@@ -168,11 +167,10 @@ Requires: libmyqtt-1.0
 %description  -n libmyqtt-websocket-1.0
 WebSocket extension support for libMyQtt
 %files -n libmyqtt-websocket-1.0
-  /usr/lib/libmyqtt-web-socket-1.0.la
-  /usr/lib/libmyqtt-web-socket-1.0.so
-  /usr/lib/libmyqtt-web-socket-1.0.so.0
-  /usr/lib/libmyqtt-web-socket-1.0.so.0.0.0
-  /usr/lib/libmyqtt-web-socket-1.0.a
+  /usr/lib64/libmyqtt-web-socket-1.0.so
+  /usr/lib64/libmyqtt-web-socket-1.0.so.0
+  /usr/lib64/libmyqtt-web-socket-1.0.so.0.0.0
+  /usr/lib64/libmyqtt-web-socket-1.0.a
 
 
 # libmyqtt-websocket-1.0-dev package
@@ -225,7 +223,6 @@ Python bindings for libMyQtt TLS
   /usr/lib/python2.6/dist-packages/myqtt/libpy_myqtt_tls_10.so.0
   /usr/lib/python2.6/dist-packages/myqtt/tls.py
   /usr/lib/python2.6/dist-packages/myqtt/libpy_myqtt_tls_10.so.0.0.0
-  /usr/lib/python2.6/dist-packages/myqtt/libpy_myqtt_tls_10.la
   /usr/lib/python2.6/dist-packages/myqtt/libpy_myqtt_tls_10.so
   /usr/lib/python2.6/dist-packages/myqtt/libpy_myqtt_tls_10.a
 
@@ -238,11 +235,10 @@ Requires: libmyqtt-1.0
 %description  -n libmyqttd-server-1.0
 libMyQttD library, core library used by MyQttD broker/server
 %files -n libmyqttd-server-1.0
-  /usr/lib/libmyqttd.so
-  /usr/lib/libmyqttd.a
-  /usr/lib/libmyqttd.la
-  /usr/lib/libmyqttd.so.0.0.0
-  /usr/lib/libmyqttd.so.0
+  /usr/lib64/libmyqttd.so
+  /usr/lib64/libmyqttd.a
+  /usr/lib64/libmyqttd.so.0.0.0
+  /usr/lib64/libmyqttd.so.0
 
 
 # myqttd-mod-auth-xml package
@@ -255,7 +251,6 @@ Extension auth plugin to provide auth-xml backend
 %files -n myqttd-mod-auth-xml
   /usr/lib/myqtt/modules/mod-auth-xml.a
   /usr/lib/myqtt/modules/mod-auth-xml.so.0
-  /usr/lib/myqtt/modules/mod-auth-xml.la
   /usr/lib/myqtt/modules/mod-auth-xml.so.0.0.0
   /usr/lib/myqtt/modules/mod-auth-xml.so
   /etc/myqtt/mods-available/mod-auth-xml.xml
@@ -270,7 +265,6 @@ Requires: libmyqtt-1.0
 Extension plugin that provides SSL/TLS support to MyQttD
 %files -n myqttd-mod-ssl
   /usr/lib/myqtt/modules/mod-ssl.so
-  /usr/lib/myqtt/modules/mod-ssl.la
   /usr/lib/myqtt/modules/mod-ssl.so.0
   /usr/lib/myqtt/modules/mod-ssl.a
   /usr/lib/myqtt/modules/mod-ssl.so.0.0.0
@@ -289,7 +283,6 @@ Extension plugin that provides WebSocket support to MyQttD
   /usr/lib/myqtt/modules/mod-web-socket.so.0.0.0
   /usr/lib/myqtt/modules/mod-web-socket.so.0
   /usr/lib/myqtt/modules/mod-web-socket.a
-  /usr/lib/myqtt/modules/mod-web-socket.la
   /usr/lib/myqtt/modules/mod-web-socket.so
   /etc/myqtt/mods-available/mod-web-socket.xml
   /etc/myqtt/web-socket/web-socket.example.conf
@@ -303,7 +296,6 @@ Requires: libmyqtt-1.0
 %description  -n myqttd-mod-status
 Extension plugin that provides status options to clients
 %files -n myqttd-mod-status
-  /usr/lib/myqtt/modules/mod-status.la
   /usr/lib/myqtt/modules/mod-status.a
   /usr/lib/myqtt/modules/mod-status.so
   /usr/lib/myqtt/modules/mod-status.so.0.0.0
