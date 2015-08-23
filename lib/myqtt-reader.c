@@ -2913,8 +2913,8 @@ void __myqtt_reader_dispatch_connection (int                  fds,
 
 axl_bool __myqtt_reader_detect_and_cleanup_connection (axlListCursor * cursor) 
 {
-	MyQttConn * conn;
-	char               bytes[3];
+	MyQttConn        * conn;
+	char               bytes[10];
 	int                result;
 	int                fds;
 #if defined(ENABLE_MYQTT_LOG)

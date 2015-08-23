@@ -254,7 +254,11 @@ void myqttd_place_pidfile (void)
 	/* stringfy pid */
 	size = axl_stream_printf_buffer (buffer, 20, NULL, "%d", pid);
 	msg ("signaling PID %d at %s", pid, PIDFILE);
-	fwrite (buffer, size, 1, pid_file);
+	if (fwrite (buffer, size, 1, pid_file) != 1) {
+	        abort_error ("Unable to write open pid file at: %s", PIDFILE);
+		return;
+	}
+
 
 	fclose (pid_file);
 	return;

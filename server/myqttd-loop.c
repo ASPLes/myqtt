@@ -114,7 +114,7 @@ void __myqttd_loop_discard_broken (MyQttdCtx * ctx, MyQttdLoop * loop)
 {
 	int  loop_descriptor;
 	int  result = -1;
-	char bytes[3];
+	char bytes[10];
 
 	/* reset cursor */
 	axl_list_cursor_first (loop->cursor);

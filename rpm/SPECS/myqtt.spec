@@ -213,18 +213,6 @@ MyQtt command line client
   /usr/lib/python2.6/site-packages/myqtt/*
 
 
-# python-myqtt package
-%package -n python-myqtt
-Summary: Python bindings for libMyQtt
-Group: System Environment/Libraries
-Requires: libmyqtt-1.0
-Requires: python
-%description  -n python-myqtt
-Python bindings for libMyQtt
-%files -n python-myqtt
-  /usr/lib/python2.6/site-packages/myqtt/*
-
-
 # python-myqtt-tls package
 %package -n python-myqtt-tls
 Summary: Python bindings for libMyQtt TLS
