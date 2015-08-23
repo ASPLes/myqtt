@@ -95,12 +95,13 @@ libmyqttd_la_LDFLAGS = -Wl,-export-dynamic -ldl -no-undefined -export-symbols-re
 
 libmyqttdincludedir = $(includedir)/myqttd
 
-all-local: update-def
+# all-local: update-def
 
 libmyqttd.def: update-def
 
 update-def:
 	echo "EXPORTS" > libmyqttd.def
+	@echo -n "INFO: Current pwd is: "; pwd
 	cat .libs/libmyqttd.exp | grep -v __myqttd >> libmyqttd.def
 
 # copy exarg dependency to not force people to download a library with
