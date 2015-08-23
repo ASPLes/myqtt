@@ -2489,13 +2489,13 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_14")
 	run_test (test_14, "Test 14: checks that authentication fails when provided right hostname but wrong credentials");
-#endif
 
 	CHECK_TEST("test_15")
 	run_test (test_15, "Test 15: test auth fails when no backend is enabled");
 
 	CHECK_TEST("test_16")
 	run_test (test_16, "Test 16: check wildcard subscription can be disabled globally or at certain domain or for a certain user");
+#endif
 
 	/* check support to limit amount of subscriptions a user can
 	 * do */
