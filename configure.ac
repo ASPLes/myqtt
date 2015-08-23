@@ -296,6 +296,14 @@ AC_ARG_ENABLE(websocket-support, [  --disable-websocket-support    Makes MyQtt t
 	      enable_websocket_support=yes)
 if test "$enable_websocket_support" != "no" ; then
     PKG_CHECK_MODULES(NOPOLL, nopoll,	[enable_websocket_support=yes], [enable_websocket_support=no])
+    if test "$enable_websocket_support" == "no" ; then
+       dnl Try to find files at /usr/local/lib/pkgconfig/axl.pc
+       if test -f /usr/local/lib/pkgconfig/nopoll.pc || test -f /usr/lib/pkgconfig/nopoll.pc; then
+       	  dnl alternative location found, try to tell the system to use this location
+	  export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/local/lib/pkgconfig
+	  PKG_CHECK_MODULES(NOPOLL, nopoll,	[enable_websocket_support=yes], [enable_websocket_support=no])
+       fi
+    fi
     AC_SUBST(NOPOLL_CFLAGS)
     AC_SUBST(NOPOLL_LIBS)
 fi
