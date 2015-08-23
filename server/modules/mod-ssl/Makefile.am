@@ -1,4 +1,4 @@
-EXTRA_DIST = mod-ssl.xml  
+EXTRA_DIST = mod-ssl.xml  ssl.example.conf
 
 INCLUDES = -Wall -g -ansi -I../.. -I../../../lib/ -DCOMPILATION_DATE=`date +%s` \
 	   -DVERSION=\"$(MYQTTD_VERSION)\" $(TLS_CFLAGS) -I$(top_builddir)/tls \

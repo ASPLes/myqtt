@@ -1,6 +1,6 @@
 SUBDIRS = modules
 
-EXTRA_DIST = myqttd-ctx-private.h \
+EXTRA_DIST = myqttd-ctx-private.h myqtt.example.conf \
 	test_01.conf \
 	test_02.conf \
 	test_10.conf \

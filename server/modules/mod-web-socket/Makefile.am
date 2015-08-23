@@ -1,4 +1,4 @@
-EXTRA_DIST = mod-web-socket.xml  
+EXTRA_DIST = mod-web-socket.xml   web-socket.example.conf
 
 INCLUDES = -Wall -g -ansi -I../.. -I../../../lib/ -DCOMPILATION_DATE=`date +%s` \
 	   -DVERSION=\"$(MYQTTD_VERSION)\" $(NOPOLL_CFLAGS) -I$(top_builddir)/web-socket \

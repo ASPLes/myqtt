@@ -48,6 +48,7 @@ libmyqtt_1_0_la_SOURCES =	\
 	myqtt-storage.c
 
 libmyqtt_1_0_include_HEADERS = myqtt.h \
+	myqtt-types.h \
 	myqtt-ctx.h \
 	myqtt-ctx-private.h \
 	myqtt-conn.h \
@@ -65,6 +66,7 @@ libmyqtt_1_0_include_HEADERS = myqtt.h \
 	myqtt-listener-private.h \
 	myqtt-errno.h \
 	myqtt-hash.h \
+	myqtt-hash-private.h \
 	myqtt-sequencer.h \
 	myqtt-io.h \
 	myqtt-storage.h

@@ -1,4 +1,4 @@
-EXTRA_DIST = mod-status.xml  
+EXTRA_DIST = mod-status.xml  status.example.conf
 
 INCLUDES = -Wall -g -ansi -I../.. -I../../../lib/ -DCOMPILATION_DATE=`date +%s` \
 	   -DVERSION=\"$(MYQTTD_VERSION)\" $(NOPOLL_CFLAGS) \

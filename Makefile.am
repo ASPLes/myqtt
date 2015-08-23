@@ -18,8 +18,13 @@ if ENABLE_PY_MYQTT_SUPPORT
 PY_MYQTT_DIR = py-myqtt
 endif
 
-SUBDIRS = lib $(TLS_SUPPORT_DIR) $(WEBSOCKET_SUPPORT_DIR) server $(MYQTT_CLIENT_DIR) $(PY_MYQTT_DIR) test
-EXTRA_DIST = myqtt-1.0.pc.in VERSION
+# build doc
+if ENABLE_AF_ARCH_DOC
+DOC_DIR = doc
+endif
+
+SUBDIRS = lib $(TLS_SUPPORT_DIR) $(WEBSOCKET_SUPPORT_DIR) server $(MYQTT_CLIENT_DIR) $(PY_MYQTT_DIR) test $(DOC_DIR)
+EXTRA_DIST = myqtt-1.0.pc.in VERSION get-python-config check-python-dir.py
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = myqtt-1.0.pc
