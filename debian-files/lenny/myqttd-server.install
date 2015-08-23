@@ -1,11 +1,4 @@
 usr/bin/myqttd
-etc/myqtt/ssl/ssl.example.conf
 etc/myqtt/mods-available
-etc/myqtt/mods-available/mod-ssl.xml
-etc/myqtt/mods-available/mod-status.xml
-etc/myqtt/mods-available/mod-auth-xml.xml
-etc/myqtt/mods-available/mod-web-socket.xml
-etc/myqtt/mods-available/mod-test.xml
-etc/myqtt/web-socket/web-socket.example.conf
 etc/myqtt/myqtt.example.conf
-etc/myqtt/status/status.example.conf
+
