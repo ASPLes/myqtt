@@ -48,7 +48,7 @@ Section: libs
 Architecture: any
 Depends: libc6, libaxl1 (>= 0.7.0), libmyqtt-1.0 (= ${Source-Version}),
   libnopoll0
-Description: WebSocket extension support for libMyQtt (develpment headers)
+Description: WebSocket extension support for libMyQtt
  This package contains the extension library to add support for WebSocket
  to libMyQtt
 
@@ -56,7 +56,7 @@ Package: libmyqtt-websocket-1.0-dev
 Section: libdevel
 Architecture: any
 Depends: libaxl-dev (>= 0.6.4), libmyqtt-1.0-dev (= ${Source-Version}),
- libmyqtt-tls-1.0 (= ${Source-Version}), libnopoll0-dev
+ libmyqtt-websocket-1.0 (= ${Source-Version}), libnopoll0-dev
 Description: WebSocket extension support for libMyQtt (develpment headers)
  Development headers for WebSocket libMyQtt
  
