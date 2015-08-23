@@ -240,7 +240,13 @@ Requires: python
 %description  -n python-myqtt
 MyQtt command line client
 %files -n python-myqtt
-  /usr/lib/python2.6/site-packages/myqtt/*
+  /usr/lib/python2.6/site-packages/myqtt/__init__.py
+  /usr/lib/python2.6/site-packages/myqtt/__init__.pyc
+  /usr/lib/python2.6/site-packages/myqtt/__init__.pyo
+  /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_10.a
+  /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_10.so
+  /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_10.so.0
+  /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_10.so.0.0.0
 
 # python-myqtt-dev package
 %package -n python-myqtt-dev
@@ -271,6 +277,8 @@ Python bindings for libMyQtt TLS
 %files -n python-myqtt-tls
   /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_tls_10.so.0
   /usr/lib/python2.6/site-packages/myqtt/tls.py
+  /usr/lib/python2.6/site-packages/myqtt/tls.pyc
+  /usr/lib/python2.6/site-packages/myqtt/tls.pyo
   /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_tls_10.so.0.0.0
   /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_tls_10.so
   /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_tls_10.a
