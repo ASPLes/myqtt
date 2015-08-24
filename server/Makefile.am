@@ -26,7 +26,6 @@ endif
 INCLUDES = $(compiler_options) -DCOMPILATION_DATE=`date +%s` -D__COMPILING_MYQTTD__ -D_POSIX_C_SOURCE  \
 	   -DMYQTT_VERSION=\"$(MYQTT_VERSION)\" -DVERSION=\"$(MYQTT_VERSION)\" -DAXL_VERSION=\"$(AXL_VERSION)\" -I$(top_srcdir)/lib \
 	   -DSYSCONFDIR=\""$(sysconfdir)"\" -DDEFINE_CHROOT_PROTO -DDEFINE_KILL_PROTO -DDEFINE_MKSTEMP_PROTO \
-	   -DPIDFILE=\""$(statusdir)/myqttd.pid"\" \
 	   -DMYQTTD_RUNTIME_DATADIR=\""$(runtimedatadir)"\" \
 	   -DMYQTTD_DATADIR=\""$(datadir)"\" $(INCLUDE_TERMIOS) $(EXARG_FLAGS) \
 	   -D__MYQTTD_ENABLE_DEBUG_CODE__ \

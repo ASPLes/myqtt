@@ -117,6 +117,8 @@ int  main_init_exarg (int argc, char ** argv)
 	exarg_install_arg ("wait-thread-pool", NULL, EXARG_NONE,
 			   "Makes myqttd to configure its myqtt context to wait for threads from the pool to finish. By default myqttd will not wait. This option is only useful for debugging purposes..");
 
+	exarg_install_arg ("pidfile", NULL, EXARG_STRING,
+			   "Allows to configure pidfile location. If not provided, by default it will be placed at: /var/run/myqttd.pid");
 
 	/* call to parse arguments */
 	exarg_parse (argc, argv);
@@ -239,23 +241,28 @@ void myqttd_detach_process (void)
  */
 void myqttd_place_pidfile (void)
 {
-	FILE * pid_file = NULL;
-	int    pid      = getpid ();
-	char   buffer[20];
-	int    size;
+	FILE       * pid_file = NULL;
+	int          pid      = getpid ();
+	char         buffer[20];
+	int          size;
+	const char * pidfile = "/var/run/myqttd.pid";
+
+	if (exarg_is_defined ("pidfile"))
+	    pidfile = exarg_get_string ("pidfile");
 
 	/* open pid file or create it to place the pid file */
-	pid_file = fopen (PIDFILE, "w");
+	msg ("Creating pid file at: %s", pidfile);
+	pid_file = fopen (pidfile, "w");
 	if (pid_file == NULL) {
-		abort_error ("Unable to open pid file at: %s", PIDFILE);
+		abort_error ("Unable to open pid file at: %s", pidfile);
 		return;
 	} /* end if */
 	
 	/* stringfy pid */
 	size = axl_stream_printf_buffer (buffer, 20, NULL, "%d", pid);
-	msg ("signaling PID %d at %s", pid, PIDFILE);
+	msg ("signaling PID %d at %s", pid, pidfile);
 	if (fwrite (buffer, size, 1, pid_file) != 1) {
-	        abort_error ("Unable to write open pid file at: %s", PIDFILE);
+	        abort_error ("Unable to write open pid file at: %s", pidfile);
 		return;
 	}
 
@@ -271,8 +278,13 @@ void myqttd_place_pidfile (void)
  */ 
 void myqttd_remove_pidfile (void)
 {
+        const char * pidfile = "/var/run/myqttd.pid";
+
+	if (exarg_is_defined ("pidfile"))
+	    pidfile = exarg_get_string ("pidfile");
+
 	/* remove pid file */
-	myqttd_unlink (PIDFILE);
+	myqttd_unlink (pidfile);
 
 	return;
 }
@@ -356,12 +368,10 @@ int main (int argc, char ** argv)
 		/* caller do not follow */
 	}
 
-	if (! exarg_is_defined ("child")) {
+	if (! exarg_is_defined ("child")) { 
 		/* check here if the user has asked to place the pidfile */
 		myqttd_place_pidfile ();
-	}
-
-	
+	} 
 
 	/* init libraries */
 	if (! myqttd_init (ctx, myqtt_ctx, config)) {
