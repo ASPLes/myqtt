@@ -80,8 +80,9 @@ axlNode * __mod_ssl_get_default_certificate (MyQttdCtx * ctx, MyQttCtx * my_ctx)
 MyQttConn * __mod_ssl_start_listener (MyQttdCtx * ctx, MyQttCtx * my_ctx, axlNode * port_node, 
 				      const char * bind_addr, const char * port, axlPointer user_data)
 {
-	MyQttConn * listener;
-	axlNode   * node;
+	MyQttConn   * listener;
+	axlNode     * node;
+	const char  * crt, * key, * chain;
 
 	/* create listener on the port indicated */
 	listener = myqtt_tls_listener_new (
@@ -101,10 +102,17 @@ MyQttConn * __mod_ssl_start_listener (MyQttdCtx * ctx, MyQttCtx * my_ctx, axlNod
 	node = __mod_ssl_get_default_certificate (ctx, my_ctx);
 	if (node) {
 		/* configure certificates */
-		if (! myqtt_tls_set_certificate (listener, ATTR_VALUE (node, "crt"), ATTR_VALUE (node, "key"), ATTR_VALUE (node, "chain"))) {
+		crt   = ATTR_VALUE (node, "crt");
+		key   = ATTR_VALUE (node, "key");
+		chain = ATTR_VALUE (node, "chain");
+		msg ("mod-ssl: configuring default crt=%s, key=%s, chain=%s", crt, key, chain);
+		     
+		if (! myqtt_tls_set_certificate (listener, crt, key, chain)) {
 			error ("unable to configure certificates for TLS mqtt (myqtt_tls_set_certificate failed)..");
 			return NULL;
 		} /* end if */
+	} else {
+		wrn ("Unable to configure any certificate. No default certificate was found. __mod_ssl_get_default_certificate() reported NULL");
 	} /* end if */
 
 	return listener; /* basic configuration done */
