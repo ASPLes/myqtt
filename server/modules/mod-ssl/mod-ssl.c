@@ -101,7 +101,7 @@ MyQttConn * __mod_ssl_start_listener (MyQttdCtx * ctx, MyQttCtx * my_ctx, axlNod
 	node = __mod_ssl_get_default_certificate (ctx, my_ctx);
 	if (node) {
 		/* configure certificates */
-		if (! myqtt_tls_set_certificate (listener, ATTR_VALUE (node, "crt"), ATTR_VALUE (node, "key"), NULL)) {
+		if (! myqtt_tls_set_certificate (listener, ATTR_VALUE (node, "crt"), ATTR_VALUE (node, "key"), ATTR_VALUE (node, "chain"))) {
 			error ("unable to configure certificates for TLS mqtt (myqtt_tls_set_certificate failed)..");
 			return NULL;
 		} /* end if */
