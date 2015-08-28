@@ -4526,6 +4526,14 @@ int main (int argc, char ** argv)
 	mosquitto_lib_cleanup();
 #endif
 
+	/* test following error */
+	/* Aug 28 18:11:13 node01 myqttd[14820]: **ERROR**: (myqtt) myqtt-reader.c:111: Requested to read an utf-8 string of length 12332 but limit is 48 */
+	/* send sending big messages */
+
+	/* test to reply to a message received over the same
+	 * connection */
+
+
 	/* support for message retention when subscribed with a wild
 	   card topic filter that matches different topic names */
 
