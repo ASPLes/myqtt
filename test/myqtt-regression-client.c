@@ -3042,6 +3042,8 @@ axl_bool test_17c_common (const char * label, const char * topic, const char * m
 }
 
 axl_bool test_17c (void) {
+	char * really_big;
+	int    size;
 
 	if (! test_17c_common ("17-c", "this/is/a/test", define_big_mesg))
 		return axl_false;
@@ -3063,6 +3065,20 @@ axl_bool test_17c (void) {
 
 	if (! test_17c_common ("17-c6", "this/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topic", define_big_mesg_2))
 		return axl_false;
+
+	/* release big message 4M */
+	really_big = axl_new (char, 4198234);
+	size       = 0;
+	while (size < (4198234 - (int) strlen (define_big_mesg_2) ) ) {
+		memcpy (really_big + size, define_big_mesg_2, (int) strlen (define_big_mesg_2));
+		size += (int) strlen (define_big_mesg_2);
+	}
+
+	if (! test_17c_common ("17-c7", "this/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topicthis/is/a/test/this-is-a-very-long-topic", really_big))
+		return axl_false;
+
+	axl_free (really_big);
+	
 
 	return axl_true;
 }
