@@ -4602,10 +4602,6 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_17c")
 	run_test (test_17c, "Test 17-c: check BIG message support (< 16383)"); 
 
-	/* test following error */
-	/* Aug 28 18:11:13 node01 myqttd[14820]: **ERROR**: (myqtt) myqtt-reader.c:111: Requested to read an utf-8 string of length 12332 but limit is 48 */
-	/* send sending big messages */
-
 #if defined(ENABLE_TLS_SUPPORT)
 	CHECK_TEST("test_18")
 	run_test (test_18, "Test 18: check TLS support"); 
