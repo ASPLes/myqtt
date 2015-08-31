@@ -2466,6 +2466,10 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_08")
 	run_test (test_08, "Test 08: test message size limit to a domain");
 
+	/* test following error */
+	/* Aug 28 18:11:13 node01 myqttd[14820]: **ERROR**: (myqtt) myqtt-reader.c:111: Requested to read an utf-8 string of length 12332 but limit is 48 */
+	/* send sending big messages */
+
 	CHECK_TEST("test_09")
 	run_test (test_09, "Test 09: check storage quota enforcement (amount of messages that can be saved on disk)");
 
