@@ -146,6 +146,10 @@ static PyObject * py_myqtt_conn_new (PyTypeObject *type, PyObject *args, PyObjec
 						  &py_myqtt_ctx, &host, &port, &client_identifier, &clean_session, &keep_alive, &conn_opts)) 
 			return NULL;
 
+		/* nullify conn_opts when Py_None is received */
+		if (conn_opts == Py_None)
+			conn_opts = NULL;
+
 		/* check for empty creation */
 		if (py_myqtt_ctx == NULL) {
 			py_myqtt_log (PY_MYQTT_DEBUG, "found empty request to create a PyMyQttConn ref..");
