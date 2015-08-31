@@ -8,6 +8,9 @@
 
 --== things that should be reviewed ==--
 
+* Review https://dzone.com/refcardz/getting-started-with-mqtt and
+  get in contact with the author to get MyQtt included.
+
 * Publish small note about how to check if a topic filter matches from
   the command line: myqtt-client -c '+/accounts' 'balance/accounts'
 
