@@ -876,13 +876,13 @@ def test_22_close_recover_and_send (conn, queue, label):
 
     # get the socket 
     _socket = conn.socket
-    info ("Test --: socket=%d received from connection-id=%d" % (_socket, conn.id))
+    info ("Test --: %s -- socket=%d received from connection-id=%d" % (label, _socket, conn.id))
 
 
-    info ("Test --: closing it..")
+    info ("Test --: %s -- closing it.." % label)
     os.close (_socket)
 
-    info ("Test --: waiting for reconnection (10 seconds at most)..")
+    info ("Test --: %s -- waiting for reconnection (10 seconds at most).." % label)
     queue.timedpop (10000000)
 
     if not conn.is_ok ():
@@ -895,7 +895,7 @@ def test_22_close_recover_and_send (conn, queue, label):
 
     os.close (conn.socket)
     queue.timedpop (10000000)
-    info ("Test --: so far, we should receive a reconnect..")
+    info ("Test --: %s -- so far, we should receive a reconnect.." % label)
 
     if not conn.is_ok ():
         error ("Expected to find proper connectiong working after reconnect but found it failing (2)..")
@@ -907,7 +907,7 @@ def test_22_close_recover_and_send (conn, queue, label):
 
    #  queue.timedpop (10000000)
 
-    info ("Test --: sending some data, socket is %d.." % conn.socket)
+    info ("Test --: %s -- sending some data, socket is %d.." % (label, conn.socket))
     conn.set_on_msg (test_22_queue_message, queue)
 
     if not conn.pub ("myqtt/admin/get-server-name", "", 0, myqtt.qos0, False, 10):
@@ -919,13 +919,15 @@ def test_22_close_recover_and_send (conn, queue, label):
         error ("ERROR: expected to find message reply...but nothing was found..")
         return False
 
-    info ("Test --: message received received (%s, %s, socket = %d)" % (msg, type (msg).__name__, conn.socket))
-    info ("Test --: data received, connection is working: %s" % msg.content)
+    info ("Test --: %s -- message received received (%s, %s, socket = %d)" % (label, msg, type (msg).__name__, conn.socket))
+    info ("Test --: %s -- data received, connection is working: %s" % (label, msg.content))
 
     return True
     
 
 def test_22 ():
+
+    import myqtt
 
     # call to initialize a context 
     ctx = myqtt.Ctx ()
@@ -958,6 +960,33 @@ def test_22 ():
 
     # do reconnect checks
     if not test_22_close_recover_and_send (conn, queue, "plain-mqtt"):
+        return False
+
+    conn.close ()
+
+    m = __import__ ("myqtt.tls")
+    if not m:
+        info ("Test 22: ** skipping myqtt.tls checking, module is not present .. ** ")
+        return True
+
+    import myqtt.tls
+
+    info ("Test 22: now check TLS connection reconnect option..")
+
+    opts = myqtt.ConnOpts ()
+    myqtt.tls.ssl_peer_verify (opts, False)
+    opts.set_reconnect ()
+
+    conn = myqtt.tls.create_conn (ctx, host, tls_port, None, False, 30, opts)
+    if not conn.is_ok ():
+        error ("Expected being able to connect to %s:%s" % (host, tls_port))
+        return False
+
+    # configure reconnect function
+    conn.set_on_reconnect (test_22_reconnected, queue)
+
+    # do reconnect checks
+    if not test_22_close_recover_and_send (conn, queue, "mqtt-tls"):
         return False
 
     conn.close ()
