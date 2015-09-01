@@ -76,6 +76,16 @@ def on_publish (ctx, conn, msg, data):
         # now indicate engine to discard message received
         return myqtt.PUBLISH_DISCARD
 
+    if msg.topic == "myqtt/admin/get-server-name":
+        server_name = conn.server_name
+        if not server_name:
+            server_name = conn.host
+        
+        if not conn.pub ("myqtt/admin/get-server-name", server_name, len (server_name), myqtt.qos0, False, 0):
+            error ("Error: failed to send serverName")
+
+        return myqtt.PUBLISH_DISCARD
+
     # let know engine to go ahead publishing the message received
     return myqtt.PUBLISH_OK
 

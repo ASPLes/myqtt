@@ -167,6 +167,34 @@ PyObject * py_myqtt_conn_opts_set_will (PyObject * self, PyObject * args, PyObje
 	return Py_None;
 }
 
+PyObject * py_myqtt_conn_opts_set_reconnect (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	axl_bool         reconnect = axl_true;
+	MyQttConnOpts  * conn_opts;
+		
+	/* now parse arguments */
+	static char *kwlist[] = {"reconnect", NULL};
+
+	/* get connection options */
+	conn_opts = py_myqtt_conn_opts_get (self);
+	if (! conn_opts) {
+		PyErr_SetString (PyExc_ValueError, "Expected to receive a myqtt.ConnOpts not used or with reuse option enabled but found internal reference empty");
+		return NULL;
+	} /* end if */
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords(args, kwds, "|i", kwlist, &reconnect))
+		return NULL;
+	
+	/* configure options */
+	myqtt_conn_opts_set_reconnect (conn_opts, reconnect);
+
+	/* done, return ok */
+	Py_INCREF (Py_None);
+	return Py_None;
+}
+
+
 static PyMethodDef py_myqtt_conn_opts_methods[] = { 
 	/* set_auth */
 	{"set_auth", (PyCFunction) py_myqtt_conn_opts_set_auth, METH_VARARGS | METH_KEYWORDS,
@@ -174,6 +202,9 @@ static PyMethodDef py_myqtt_conn_opts_methods[] = {
 	/* set_will */
 	{"set_will", (PyCFunction) py_myqtt_conn_opts_set_will, METH_VARARGS | METH_KEYWORDS,
 	 "API wrapper for myqtt_conn_opts_set_will. This method allows to configure will options for the provided connection."},
+	/* set_reconnect */
+	{"set_reconnect", (PyCFunction) py_myqtt_conn_opts_set_reconnect, METH_VARARGS | METH_KEYWORDS,
+	 "API wrapper for myqtt_conn_opts_set_reconnect. This method allows to configure automatic reconnect option for the provided connection."},
  	{NULL} 
 }; 
 

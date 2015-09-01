@@ -41,6 +41,7 @@
 # import sys for command line parsing
 import sys
 import time
+import os
 
 # import python myqtt binding
 import myqtt
@@ -861,6 +862,111 @@ def test_19 ():
     # no need to finish ctx
     return True
 
+def test_22_reconnected (conn, queue):
+    info ("Test 22: connection reconnected! pushing beacon: 4")
+    queue.push (4)
+    return
+
+def test_22_queue_message (ctx, conn, msg, data):
+    info ("Test --: received message..")
+    data.push (msg)
+    return
+
+def test_22_close_recover_and_send (conn, queue, label):
+
+    # get the socket 
+    _socket = conn.socket
+    info ("Test --: socket=%d received from connection-id=%d" % (_socket, conn.id))
+
+
+    info ("Test --: closing it..")
+    os.close (_socket)
+
+    info ("Test --: waiting for reconnection (10 seconds at most)..")
+    queue.timedpop (10000000)
+
+    if not conn.is_ok ():
+        error ("Expected to find proper connectiong working after reconnect but found it failing..")
+        return False
+
+    if conn.socket <= 0:
+        error ("Expected to find socket defined > 0 but found %d" % conn.socket)
+        return False
+
+    os.close (conn.socket)
+    queue.timedpop (10000000)
+    info ("Test --: so far, we should receive a reconnect..")
+
+    if not conn.is_ok ():
+        error ("Expected to find proper connectiong working after reconnect but found it failing (2)..")
+        return False
+
+    if conn.socket <= 0:
+        error ("Expected to find socket defined > 0 but found %d (2)" % conn.socket)
+        return False
+
+   #  queue.timedpop (10000000)
+
+    info ("Test --: sending some data, socket is %d.." % conn.socket)
+    conn.set_on_msg (test_22_queue_message, queue)
+
+    if not conn.pub ("myqtt/admin/get-server-name", "", 0, myqtt.qos0, False, 10):
+        error ("Unable to publish message..")
+        return False
+
+    msg = queue.timedpop (10000000)
+    if not msg:
+        error ("ERROR: expected to find message reply...but nothing was found..")
+        return False
+
+    info ("Test --: message received received (%s, %s, socket = %d)" % (msg, type (msg).__name__, conn.socket))
+    info ("Test --: data received, connection is working: %s" % msg.content)
+
+    return True
+    
+
+def test_22 ():
+
+    # call to initialize a context 
+    ctx = myqtt.Ctx ()
+
+    # call to init ctx 
+    if not ctx.init ():
+        error ("Failed to init MyQtt context")
+        return False
+
+    info ("Test 22: Connect to the server and force disconnect to let the library reconnect..")
+
+    opts = myqtt.ConnOpts ()
+    opts.set_reconnect ()
+    # opts.set_reconnect (True) # explicit reconnect
+    # opts.set_reconnect (False) # disable reconnection
+
+    queue = myqtt.AsyncQueue ()
+
+    # call to create a connection
+    # client_identifier = "test_01"
+    # clean_session = False
+    # keep_alive = 30
+    conn = myqtt.Conn (ctx, host, port, "test_01", True, 30, opts)
+    if not conn.is_ok ():
+        error ("Expected being able to connect to %s:%s" % (host, tls_port))
+        return False
+
+    # configure reconnect function
+    conn.set_on_reconnect (test_22_reconnected, queue)
+
+    # do reconnect checks
+    if not test_22_close_recover_and_send (conn, queue, "plain-mqtt"):
+        return False
+
+    conn.close ()
+
+    # no need to close conn
+    # no need to finish ctx
+    return True
+    
+
 ###########################
 # intrastructure support  #
 ###########################
@@ -907,7 +1013,9 @@ tests = [
    (test_17c,  "Check PyMyqtt big message support"),
    # tls support
    (test_18,   "Check PyMyqtt test TLS support"),
-   (test_19,   "Check PyMyqtt TLS support (server side certificate auth: common CA)")
+   (test_19,   "Check PyMyqtt TLS support (server side certificate auth: common CA)"),
+   # reconnect support
+   (test_22,   "Check PyMyqtt support for automatic-transparent reconnect"),
 ]
 
 # declare default host and port

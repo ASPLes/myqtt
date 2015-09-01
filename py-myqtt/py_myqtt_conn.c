@@ -455,6 +455,9 @@ PyObject * py_myqtt_conn_get_attr (PyObject *o, PyObject *attr_name) {
 	} else if (axl_cmp (attr, "ref_count")) {
 		/* return integer value */
 		return Py_BuildValue ("i", myqtt_conn_ref_count (self->conn));
+	} else if (axl_cmp (attr, "socket")) {
+		/* return integer value */
+		return Py_BuildValue ("i", myqtt_conn_get_socket (self->conn));
 	} else if (axl_cmp (attr, "client_id")) {
 		/* return connection client id value */
 		return Py_BuildValue ("z", myqtt_conn_get_client_id (self->conn));
@@ -821,6 +824,138 @@ PyObject * py_myqtt_conn_set_on_msg (PyObject * self, PyObject * args, PyObject 
 	return py_myqtt_handle_create (on_msg_obj, NULL);
 }
 
+typedef struct _PyMyQttConnSetOnReconnectData {
+	PyObject           * on_reconnect;
+	PyObject           * on_reconnect_data;
+} PyMyQttConnSetOnReconnectData;
+
+void py_myqtt_conn_set_on_reconnect_handler (MyQttConn    * conn, 
+					     axlPointer     _on_reconnect_obj)
+{
+	PyMyQttConnSetOnReconnectData * on_reconnect_obj = _on_reconnect_obj;
+	PyGILState_STATE                state;
+	PyObject                      * args;
+	PyObject                      * result;
+	PyObject                      * py_conn;
+	MyQttCtx                      * ctx  = CONN_CTX (conn);
+
+	/* notify on close notification received */
+	py_myqtt_log (PY_MYQTT_DEBUG, "received on reconnect notification for conn id=%d, (internal: %p)", 
+		       myqtt_conn_get_id (conn), _on_reconnect_obj);
+	
+	/*** bridge into python ***/
+	/* acquire the GIL */
+	state = PyGILState_Ensure();
+
+	/* create a tuple to contain arguments */
+	args = PyTuple_New (2);
+
+	/* param 0: conn */
+	py_conn = py_myqtt_conn_create (conn, axl_true, axl_false);
+	PyTuple_SetItem (args, 0, py_conn);
+
+	/* param 1: on reconnect data */
+	Py_INCREF (on_reconnect_obj->on_reconnect_data);
+	PyTuple_SetItem (args, 1, on_reconnect_obj->on_reconnect_data);
+
+	/* record handler */
+	START_HANDLER (on_reconnect_obj->on_reconnect);
+
+	/* now invoke */
+	result = PyObject_Call (on_reconnect_obj->on_reconnect, args, NULL);
+
+	/* unrecord handler */
+	CLOSE_HANDLER (on_reconnect_obj->on_reconnect);
+
+	py_myqtt_log (PY_MYQTT_DEBUG, "conn on reconnect notification finished, checking for exceptions..");
+	py_myqtt_handle_and_clear_exception (py_conn);
+
+	Py_XDECREF (result);
+	Py_DECREF (args);
+
+	/* now release the rest of data */
+	/* Py_DECREF (on_reconnect_obj->py_conn); */
+	/* Py_DECREF (on_reconnect_obj->on_reconnect_data); */
+
+	/* release the GIL */
+	PyGILState_Release(state);
+
+	return;
+}
+
+PyObject * py_myqtt_conn_set_on_reconnect (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	PyObject                        * on_reconnect        = NULL;
+	PyObject                        * on_reconnect_data   = Py_None;
+	PyMyQttConnSetOnReconnectData   * on_reconnect_obj;
+	
+	/* now parse arguments */
+	static char *kwlist[] = {"on_reconnect", "on_reconnect_data", NULL};
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords(args, kwds, "O|O", kwlist, &on_reconnect, &on_reconnect_data))
+		return NULL;
+
+	/* check handler received */
+	if (on_reconnect == NULL || ! PyCallable_Check (on_reconnect)) {
+		py_myqtt_log (PY_MYQTT_CRITICAL, "received on_reconnect handler which is not a callable object");
+		return NULL;
+	} /* end if */
+
+	/* configure an on reconnect handler to bridge into python. In this
+	 * case we are reusing PyMyQttConnSetOnReconnectData reference.  */
+	on_reconnect_obj = axl_new (PyMyQttConnSetOnReconnectData, 1);
+	if (on_reconnect_obj == NULL) {
+		py_myqtt_log (PY_MYQTT_CRITICAL, "received on_reconnect handler but unable to acquire memory required to store handlers during operations");
+		return NULL;
+	} /* end if */
+		
+	/* set reference to release it when the connection is
+	 * closed */
+	myqtt_conn_set_data_full (py_myqtt_conn_get (self),
+				  axl_strdup_printf ("%p", on_reconnect_obj),
+				  on_reconnect_obj,
+				  axl_free, axl_free);
+
+	/* configure on_close handler */
+	on_reconnect_obj->on_reconnect = on_reconnect;
+	Py_INCREF (on_reconnect);
+
+	/* configure on_close_data handler data */
+	if (on_reconnect_data == NULL)
+		on_reconnect_data = Py_None;
+	on_reconnect_obj->on_reconnect_data = on_reconnect_data;
+	Py_INCREF (on_reconnect_data);
+
+	/* now acquire a reference to the handler and the data to make
+	 * them permanent during the execution of the script *and* to
+	 * release them when finishing the connection */
+	myqtt_conn_set_data_full (py_myqtt_conn_get (self),
+				  axl_strdup_printf ("%p", on_reconnect),
+				  on_reconnect,
+				  axl_free,
+				  (axlDestroyFunc) py_myqtt_decref);
+	myqtt_conn_set_data_full (py_myqtt_conn_get (self),
+				  axl_strdup_printf ("%p", on_reconnect_data),
+				  on_reconnect_data,
+				  axl_free,
+				  (axlDestroyFunc) py_myqtt_decref);
+
+	/* configure on_close_full */
+	myqtt_conn_set_on_reconnect (
+               /* the conn with on close */
+	       py_myqtt_conn_get (self),
+	       /* the handler */
+	       py_myqtt_conn_set_on_reconnect_handler, 
+	       /* the object with all references */
+	       on_reconnect_obj);
+
+	/* create a handle that allows to remove this particular
+	   handler. This handler can be used to remove the on close
+	   handler */
+	return py_myqtt_handle_create (on_reconnect_obj, NULL);
+}
+
 
 PyObject * py_myqtt_conn_set_on_close (PyObject * self, PyObject * args, PyObject * kwds)
 {
@@ -1041,6 +1176,9 @@ static PyMethodDef py_myqtt_conn_methods[] = {
 	/* set_on_msg */
 	{"set_on_msg", (PyCFunction) py_myqtt_conn_set_on_msg, METH_VARARGS | METH_KEYWORDS,
 	 "API wrapper for myqtt_conn_set_on_msg. This method allows to configure a handler which will be called in case a message is received on the provided connection."},
+	/* set_on_reconnect */
+	{"set_on_reconnect", (PyCFunction) py_myqtt_conn_set_on_reconnect, METH_VARARGS | METH_KEYWORDS,
+	 "API wrapper for myqtt_conn_set_on_reconnect. This method allows to configure a handler which will be called in case a connection is reconnected because connection-reconnect option was enabled."},
 	/* set_on_close */
 	{"set_on_close", (PyCFunction) py_myqtt_conn_set_on_close, METH_VARARGS | METH_KEYWORDS,
 	 "API wrapper for myqtt_conn_set_on_close_full. This method allows to configure a handler which will be called in case the conn is closed. This is useful to detect client or server broken conn."},
