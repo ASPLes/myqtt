@@ -551,8 +551,8 @@ void __myqtt_reader_recover_retained_message (MyQttCtx * ctx, MyQttConn * conn, 
 				continue;
 			} /* end if */
 
-			/* found message, send it to the client */
-			if (! myqtt_conn_pub (conn, topic_name, app_msg, app_msg_size, qos, axl_true /* report this is retained */, 0))
+			/* found message, send it to the client, wait for reply  */
+			if (! myqtt_conn_pub (conn, topic_name, app_msg, app_msg_size, qos, axl_true /* report this is retained */, 60))
 				myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to send message due to retained subscription, myqtt_conn_pub() failed");
 
 			/* now release content */
@@ -572,7 +572,7 @@ void __myqtt_reader_recover_retained_message (MyQttCtx * ctx, MyQttConn * conn, 
 			return; /* nothing found */
 
 		/* found message, send it to the client */
-		if (! myqtt_conn_pub (conn, topic_filter, app_msg, app_msg_size, qos, axl_true /* report this is retained */, 0))
+		if (! myqtt_conn_pub (conn, topic_filter, app_msg, app_msg_size, qos, axl_true /* report this is retained */, 60))
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to send message due to retained subscription, myqtt_conn_pub() failed");
 
 		/* now release content */
@@ -1410,7 +1410,7 @@ void __myqtt_reader_do_publish_aux (MyQttCtx * ctx, axlHashCursor * cursor, MyQt
 	
 	/* retain = axl_false always : MQTT-2.1.2-11 */
 	/* printf ("INFO: publshing %s on conn=%p conn-id=%d\n", myqtt_msg_get_topic (msg), conn, conn->id); */
-	if (! myqtt_conn_pub (conn, msg->topic_name, (axlPointer) msg->app_message, msg->app_message_size, qos, axl_false, 10))
+	if (! myqtt_conn_pub (conn, msg->topic_name, (axlPointer) msg->app_message, msg->app_message_size, qos, axl_false, 60))
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to publish message message, errno=%d", errno); 
 	
 	return;
