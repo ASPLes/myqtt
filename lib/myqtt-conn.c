@@ -1981,6 +1981,7 @@ int __myqtt_conn_get_next_pkgid_aux (MyQttCtx * ctx, MyQttConn * conn, MyQttQos 
 		conn->sent_pkgids = axl_list_new (axl_list_equal_int, NULL);
 
 	if (axl_list_length (conn->sent_pkgids) == 0 && axl_hash_items (conn->wait_replies) == 0) {
+
 		while (pkg_id < 65535 && ! myqtt_storage_lock_pkgid (ctx, conn, pkg_id)) {
 			/* id is already in use, go for the next */
 			pkg_id ++;
@@ -1988,6 +1989,7 @@ int __myqtt_conn_get_next_pkgid_aux (MyQttCtx * ctx, MyQttConn * conn, MyQttQos 
 
 		/* report default pkgid = 1 */
 		axl_list_append (conn->sent_pkgids, INT_TO_PTR (pkg_id));
+
 	} else {
 		iterator = 0;
 		while (iterator < axl_list_length (conn->sent_pkgids)) {
@@ -2041,10 +2043,21 @@ int __myqtt_conn_get_next_pkgid_aux (MyQttCtx * ctx, MyQttConn * conn, MyQttQos 
 }
 
 int __myqtt_conn_get_next_pkgid (MyQttCtx * ctx, MyQttConn * conn, MyQttQos qos) {
-	int pkg_id = __myqtt_conn_get_next_pkgid_aux (ctx, conn, qos);
+	int pkg_id;
+	int iterator = 0;
 
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Reporting next available pkg-id=%d for ctx=%p conn=%p conn-id=%d qos=%d",
+	/* list current ids */
+	while (iterator < axl_list_length (conn->sent_pkgids)) {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "NEW PACKET ID: ...item: %d) %d", 
+			   iterator, PTR_TO_INT (axl_list_get_nth (conn->sent_pkgids, iterator)));
+
+		iterator++;
+	} /* end while */
+
+	pkg_id = __myqtt_conn_get_next_pkgid_aux (ctx, conn, qos);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "NEW PACKET ID: Reporting next available pkg-id=%d for ctx=%p conn=%p conn-id=%d qos=%d",
 		   pkg_id, ctx, conn, conn->id, qos);
+	
 
 	return pkg_id;
 }
@@ -2094,8 +2107,10 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 	} /* end if */
 
 	/* configure package to send */
-	myqtt_log (MYQTT_LEVEL_DEBUG, "Sending PUBLISH with packet_id=%d conn-id=%d conn=%p qos=%d", packet_id, conn->id, conn, qos);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Sending PUBLISH with packet_id=%d conn-id=%d conn=%p qos=%d wait_publish=%d", 
+		   packet_id, conn->id, conn, qos, wait_publish);
 	if (! myqtt_sequencer_send (conn, MYQTT_PUBLISH, msg, size)) {
+
 		/* release packet id */
 		__myqtt_conn_release_pkgid (ctx, conn, packet_id);
 
@@ -2118,6 +2133,7 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 
 	/* now wait here for PUBACK in the case of QoS 1 */
 	if ((qos & MYQTT_QOS_1) == MYQTT_QOS_1 && wait_publish > 0) {
+
 		/* wait here for puback reply limiting wait by wait_sub */
 		reply = __myqtt_reader_get_reply (conn, packet_id, wait_publish, axl_false);
 		if (reply == NULL || reply->type != MYQTT_PUBACK || reply->packet_id != packet_id) {
@@ -2130,6 +2146,7 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 
 	/* now wait here for PUBREC in the case of QoS 2 */
 	if ((qos & MYQTT_QOS_2) == MYQTT_QOS_2 && wait_publish > 0) {
+
 		/* wait here for puback reply limiting wait by wait_sub */
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Getting PUBREC reply for packet_id=%d conn-id=%d conn=%p", packet_id, conn->id, conn);
 		reply = __myqtt_reader_get_reply (conn, packet_id, wait_publish, axl_false);
