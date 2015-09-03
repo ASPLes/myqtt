@@ -623,8 +623,7 @@ axl_bool __myqtt_tls_session_setup (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 }
 
 /** @internal reference to track if SSL_library_init was called () **/
-axl_bool __myqtt_tls_was_init = axl_false;
-
+axl_bool __myqtt_tls_was_ssl_init = axl_false;
 
 /** 
  * @brief Initialize TLS library.
@@ -659,15 +658,17 @@ axl_bool      myqtt_tls_init (MyQttCtx * ctx)
 
 	/* init ssl ciphers and engines (but only once even though we
 	   have several contexts running on the same process) */
-	myqtt_mutex_lock (&ctx->ref_mutex);
-	if (! __myqtt_tls_was_init) {
-		__myqtt_tls_was_init = axl_true;
-		SSL_library_init ();
+	if (! __myqtt_tls_was_ssl_init) {
+	        myqtt_mutex_lock (&ctx->ref_mutex);
+		if (! __myqtt_tls_was_ssl_init) {
+		       __myqtt_tls_was_ssl_init = axl_true;
+		       SSL_library_init ();
 
-		/* install cleanup */
-		atexit ((void (*)(void))myqtt_tls_cleanup);
-	}
-	myqtt_mutex_unlock (&ctx->ref_mutex);
+		       /* install cleanup */
+		       atexit ((void (*)(void))myqtt_tls_cleanup);
+		}
+		myqtt_mutex_unlock (&ctx->ref_mutex);
+	} /* end if */
 
 	return axl_true;
 }
@@ -2169,8 +2170,9 @@ char             * myqtt_tls_get_digest_sized           (MyQttDigestMethod   met
  * @internal Function used by the main module to cleanup the tls
  * module on exit (dealloc all memory used by openssl).
  */
-void               myqtt_tls_cleanup (MyQttCtx * ctx)
+void               myqtt_tls_cleanup (void)
 {
+        
 	/* remove all cyphers */
 	EVP_cleanup ();
 	CRYPTO_cleanup_all_ex_data ();

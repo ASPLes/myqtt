@@ -435,7 +435,7 @@ char             * myqtt_tls_get_digest_sized           (MyQttDigestMethod    me
 							 const char         * content,
 							 int                  content_size);
 
-void               myqtt_tls_cleanup                    (MyQttCtx * ctx);
+void               myqtt_tls_cleanup                    (void);
 
 #endif
 
