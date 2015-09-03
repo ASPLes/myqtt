@@ -280,7 +280,7 @@ SSL_CTX * __myqtt_tls_conn_get_ssl_context (MyQttCtx * ctx, MyQttConn * conn, My
 		ptr =  ((MyQttSslContextCreator) ctx->context_creator) (ctx, conn, opts, is_client, ctx->context_creator_data);
 		myqtt_log (MYQTT_LEVEL_DEBUG, "ctx->context_creator (ctx=%p, conn=%p, opts=%p, is_client=%d, ctx->context_creator_data=%s) = %p",
 			   ctx, conn, opts, is_client, ctx->context_creator_data);
-		return ptr;
+		goto check_errors;
 	} /* end if */
 
 	if (opts == NULL) {
@@ -296,23 +296,31 @@ SSL_CTX * __myqtt_tls_conn_get_ssl_context (MyQttCtx * ctx, MyQttConn * conn, My
 
 	switch (opts->ssl_protocol) {
 	case MYQTT_METHOD_TLSV1:
-		return SSL_CTX_new (is_client ? TLSv1_client_method () : TLSv1_server_method ()); 
+		ptr =  SSL_CTX_new (is_client ? TLSv1_client_method () : TLSv1_server_method ()); 
+		goto check_errors;
 #if defined(TLSv1_1_client_method)
 	case MYQTT_METHOD_TLSV1_1:
 		/* printf ("**** REPORTING TLSv1.1 ****\n"); */
-		return SSL_CTX_new (is_client ? TLSv1_1_client_method () : TLSv1_1_server_method ()); 
+		ptr = SSL_CTX_new (is_client ? TLSv1_1_client_method () : TLSv1_1_server_method ()); 
+		goto check_errors;
 #endif
 	case MYQTT_METHOD_SSLV3:
 		/* printf ("**** REPORTING SSLv3 ****\n"); */
-		return SSL_CTX_new (is_client ? SSLv3_client_method () : SSLv3_server_method ()); 
+		ptr = SSL_CTX_new (is_client ? SSLv3_client_method () : SSLv3_server_method ()); 
+		goto check_errors;
 	case MYQTT_METHOD_SSLV23:
 		/* printf ("**** REPORTING SSLv23 ****\n"); */
-		return SSL_CTX_new (is_client ? SSLv23_client_method () : SSLv23_server_method ()); 
-	}
+		ptr = SSL_CTX_new (is_client ? SSLv23_client_method () : SSLv23_server_method ()); 
+		goto check_errors;
+	} /* switch */
 
 	ptr = SSL_CTX_new (is_client ? TLSv1_client_method () : TLSv1_server_method ()); 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "No specific SSL protocol selected for ctx=%p, conn=%p, opts=%p, is_client=%d, returning SSL_CTX_new (TLSv1) = %p",
 		   ctx, conn, opts, is_client, ptr);
+
+check_errors:
+	if (ptr == NULL) 
+		myqtt_tls_log_ssl (ctx);
 
 	/* reached this point, report default TLSv1 method */
 	return ptr;
