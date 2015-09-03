@@ -1116,8 +1116,14 @@ axl_bool __myqtt_conn_send_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttConnO
 
 	/* in any case, remove this password from memory if defined */
 	if (opts && opts->password) {
-		axl_free (opts->password);
-		opts->password = NULL;
+	        /* do not remove the password in the case a reconnect
+		   was required: otherwise, without the password, the
+		   reconnection is not possible. See \ref
+		   myqtt_conn_opts_set_reconnect */
+	        if (! opts->reconnect) {
+		       axl_free (opts->password);
+		       opts->password = NULL;
+		} /* end if */
 	} /* end if */
 
 	/* now check myqtt_msg_build () result */
@@ -3307,6 +3313,12 @@ void                myqtt_conn_opts_set_will (MyQttConnOpts  * opts,
  *
  * @param enable_reconnect axl_true to enable reconnect everytime a
  * connection is closed, axl_false to disable this mechanism.
+ *
+ * SECURITY NOTE: keep in mind that using this option along with
+ * user/password at \ref myqtt_conn_opts_set_auth will make the
+ * library to keep the password in memory. Otherwise, practical
+ * reconnection is not possible because that value (the password) is
+ * needed to successfully complete it.
  */
 void                myqtt_conn_opts_set_reconnect (MyQttConnOpts * opts,
 						   axl_bool        enable_reconnect)
