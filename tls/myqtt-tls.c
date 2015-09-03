@@ -270,14 +270,29 @@ void               myqtt_tls_opts_set_server_name        (MyQttConnOpts * opts,
 
 SSL_CTX * __myqtt_tls_conn_get_ssl_context (MyQttCtx * ctx, MyQttConn * conn, MyQttConnOpts * opts, axl_bool is_client)
 {
+	SSL_CTX * ptr;
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Attempting to create SSL_CTX for ctx=%p, conn=%p, opts=%p, is_client=%d",
+		   ctx, conn, opts, is_client);
+
 	/* call to user defined function if the context creator is defined */
-	if (ctx && ctx->context_creator) 
-		return ((MyQttSslContextCreator) ctx->context_creator) (ctx, conn, opts, is_client, ctx->context_creator_data);
+	if (ctx && ctx->context_creator) {
+		ptr =  ((MyQttSslContextCreator) ctx->context_creator) (ctx, conn, opts, is_client, ctx->context_creator_data);
+		myqtt_log (MYQTT_LEVEL_DEBUG, "ctx->context_creator (ctx=%p, conn=%p, opts=%p, is_client=%d, ctx->context_creator_data=%s) = %p",
+			   ctx, conn, opts, is_client, ctx->context_creator_data);
+		return ptr;
+	} /* end if */
 
 	if (opts == NULL) {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "No context creator and opts=NULL, reporting default SSL_CTX_new (TLSv1) for  for ctx=%p, conn=%p, opts=%p, is_client=%d",
+			   ctx, conn, opts, is_client);
+
 		/* printf ("**** REPORTING TLSv1 ****\n"); */
 		return SSL_CTX_new (is_client ? TLSv1_client_method () : TLSv1_server_method ()); 
 	} /* end if */
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "Reporting default method according to opts->ssl_protocol=%d for  for ctx=%p, conn=%p, opts=%p, is_client=%d",
+		   opts->ssl_protocol, ctx, conn, opts, is_client);
 
 	switch (opts->ssl_protocol) {
 	case MYQTT_METHOD_TLSV1:
