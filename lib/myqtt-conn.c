@@ -1351,6 +1351,7 @@ void __myqtt_conn_new_internal (MyQttCtx * ctx, MyQttConn * connection, MyQttCon
 		if (! connection->setup_handler (ctx, connection, opts, setup_user_data)) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Session setup handler failed for conn-id=%d, session=%d..", connection->id, connection->session);
 			myqtt_close_socket (connection->session);
+			connection->session = -1;
 		} /* end if */
 	} else {
 		/* configure the socket created */
@@ -4493,6 +4494,8 @@ axl_bool __myqtt_conn_do_reconnect_third_step (MyQttCtx * ctx, axlPointer _conn,
 	axl_bool        stop_event = axl_false;
 	MyQttConnOpts * opts;
 
+	myqtt_log (MYQTT_LEVEL_DEBUG, "..reconnect: attempting to reconnect ctx=%p, conn=%p, socket=%d", ctx, conn, conn->session);
+
 	/* check if we have a init session setup pointer handler and
 	   call it */
 	if (conn && conn->opts) {
@@ -4506,10 +4509,16 @@ axl_bool __myqtt_conn_do_reconnect_third_step (MyQttCtx * ctx, axlPointer _conn,
 									      opts->init_user_data2,
 									      opts->init_user_data3);
 		} /* end if */
+
+		myqtt_log (MYQTT_LEVEL_DEBUG, "..reconnect: conn->setup_user_data=%p", conn->setup_user_data);
+
 	} /* end if */
 
 	/* ok, now call to reconnect in this independant thread */
 	__myqtt_conn_new_internal (conn->ctx, conn, conn->opts);
+
+	myqtt_log (MYQTT_LEVEL_DEBUG, "..reconnect: after connect ctx=%p, conn=%p, socket=%d, myqtt_conn_is_ok (conn,axl_false)=%d", 
+		   ctx, conn, conn->session, myqtt_conn_is_ok (conn, axl_false));
 
 	/* now check if the connection is ok */
 	if (myqtt_conn_is_ok (conn, axl_false)) {
