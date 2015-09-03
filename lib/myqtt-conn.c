@@ -4529,7 +4529,7 @@ axl_bool __myqtt_conn_do_reconnect_third_step (MyQttCtx * ctx, axlPointer _conn,
 	/* release reference */
 	myqtt_conn_unref (conn, "myqtt-conn-reconnect");
 
-	/* return NULL just o make the stack happy */
+	/* return stop_event=axl_true to remove this event, otherwise, axl_false to keep on trying */
 	return stop_event;
 }
 
