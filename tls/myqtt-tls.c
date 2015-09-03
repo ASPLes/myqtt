@@ -310,8 +310,12 @@ SSL_CTX * __myqtt_tls_conn_get_ssl_context (MyQttCtx * ctx, MyQttConn * conn, My
 		return SSL_CTX_new (is_client ? SSLv23_client_method () : SSLv23_server_method ()); 
 	}
 
+	ptr = SSL_CTX_new (is_client ? TLSv1_client_method () : TLSv1_server_method ()); 
+	myqtt_log (MYQTT_LEVEL_DEBUG, "No specific SSL protocol selected for ctx=%p, conn=%p, opts=%p, is_client=%d, returning SSL_CTX_new (TLSv1) = %p",
+		   ctx, conn, opts, is_client, ptr);
+
 	/* reached this point, report default TLSv1 method */
-	return SSL_CTX_new (is_client ? TLSv1_client_method () : TLSv1_server_method ()); 
+	return ptr;
 }
 
 MyQttCtx * __myqtt_tls_ssl_ctx_debug = NULL;
