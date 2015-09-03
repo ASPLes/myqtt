@@ -1,6 +1,6 @@
 /* 
  *  MyQtt: A high performance open source MQTT implementation
- *  Copyright (C) 2014 Advanced Software Production Line, S.L.
+ *  Copyright (C) 2015 Advanced Software Production Line, S.L.
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public License
@@ -4486,7 +4486,7 @@ int main (int argc, char ** argv)
 	char * run_test_name = NULL;
 
 	printf ("** MyQtt: A high performance open source MQTT implementation\n");
-	printf ("** Copyright (C) 2014 Advanced Software Production Line, S.L.\n**\n");
+	printf ("** Copyright (C) 2015 Advanced Software Production Line, S.L.\n**\n");
 	printf ("** Regression tests: %s \n",
 		VERSION);
 	printf ("** To gather information about time performance you can use:\n**\n");
