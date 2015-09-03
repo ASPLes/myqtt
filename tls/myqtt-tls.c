@@ -659,6 +659,7 @@ axl_bool      myqtt_tls_init (MyQttCtx * ctx)
 
 	/* init ssl ciphers and engines (but only once even though we
 	   have several contexts running on the same process) */
+	myqtt_mutex_lock (&ctx->ref_mutex);
 	if (! __myqtt_tls_was_init) {
 		__myqtt_tls_was_init = axl_true;
 		SSL_library_init ();
@@ -666,6 +667,7 @@ axl_bool      myqtt_tls_init (MyQttCtx * ctx)
 		/* install cleanup */
 		atexit ((void (*)(void))myqtt_tls_cleanup);
 	}
+	myqtt_mutex_unlock (&ctx->ref_mutex);
 
 	return axl_true;
 }
@@ -1141,6 +1143,12 @@ void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttC
 	int          ssl_error;
 	int          result;
 
+	/* init ssl ciphers and engines */
+	if (! myqtt_tls_init (ctx)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to accept TLS connection, myqtt_tls_init () failed");
+		return;
+	} /* end if */
+
 	if (conn->pending_ssl_accept) {
 		/* SSL already configured but pending to fully accept
 		   connection by doing the entire handshake */
@@ -1242,12 +1250,6 @@ void __myqtt_tls_accept_connection (MyQttCtx * ctx, MyQttConn * listener, MyQttC
 			    privateKey ? privateKey : "<not defined>");
 		myqtt_conn_shutdown (conn);
 			
-		return;
-	} /* end if */
-	
-	/* init ssl ciphers and engines */
-	if (! myqtt_tls_init (ctx)) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to accept TLS connection, myqtt_tls_init () failed");
 		return;
 	} /* end if */
 	
