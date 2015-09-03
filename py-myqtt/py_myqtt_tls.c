@@ -86,6 +86,10 @@ static PyObject * py_myqtt_tls_create_conn (PyObject * self, PyObject * args, Py
 					  &py_myqtt_ctx, &host, &port, &client_identifier, &clean_session, &keep_alive, &conn_opts)) 
 		return NULL;
 
+	/* nullify conn_opts when Py_None is received */
+	if (conn_opts == Py_None)
+		conn_opts = NULL;
+
 	/* allow other threads to enter into the python space */
 	Py_BEGIN_ALLOW_THREADS 
 
