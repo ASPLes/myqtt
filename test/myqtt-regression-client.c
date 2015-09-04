@@ -3821,6 +3821,7 @@ axl_bool test_22 (void)
 
 	opts = myqtt_conn_opts_new ();
 	myqtt_conn_opts_set_reconnect (opts, axl_true);
+	myqtt_conn_opts_set_auth (opts, "aspl", "test");
 
 	/* create first a noPoll connection, for that we need to
 	   create a context */
@@ -3846,6 +3847,7 @@ axl_bool test_22 (void)
 	opts = myqtt_conn_opts_new ();
 	myqtt_conn_opts_set_reconnect (opts, axl_true);
 	myqtt_tls_opts_ssl_peer_verify (opts, axl_false);
+	myqtt_conn_opts_set_auth (opts, "aspl", "test");
 
 	/* do a simple connection */
 	conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
@@ -3873,6 +3875,7 @@ axl_bool test_22 (void)
 	opts = myqtt_conn_opts_new ();
 	myqtt_conn_opts_set_reconnect (opts, axl_true);
 	myqtt_conn_opts_set_init_session_setup_ptr (opts, test_22_create_websocket, (axlPointer) listener_host, (axlPointer) listener_websocket_port, NULL);
+	myqtt_conn_opts_set_auth (opts, "aspl", "test");
 
 	/* now create MQTT connection using already working noPoll
 	   connection */
