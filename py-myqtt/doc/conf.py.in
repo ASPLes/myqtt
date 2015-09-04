@@ -35,16 +35,16 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General substitutions.
-project = 'PyVortex'
-copyright = '2009, Advanced Software Production Line, S.L.'
+project = 'PyMyQtt'
+copyright = '2015, Advanced Software Production Line, S.L.'
 
 # The default replacements for |version| and |release|, also used in various
 # other places throughout the built documents.
 #
 # The short X.Y version.
-version = '@VORTEX_VERSION@'
+version = '@MYQTT_VERSION@'
 # The full version, including alpha/beta/rc tags.
-release = '@VORTEX_VERSION@'
+release = '@MYQTT_VERSION@'
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:
@@ -83,7 +83,7 @@ pygments_style = 'sphinx'
 # The style sheet to use for HTML and HTML Help pages. A file of that name
 # must exist either in Sphinx' static/ path, or in one of the custom paths
 # given in html_static_path.
-html_style = 'py-vortex-doc.css'
+html_style = 'py-myqtt-doc.css'
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
@@ -142,7 +142,7 @@ html_last_updated_fmt = '%b %d, %Y'
 #html_file_suffix = ''
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'PyVortexdoc'
+htmlhelp_basename = 'PyMyQttdoc'
 
 
 # Options for LaTeX output
@@ -157,7 +157,7 @@ htmlhelp_basename = 'PyVortexdoc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, document class [howto/manual]).
 latex_documents = [
-  ('index', 'PyVortex.tex', 'PyVortex Documentation',
+  ('index', 'PyMyQtt.tex', 'PyMyQtt Documentation',
    'Advanced Software Production Line, S.L.', 'manual'),
 ]
 

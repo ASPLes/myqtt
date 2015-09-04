@@ -67,45 +67,80 @@ frame received handler::
 
    Note also full regression test client, which includes all features tested, is located at: https://dolphin.aspl.es/svn/publico/myqtt/py-myqtt/test/myqtt-regression-client.py
 
-========================
-Creating a MQTT listener
-========================
+==================================
+Creating a MQTT server with Python
+==================================
 
 1. The process of creating a MQTT listener is pretty
 straitforward. You have to follow the same initialization process as
 the client. This is done as follows::
 
-   # define it
+    # create a context
+    ctx = myqtt.Ctx ()
 
-2. After your listener signals its support for a particular profile,
-it is required to create a listener instance::
+    # init context
+    if not ctx.init ():
+        error ("Unable to init ctx, failed to start listener")
+        sys.exit(-1)
 
-   # start listener and check status
-   listener = vortex.create_listener (ctx, "0.0.0.0", "1602")
-   
-   if not listener.is_ok ():
-      print ("ERROR: failed to start listener, error was was: " + listener.error_msg)
-      sys.exit (-1)
+2. After your listener now define some settings and start the list of
+   listeners you need::
 
-3. Because we have to wait for frames to be received we need a wait to
+     # configure storage
+     ctx.storage_set_path (".myqtt-listener", 4096)
+     
+     # create a listener
+     info ("Starting listener at 0.0.0.0:1883")
+     listener = myqtt.create_listener (ctx, "0.0.0.0", "1883")
+
+     # check listener started
+     if not listener.is_ok ():
+          error ("ERROR: failed to start listener. Maybe there is another instance running at 1883?")
+          sys.exit (-1)
+
+     # myabe start more listeners here by calling to myqtt.create_listener
+
+3. Because we have to wait for msg to be received we need a wait to
 block the listener. The following is not strictly necessary it you
 have another way to make the main thread to not finish::
 
    # wait for requests
-   vortex.wait_listeners (ctx, unlock_on_signal=True)
+   myqtt.wait_listeners (ctx, unlock_on_signal=True)
    
 
 .. note::
 
-   Full listener source code can be found at: https://dolphin.aspl.es/svn/publico/af-arch/trunk/libvortex-1.1/py-vortex/test/simple-listener.py
+   Full listener source code can be found at: https://dolphin.aspl.es/svn/publico/myqtt/py-myqtt/test/myqtt-regression-listener.py
 
-.. note::
 
-   Note also full regression test listener, which includes all features tested, is located at: https://dolphin.aspl.es/svn/publico/af-arch/trunk/libvortex-1.1/py-vortex/test/vortex-regression-listener.py
+4. With the previous simple code you already have a working MQTT
+   server that will allow subscription and publishing to any
+   topic. Possible, at this point you would like to control how
+   messages are published (to discard them, route them, etc). This is
+   done by setting a on_publish handler like this::
 
-========================================
-Enabling server side SASL authentication
-========================================
+     def on_publish (ctx, conn, msg, data):
+         info ("Topic received: %s" % (msg.topic))
+
+	 if msg.topic == "disard/this/topic":
+	     return myqtt.PUBLISH_DISCARD
+
+	 if some_limit_reached_for (conn):
+ 	     return myqtt.PUBLISH_DISCARD
+
+	 # for the rest of cases
+	 return myqtt.PUBLISH_OK
+
+     # configure on publish 
+     ctx.set_on_publish (on_publish)
+
+     # please check
+     https://dolphin.aspl.es/svn/publico/myqtt/py-myqtt/test/myqtt-regression-listener.py
+     for many supported working examples
+
+===================================
+Enabling server side authentication
+===================================
 
 To enable server side SASL authentication, we activate the set of
 mechanisms that will be used to implement auth operations and a handler
@@ -153,17 +188,21 @@ access check to implement dynamic SASL auth.
 Enabling server side TLS encryption
 ===================================
 
-The following will show you how to enable TLS profile to protect the content that travels over the connection for all channels. A really usual example of use is to first protect the connection with TLS (which is what we are going to explain) and the start a SASL channel to do the auth part.
+The following will show you how to enable TLS profile to protect the
+content that travels over the connection for all channels. A really
+usual example of use is to first protect the connection with TLS
+(which is what we are going to explain) and the start a SASL channel
+to do the auth part.
 
 1. Anyhow, the first thing you must do is to import the required components::
 
-    import vortex
-    import vortex.tls
+    import myqtt
+    import myqtt.tls
 
 2. Now, at the server initialization, usually before starting all listeners (vortex.create_listener) you call to register the handlers that will be called to report certificates to be used each time a request to enable TLS is received::
 
     # enable tls support
-    vortex.tls.accept_tls (ctx, 
+    myqtt.tls.accept_tls (ctx, 
                            # accept handler
                            accept_handler=tls_accept_handler, accept_handler_data="test", 
                            # cert handler
@@ -187,7 +226,7 @@ In the example the tree handler mostly do the minimal effort to complete their j
 
 Once a connection is successfully secured with TLS, you can call the following to check it at your frame received handlers, for example, if you want to ensure your server do not provide any data without having a TLS secured connection::
 
-     if not vortex.tls.is_enabled (conn):
+     if not myqtt.tls.is_enabled (conn):
      	# connection is not secured, close it, or whatever required to stop
         conn.shutdown ()
 
