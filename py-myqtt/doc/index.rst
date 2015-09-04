@@ -1,22 +1,22 @@
-PyVortex's documentation center!
-================================
+PyMyQtt's documentation center!
+==============================
 
-PyVortex is a python binding for the Vortex Library 1.1, maintained
+PyMyQtt is a python binding for libMyQtt, maintained
 and supported by ASPL, that includes full support to write
-client/listener BEEP applications written entirely in python.
+MQTT client/server  applications entirely written using python.
 
-Because quality matters, as with Vortex Library 1.1, PyVortex
-development is being driven and checked with a regression test suite
-to ensure each realease is ready for production environment.
+Because quality matters, as with MyQtt stack, PyMyQtt development is
+being driven and checked with a regression test suite to ensure each
+realease is ready for production environment.
 
-PyVortex execution model for async notifications is really similar to
-Vortex Library because the binding makes use of the GIL feature
-described in: http://www.python.org/dev/peps/pep-0311/ This means
-PyVortex library execution will still use threads but only one thread
-at time will be executing inside the context of Python. 
+PyMyQtt execution model for async notifications is really similar to
+libMyQtt because the binding makes use of the GIL feature described
+in: http://www.python.org/dev/peps/pep-0311/ This means PyMyQtt
+library execution will still use threads but only one thread at time
+will be executing inside the context of Python.
 
-Because PyVortex is a binding, Vortex Library 1.1 documention must be
-used while using PyVortex: http://www.aspl.es/fact/files/af-arch/vortex-1.1/html/index.html
+Because PyMyQtt is a binding, libMyQtt documention is still useful
+while using PyMyQtt: http://www.aspl.es/myqtt/doc/html/index.html
 
 **Manuals and additional documentation available:**
 
@@ -25,37 +25,33 @@ used while using PyVortex: http://www.aspl.es/fact/files/af-arch/vortex-1.1/html
 
    license
    manual
-   Vortex Library 1.1 documentation center <http://www.aspl.es/fact/files/af-arch/vortex-1.1/html/index.html>
+   MyQtt stack documentation center <http://www.aspl.es/myqtt/doc/html/index.html>
 
 **API documentation:**
 
 .. toctree::
    :maxdepth: 1
 
-   vortex
+   myqtt
    ctx
    connection
-   channel
-   frame
-   channelpool
+   msg
    asyncqueue
    handlers
-   vortexsasl
-   vortextls
-   vortexalive
+   myqtttls
 
 =================
 Community support
 =================
 
-Community assisted support is provided through Vortex Library mailing list located at: http://lists.aspl.es/cgi-bin/mailman/listinfo/vortex.
+Community assisted support is provided through MyQtt mailing list located at: http://lists.aspl.es/cgi-bin/mailman/listinfo/myqtt.
 
 ============================
 Professional ensured support
 ============================
 
-ASPL provides professional support for PyVortex inside Vortex Library
+ASPL provides professional support for PyMyQtt inside MyQtt
 Tech Support program. See the following for more information:
-http://www.aspl.es/vortex/professional.html
+http://www.aspl.es/myqtt/professional.html
 
 
