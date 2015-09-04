@@ -1,8 +1,8 @@
 PyMyQtt's documentation center!
 ==============================
 
-PyMyQtt is a python binding for libMyQtt, maintained
-and supported by ASPL, that includes full support to write
+PyMyQtt is a python binding for libMyQtt (http://www.aspl.es/myqtt), maintained
+and supported by ASPL (http://www.aspl.es), that includes full support to write
 MQTT client/server  applications entirely written using python.
 
 Because quality matters, as with MyQtt stack, PyMyQtt development is
