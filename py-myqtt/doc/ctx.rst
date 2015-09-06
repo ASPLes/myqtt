@@ -1,30 +1,30 @@
-:mod:`vortex.Ctx` --- PyVortexCtx class: context handling
+:mod:`myqtt.Ctx` --- PyMyQttCtx class: context handling
 =========================================================
 
-.. currentmodule:: vortex
+.. currentmodule:: myqtt
 
 
-API documentation for vortex.Ctx object representing a vortex
-independent context. vortex.Ctx object is a fundamental type and
+API documentation for myqtt.Ctx object representing a myqtt
+independent context. myqtt.Ctx object is a fundamental type and
 represents a single execution context within a process, that includes
 the reader loop, the sequencer loop and a shared context execution for
 all connections, listeners and channels created inside it.
 
 In most situations it is only required to create a single context as follows::
 
-   ctx = vortex.Ctx ()
+   ctx = myqtt.Ctx ()
    if not ctx.init ():
-        print ("ERROR: Failed to create vortex.Ctx object")
+        print ("ERROR: Failed to create myqtt.Ctx object")
 
    # now it is possible to create connections and channels
-   conn = vortex.Connection (ctx, "localhost", "602")
+   conn = myqtt.Conn (ctx, "localhost", "1883")
    if not conn.is_ok ():
         print ("ERROR: connection failed to localhost, error was: " + conn.error_msg)
 
 Due to python automatic collection it is not required to explicitly
 close a context because that's is done automatically when the
 function/method that created the ctx object finishes. However, to
-explicitly terminate a vortex execution context just do::
+explicitly terminate a myqtt execution context just do::
 
   ctx.exit ()
 
@@ -34,7 +34,7 @@ listener using:
 .. toctree::
    :maxdepth: 1
 
-   connection
+   conn
 
 ==========
 Module API
@@ -54,9 +54,9 @@ Module API
 
    .. method:: new_event (microseconds, handler, [user_data], [user_data2])
    
-      Allows to install an event handler, a method that will be called each microseconds, optionally receiving one or two parameters. This method implements python api for vortex_thread_pool_new_event. See also its documentation.
+      Allows to install an event handler, a method that will be called each microseconds, optionally receiving one or two parameters. This method implements python api for myqtt_thread_pool_new_event. See also its documentation.
 
-      The following is an example of handler (first parameter is vortex.Ctx, the rest two are the user parameters)::
+      The following is an example of handler (first parameter is myqtt.Ctx, the rest two are the user parameters)::
 
             def event_handler (ctx, param1, param2):
       	    	# do some stuff
@@ -81,21 +81,48 @@ Module API
 
    .. attribute:: log
 
-      (Read/Write attribute) (True/False) returns or set current debug log. See vortex_log_is_enabled.
+      (Read/Write attribute) (True/False) returns or set current debug log. See myqtt_log_is_enabled.
 
    .. attribute:: log2
 
-      (Read/Write attribute) (True/False) returns or set current second level debug log which includes more detailed messages suppresed. See vortex_log2_is_enabled.
+      (Read/Write attribute) (True/False) returns or set current second level debug log which includes more detailed messages suppresed. See myqtt_log2_is_enabled.
 
    .. attribute:: color_log
 
-      (Read only attribute) (True/False) returns or set current debug log colourification. See vortex_color_log_is_enabled.
+      (Read only attribute) (True/False) returns or set current debug log colourification. See myqtt_color_log_is_enabled.
 
    .. attribute:: ref_count
 
-      (Read only attribute) (Number) returns current vortex.Ctx reference counting state.
+      (Read only attribute) (Number) returns current myqtt.Ctx reference counting state.
 
 
- 
+   .. method:: set_on_publish (on_publish_handler)
+   
+      Allows to configure a handler that is called every time a
+      PUBLISH operation is received so the handler can be used to
+      filter and autorized messages received or to redirect them::
+
+	def on_publish (ctx, conn, msg, data):
+
+           return myqtt.PUBLISH_DISCARD # to discard
+	   return myqtt.PUBLISH_OK # to allow publish
+      
+   .. method:: set_on_connect (on_connect_handler)
+   
+      Allows to configure a handler that is called every time a
+      CONNECT is received::
+
+	def on_connect (ctx, conn, data):
+
+           return myqtt.CONNACK_BAD_USERNAME_OR_PASSWORD # to discard
+	   return myqtt.CONNACK_ACCEPTED # to allow publish
+
+
+   .. method:: storage_set_path (storage_path, hash_size)
+   
+      Allows to configure storage path and hashing value. The hashing
+      value allows to group temporal messages into the number of
+      folders provided. 4096 is a good recommended values.
+
       
     

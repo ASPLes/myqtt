@@ -1,10 +1,10 @@
-:mod:`vortex.AsyncQueue` --- PyVortexAsyncQueue class: Vortex library thread safe queue
-=======================================================================================
+:mod:`myqtt.AsyncQueue` --- PyMQttAsyncQueue class: MyQtt thread safe queue
+===========================================================================
 
-.. currentmodule:: vortex
+.. currentmodule:: myqtt
 
-API documentation for vortex.AsyncQueue object: a thread safe queue
-used by Vortex Library.
+API documentation for myqtt.AsyncQueue object: a thread safe queue
+used by MyQtt.
 
 ==========
 Module API

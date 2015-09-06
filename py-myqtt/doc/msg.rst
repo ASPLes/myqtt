@@ -1,16 +1,17 @@
-:mod:`vortex.Frame` --- PyVortexFrame class: BEEP frame representation
-======================================================================
+:mod:`myqtt.Msg` --- PyMyQttMsg class: A MQTT message received
+==============================================================
 
-.. currentmodule:: vortex
+.. currentmodule:: myqtt
 
 
-API documentation for vortex.frame object representing a BEEP frame received.
+API documentation for myqtt.Msg object represents a single MQTT
+message received
 
 ==========
 Module API
 ==========
 
-.. class:: Frame
+.. class:: Msg
 
    .. attribute:: id
 
@@ -18,48 +19,33 @@ Module API
 
    .. attribute:: type
 
-      (Read only attribute) (String) returns the frame type: MSG, RPY, ERR, ANS, NUL and SEQ.
-
-   .. attribute:: msgno
-
-      (Read only attribute) (Number) returns the frame msgno value. It is also accepted msg_no
-
-   .. attribute:: msg_no
-
-      (Read only attribute) (Number) msgno alias 
-
-   .. attribute:: seqno
-
-      (Read only attribute) (Number) returns the frame seqno value. It is also accepted seq_no
-
-   .. attribute:: seq_no
-
-      (Read only attribute) (Number) seqno alias 
-
-   .. attribute:: ansno
-
-      (Read only attribute) (Number) returns the frame ansno value. It is also accepted ans_no
-
-   .. attribute:: ans_no
-
-      (Read only attribute) (Number) ansno alias 
-
-   .. attribute:: more_flag
-
-      (Read only attribute) (True/False) returns more flag status on the frame
-
-   .. attribute:: payload_size
-
-      (Read only attribute) (Number) returns the payload size (frame content without MIME headers).
-
-   .. attribute:: content_size
-
-      (Read only attribute) (Number) returns the content size (frame content including MIME headers).
+      (Read only attribute) (String) returns the msg type (see
+      myqtt_msg_get_type_str documentation)
 
    .. attribute:: payload
 
-      (Read only attribute) (String) returns frame content without including MIME headers
+      (Read only attribute) (String) returns the raw payload
+      associated to the given msg (variable header + payload).
+
+   .. attribute:: payload_size
+
+      (Read only attribute) (Number) returns the raw payload size
 
    .. attribute:: content
 
-      (Read only attribute) (String) returns frame content including MIME headers
+      (Read only attribute) (String) returns just application
+      message. See myqtt_msg_get_app_msg
+
+   .. attribute:: content_size
+
+      (Read only attribute) (Number) returns the content size
+      (application's message size). See myqtt_msg_get_app_msg_size
+
+   .. attribute:: topic
+
+      (Read only attribute) (String) returns the topic of the message
+      (if defined)
+
+   .. attribute:: qos
+
+      (Read only attribute) (Number) returns the qos of the message

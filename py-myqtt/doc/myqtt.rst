@@ -1,8 +1,8 @@
-:mod:`vortex` --- PyVortex base module: base functions (create listeners, register handlers)
-============================================================================================
+:mod:`myqtt` --- PyMyQtt base module: base functions (create listeners, register handlers)
+==========================================================================================
 
-.. module:: vortex
-   :synopsis: Vortex library base module
+.. module:: myqtt
+   :synopsis: MyQtt library base module
 .. moduleauthor:: Advanced Software Production Line, S.L.
 
 
@@ -15,7 +15,7 @@ This module also includes type definition for the following classes:
    :maxdepth: 1
 
    ctx
-   connection
+   conn
    msg
    asyncqueue
    handlers
@@ -26,11 +26,11 @@ Module API
 
 .. function:: create_listener (ctx, host, port)
 
-   Allows to create a BEEP listener to receiving incoming
-   connections. Here is an example:: 
+   Allows to create a MQTT listener to receiving incoming
+   connections. Here is an example::
 
       # create a listener
-      listener = vortex.create_listener (ctx, "0.0.0.0", "44010")
+      listener = myqtt.create_listener (ctx, "0.0.0.0", "1883")
 
       # check listener started
       if not listener.is_ok ():
@@ -38,10 +38,10 @@ Module API
           sys.exit (-1)
 
       # do a wait operation
-      vortex.wait_listeners (ctx, unlock_on_signal=True)
+      myqtt.wait_listeners (ctx, unlock_on_signal=True)
 
-   :param ctx: vortex context where the listener will be created
-   :type ctx: vortex.Ctx
+   :param ctx: myqtt context where the listener will be created
+   :type ctx: myqtt.Ctx
    
    :param host: the hostname
    :type host: String
@@ -49,15 +49,15 @@ Module API
    :param port: the port to connect to
    :type  port: String
 
-   :rtype: vortex.Connection representing the listener created.
+   :rtype: myqtt.Connection representing the listener created.
 
 .. function:: wait_listeners (ctx, [unlock_on_signal])
 
-   Allows to perform a wait operation until vortex context is finished
+   Allows to perform a wait operation until myqtt context is finished
    or due to a signal received. 
 
    :param ctx: context where a listener or a set of listener were created.
-   :type ctx: vortex.Ctx
+   :type ctx: myqtt.Ctx
 
    :param unlock_on_signal: unlock_on_signal expects to receive True to make wait_listener to unlock on signal received.
    :type unlock_on_signal: Integer: True or False
@@ -67,22 +67,6 @@ Module API
    Allows to unlock the thread that is blocked at wait_listeners call
 
    :param ctx: context where a listener or a set of listener were created.
-   :type ctx: vortex.Ctx
+   :type ctx: myqtt.Ctx
 
-
-.. function:: queue_reply(conn, channel, frame, o)
-
-   Function used inside the queue reply method. This function is used
-   as frame received handler, queuring all frames in the queue
-   provided as user data. The, a call to channel.get_reply (queue) is
-   required to get all frames received.
-
-   Here is an example::
-
-   	# configure frame received handler 
-	queue = vortex.AsyncQueue ()
-	channel.set_frame_received (vortex.queue_reply, queue)
-
-	# wait for frames to be received
-	frame = channel.get_reply (queue)
 
