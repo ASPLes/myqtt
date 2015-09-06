@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# PyVortex documentation build configuration file, created by
+# PyMyQtt documentation build configuration file, created by
 # sphinx-quickstart on Mon Aug  3 14:37:58 2009.
 #
 # This file is execfile()d with the current directory set to its containing dir.
