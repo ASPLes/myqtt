@@ -1,7 +1,5 @@
 --== roadmap ==--
 
-* Big message support (review and strenghten current limits).
-
 * High load support (review and strenghten current limits).
 
 * Add support for clustering for epic configurations

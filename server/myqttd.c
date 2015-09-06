@@ -1495,14 +1495,16 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * \section intro MyQtt Introduction
  *
- * MyQtt is an <b>Open Source</b> professional MQTT stack <b>written in ANSI C</b>,
- * focused on providing support <b>to create MQTT servers/brokers</b>.  MyQtt has a
- * modular design that allows creating MQTT brokers by using the API
- * provided by <b>libMyQtt</b> (which in fact is composed by several
- * libraries: libmyqtt, libmyqtt-tls, libmyqtt-websocket), but it is also
- * provided <b>a ready to use MQTT broker</b> called <b>MyQttD</b> which is
- * built on top of <b>libMyQtt</b>. <b>MyQttD</b> server is extensible
- * by adding C plugins.
+ * MyQtt is an <b>Open Source</b> professional <a
+ * href="http://www.mqtt.org">MQTT</> stack <b>written in ANSI C</b>,
+ * which supports v3.1.1 and v3.1, focused on providing support <b>to
+ * create MQTT servers/brokers</b>.  MyQtt has a modular design that
+ * allows creating MQTT brokers by using the API provided by
+ * <b>libMyQtt</b> (which in fact is composed by several libraries:
+ * libmyqtt, libmyqtt-tls, libmyqtt-websocket), but it is also
+ * provided <b>a ready to use MQTT broker</b> called <b>MyQttD</b>
+ * which is built on top of <b>libMyQtt</b>. <b>MyQttD</b> server is
+ * extensible by adding C plugins.
  *
  * At this point it is also provided a <b>Python interface to libMyQtt</b> so
  * it's possible <b>to write fully functional MQTT brokers in Python</b>.
