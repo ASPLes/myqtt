@@ -1,5 +1,5 @@
 PyMyQtt's documentation center!
-==============================
+===============================
 
 PyMyQtt is a python binding for libMyQtt (http://www.aspl.es/myqtt), maintained
 and supported by ASPL (http://www.aspl.es), that includes full support to write
@@ -34,7 +34,8 @@ while using PyMyQtt: http://www.aspl.es/myqtt/doc/html/index.html
 
    myqtt
    ctx
-   connection
+   conn
+   connopts
    msg
    asyncqueue
    handlers

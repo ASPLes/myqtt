@@ -20,7 +20,8 @@ EXTRA_DIST = py-myqtt-doc.css conf.py conf.py.in \
 	msg.rst  \
 	license.rst  \
 	ctx.rst  \
-	asyncqueue.rst 
+	asyncqueue.rst  \
+	myqtttls.rst
 
 
 .PHONY: help clean html web pickle htmlhelp latex changes linkcheck

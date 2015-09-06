@@ -183,7 +183,70 @@ Please, check full working version at https://dolphin.aspl.es/svn/publico/myqtt/
 Enabling server side TLS encryption
 ===================================
 
+You have several options to configure a SSL/TLS MQTT listener. The
+most basic option is to set the certificate, key and intermediate
+associated to the particular listener like this::
 
+  # set certificate
+  myqtt.tls.set_certificate (listener, "test-certificate.crt", "test-private.key") # , "certificate-chain.crt")
+
+
+At the same MyQtt Stack support SNI so you can configure different
+certificate, on real time, according to the serverName
+presented/requested by remote side. If that's what you want to
+configure, use the following example::
+
+
+  # configure auxiliar handlers 
+  myqtt.tls.set_certificate_handlers (ctx, __certificate_handler, __private_handler, __chain_handler)
+
+  # now, certificate, privaite and chain handler can be something like
+  def __certificate_handler (ctx, conn, serverName, userData):
+
+    if serverName == "localhost":
+        return "../../test/localhost-server.crt"
+
+    if serverName == "test19a.localhost":
+        return "../../test/test19a-localhost-server.crt"
+
+    return None
+
+  def __private_handler (ctx, conn, serverName, userData):
+
+    if serverName == "localhost":
+        return "../../test/localhost-server.key"
+
+    if serverName == "test19a.localhost":
+        return "../../test/test19a-localhost-server.key"
+    
+
+    return None
+
+  def __chain_handler (ctx, conn, serverName, userData):
+
+    return None
+
+See regression test for a full working example:
+https://dolphin.aspl.es/svn/publico/myqtt/py-myqtt/test/myqtt-regression-listener.py
+
+
+=======================================
+Setting mutual certificate verification
+=======================================
+
+By default, server side do not ask or verifies certificate presented
+by connecting client. To enable this verification and hence mutual
+certificate verification use::
+
+    # do verify peer
+    myqtt.tls.ssl_peer_verify (opts, True)
+
+At the client side, certificate presented by the server is always
+verified. In the case you are in development environment and/or you
+don't want the client to verify server's certificate, do::
+
+    # do not verify peer
+    myqtt.tls.ssl_peer_verify (opts, False)
 
 
 

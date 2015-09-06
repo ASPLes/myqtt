@@ -724,7 +724,7 @@ PyObject * py_myqtt_conn_ping (PyObject * self, PyObject * args, PyObject * kwds
 
 PyObject * py_myqtt_conn_get_next (PyObject * self, PyObject * args, PyObject * kwds)
 {
-	long         timeout;
+	long         timeout = 10;
 	MyQttConn  * conn;
 	MyQttMsg   * msg;
 		

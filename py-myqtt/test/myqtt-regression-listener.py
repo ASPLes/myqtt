@@ -165,7 +165,6 @@ if __name__ == '__main__':
         
     # set certificate
     myqtt.tls.set_certificate (listener2, "../../test/test-certificate.crt",  "../../test/test-private.key")
-
     opts = myqtt.ConnOpts ()
     if not myqtt.tls.set_ssl_certs (opts, "../../test/server.pem", "../../test/server.pem", None, "../../test/root.pem"):
         error ("Unable to configure certificates, server.pem and root.pem")
