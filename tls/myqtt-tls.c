@@ -727,6 +727,30 @@ axl_bool      myqtt_tls_init (MyQttCtx * ctx)
  * you need the number remaining during the process use \ref
  * myqtt_storage_queued_messages.
  *
+ * <b>About error error:140A90F1:SSL routines:SSL_CTX_new:unable to load ssl2 md5 routines</b>
+ *
+ * It has been reported that in some cases
+ * __myqtt_tls_conn_get_ssl_context fails to create the context (all
+ * to openssl SSL_CTX_new) by giving the aforementioned error. It is
+ * not clear why it happens but it seems to be related to the why
+ * openssl inits internal static structures and how they layed in
+ * memory when loading OpenSSL lib into the same binary/process but
+ * because linker dependencies as a consenquence of loading 2 modules
+ * which requires and inits it.
+ *
+ * As a consequence, openssl library's last init takes over causing
+ * the first to lose internal references and hence, causing
+ * SSL_CTX_new to fail.
+ *
+ * The solution is to:
+ *
+ * 1) Change the order the modules or libraries using OpenSSL are called
+ *
+ * 2) Ensure only one of them calls to init service internal (SSL_library_init) 
+ *
+ * 3) Ensure modules using OpenSSL aren't unloaded when other modules
+ * (libraries) use them.
+ *
  */
 MyQttConn        * myqtt_tls_conn_new                   (MyQttCtx        * ctx,
 							 const char      * client_identifier,
