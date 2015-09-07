@@ -1495,8 +1495,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * \section intro MyQtt Introduction
  *
- * MyQtt is an <b>Open Source</b> professional <a
- * href="http://www.mqtt.org">MQTT</> stack <b>written in ANSI C</b>,
+ * MyQtt is an <b>Open Source</b> professional <a href="http://www.mqtt.org">MQTT</a> stack <b>written in ANSI C</b>,
  * which supports v3.1.1 and v3.1, focused on providing support <b>to
  * create MQTT servers/brokers</b>.  MyQtt has a modular design that
  * allows creating MQTT brokers by using the API provided by
