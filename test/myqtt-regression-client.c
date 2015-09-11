@@ -3978,6 +3978,122 @@ axl_bool test_23 (void)
 	return axl_true;
 }
 
+axl_bool test_24_check_reply (MyQttConn * conn, MyQttAsyncQueue * queue, const char * request, const char * expected_reply)
+{
+	MyQttMsg * msg;
+
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+
+	/* publish application message (the message sent here is
+	 * bigger than 24, this is on purpose) */
+	if (! myqtt_conn_pub (conn, request, "", 0, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message, myqtt_conn_pub() failed\n");
+		return axl_false;
+	} /* end if */
+
+
+	/* waiting for reply */
+	printf ("Test 24: waiting for reply (for %s)..\n", request);
+	msg   = myqtt_async_queue_pop (queue);
+	if (msg == NULL) {
+		printf ("ERROR: expected to find message from queue, but NULL was found..\n");
+		return axl_false;
+	} /* end if */
+
+	/* release message */
+	printf ("Test 24: releasing references=%d\n", myqtt_msg_ref_count (msg));
+	printf ("Test 24: message content is: '%s'\n", (const char *) myqtt_msg_get_app_msg (msg));
+	if (! axl_cmp (myqtt_msg_get_app_msg (msg), expected_reply)) {
+		printf ("ERROR: expected different message...\n");
+		return axl_false;
+	} /* end if */
+
+	myqtt_msg_unref (msg);
+	return axl_true;
+}
+
+axl_bool test_24 (void)
+{
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	MyQttAsyncQueue * queue;
+	int               sub_result;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 24: connecting with session support..\n");
+
+	/* now connect to the listener:
+	   client_identifier -> test_03
+	   clean_session -> axl_false
+	   keep_alive -> 30 */
+	conn = myqtt_conn_new (ctx, "test_24", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 24: connected without problems..\n");
+
+	/* subscribe to a topic */
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test/a", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* subscribe to a topic */
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test/b", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* register on message handler */
+	queue = myqtt_async_queue_new ();
+	if (! test_24_check_reply (conn, queue, "get-subscriptions", "myqtt/test/a.0,myqtt/test/b.0"))
+		return axl_false;
+
+	if (! test_24_check_reply (conn, queue, "get-subscriptions-ctx", "myqtt/test/a.num-conns=1,myqtt/test/b.num-conns=1"))
+		return axl_false;
+
+	/* close connection */
+	printf ("Test 24: closing connection..\n");
+	myqtt_conn_close (conn);
+
+	/* now connect to the listener:
+	   client_identifier -> test_03
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	printf ("Test 24: connecting again with clean session..\n");
+	conn = myqtt_conn_new (ctx, "test_24", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+
+	/* publish application message (the message sent here is
+	 * bigger than 24, this is on purpose) */
+	if (! test_24_check_reply (conn, queue, "get-subscriptions", ""))
+		return axl_false;
+
+	if (! test_24_check_reply (conn, queue, "get-subscriptions-ctx", "myqtt/test/a.num-conns=0,myqtt/test/b.num-conns=0"))
+		return axl_false;
+
+	/* close connection */
+	printf ("Test 24: closing connection..\n");
+	myqtt_conn_close (conn);
+
+	myqtt_async_queue_unref (queue);
+
+	/* release context */
+	printf ("Test 24: releasing context..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+	
+	return axl_true;
+}
+
 void wrong_sub (const char * topic_filter, axl_bool should_fail) {
 	axl_bool is_wrong = myqtt_reader_is_wrong_topic (topic_filter);
 
@@ -4666,6 +4782,10 @@ int main (int argc, char ** argv)
 	/* check on connect deferred */
 	CHECK_TEST("test_23")
 	run_test (test_23, "Test 23: check on connect deferred"); 
+
+	/* check on connect deferred */
+	CHECK_TEST("test_24")
+	run_test (test_24, "Test 24: check clean session and removed subscribed options"); 
 
 #if defined(ENABLE_MOSQUITTO)
 	/* call to enable mosquitto library globally */
