@@ -183,8 +183,57 @@ MyQttPublishCodes on_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, 
 {
 	const char      * client_id;
 	char            * reply_msg = NULL;
-	char            * aux;
-	axlHashCursor   * cursor;        
+	char            * aux = NULL;
+	char            * aux_value = NULL;
+	char            * temp;
+	axlHashCursor   * cursor = NULL;
+	int               length;
+
+	/* get current client identifier */
+	if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg)) || axl_cmp ("get-subscriptions-ctx", myqtt_msg_get_topic (msg))) {
+
+		/* iterate over all subscriptions */
+		if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg)))
+			cursor = axl_hash_cursor_new (conn->subs);
+		else if (axl_cmp ("get-subscriptions-ctx", myqtt_msg_get_topic (msg)))
+			 cursor = axl_hash_cursor_new (ctx->subs);
+
+		while (axl_hash_cursor_has_item (cursor)) {
+			if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg)))
+				aux = axl_strdup_printf ("%s.%d", axl_hash_cursor_get_key (cursor), axl_hash_cursor_get_value (cursor));
+			else if (axl_cmp ("get-subscriptions-ctx", myqtt_msg_get_topic (msg)))
+				aux = axl_strdup_printf ("%s.num-conns=%d", axl_hash_cursor_get_key (cursor),
+							 axl_hash_items (axl_hash_cursor_get_value (cursor)));
+
+			if (aux_value) {
+				temp = aux_value;
+				aux_value = axl_strdup_printf ("%s,%s", temp, aux);
+				axl_free (temp);
+			} else {
+				aux_value = aux;
+			} /* end if */
+			
+			/* next cursor */
+			axl_hash_cursor_next (cursor);
+		}
+		axl_hash_cursor_free (cursor);
+
+		printf ("Test --: subscriptions=%s\n", aux_value);
+		length = 0;
+		if (aux_value)
+			length = strlen (aux_value);
+
+		if (! myqtt_conn_pub (conn, myqtt_msg_get_topic (msg),
+				      /* content */
+				      aux_value ? (axlPointer) aux_value : "", 
+				      /* content length */
+				      length,
+				      /* options */
+				      MYQTT_QOS_0, axl_false, 0)) 
+			printf ("ERROR: failed to publish get-server-name..\n");
+		axl_free (aux_value);
+		return MYQTT_PUBLISH_DISCARD; /* report received PUBLISH should be discarded */
+	} /* end if */
 
 	/* get current client identifier */
 	if (axl_cmp ("myqtt/admin/get-server-name", myqtt_msg_get_topic (msg))) {
