@@ -1043,6 +1043,11 @@ void __myqtt_reader_handle_disconnect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Received DISCONNECT notification for conn-id=%d from %s:%s, closing connection..", conn->id, conn->host, conn->port);
 	myqtt_conn_shutdown (conn);
 
+	/* remove client id from global table */
+	myqtt_mutex_lock (&ctx->client_ids_m);
+	axl_hash_remove (ctx->client_ids, conn->client_identifier); 
+	myqtt_mutex_unlock (&ctx->client_ids_m);
+
 	/* skip will publication */
 	if (conn->will_topic) {
 		axl_free (conn->will_topic);
@@ -1273,6 +1278,10 @@ void __myqtt_reader_handle_unsubscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttM
 		if (sub_hash) {
 			/* remove the connection from that connection hash */
 			axl_hash_remove (sub_hash, conn);
+			
+			/* remove hash if it is empty */
+			if (axl_hash_items (sub_hash) == 0) 
+				axl_hash_remove (ctx->subs, (axlPointer) topic_filter);
 		} /* end if */
 
 		/* remove the connection from the wild subs */
@@ -1280,6 +1289,10 @@ void __myqtt_reader_handle_unsubscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttM
 		if (sub_hash) {
 			/* remove the connection from that connection hash */
 			axl_hash_remove (sub_hash, conn);
+
+			/* rmeove hash if it is empty */
+			if (axl_hash_items (sub_hash) == 0) 
+				axl_hash_remove (ctx->wild_subs, (axlPointer) topic_filter);
 		} /* end if */
 
 		/* release lock */
@@ -2422,6 +2435,10 @@ void       __myqtt_reader_remove_conn_from_hash (MyQttConn * conn, axlHashCursor
 		/* remove the connection from that connection hash */
 		/* printf ("INFO: removing conn=%p conn-id=%d from sub_hash=%p\n", conn, conn->id, sub_hash); */
 		axl_hash_remove (sub_hash, conn);
+		
+		/* delete sub hash if it is not storing any item, to keep it updated */
+		if (axl_hash_items (sub_hash) == 0)
+			axl_hash_remove (wild_card_hash ? ctx->wild_subs : ctx->subs, (axlPointer) topic_filter);
 
 		/* get next */
 		axl_hash_cursor_next (cursor);
