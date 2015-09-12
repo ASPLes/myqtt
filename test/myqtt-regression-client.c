@@ -4004,7 +4004,8 @@ axl_bool test_24_check_reply (MyQttConn * conn, MyQttAsyncQueue * queue, const c
 	printf ("Test 24: releasing references=%d\n", myqtt_msg_ref_count (msg));
 	printf ("Test 24: message content is: '%s'\n", (const char *) myqtt_msg_get_app_msg (msg));
 	if (! axl_cmp (myqtt_msg_get_app_msg (msg), expected_reply)) {
-		printf ("ERROR: expected different message...\n");
+		printf ("ERROR: expected different message:\n   Received: %s\n   Expected: %s...\n",
+			(const char *) myqtt_msg_get_app_msg (msg), expected_reply);
 		return axl_false;
 	} /* end if */
 
@@ -4022,10 +4023,30 @@ axl_bool test_24 (void)
 	if (! ctx)
 		return axl_false;
 
-	printf ("Test 24: connecting with session support..\n");
+	printf ("Test 24: CLEANING: cleaning previous subscriptions..\n");
 
 	/* now connect to the listener:
-	   client_identifier -> test_03
+	   client_identifier -> test_24
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	conn = myqtt_conn_new (ctx, "test_24", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	queue = myqtt_async_queue_new ();
+	if (! test_24_check_reply (conn, queue, "get-subscriptions", ""))
+		return axl_false;
+	if (! test_24_check_reply (conn, queue, "get-subscriptions-ctx", ""))
+		return axl_false;
+
+	myqtt_conn_close (conn);
+
+	printf ("Test 24: WITHOUT CLEANING: connecting with session support..\n");
+
+	/* now connect to the listener:
+	   client_identifier -> test_24
 	   clean_session -> axl_false
 	   keep_alive -> 30 */
 	conn = myqtt_conn_new (ctx, "test_24", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
@@ -4059,7 +4080,6 @@ axl_bool test_24 (void)
 	} /* end if */
 
 	/* register on message handler */
-	queue = myqtt_async_queue_new ();
 	if (! test_24_check_reply (conn, queue, "get-subscriptions", "myqtt/test/a.0,myqtt/test/b.0,myqtt/test/b/#.0,myqtt/test/b/+.0"))
 		return axl_false;
 
@@ -4088,7 +4108,7 @@ axl_bool test_24 (void)
 	if (! test_24_check_reply (conn, queue, "get-subscriptions", ""))
 		return axl_false;
 
-	if (! test_24_check_reply (conn, queue, "get-subscriptions-ctx", "myqtt/test/a.num-conns=0,myqtt/test/b.num-conns=0,myqtt/test/b/#.num-conns=0,myqtt/test/b/+.num-conns=0"))
+	if (! test_24_check_reply (conn, queue, "get-subscriptions-ctx", ""))
 		return axl_false;
 
 	/* close connection */
