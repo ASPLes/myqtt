@@ -4048,12 +4048,22 @@ axl_bool test_24 (void)
 		return axl_false;
 	} /* end if */
 
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test/b/+", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+		return axl_false;
+	} /* end if */
+
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test/b/#", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+		return axl_false;
+	} /* end if */
+
 	/* register on message handler */
 	queue = myqtt_async_queue_new ();
-	if (! test_24_check_reply (conn, queue, "get-subscriptions", "myqtt/test/a.0,myqtt/test/b.0"))
+	if (! test_24_check_reply (conn, queue, "get-subscriptions", "myqtt/test/a.0,myqtt/test/b.0,myqtt/test/b/#.0,myqtt/test/b/+.0"))
 		return axl_false;
 
-	if (! test_24_check_reply (conn, queue, "get-subscriptions-ctx", "myqtt/test/a.num-conns=1,myqtt/test/b.num-conns=1"))
+	if (! test_24_check_reply (conn, queue, "get-subscriptions-ctx", "myqtt/test/a.num-conns=1,myqtt/test/b.num-conns=1,myqtt/test/b/#.num-conns=1,myqtt/test/b/+.num-conns=1"))
 		return axl_false;
 
 	/* close connection */
@@ -4078,7 +4088,7 @@ axl_bool test_24 (void)
 	if (! test_24_check_reply (conn, queue, "get-subscriptions", ""))
 		return axl_false;
 
-	if (! test_24_check_reply (conn, queue, "get-subscriptions-ctx", "myqtt/test/a.num-conns=0,myqtt/test/b.num-conns=0"))
+	if (! test_24_check_reply (conn, queue, "get-subscriptions-ctx", "myqtt/test/a.num-conns=0,myqtt/test/b.num-conns=0,myqtt/test/b/#.num-conns=0,myqtt/test/b/+.num-conns=0"))
 		return axl_false;
 
 	/* close connection */

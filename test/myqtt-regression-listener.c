@@ -188,36 +188,54 @@ MyQttPublishCodes on_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, 
 	char            * temp;
 	axlHashCursor   * cursor = NULL;
 	int               length;
+	int               iterator;
 
 	/* get current client identifier */
 	if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg)) || axl_cmp ("get-subscriptions-ctx", myqtt_msg_get_topic (msg))) {
 
-		/* iterate over all subscriptions */
 		if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg)))
 			cursor = axl_hash_cursor_new (conn->subs);
 		else if (axl_cmp ("get-subscriptions-ctx", myqtt_msg_get_topic (msg)))
-			 cursor = axl_hash_cursor_new (ctx->subs);
+			cursor = axl_hash_cursor_new (ctx->subs);
 
-		while (axl_hash_cursor_has_item (cursor)) {
-			if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg)))
-				aux = axl_strdup_printf ("%s.%d", axl_hash_cursor_get_key (cursor), axl_hash_cursor_get_value (cursor));
-			else if (axl_cmp ("get-subscriptions-ctx", myqtt_msg_get_topic (msg)))
-				aux = axl_strdup_printf ("%s.num-conns=%d", axl_hash_cursor_get_key (cursor),
-							 axl_hash_items (axl_hash_cursor_get_value (cursor)));
-
-			if (aux_value) {
-				temp = aux_value;
-				aux_value = axl_strdup_printf ("%s,%s", temp, aux);
-				axl_free (temp);
-			} else {
-				aux_value = aux;
-			} /* end if */
+		/* iterate over all subscriptions */
+		iterator = 0;
+		while (iterator < 2) {
 			
-			/* next cursor */
-			axl_hash_cursor_next (cursor);
-		}
-		axl_hash_cursor_free (cursor);
+			while (axl_hash_cursor_has_item (cursor)) {
+				if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg)))
+					aux = axl_strdup_printf ("%s.%d", axl_hash_cursor_get_key (cursor), axl_hash_cursor_get_value (cursor));
+				else if (axl_cmp ("get-subscriptions-ctx", myqtt_msg_get_topic (msg)))
+					aux = axl_strdup_printf ("%s.num-conns=%d", axl_hash_cursor_get_key (cursor),
+								 axl_hash_items (axl_hash_cursor_get_value (cursor)));
+				
+				if (aux_value) {
+					temp = aux_value;
+					aux_value = axl_strdup_printf ("%s,%s", temp, aux);
+					axl_free (temp);
+					axl_free (aux);
+				} else {
+					aux_value = aux;
+				} /* end if */
+				
+				/* next cursor */
+				axl_hash_cursor_next (cursor);
+			}
+			axl_hash_cursor_free (cursor);
 
+			iterator++;
+
+			/* now get wild card subscriptions */
+			if (iterator == 1) {
+				if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg)))
+					cursor = axl_hash_cursor_new (conn->wild_subs);
+				else if (axl_cmp ("get-subscriptions-ctx", myqtt_msg_get_topic (msg)))
+					cursor = axl_hash_cursor_new (ctx->wild_subs);
+			} /* end if */
+
+			/* next iteration */
+		} /* end while */
+			
 		printf ("Test --: subscriptions=%s\n", aux_value);
 		length = 0;
 		if (aux_value)
