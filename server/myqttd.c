@@ -178,7 +178,7 @@ axl_bool  myqttd_init (MyQttdCtx   * ctx,
 		myqtt_ctx = myqtt_ctx_new ();
 	} /* end if */
 
-	/* configure skip storage initialization because this handled
+	/* configure skip storage initialization because this is handled
 	   at every domain */
 	myqtt_ctx->skip_storage_init = axl_true;
 

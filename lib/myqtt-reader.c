@@ -268,19 +268,8 @@ axl_bool __myqtt_reader_check_client_id (MyQttCtx * ctx, MyQttConn * conn, MyQtt
 
 	/* skip storage init if flagged */
 	if (! ctx->skip_storage_init) {
-		if (conn->clean_session) {
+		if (! conn->clean_session) {
 
-			/* init storage if it has session */
-			if (! myqtt_storage_clear (ctx, conn, MYQTT_STORAGE_ALL)) {
-				/* client id found, reject it */
-				(*response) = MYQTT_CONNACK_SERVER_UNAVAILABLE;
-				
-				myqtt_mutex_unlock (&ctx->client_ids_m);
-				myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to clear storage service for provided client identifier '%s', unable to accept connection", conn->client_identifier);
-				return axl_false; /* reject CONNECT */
-			} /* end if */
-		} else {
-			
 			/* init storage if it has session */
 			if (! myqtt_storage_init (ctx, conn, MYQTT_STORAGE_ALL)) {
 				/* client id found, reject it */
@@ -291,6 +280,10 @@ axl_bool __myqtt_reader_check_client_id (MyQttCtx * ctx, MyQttConn * conn, MyQtt
 				return axl_false; /* reject CONNECT */
 			} /* end if */
 		} /* end if */
+
+		/** 
+		 * NOTE: clear session is done at myqtt_conn_send_connect_reply 
+		 */
 	} /* end if */
 
 	/* register client identifier */
