@@ -45,7 +45,15 @@ axl_bool myqtt_storage_init             (MyQttCtx      * ctx,
 					 MyQttConn     * conn, 
 					 MyQttStorage    storage);
 
+axl_bool myqtt_storage_clear            (MyQttCtx      * ctx,
+					 MyQttConn     * conn,
+					 MyQttStorage    storage);
+
 axl_bool myqtt_storage_init_offline     (MyQttCtx      * ctx, 
+					 const char    * client_identifier, 
+					 MyQttStorage    storage);
+
+axl_bool myqtt_storage_clear_offline    (MyQttCtx      * ctx, 
 					 const char    * client_identifier, 
 					 MyQttStorage    storage);
 

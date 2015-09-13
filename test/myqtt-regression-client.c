@@ -4036,6 +4036,7 @@ axl_bool test_24 (void)
 	} /* end if */
 
 	queue = myqtt_async_queue_new ();
+
 	if (! test_24_check_reply (conn, queue, "get-subscriptions", ""))
 		return axl_false;
 	if (! test_24_check_reply (conn, queue, "get-subscriptions-ctx", ""))
@@ -4096,6 +4097,27 @@ axl_bool test_24 (void)
 	   keep_alive -> 30 */
 	printf ("Test 24: connecting again with clean session..\n");
 	conn = myqtt_conn_new (ctx, "test_24", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+
+	/* publish application message (the message sent here is
+	 * bigger than 24, this is on purpose) */
+	if (! test_24_check_reply (conn, queue, "get-subscriptions", ""))
+		return axl_false;
+
+	if (! test_24_check_reply (conn, queue, "get-subscriptions-ctx", ""))
+		return axl_false;
+
+	myqtt_conn_close (conn);
+
+	/* the following connection will check if subscriptions were
+	   cleared indeed */
+	printf ("Test 24: connecting again WITHOUT cleaning session..\n");
+	conn = myqtt_conn_new (ctx, "test_24", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
 		return axl_false;
