@@ -811,6 +811,7 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 
 	int         connections;
 	MyQttConn * conn2;
+	int         retry;
 
 	/* ensure context is initialized */
 	if (! domain->initialized) {
@@ -876,6 +877,8 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 	    standard ([MQTT-3.1.4-2], page 12, section 3.1.4 response,
 	    it states that by default the server must disconnect
 	    previous. */
+ check_client_id_in_use_again:
+	retry = 10;
 	conn2 = axl_hash_get (domain->myqtt_ctx->client_ids, (axlPointer) conn->client_identifier);
 	if (conn2) {
 		/* connection with same client identifier found, now
@@ -883,6 +886,18 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 		if (! domain->settings->drop_conn_same_client_id) {
 			/* client id found, reject it */
 			myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
+
+			if (retry > 0) {
+				/* wait a little to ensure we are not
+				   just receiving same connection */
+				myqtt_sleep (100000);
+
+				/* try to acquire lock again */
+				myqtt_mutex_lock (&domain->myqtt_ctx->client_ids_m);
+
+				retry--;
+				goto check_client_id_in_use_again;
+			} /* end if */
 
 			error ("Login failed for username=%s client-id=%s server-name=%s : Rejected CONNECT request because client id %s is already in use, denying connect",
 			       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "",
