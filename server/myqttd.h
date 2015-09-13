@@ -76,11 +76,6 @@
 #include <myqttd-domain.h>
 #include <myqttd-users.h>
 
-/** 
- * \addtogroup myqttd
- * @{
- */
-
 axl_bool  myqttd_log_enabled      (MyQttdCtx * ctx);
 
 void      myqttd_log_enable       (MyQttdCtx * ctx, 
