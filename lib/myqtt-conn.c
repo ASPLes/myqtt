@@ -1860,10 +1860,11 @@ void            myqtt_conn_send_connect_reply (MyQttConn * conn, MyQttConnAckTyp
 	ctx = conn->ctx;
 
 	/* session recovery: connection accepted, if it has session recover */
-	if (! conn->clean_session && response == MYQTT_CONNACK_ACCEPTED) {
-		if (! ctx->skip_storage_init) {
+	if (! ctx->skip_storage_init) {
+		if (! conn->clean_session && response == MYQTT_CONNACK_ACCEPTED) {
+
 			/* move subscriptions from offline to online */
-			if (myqtt_storage_session_recover (ctx, conn)) {
+			if (myqtt_storage_init (ctx, conn, MYQTT_STORAGE_ALL) && myqtt_storage_session_recover (ctx, conn)) {
 			        /* session recovered, now remove offline subscriptions */
 				__myqtt_reader_move_offline_to_online (ctx, conn);
 			} else {
@@ -1871,7 +1872,18 @@ void            myqtt_conn_send_connect_reply (MyQttConn * conn, MyQttConnAckTyp
 			        myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to recover session for the provided connection, unable to accept connection");
 				response = MYQTT_CONNACK_SERVER_UNAVAILABLE;
 			} /* end if */
+
+		} else if (conn->clean_session && response == MYQTT_CONNACK_ACCEPTED) {
+
+			/* init storage if it has session */
+			if (! myqtt_storage_clear (ctx, conn, MYQTT_STORAGE_ALL)) {
+				/* session clear failed, report it */
+			        myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to clear session for the provided connection, unable to accept connection");
+				response = MYQTT_CONNACK_SERVER_UNAVAILABLE;
+			} 
+
 		} /* end if */
+		
 	} /* end if */
 
 	/* rest of cases, reply with the response */

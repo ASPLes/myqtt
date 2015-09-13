@@ -877,8 +877,9 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 	    standard ([MQTT-3.1.4-2], page 12, section 3.1.4 response,
 	    it states that by default the server must disconnect
 	    previous. */
- check_client_id_in_use_again:
+	/* setup a default retry */
 	retry = 10;
+ check_client_id_in_use_again:
 	conn2 = axl_hash_get (domain->myqtt_ctx->client_ids, (axlPointer) conn->client_identifier);
 	if (conn2) {
 		/* connection with same client identifier found, now
@@ -890,7 +891,9 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 			if (retry > 0) {
 				/* wait a little to ensure we are not
 				   just receiving same connection */
-				myqtt_sleep (100000);
+				/* printf ("CALLING TO SLEEP ..retry=%d\n", retry); */
+				myqtt_sleep (10000);
+				/* printf ("  getting lock: ..retry=%d\n", retry); */
 
 				/* try to acquire lock again */
 				myqtt_mutex_lock (&domain->myqtt_ctx->client_ids_m);

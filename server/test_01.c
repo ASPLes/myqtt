@@ -165,7 +165,7 @@ void common_queue_message_received (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	MyQttAsyncQueue * queue = user_data;
 
 	/* push message received */
-	printf ("Test --: queue received %p, msg=%p, msg-id=%d\n", queue, msg, myqtt_msg_get_id (msg));
+	printf ("  Test --: queue received %p, msg=%p, msg-id=%d\n", queue, msg, myqtt_msg_get_id (msg));
 	myqtt_msg_ref (msg);
 	myqtt_async_queue_push (queue, msg);
 	return;
@@ -1744,7 +1744,7 @@ axl_bool test_10b_check_reply (MyQttConn * conn, MyQttAsyncQueue * queue, const 
 
 
 	/* waiting for reply */
-	printf ("Test 10-b: waiting for reply (for %s)..\n", request);
+	printf ("  Test 10-b: waiting for reply (for %s)..\n", request);
 	msg   = myqtt_async_queue_pop (queue);
 	if (msg == NULL) {
 		printf ("ERROR: expected to find message from queue, but NULL was found..\n");
@@ -1752,11 +1752,11 @@ axl_bool test_10b_check_reply (MyQttConn * conn, MyQttAsyncQueue * queue, const 
 	} /* end if */
 
 	/* release message */
-	printf ("Test 10-b: releasing references=%d\n", myqtt_msg_ref_count (msg));
-	printf ("Test 10-b: message content is: '%s'\n", (const char *) myqtt_msg_get_app_msg (msg));
+	printf ("  Test 10-b: releasing references=%d\n", myqtt_msg_ref_count (msg));
+	printf ("  Test 10-b: message content is: '%s'\n", (const char *) myqtt_msg_get_app_msg (msg));
 	if (! axl_cmp (myqtt_msg_get_app_msg (msg), expected_reply)) {
-		printf ("ERROR: expected different message: \n   Received: [%s]\n   Expected: [%s]\n",
-			(const char *) myqtt_msg_get_app_msg (msg), expected_reply);
+		printf ("ERROR: expected different message (for request=%s): \n   Received: [%s]\n   Expected: [%s]\n",
+			request, (const char *) myqtt_msg_get_app_msg (msg), expected_reply);
 		return axl_false;
 	} /* end if */
 
@@ -1812,6 +1812,11 @@ MyQttPublishCodes   test_10b_handle_publish  (MyQttdCtx * ctx,       MyQttdDomai
 			exit (-1);
 		}
 
+		if (domain->myqtt_ctx->skip_storage_init) {
+			printf ("ERROR: found skip_storage_init=1 but this is not possible..\n");
+			exit (-1);
+		}
+
 		if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg)))
 			cursor = axl_hash_cursor_new (conn->subs);
 		else if (axl_cmp ("get-subscriptions-ctx", myqtt_msg_get_topic (msg)))
@@ -1862,7 +1867,7 @@ MyQttPublishCodes   test_10b_handle_publish  (MyQttdCtx * ctx,       MyQttdDomai
 			/* next iteration */
 		} /* end while */
 			
-		printf ("Test --: subscriptions=%s\n", aux_value);
+		printf ("  Test --: subscriptions=%s (requests=%s)\n", aux_value, myqtt_msg_get_topic (msg));
 		length = 0;
 		if (aux_value)
 			length = strlen (aux_value);
@@ -1909,6 +1914,9 @@ axl_bool  test_10b (void) {
 
 	myqttd_ctx_add_on_publish (ctx, test_10b_handle_publish, NULL);
 
+	/* init queue */
+	queue = myqtt_async_queue_new ();
+
 	printf ("Test 10-b: CLEANING: connect to the server (running test_02.conf) .. clean session\n");
 	/* connect and subscribe: client_identifier = test_01, clean_session = axl_true */
 	conn = myqtt_conn_new (myqtt_ctx, "test_01", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
@@ -1918,6 +1926,20 @@ axl_bool  test_10b (void) {
 			myqtt_conn_get_code_to_err (myqtt_conn_get_last_err (conn)));
 		return axl_false;
 	} /* end if */
+
+	myqtt_conn_set_on_msg (conn, common_queue_message_received, queue);
+
+	printf ("Test 10-b: checking subscriptions (we should find 0)..\n");
+	/* check content */
+	if (! test_10b_check_reply (conn, queue, "get-subscriptions", ""))
+		return axl_false;
+
+	if (! test_10b_check_reply (conn, queue, "get-subscriptions-ctx", ""))
+		return axl_false;
+
+	if (! test_10b_check_reply (conn, queue, "get-subscriptions-domain", ""))
+		return axl_false;
+
 	myqtt_conn_close (conn);
 	
 	printf ("Test 10-b: WITHOUT CLEANING connect to the server (running test_02.conf)\n");
@@ -1929,6 +1951,18 @@ axl_bool  test_10b (void) {
 			myqtt_conn_get_code_to_err (myqtt_conn_get_last_err (conn)));
 		return axl_false;
 	} /* end if */
+
+	printf ("Test 10-b: checking subscriptions (we should find 0).. BEFORE subscribing...\n");
+	/* check content */
+	if (! test_10b_check_reply (conn, queue, "get-subscriptions", ""))
+		return axl_false;
+
+	if (! test_10b_check_reply (conn, queue, "get-subscriptions-ctx", ""))
+		return axl_false;
+
+	if (! test_10b_check_reply (conn, queue, "get-subscriptions-domain", ""))
+		return axl_false;
+
 
 	/* subscribe to a topic */
 	printf ("Test 10-b: SUBS: myqtt/test/a..\n");
@@ -1957,7 +1991,6 @@ axl_bool  test_10b (void) {
 	} /* end if */
 
 	/* register on message handler */
-	queue = myqtt_async_queue_new ();
 	if (! test_10b_check_reply (conn, queue, "get-subscriptions", "myqtt/test/a.0,myqtt/test/b.0,myqtt/test/b/#.0,myqtt/test/b/+.0"))
 		return axl_false;
 
