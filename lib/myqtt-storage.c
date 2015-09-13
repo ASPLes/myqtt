@@ -342,6 +342,158 @@ axl_bool myqtt_storage_init (MyQttCtx * ctx, MyQttConn * conn, MyQttStorage stor
 	return result;
 }
 
+/** 
+ * @brief Allows to clear current session storage associated to the provided connection.
+ *
+ * Cleaning session storage includes cleaning subscriptions, pending
+ * messages and will configuration (if any).
+ *
+ * @param ctx The context where the operation takes place
+ *
+ * @param conn The connection with a client identifier to select the storage to clear
+ *
+ * @param storage The storage to remove. 
+ *
+ * @return axl_true If the operation completes, otherwise axl_false is
+ * returned when a failure is found or parameters received aren't well defined.
+ */
+axl_bool           myqtt_storage_clear            (MyQttCtx      * ctx,
+						   MyQttConn     * conn,
+						   MyQttStorage    storage)
+{
+	axl_bool result;
+
+	/* check input parameters */
+	if (ctx == NULL || conn == NULL || conn->client_identifier == NULL || strlen (conn->client_identifier) == 0)
+		return axl_false;
+
+	/* create base storage path directory */
+	myqtt_mutex_lock (&conn->op_mutex);
+
+	/* call to offline implementation */
+	result = myqtt_storage_clear_offline (ctx, conn->client_identifier, storage);
+
+	/* release */
+	myqtt_mutex_unlock (&conn->op_mutex);
+
+	return result;
+}
+
+axl_bool __myqtt_storage_remove_files_from_dir (MyQttCtx * ctx, const char * clear_files_in_dir)
+{
+	struct dirent * entry;
+	DIR           * dir;
+	char          * full_path;
+
+	/* open dir */
+	dir = opendir (clear_files_in_dir);
+	if (dir == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to open directory %s for file deletion, error was: %s", clear_files_in_dir, myqtt_errno_get_error (errno)); 
+		return axl_false;
+	}
+	
+	/* get first entry */
+	entry = readdir (dir);
+	while (entry) {
+		/* skip known directories we are not interested in */
+		if (axl_cmp (entry->d_name, ".") || axl_cmp (entry->d_name, "..")) {
+			/* get next entry */
+			entry = readdir (dir);
+			continue;
+		} /* end if */
+
+		/* check if we are talking about a file */
+		full_path = myqtt_support_build_filename (clear_files_in_dir, entry->d_name, NULL);
+		if (myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_REGULAR)) {
+			unlink (full_path);
+		} else if (myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR))
+			__myqtt_storage_remove_files_from_dir (ctx, full_path);
+		axl_free (full_path);
+		
+		/* get next entry */
+		entry = readdir (dir);
+	} /* end if */
+
+	closedir (dir);
+
+	return axl_true;
+}
+
+/** 
+ * @brief Clears the storage associated to the provided client_identifier
+ *
+ * @param ctx The context where the operation will take place.
+ *
+ * @param client_identifier The client identifier for which the storage will be cleared.
+ *
+ * @param storage The part of the storage that have to be cleared.
+ *
+ * @return axl_true in the case clear operation took place without
+ * errors, otherwise axl_false is returned.
+ */
+axl_bool myqtt_storage_clear_offline    (MyQttCtx      * ctx, 
+					 const char    * client_identifier, 
+					 MyQttStorage    storage)
+{
+	char      * full_path;
+	axl_bool    result;
+
+	/* check input parameters */
+	if (ctx == NULL || client_identifier == NULL)
+		return axl_false;
+
+	/* lock during check */
+	full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, NULL);
+	result    = myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR);
+
+	/* release full path and check result */
+	axl_free (full_path);
+	if (! result) 
+		return axl_true;
+
+	/* now create message directory, subs and will */
+	if ((storage & MYQTT_STORAGE_MSGS) == MYQTT_STORAGE_MSGS || 
+	    (storage & MYQTT_STORAGE_ALL) == MYQTT_STORAGE_ALL) {
+		full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, "msgs", NULL);
+		result    = __myqtt_storage_remove_files_from_dir (ctx, full_path);
+
+		/* release full path */
+		axl_free (full_path);
+	} /* end if */
+
+	/* subs */
+	if ((storage & MYQTT_STORAGE_ALL) == MYQTT_STORAGE_ALL) {
+		full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, "subs", NULL);
+		result    = __myqtt_storage_remove_files_from_dir (ctx, full_path);
+
+		/* release full path */
+		axl_free (full_path);
+
+	} /* end if */
+
+	/* will */
+	if ((storage & MYQTT_STORAGE_ALL) == MYQTT_STORAGE_ALL) {
+		full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, "will", NULL);
+		result    = __myqtt_storage_remove_files_from_dir (ctx, full_path);
+
+		/* release full path */
+		axl_free (full_path);
+
+	} /* end if */
+
+	/* pkgids */
+	if ((storage & MYQTT_STORAGE_PKGIDS) == MYQTT_STORAGE_PKGIDS || (storage & MYQTT_STORAGE_ALL) == MYQTT_STORAGE_ALL) {
+		full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, "pkgids", NULL);
+		result    = __myqtt_storage_remove_files_from_dir (ctx, full_path);
+
+		/* release full path */
+		axl_free (full_path);
+
+	} /* end if */
+
+	return axl_true;
+}
+
 void      __myqtt_storage_get_values_from_file_name (MyQttCtx * ctx, const char * file_name, 
 						     int * packet_id, int * size, int * qos)
 {

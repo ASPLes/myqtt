@@ -40,6 +40,10 @@
  */
 #include <myqttd.h>
 
+/* do not use the following include: it is just for internal
+   testing */
+#include <myqtt-conn-private.h>
+
 #if defined(ENABLE_TLS_SUPPORT)
 /* include tls support */
 #include <myqtt-tls.h>
@@ -1725,6 +1729,290 @@ axl_bool  test_10a (void) {
 	return axl_true;
 }
 
+axl_bool test_10b_check_reply (MyQttConn * conn, MyQttAsyncQueue * queue, const char * request, const char * expected_reply)
+{
+	MyQttMsg * msg;
+
+	myqtt_conn_set_on_msg (conn, common_queue_message_received, queue);
+
+	/* publish application message (the message sent here is
+	 * bigger than 24, this is on purpose) */
+	if (! myqtt_conn_pub (conn, request, "", 0, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message, myqtt_conn_pub() failed\n");
+		return axl_false;
+	} /* end if */
+
+
+	/* waiting for reply */
+	printf ("Test 10-b: waiting for reply (for %s)..\n", request);
+	msg   = myqtt_async_queue_pop (queue);
+	if (msg == NULL) {
+		printf ("ERROR: expected to find message from queue, but NULL was found..\n");
+		return axl_false;
+	} /* end if */
+
+	/* release message */
+	printf ("Test 10-b: releasing references=%d\n", myqtt_msg_ref_count (msg));
+	printf ("Test 10-b: message content is: '%s'\n", (const char *) myqtt_msg_get_app_msg (msg));
+	if (! axl_cmp (myqtt_msg_get_app_msg (msg), expected_reply)) {
+		printf ("ERROR: expected different message: \n   Received: [%s]\n   Expected: [%s]\n",
+			(const char *) myqtt_msg_get_app_msg (msg), expected_reply);
+		return axl_false;
+	} /* end if */
+
+	myqtt_msg_unref (msg);
+	return axl_true;
+}
+
+MyQttPublishCodes   test_10b_handle_publish  (MyQttdCtx * ctx,       MyQttdDomain * domain,  
+					      MyQttCtx  * myqtt_ctx, MyQttConn    * conn, 
+					      MyQttMsg  * msg,       axlPointer     user_data)
+{
+	axlHashCursor    * cursor = NULL;
+
+	char             * aux = NULL;
+	char             * aux_value = NULL;
+	char             * temp;
+
+	int                iterator;
+	int                length;
+
+	/* get current client identifier */
+	if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg)) || 
+	    axl_cmp ("get-subscriptions-domain", myqtt_msg_get_topic (msg)) ||
+	    axl_cmp ("get-subscriptions-ctx", myqtt_msg_get_topic (msg))) {
+
+		if (domain->myqtt_ctx != myqtt_ctx) {
+			printf ("ERROR: expected to find same myqtt context (MyQttCtx) in domain and in handler.. %p == %p\n",
+				domain->myqtt_ctx, myqtt_ctx);
+			exit (-1);
+		} /* end if */
+
+		if (conn->ctx != myqtt_ctx) {
+			printf ("ERROR: expected to find same myqtt context (MyQttCtx) in domain and in handler.. %p == %p\n",
+				conn->ctx, myqtt_ctx);
+			exit (-1);
+		}
+
+		if (ctx->myqtt_ctx == myqtt_ctx) {
+			printf ("ERROR: expected to find DIFFERENT myqtt context (MyQttCtx) in domain and in handler.. %p == %p\n",
+				ctx->myqtt_ctx, myqtt_ctx);
+			exit (-1);
+		}
+
+		if (ctx->myqtt_ctx == conn->ctx) {
+			printf ("ERROR: expected to find DIFFERENT myqtt context (MyQttCtx) in domain and in handler.. %p == %p\n",
+				ctx->myqtt_ctx, conn->ctx);
+			exit (-1);
+		}
+
+		if (ctx->myqtt_ctx == domain->myqtt_ctx) {
+			printf ("ERROR: expected to find DIFFERENT myqtt context (MyQttCtx) in domain and in handler.. %p == %p\n",
+				ctx->myqtt_ctx, domain->ctx);
+			exit (-1);
+		}
+
+		if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg)))
+			cursor = axl_hash_cursor_new (conn->subs);
+		else if (axl_cmp ("get-subscriptions-ctx", myqtt_msg_get_topic (msg)))
+			cursor = axl_hash_cursor_new (conn->ctx->subs);
+		else if (axl_cmp ("get-subscriptions-domain", myqtt_msg_get_topic (msg)))
+			cursor = axl_hash_cursor_new (domain->myqtt_ctx->subs);
+
+		/* iterate over all subscriptions */
+		iterator = 0;
+		while (iterator < 2) {
+			
+			while (axl_hash_cursor_has_item (cursor)) {
+				if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg)))
+					aux = axl_strdup_printf ("%s.%d", axl_hash_cursor_get_key (cursor), axl_hash_cursor_get_value (cursor));
+				else if (axl_cmp ("get-subscriptions-ctx", myqtt_msg_get_topic (msg)))
+					aux = axl_strdup_printf ("%s.num-conns=%d", axl_hash_cursor_get_key (cursor),
+								 axl_hash_items (axl_hash_cursor_get_value (cursor)));
+				else if (axl_cmp ("get-subscriptions-domain", myqtt_msg_get_topic (msg)))
+					aux = axl_strdup_printf ("%s.num-conns=%d", axl_hash_cursor_get_key (cursor),
+								 axl_hash_items (axl_hash_cursor_get_value (cursor)));
+				
+				if (aux_value) {
+					temp = aux_value;
+					aux_value = axl_strdup_printf ("%s,%s", temp, aux);
+					axl_free (temp);
+					axl_free (aux);
+				} else {
+					aux_value = aux;
+				} /* end if */
+				
+				/* next cursor */
+				axl_hash_cursor_next (cursor);
+			}
+			axl_hash_cursor_free (cursor);
+
+			iterator++;
+
+			/* now get wild card subscriptions */
+			if (iterator == 1) {
+				if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg)))
+					cursor = axl_hash_cursor_new (conn->wild_subs);
+				else if (axl_cmp ("get-subscriptions-ctx", myqtt_msg_get_topic (msg)))
+					cursor = axl_hash_cursor_new (conn->ctx->wild_subs);
+				else if (axl_cmp ("get-subscriptions-domain", myqtt_msg_get_topic (msg)))
+					cursor = axl_hash_cursor_new (domain->myqtt_ctx->wild_subs);
+			} /* end if */
+
+			/* next iteration */
+		} /* end while */
+			
+		printf ("Test --: subscriptions=%s\n", aux_value);
+		length = 0;
+		if (aux_value)
+			length = strlen (aux_value);
+
+		if (! myqtt_conn_pub (conn, myqtt_msg_get_topic (msg),
+				      /* content */
+				      aux_value ? (axlPointer) aux_value : "", 
+				      /* content length */
+				      length,
+				      /* options */
+				      MYQTT_QOS_0, axl_false, 0)) 
+			printf ("ERROR: failed to publish get-server-name..\n");
+		axl_free (aux_value);
+		return MYQTT_PUBLISH_DISCARD; /* report received PUBLISH should be discarded */
+	} /* end if */
+	
+
+
+	return MYQTT_PUBLISH_OK;
+}
+
+
+axl_bool  test_10b (void) {
+	
+	MyQttdCtx       * ctx;
+	MyQttCtx        * myqtt_ctx;
+	MyQttConn       * conn;
+	MyQttAsyncQueue * queue;
+	int               sub_result;
+
+	/* call to init the base library and close it */
+	printf ("Test 10-b: init library and server engine (using test_02.conf)..\n");
+	ctx       = common_init_ctxd (NULL, "test_02.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	myqtt_ctx = common_init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+
+	myqttd_ctx_add_on_publish (ctx, test_10b_handle_publish, NULL);
+
+	printf ("Test 10-b: CLEANING: connect to the server (running test_02.conf) .. clean session\n");
+	/* connect and subscribe: client_identifier = test_01, clean_session = axl_true */
+	conn = myqtt_conn_new (myqtt_ctx, "test_01", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s, error was: last_err=%d, error_code=%s..\n", 
+			listener_host, listener_port, myqtt_conn_get_last_err (conn), 
+			myqtt_conn_get_code_to_err (myqtt_conn_get_last_err (conn)));
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+	
+	printf ("Test 10-b: WITHOUT CLEANING connect to the server (running test_02.conf)\n");
+	/* connect and subscribe: client_identifier = tset_01, clean_session = axl_false */
+	conn = myqtt_conn_new (myqtt_ctx, "test_01", axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s, error was: last_err=%d, error_code=%s..\n", 
+			listener_host, listener_port, myqtt_conn_get_last_err (conn), 
+			myqtt_conn_get_code_to_err (myqtt_conn_get_last_err (conn)));
+		return axl_false;
+	} /* end if */
+
+	/* subscribe to a topic */
+	printf ("Test 10-b: SUBS: myqtt/test/a..\n");
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test/a", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* subscribe to a topic */
+	printf ("Test 10-b: SUBS: myqtt/test/b..\n");
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test/b", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 10-b: SUBS: myqtt/test/b/+..\n");
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test/b/+", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 10-b: SUBS: myqtt/test/b/#..\n");
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test/b/#", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* register on message handler */
+	queue = myqtt_async_queue_new ();
+	if (! test_10b_check_reply (conn, queue, "get-subscriptions", "myqtt/test/a.0,myqtt/test/b.0,myqtt/test/b/#.0,myqtt/test/b/+.0"))
+		return axl_false;
+
+	if (! test_10b_check_reply (conn, queue, "get-subscriptions-ctx", "myqtt/test/a.num-conns=1,myqtt/test/b.num-conns=1,myqtt/test/b/#.num-conns=1,myqtt/test/b/+.num-conns=1"))
+		return axl_false;
+
+	if (! test_10b_check_reply (conn, queue, "get-subscriptions-domain", "myqtt/test/a.num-conns=1,myqtt/test/b.num-conns=1,myqtt/test/b/#.num-conns=1,myqtt/test/b/+.num-conns=1"))
+		return axl_false;
+
+	/* close connection */
+	printf ("Test 10-b: closing connection..\n");
+	myqtt_conn_close (conn);
+
+	printf ("Test 10-b: CLEANING: checking after (CLEANING SESSION)..\n");
+
+	/* now connect to the listener:
+	   client_identifier -> test_03
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	printf ("Test 10-b: connecting again with clean session..\n");
+	conn = myqtt_conn_new (myqtt_ctx, "test_01", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s, error was: last_err=%d, error_code=%s..\n", 
+			listener_host, listener_port, myqtt_conn_get_last_err (conn), 
+			myqtt_conn_get_code_to_err (myqtt_conn_get_last_err (conn)));
+		return axl_false;
+	} /* end if */
+
+	myqtt_conn_set_on_msg (conn, common_queue_message_received, queue);
+
+	/* check content */
+	if (! test_10b_check_reply (conn, queue, "get-subscriptions", ""))
+		return axl_false;
+
+	if (! test_10b_check_reply (conn, queue, "get-subscriptions-ctx", ""))
+		return axl_false;
+
+	if (! test_10b_check_reply (conn, queue, "get-subscriptions-domain", ""))
+		return axl_false;
+
+	/* close connection */
+	printf ("Test 10-b: closing connection..\n");
+	myqtt_conn_close (conn);
+
+	myqtt_async_queue_unref (queue);
+
+
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+	printf ("Test 10-b: finishing MyQttdCtx..\n");
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+	
+	return axl_true;
+}
+
 #if defined(ENABLE_TLS_SUPPORT)
 axl_bool  test_11 (void) {
 	
@@ -2478,6 +2766,9 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_10a")
 	run_test (test_10a, "Test 10-a: checking client id (<drop-conn-same-client-id value=\"no\" />)");
+
+	CHECK_TEST("test_10b")
+	run_test (test_10b, "Test 10-b: check clean session and removed subscribed options");
 
 #if defined(ENABLE_TLS_SUPPORT)
 	CHECK_TEST("test_11")

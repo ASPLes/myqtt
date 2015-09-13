@@ -285,6 +285,8 @@ myqtt_set_32bit
 myqtt_set_bit
 myqtt_show_byte
 myqtt_sleep
+myqtt_storage_clear
+myqtt_storage_clear_offline
 myqtt_storage_get_retained_topics
 myqtt_storage_init
 myqtt_storage_init_offline

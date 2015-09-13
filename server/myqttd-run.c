@@ -1126,7 +1126,6 @@ axl_bool myqttd_run_domain_settings_load (MyQttdCtx * ctx, axlDoc * doc)
 	return axl_true; /* domains loaded */
 }
 
-
 /** 
  * @internal Takes current configuration, and starts all settings
  * required to run the server.
