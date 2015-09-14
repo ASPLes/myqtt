@@ -1,4 +1,3 @@
 usr/bin/myqttd
-etc/myqtt/mods-available
 etc/myqtt/myqtt.example.conf
 
