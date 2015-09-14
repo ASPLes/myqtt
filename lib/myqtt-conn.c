@@ -5708,6 +5708,7 @@ void                __myqtt_conn_shutdown_and_record_error (MyQttConn     * conn
 {
 	va_list     args;
 	char      * _msg;
+	char      * aux;
 #if defined(ENABLE_MYQTT_LOG)
 	MyQttCtx * ctx;
 #endif
@@ -5726,6 +5727,16 @@ void                __myqtt_conn_shutdown_and_record_error (MyQttConn     * conn
 		va_start (args, message);
 		_msg = axl_strdup_printfv (message, args);
 		va_end (args);
+
+		/* create message to be logged with additional information */
+		aux = axl_strdup_printf ("%s conn-id=%d from=%s:%s username=%s client-id=%s",
+					 _msg,
+					 myqtt_conn_get_id (conn),
+					 conn->host_ip, conn->port, 
+					 conn->username ? conn->username : "",
+					 conn->client_identifier ? conn->client_identifier : "");
+		axl_free (_msg);
+		_msg = aux;
 
 		myqtt_log (MYQTT_LEVEL_CRITICAL, _msg);
 		
