@@ -645,10 +645,14 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 			 * the negotiation (just before the initial
 			 * step, but after the second step) */
 			__myqtt_conn_shutdown_and_record_error (
-				connection, MyQttProtocolError, "found connection closed before finishing negotiation, dropping (errno=%d)..",
+				connection, MyQttProtocolError, 
+				"found connection closed before finishing negotiation from=%s:%s username=%s client-id=%s, dropping (errno=%d)..",
+				connection->host_ip, connection->port, 
+				connection->username ? connection->username : "",
+				connection->client_identifier ? connection->client_identifier : "",
 				errno);
 			return NULL;
-		}
+		} /* end if */
 	
 		/* check if we have a non-blocking connection */
 		__myqtt_conn_shutdown_and_record_error (
