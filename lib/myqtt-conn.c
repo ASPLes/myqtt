@@ -5732,7 +5732,7 @@ void                __myqtt_conn_shutdown_and_record_error (MyQttConn     * conn
 		aux = axl_strdup_printf ("%s conn-id=%d from=%s:%s username=%s client-id=%s",
 					 _msg,
 					 myqtt_conn_get_id (conn),
-					 conn->host_ip, conn->port, 
+					 conn->host, conn->port, 
 					 conn->username ? conn->username : "",
 					 conn->client_identifier ? conn->client_identifier : "");
 		axl_free (_msg);
