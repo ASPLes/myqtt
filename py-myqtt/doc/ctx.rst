@@ -96,7 +96,7 @@ Module API
       (Read only attribute) (Number) returns current myqtt.Ctx reference counting state.
 
 
-   .. method:: set_on_publish (on_publish_handler)
+   .. method:: set_on_publish (on_publish_handler, on_publish_data)
    
       Allows to configure a handler that is called every time a
       PUBLISH operation is received so the handler can be used to
@@ -107,7 +107,7 @@ Module API
            return myqtt.PUBLISH_DISCARD # to discard
 	   return myqtt.PUBLISH_OK # to allow publish
       
-   .. method:: set_on_connect (on_connect_handler)
+   .. method:: set_on_connect (on_connect_handler, on_connect_data)
    
       Allows to configure a handler that is called every time a
       CONNECT is received::
@@ -116,6 +116,15 @@ Module API
 
            return myqtt.CONNACK_BAD_USERNAME_OR_PASSWORD # to discard
 	   return myqtt.CONNACK_ACCEPTED # to allow publish
+
+
+   .. method:: set_log_handler (log_handler, log_handler_data)
+   
+      Allows to configure a handler that is called when the engine wants to report a log (myqtt.level_debug, myqtt.level_warning, myqtt.level_critical)::
+
+	def log_handler (ctx, __file, line, log_level, msg, data):
+	    # do some reporting here: see test_11 from myqtt-regression-client.py for more details
+	    return
 
 
    .. method:: storage_set_path (storage_path, hash_size)
