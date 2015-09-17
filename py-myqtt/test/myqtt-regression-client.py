@@ -632,6 +632,62 @@ def test_09 ():
     # no need to finish ctx
     return True
 
+def test_10_ctx ():
+    import myqtt
+
+    # call to initialize a context 
+    ctx = myqtt.Ctx ()
+
+    # call to init ctx 
+    if not ctx.init ():
+        error ()
+        return (False, "Failed to init MyQtt context")
+
+    return (True, ctx)
+
+def test_10_conn (ctx):
+    import myqtt
+    
+    # call to create a connection
+    conn = myqtt.Conn (ctx, host, port)
+
+    # check connection status after if 
+    if not conn.is_ok ():
+        return (False, "Expected to find proper connection result, but found error. Error code was: " + str(conn.status) + ", message: " + conn.error_msg)
+
+    return (True, conn)
+
+def test_10 ():
+
+    # get context
+    (status, ctx) = test_10_ctx ()
+    if not status:
+        return (False, "Expected to find proper context but found failure...: %s" % ctx)
+
+
+    # call to create a connection
+    (status, conn) = test_10_conn (ctx)
+
+    # check connection status after if 
+    if not conn.is_ok ():
+        error ("Expected to find proper connection result, but found error. Error code was: " + str(conn.status) + ", message: " + conn.error_msg)
+        return False
+
+    info ("MQTT connection created to: " + conn.host + ":" + conn.port) 
+    
+    # now close the connection
+    info ("Now closing the MQTT session..")
+    conn.close ()
+
+    # no need to release queue
+
+    # no need to close conn
+    # no need to close conn2
+    # no need to close conn3
+
+    # no need to finish ctx
+    return True
+
 def test_17c_common (label, topic, msg_content, qos):
     # call to initialize a context 
     ctx = myqtt.Ctx ()
@@ -1053,6 +1109,7 @@ tests = [
    (test_07,   "Check PyMyqtt client auth (CONNECT simple auth)"),
    (test_08,   "Check PyMyqtt test will support (without auth)"),
    (test_09,   "Check PyMyqtt test will is not published with disconnect (without auth)"),
+   (test_10,   "Check PyMyqtt automatic reference collection"),
    (test_17c,  "Check PyMyqtt big message support"),
    # tls support
    (test_18,   "Check PyMyqtt test TLS support"),
