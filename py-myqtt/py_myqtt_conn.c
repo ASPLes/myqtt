@@ -221,9 +221,16 @@ static void py_myqtt_conn_dealloc (PyMyQttConn* self)
 	int conn_id = myqtt_conn_get_id (self->conn);
 #endif
 	int ref_count;
+	PyObject * py_myqtt_ctx = NULL;
 
 	py_myqtt_log (PY_MYQTT_DEBUG, "finishing PyMyQttConn id: %d (%p, MyQttConn %p, role: %s, close-ref: %d)", 
 		       conn_id, self, self->conn, __py_myqtt_conn_stringify_role (self->conn), self->close_ref);
+
+	/* get a nullify reference */
+	if (self->py_myqtt_ctx) {
+		py_myqtt_ctx = (PyObject *) self->py_myqtt_ctx;
+		self->py_myqtt_ctx = NULL;
+	} /* end if */
 
 	/* finish the conn in the case it is no longer referenced */
 	if (myqtt_conn_is_ok (self->conn, axl_false) && self->close_ref) {
@@ -250,9 +257,8 @@ static void py_myqtt_conn_dealloc (PyMyQttConn* self)
 	} /* end if */
 
 	/* release reference */
-	if (self->py_myqtt_ctx) {
-		Py_DECREF (self->py_myqtt_ctx);
-		self->py_myqtt_ctx = NULL;
+	if (py_myqtt_ctx) {
+		Py_DECREF (py_myqtt_ctx);
 	} /* end if */
 
 	/* nullify */
