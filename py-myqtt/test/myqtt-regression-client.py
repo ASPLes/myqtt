@@ -657,6 +657,27 @@ def test_10_conn (ctx):
 
     return (True, conn)
 
+def test_10_conn_aux ():
+    import myqtt
+
+    # call to initialize a context 
+    ctx = myqtt.Ctx ()
+
+    # call to init ctx 
+    if not ctx.init ():
+        error ()
+        return (False, "Failed to init MyQtt context")
+
+    # call to create a connection
+    conn = myqtt.Conn (ctx, host, port)
+
+    # check connection status after if 
+    if not conn.is_ok ():
+        return (False, "Expected to find proper connection result, but found error. Error code was: " + str(conn.status) + ", message: " + conn.error_msg)
+
+    info ("Conn and context created, reporting..")
+    return (True, conn)
+
 def test_10 ():
 
     # get context
@@ -678,6 +699,15 @@ def test_10 ():
     # now close the connection
     info ("Now closing the MQTT session..")
     conn.close ()
+
+    info ("Now checking creating a context and a connection in a different function and just reporting the connection..")
+    (status, conn) = test_10_conn_aux ()
+    info ("test_10_conn_aux() finished, checking result..")
+
+    # check connection status after if 
+    if not conn.is_ok ():
+        error ("Expected to find proper connection result, but found error. Error code was: " + str(conn.status) + ", message: " + conn.error_msg)
+        return False
 
     # no need to release queue
 

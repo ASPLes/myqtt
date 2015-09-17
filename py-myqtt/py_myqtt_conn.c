@@ -59,6 +59,13 @@ struct _PyMyQttConn {
 	 * python object is collected.
 	 */
 	axl_bool         skip_conn_close;
+
+	/** 
+	 * @brief Particular reference to myqtt.Ctx object used to
+	 * create this connection. This is to support test_11
+	 * (regression case: myqtt-regression-client.py)
+	 */
+	PyMyQttCtx   *  py_myqtt_ctx;
 };
 
 #define PY_MYQTT_CONN_CHECK_NOT_ROLE(py_conn, role, method)                                                \
@@ -165,6 +172,11 @@ static PyObject * py_myqtt_conn_new (PyTypeObject *type, PyObject *args, PyObjec
 		/* set default timeout */
 		myqtt_conn_connect_timeout (py_myqtt_ctx_get (py_myqtt_ctx), 60000000);
 
+		/* hold a reference to the context that was used to
+		 * createthis connection and release it at dealloc */
+		Py_INCREF (py_myqtt_ctx);
+		self->py_myqtt_ctx = (PyMyQttCtx * ) py_myqtt_ctx;
+
 		/* allow threads */
 		Py_BEGIN_ALLOW_THREADS
 
@@ -235,6 +247,12 @@ static void py_myqtt_conn_dealloc (PyMyQttConn* self)
 		py_myqtt_log (PY_MYQTT_DEBUG, "unref the conn id: %d", myqtt_conn_get_id (self->conn));
 		/* only unref the conn */
 		myqtt_conn_unref (self->conn, "py_myqtt_conn_dealloc");
+	} /* end if */
+
+	/* release reference */
+	if (self->py_myqtt_ctx) {
+		Py_DECREF (self->py_myqtt_ctx);
+		self->py_myqtt_ctx = NULL;
 	} /* end if */
 
 	/* nullify */
