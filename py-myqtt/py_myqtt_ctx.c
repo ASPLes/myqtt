@@ -637,6 +637,14 @@ static PyObject * py_myqtt_ctx_storage_set_path (PyObject * self, PyObject * arg
 	return Py_None;
 }
 
+typedef struct _PyMyQttCtxSetLogHandlerData {
+
+	PyObject           * log_handler;
+	PyObject           * log_handler_data;
+	axl_bool             logging;
+
+} PyMyQttCtxSetLogHandlerData;
+
 typedef struct _PyMyQttCtxSetOnPublishData {
 
 	PyObject           * on_publish;
@@ -1010,6 +1018,183 @@ static PyObject * py_myqtt_ctx_remove_event (PyObject * self, PyObject * args, P
 	return Py_BuildValue ("i", myqtt_thread_pool_remove_event (py_myqtt_ctx_get (self), handle_id));
 }
 
+/* create a tuple to contain arguments */
+PyObject * __py_myqtt_ctx_log_handler_prepare_args (PyMyQttCtx                  * py_ctx, 
+						    const char                  * file, 
+						    int                           line, 
+						    MyQttDebugLevel               log_level, 
+						    const char                  * msg, 
+						    PyMyQttCtxSetLogHandlerData * log_handler_obj)
+{
+	PyObject  * args;
+
+	/* create a tuple to contain arguments */
+	args = PyTuple_New (6);
+
+	/* param 0: ctx */
+	PyTuple_SetItem (args, 0, (PyObject *) py_ctx);
+
+	/* param 1: file */
+	PyTuple_SetItem (args, 1, Py_BuildValue ("s", file));
+
+	/* param 2: line */
+	PyTuple_SetItem (args, 2, Py_BuildValue ("i", line));
+
+	/* param 3: log_level */
+	PyTuple_SetItem (args, 3, Py_BuildValue ("i", log_level));
+
+	/* param 4: msg */
+	PyTuple_SetItem (args, 4, Py_BuildValue ("z", msg));
+
+	/* param 5: on msg data */
+	Py_INCREF (log_handler_obj->log_handler_data);
+	PyTuple_SetItem (args, 5, log_handler_obj->log_handler_data);
+
+	return args;
+}
+
+void  py_myqtt_ctx_log_handler (MyQttCtx         * ctx,
+				const char       * file,
+				int                line,
+				MyQttDebugLevel    log_level,
+				const char       * msg,
+				va_list            _args,
+				axlPointer         _log_handler_obj)
+{
+	PyMyQttCtxSetLogHandlerData   * log_handler_obj = _log_handler_obj;
+	PyGILState_STATE                state;
+	PyObject                      * args;
+	PyMyQttCtx                    * py_ctx;
+
+	if (myqtt_is_exiting (ctx))
+		return;
+
+	if (log_handler_obj->logging)
+		return;
+	log_handler_obj->logging = axl_true;
+
+	/*** bridge into python ***/
+	/* acquire the GIL */
+	state = PyGILState_Ensure();
+
+	py_ctx      = (PyMyQttCtx *) py_myqtt_ctx_create (NULL);
+	myqtt_ctx_free (py_ctx->ctx);
+	py_ctx->ctx = ctx;
+
+	/* create a tuple to contain arguments */
+	args        = __py_myqtt_ctx_log_handler_prepare_args (py_ctx, file, line, log_level, msg, log_handler_obj);
+
+	/* record handler */
+	START_HANDLER (log_handler_obj->log_handler);
+
+	/* now invoke */
+	PyObject_Call (log_handler_obj->log_handler, args, NULL);
+
+	/* nullify reference */
+	py_ctx->ctx = NULL;
+
+	/* unrecord handler */
+	CLOSE_HANDLER (log_handler_obj->log_handler);
+
+	/* release args */
+	Py_DECREF (args);
+
+
+	/* now release the rest of data */
+	/* Py_DECREF (log_handler_obj->py_conn); */
+	/* Py_DECREF (log_handler_obj->on_close);*/
+	/* Py_DECREF (log_handler_obj->on_publish_data); */
+
+	/* release the GIL */
+	PyGILState_Release(state);
+
+	/* notify we have finished logging */
+	log_handler_obj->logging = axl_false;
+
+	return;
+}
+
+static PyObject * py_myqtt_ctx_set_log_handler (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	PyObject                      * log_handler        = NULL;
+	PyObject                      * log_handler_data   = Py_None;
+	PyMyQttCtxSetLogHandlerData   * log_handler_obj;
+	
+	/* now parse arguments */
+	static char *kwlist[] = {"log_handler", "log_handler_data", NULL};
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords(args, kwds, "O|O", kwlist, &log_handler, &log_handler_data))
+		return NULL;
+
+	/* check handler received */
+	if (log_handler == NULL || ! PyCallable_Check (log_handler)) {
+		py_myqtt_log (PY_MYQTT_CRITICAL, "received on_publish handler which is not a callable object");
+		return NULL;
+	} /* end if */
+
+	/* configure an on msg handler to bridge into python. In this
+	 * case we are reusing PyMyQttConnSetOnMsgData reference.  */
+	log_handler_obj = axl_new (PyMyQttCtxSetLogHandlerData, 1);
+	if (log_handler_obj == NULL) {
+		py_myqtt_log (PY_MYQTT_CRITICAL, "received on_publish handler but unable to acquire memory required to store handlers during operations");
+		return NULL;
+	} /* end if */
+
+	/* set reference to release it when the connection is
+	 * closed */
+	myqtt_ctx_set_data_full (py_myqtt_ctx_get (self),
+				 axl_strdup_printf ("%p", log_handler_obj),
+				 log_handler_obj,
+				 axl_free, 
+				 axl_free);
+
+	/* configure references */
+	log_handler_obj->log_handler = log_handler;
+	Py_INCREF (log_handler);
+
+	/* configure on_close_data handler data */
+	if (log_handler_data == NULL)
+		log_handler_data = Py_None;
+	log_handler_obj->log_handler_data = log_handler_data;
+	Py_INCREF (log_handler_data);
+
+	/* now acquire a reference to the handler and the data to make
+	 * them permanent during the execution of the script *and* to
+	 * release them when finishing the connection */
+	myqtt_ctx_set_data_full (py_myqtt_ctx_get (self),
+				 axl_strdup_printf ("%p", log_handler),
+				 log_handler,
+				 axl_free,
+				 (axlDestroyFunc) py_myqtt_decref);
+	myqtt_ctx_set_data_full (py_myqtt_ctx_get (self),
+				 axl_strdup_printf ("%p", log_handler_data),
+				 log_handler_data,
+				 axl_free,
+				 (axlDestroyFunc) py_myqtt_decref);
+
+
+	/* instruct engine to prepare log lines */
+	myqtt_log_set_prepare_log (
+		/* the ctx */
+		py_myqtt_ctx_get (self),
+		axl_true);
+
+	/* configure on log handler */
+	myqtt_log_set_handler (
+		/* the ctx */
+		py_myqtt_ctx_get (self),
+		/* the handler */
+		py_myqtt_ctx_log_handler, 
+		/* the object with all references */
+		log_handler_obj);
+
+	/* create a handle that allows to remove this particular
+	   handler. This handler can be used to remove the on close
+	   handler */
+	return py_myqtt_handle_create (log_handler_obj, NULL);
+}
+
 /** 
  * @brief Too long notification to file
  */
@@ -1054,6 +1239,9 @@ static PyMethodDef py_myqtt_ctx_methods[] = {
 	/* remove_event */
 	{"remove_event", (PyCFunction) py_myqtt_ctx_remove_event, METH_VARARGS | METH_KEYWORDS,
 	 "Allows to remove an event installed with new_event() method using the handle id returned from that function. This function is the interface to myqtt_thread_pool_event_remove."},
+	/* set_log_handler */
+	{"set_log_handler", (PyCFunction) py_myqtt_ctx_set_log_handler, METH_VARARGS | METH_KEYWORDS,
+	 "Allows to configure a python function that will be called to register/notify all logs producted by a given context (myqtt.Ctx). This is a binding for myqtt_log_set_handler."},
 	/* enable_too_long_notify_to_file */
 	{"enable_too_long_notify_to_file", (PyCFunction) py_myqtt_ctx_enable_too_long_notify_to_file, METH_VARARGS | METH_KEYWORDS,
 	 "Allows to activate a too long notification handler that will long into the provided file a notification every time is found a handler that is taking too long to finish."},

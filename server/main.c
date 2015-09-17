@@ -294,7 +294,8 @@ void main_signal_received (int _signal) {
 	myqttd_signal_received (ctx, _signal);
 }
 
-void myqttd_myqtt_log_handler (const char       * file,
+void myqttd_myqtt_log_handler (MyQttCtx         * _ctx,
+			       const char       * file,
 			       int                line,
 			       MyQttDebugLevel   log_level,
 			       const char       * message,

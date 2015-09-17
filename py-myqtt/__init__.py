@@ -1,6 +1,11 @@
 # only import base library
 from libpy_myqtt_10 import *
 
+# debug level
+level_debug    = 1 << 0
+level_warning  = 1 << 1
+level_critical = 1 << 2
+
 # some constants used by the library
 qos0 = 0
 qos1 = 1

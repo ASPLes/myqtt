@@ -409,6 +409,8 @@ typedef void     (* MyQttIoDispatch)             (axlPointer             fd_grou
  * - \ref myqtt_log_set_handler
  * - \ref myqtt_log_get_handler
  *
+ * @param ctx Context where the log was produced
+ *
  * @param file The file that produced the log.
  *
  * @param line The line where the log was produced.
@@ -421,7 +423,8 @@ typedef void     (* MyQttIoDispatch)             (axlPointer             fd_grou
  *
  * @param user_data User defined pointer.
  */
-typedef void (*MyQttLogHandler) (const char       * file,
+typedef void (*MyQttLogHandler) (MyQttCtx         * ctx,
+				 const char       * file,
 				 int                line,
 				 MyQttDebugLevel   log_level,
 				 const char       * message,

@@ -608,6 +608,8 @@ void     myqtt_log_set_handler      (MyQttCtx        * ctx,
 	/* configure status */
 	ctx->debug_handler = handler;
 	ctx->debug_handler_user_data = user_data;
+
+	return;
 }
 
 /** 
@@ -681,14 +683,12 @@ void _myqtt_log_common (MyQttCtx        * ctx,
 	struct timeval stamp;
 	char   buffer[1024];
 
-	/* if not MYQTT_DEBUG FLAG, do not output anything */
-	if (! myqtt_log_is_enabled (ctx)) {
-		return;
-	} /* end if */
-
-	if (ctx == NULL) {
+	if (ctx == NULL) 
 		goto ctx_not_defined;
-	}
+
+	/* if not MYQTT_DEBUG FLAG, do not output anything */
+	if (! myqtt_log_is_enabled (ctx) && ctx->debug_handler == NULL) 
+		return;
 
 	/* check if debug is filtered */
 	if (myqtt_log_filter_is_enabled (ctx)) {
@@ -707,11 +707,11 @@ void _myqtt_log_common (MyQttCtx        * ctx,
 		if (ctx->prepare_log_string) {
 			/* pass the string already prepared */
 			log_string = axl_strdup_printfv (message, args);
-			ctx->debug_handler (file, line, log_level, log_string, NULL, ctx->debug_handler_user_data);
+			ctx->debug_handler (ctx, file, line, log_level, log_string, NULL, ctx->debug_handler_user_data);
 			axl_free (log_string);
 		} else {
 			/* call a custom debug handler if one has been set */
-			ctx->debug_handler (file, line, log_level, message, args, ctx->debug_handler_user_data);
+			ctx->debug_handler (ctx, file, line, log_level, message, args, ctx->debug_handler_user_data);
 		} /* end if */
 
 	} else {
@@ -1186,9 +1186,9 @@ axl_bool myqtt_is_exiting           (MyQttCtx * ctx)
 	axl_bool result;
 	if (ctx == NULL)
 		return axl_false;
-	myqtt_mutex_lock (&ctx->ref_mutex);
+	/* myqtt_mutex_lock (&ctx->ref_mutex); */
 	result = ctx->myqtt_exit;
-	myqtt_mutex_unlock (&ctx->ref_mutex);
+	/* myqtt_mutex_unlock (&ctx->ref_mutex); */
 	return result;
 }
 

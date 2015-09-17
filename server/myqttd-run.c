@@ -45,9 +45,10 @@
 #include <myqtt-ctx-private.h>
 #include <myqtt-conn-private.h>
 
-void __myqttd_run_log_handler (const char       * file,
+void __myqttd_run_log_handler (MyQttCtx         * _ctx,
+			       const char       * file,
 			       int                line,
-			       MyQttDebugLevel   log_level,
+			       MyQttDebugLevel    log_level,
 			       const char       * message,
 			       va_list            args,
 			       axlPointer         user_data)
