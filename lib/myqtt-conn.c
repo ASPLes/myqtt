@@ -2238,8 +2238,9 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expecting PUBCOMP, received empty reply (%p), wrong reply type (%s) or different packet id in reply (%d != %d)",
 				   reply, reply ? myqtt_msg_get_type_str (reply) : "UNKNOWN", reply ? reply->packet_id : -1, packet_id);
 			result = axl_false; /* signal that publication didn't work */
+		} else { 
+			myqtt_log (MYQTT_LEVEL_DEBUG, "Received PUBCOMP reply for packet_id=%d conn-id=%d conn=%p (ok matches)", packet_id, conn->id, conn);
 		} /* end if */
-		myqtt_log (MYQTT_LEVEL_DEBUG, "Received PUBCOMP reply for packet_id=%d conn-id=%d conn=%p (ok matches)", packet_id, conn->id, conn);
 		myqtt_msg_unref (reply);
 
 	} /* end if */

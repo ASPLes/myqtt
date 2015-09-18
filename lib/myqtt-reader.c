@@ -1446,6 +1446,7 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 	axlHashCursor          * cursor;
 	axlHashCursor          * cursor2;
 	const char             * topic_filter;
+	axl_bool                 someone_subscribed = axl_false;
 
 	if (ctx->on_publish) {
 		/* call to on publish */
@@ -1505,6 +1506,7 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 			/* call to do publish */
 			/* printf ("INFO: found matching topic %s\n", msg->topic_name); */
 			__myqtt_reader_do_publish_aux (ctx, cursor, msg);
+			someone_subscribed = axl_true;
 			
 			/* next item */
 			axl_hash_cursor_next (cursor);
@@ -1512,9 +1514,6 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 		
 		/* release cursor */
 		axl_hash_cursor_free (cursor);
-	} else {
-		/* no one interested in this, no one subscribed to received this */
-		myqtt_log (MYQTT_LEVEL_DEBUG, "Published topic name '%s' but no one was subscribed to it", msg->topic_name);
 	} /* end if */
 
 
@@ -1540,6 +1539,7 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 			/* call to do publish */
 			/*printf ("INFO: found matching topic %s [%s]\n", msg->topic_name, topic_filter); */
 			__myqtt_reader_do_publish_aux (ctx, cursor2, msg);
+			someone_subscribed = axl_true;
 			
 			/* next connection */
 			axl_hash_cursor_next (cursor2);
@@ -1575,6 +1575,7 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 		 * to publish over all connections there */
 		sub_hash     = axl_hash_cursor_get_value (cursor);
 		__myqtt_reader_queue_offline (ctx, msg, sub_hash);
+		someone_subscribed = axl_true;
 		
 		/* it doesn't match, go with the next */
 		axl_hash_cursor_next (cursor);
@@ -1587,6 +1588,11 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 	myqtt_mutex_lock (&ctx->subs_m);
 	ctx->publish_ops--;
 	myqtt_mutex_unlock (&ctx->subs_m);
+
+	if (! someone_subscribed) {
+		/* no one interested in this, no one subscribed to received this */
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Published topic name '%s' but no one was subscribed to it", msg->topic_name);
+	} /* end if */
 
 	/* finish don */
 	return;
