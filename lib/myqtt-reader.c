@@ -2128,7 +2128,7 @@ void        __myqtt_reader_prepare_wait_reply (MyQttConn * conn, int packet_id, 
 	/* check */
 	if (axl_hash_get (hash, INT_TO_PTR (packet_id)))
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Enabling wait reply for a packet_id=%d peer_ids=%d that is already waiting for a reply...someone is going to miss a reply",
-			   peer_ids);
+			   packet_id, peer_ids);
 
 	/* add queue to implement the wait operation */
 	axl_hash_insert (hash, INT_TO_PTR (packet_id), queue);
