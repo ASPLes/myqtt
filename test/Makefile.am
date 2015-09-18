@@ -1,4 +1,4 @@
-EXTRA_DIST = test-private.key test-certificate.crt
+EXTRA_DIST = test-private.key test-certificate.crt message-test-17-d.txt
 
 if ENABLE_POLL_SUPPORT
 INCLUDE_MYQTT_POLL=-DMYQTT_HAVE_POLL=1
