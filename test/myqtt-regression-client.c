@@ -3286,7 +3286,7 @@ axl_bool test_17d (void) {
 
 	/*** 
 	 * 
-	 *  STEP 4: wait for the repy
+	 *  STEP 4: wait for the reply
 	 *
 	 */
 

@@ -882,6 +882,136 @@ def test_17c ():
         return False
 
     return True
+
+def test_17d_reply_get_my_products  (ctx, conn, msg, data):
+
+    info ("Test 17-d: replying replytopic=%s" % msg.content)
+    
+    # get content
+    content = open ("../../test/message-test-17-d.txt").read ()
+
+    # publish reply into the topic indicated
+    if not conn.pub (msg.content, content, len (content), False, 10):
+        error ("Error: unable to publish message as reply for %s" % msg.content)
+
+    return
+
+def test_17d ():
+
+    # call to initialize a context 
+    ctx = myqtt.Ctx ()
+
+    # call to init ctx 
+    if not ctx.init ():
+        error ("Failed to init MyQtt context")
+        return False
+
+    info ("Test 17-d: STEP 1: creating connection and subscribe to get the message..")
+
+    # 
+    # STEP 1: create a connection and subscribe to an especific topic 
+    #
+
+
+    # call to create a connection
+    # client_identifier = None
+    # clean_session     = True
+    # keep_alive        = 30
+    conn = myqtt.Conn (ctx, host, port, "test_01", True, 30, None)
+    if not conn.is_ok ():
+        error ("Expected to find proper connection..")
+        return False
+
+    import hashlib
+    topic = "my/product/reply/%s" % hashlib.md5 ("%s" % conn).hexdigest ()
+
+    # subscripbe
+    (status, sub_qos) = conn.sub (topic, 2)
+    if not status:
+        error ("Failed to subscribe..")
+        return False
+
+    info ("Test 17-d: sending message..")
+    queue = myqtt.AsyncQueue ()
+    conn.set_on_msg (test_08_should_receive, queue)
+
+
+    # 
+    # STEP 2: now create a second connection that will handle
+    # the reception of the message and will reply to it.
+    # 
+
+    info ("Test 17-d: STEP 2: connecting with a second connection and register a handler to reply to get/my/products")
+
+    # call to create a connection
+    # client_identifier = test_02
+    # clean_session     = True
+    # keep_alive        = 30
+    conn2 = myqtt.Conn (ctx, host, port, "test_02", True, 30, None)
+    if not conn2.is_ok ():
+        error ("Expected to find proper connection..")
+        return False
+
+    # subscribe
+    (status, sub_qos) = conn2.sub ("get/my/products", myqtt.qos2)
+    if not status:
+        error ("Failed to subscribe..")
+        return False
+
+    queue2 = myqtt.AsyncQueue ()
+    conn2.set_on_msg (test_17d_reply_get_my_products, queue2)
+
+
+    #
+    # STEP 3: now create a third connection to publish a message requesting a reply
+    # 
+
+    info ("Test 17-d: STEP 3: connecting with a third connection and publish a get/my/products")
+
+    # call to create a connection
+    # client_identifier = test_03
+    # clean_session     = True
+    # keep_alive        = 30
+    conn3 = myqtt.Conn (ctx, host, port, "test_03", True, 30, None)
+    if not conn3.is_ok ():
+        error ("Expected to find proper connection..")
+        return False
+
+    if not conn3.pub ("get/my/products", topic, len (topic), 2, False, 10):
+        error ("Unable to send message to get current products")
+        return False
+
+    # 
+    # STEP 4: wait for the reply
+    #
+
+    info ("Test 17-d: STEP 4: wait for reply on first queue")
+
+    # wait for message 
+    info ("Test 17-d: STEP 4: waiting for reply..")
+    msg = queue.timedpop (10000000)
+    if not msg:
+        error ("ERROR: expected to NOT receive msg reference but found NULL value..")
+        return False
+
+    info ("Test 17-d: received message size %d" % len (msg.content))
+    msg_content = open ("../../test/message-test-17-d.txt").read ()
+    if msg.content != msg_content:
+        error ("ERROR: expected different message...")
+        return False
+
+    info ("Test 17-d: message content ok, checking sizes.. too")
+
+    if msg.size != len (msg_content):
+        error ("ERROR: expected different sizes (%d != %d)" % (msg.size, len (msg_content)))
+        return False
+
+    # no need to release queue
+    # no need to close conn
+    # no need to finish ctx
+    
+
+    return True
     
 def test_18 ():
 
@@ -1207,6 +1337,7 @@ tests = [
    (test_10,   "Check PyMyqtt automatic reference collection"),
    (test_11,   "Check PyMyqtt set log handler "),
    (test_17c,  "Check PyMyqtt big message support"),
+   (test_17d,  "Check PyMyqtt different exchanges with QoS 2 messages"),
    # tls support
    (test_18,   "Check PyMyqtt test TLS support"),
    (test_19,   "Check PyMyqtt TLS support (server side certificate auth: common CA)"),
