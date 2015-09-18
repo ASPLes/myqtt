@@ -1649,8 +1649,8 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	msg->app_message         = msg->payload + desp;
 	msg->app_message_size    = msg->size - desp;
 
-	myqtt_log (MYQTT_LEVEL_DEBUG, "PUBLISH: incoming publish request received (qos: %d, topic name: %s, packet id: %d, app msg size: %d, msg size: %d)",
-		   msg->qos, msg->topic_name, msg->packet_id, msg->app_message_size, msg->size);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "PUBLISH: incoming publish request received (qos: %d, topic name: %s, packet id: %d, app msg size: %d, msg size: %d, conn-id=%d, conn=%p)",
+		   msg->qos, msg->topic_name, msg->packet_id, msg->app_message_size, msg->size, conn->id, conn);
 
 	/* now, for QoS1 we have to reply with a puback */
 	if (msg->qos == MYQTT_QOS_2) {
