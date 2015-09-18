@@ -438,9 +438,12 @@ int main (int argc, char ** argv)
 
 	/* configure storage */
 	printf ("Setting storage path on: .myqtt-listener\n");
+	printf ("Cleaning storage... at .myqtt-listener .. wait a little bit please..\n");
 	if (system ("find .myqtt-listener -type f -exec rm {} \\; > /dev/null 2>&1"))
 		printf ("WARNING: clean subscriptions failed (reported non-zero value) (this is usual for the first time)\n");
 	myqtt_storage_set_path (ctx, ".myqtt-listener", 4096);
+
+	printf ("Path cleaning, starting listeners..\n");
 
 	/* start a listener */
 	listener = myqtt_listener_new (ctx, listener_host, listener_port, NULL, NULL, NULL);
