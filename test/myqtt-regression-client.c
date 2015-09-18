@@ -58,6 +58,54 @@ typedef enum {
 	TEST_DIRS  = 2
 } RegTestMyQttCountTypes;
 
+char * myqtt_test_read_file (const char * file, int * size)
+{
+	char * result;
+	FILE * handle;
+	struct stat status;
+	int    size_read;
+
+	/* check parameter received */
+	if (file == NULL)
+		return NULL;
+
+	/* open the file */
+	handle = fopen (file, "r");
+	if (handle == NULL) {
+		printf ("Failed to open file: %s\n", file);
+		return NULL;
+	}
+
+	/* get the file size */
+	memset (&status, 0, sizeof (struct stat));
+	if (stat (file, &status) != 0) {
+		/* failed to get file size */
+		fprintf (stderr, "Failed to get file size for %s..\n", file);
+		fclose (handle);
+		return NULL;
+	} /* end if */
+	
+	result = axl_new (char, status.st_size + 1);
+	size_read = fread (result, 1, status.st_size, handle);
+	if (size_read != status.st_size) {
+		/* failed to read content */
+		fprintf (stdout, "Unable to properly read the file, size expected to read %d but found %d, wasn't fulfilled",
+			 (int) status.st_size, size_read);
+		axl_free (result);
+		fclose (handle);
+		return NULL;
+	} /* end if */
+	
+	/* close the file and return the content */
+	fclose (handle);
+
+	/* update size */
+	if (size)
+		*size = status.st_size;
+
+	return result;
+}
+
 int test_count_in_dir (const char * directory, RegTestMyQttCountTypes  count_type) {
 	char * command;
 	char   buffer[20];
@@ -3113,6 +3161,176 @@ axl_bool test_17c (void) {
 	return axl_true;
 }
 
+void test_17_d_reply_message  (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+{
+	char * content;
+	int    size;
+
+	/* get topic from message */
+	printf ("Test 17-d: replying replytopic=%s\n", (const char *) myqtt_msg_get_app_msg (msg));
+
+	/* open content to reply */
+	content = myqtt_test_read_file ("message-test-17-d.txt", &size);
+
+	/* publish message to the provided topic */
+	printf ("Test 17-d: sending reply message (message-test-17-d.txt) size=%d\n", size);
+	if (! myqtt_conn_pub (conn, myqtt_msg_get_app_msg (msg), (axlPointer) content, size, 2, axl_false, 10)) {
+		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		return;
+	} /* end if */
+
+	/* release content */
+	axl_free (content);
+
+	return;
+}
+
+axl_bool test_17d (void) {
+
+	MyQttCtx        * ctx = init_ctx ();
+	MyQttConn       * conn;
+	MyQttConn       * conn2;
+	MyQttConn       * conn3;
+	char            * topic;
+	MyQttAsyncQueue * queue;
+	MyQttAsyncQueue * queue2;
+	int               sub_result;
+	MyQttMsg        * msg;
+	char            * content;
+	int               size;
+
+	if (! ctx)
+		return axl_false;
+
+	/*** 
+	 * 
+	 *  STEP 1: create a connection and subscribe to an especific topic 
+	 *
+	 */
+
+	printf ("Test 17-d: STEP 1: creating connection and subscribe to get the message..\n");
+
+	/* now connect to the listener:
+	   client_identifier -> test_01
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	conn = myqtt_conn_new (ctx, "test_01", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* create an specific topic */
+	topic = axl_strdup_printf ("my/product/reply/%p", conn);
+	printf ("Test 17-d: created reply topic to subscribe to: %s\n", topic);
+
+	/* subcribe */
+	if (! myqtt_conn_sub (conn, 10, topic, 2, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* configure queue message */
+	queue = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+
+
+	/*** 
+	 * 
+	 *  STEP 2: now create a second connection that will handle
+	 *  the reception of the message and will reply to it.
+	 *
+	 */
+	printf ("Test 17-d: STEP 2: creating second connection to handle request received..\n");
+
+	/* now create a third connection that will receive the initial message */
+	conn2 = myqtt_conn_new (ctx, "test_02", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn2, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* subcribe */
+	if (! myqtt_conn_sub (conn2, 10, "get/my/products", 2, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* configure queue message */
+	queue2 = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn2, test_17_d_reply_message, queue2);
+
+
+	/*** 
+	 * 
+	 *  STEP 3: now create a third connection to publish a message requesting a reply 
+	 *
+	 */
+	printf ("Test 17-d: STEP 3: creating third connection to send message so first connection gets a reply genereated by second connection..\n");
+	
+	/* now connect with a second connection */
+	conn3 = myqtt_conn_new (ctx, "test_03", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn3, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	
+	/* now publish this to the get/my/products topic to get a
+	 * reply on the first connection */
+	if (! myqtt_conn_pub (conn3, "get/my/products", topic, strlen (topic), 2, axl_false, 10)) {
+		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		return axl_false;
+	} /* end if */
+	
+
+	/*** 
+	 * 
+	 *  STEP 4: wait for the repy
+	 *
+	 */
+
+	printf ("Test 17-d: STEP 4: waiting for reply..\n");
+
+	msg = myqtt_async_queue_timedpop (queue, 10000000);
+	if (msg == NULL) {
+		printf ("ERROR: unable to get message, expected reply...\n");
+		return axl_false;
+	} /* end if */
+	
+	printf ("Test 17-d: received reply with size=%d\n", myqtt_msg_get_app_msg_size (msg));
+
+	/* open content to reply */
+	content = myqtt_test_read_file ("message-test-17-d.txt", &size);
+	if (! axl_cmp (content, myqtt_msg_get_app_msg (msg))) {
+		printf ("ERROR: expected to find same message...but found something different..\n");
+		return axl_false;
+	} /* end if */
+
+	if (myqtt_msg_get_app_msg_size (msg) != size) {
+		printf ("ERROR: different message sizes were received..\n");
+		return axl_false;
+	}
+
+	axl_free (content);
+	
+	myqtt_msg_unref (msg);
+
+	myqtt_conn_close (conn3);
+	myqtt_conn_close (conn2);
+	myqtt_conn_close (conn);
+
+	myqtt_async_queue_unref (queue);
+	myqtt_async_queue_unref (queue2);
+
+	axl_free (topic);
+	
+	printf ("Test 17-d: connected without problems..\n");
+	myqtt_exit_ctx (ctx, axl_true);
+	
+	return axl_true;
+}
+
 #if defined(ENABLE_TLS_SUPPORT)
 axl_bool test_18 (void) {
 
@@ -4802,6 +5020,9 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_17c")
 	run_test (test_17c, "Test 17-c: check BIG message support (< 16383)"); 
+
+	CHECK_TEST("test_17d")
+	run_test (test_17d, "Test 17-d: check different exchanges with QoS 2 messages"); 
 
 #if defined(ENABLE_TLS_SUPPORT)
 	CHECK_TEST("test_18")
