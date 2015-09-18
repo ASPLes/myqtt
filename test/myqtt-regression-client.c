@@ -2439,7 +2439,11 @@ axl_bool test_15_common (int wildcard) {
 		test_label = "15-b";
 		break;
 	}
-	
+
+	/* clean previous messages if any */
+	if (system ("find  .myqtt-listener/test15@identifier.com/msgs/ -type f -exec rm {} \\;") != 0) {
+		printf ("(!) Failed to clean test15@identifier.com/msgs directory..skipping\n");
+	}
 
 	printf ("Test %s: connecting with session, subscribe and disconnect..\n", test_label);
 

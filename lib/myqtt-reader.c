@@ -2141,16 +2141,6 @@ void        __myqtt_reader_prepare_wait_reply (MyQttConn * conn, int packet_id, 
 	return;
 }
 
-void __myqtt_reader_get_reply_on_close (MyQttConn * conn, axlPointer data)
-{
-	MyQttAsyncQueue * queue = data;
-
-	/* notify connection close */
-	myqtt_async_queue_push (queue, INT_TO_PTR (-1));
-
-	return;
-}
-
 /** 
  * @internal Function that allows to wait for a specific packet id
  * reply on the provided connection.
@@ -2169,10 +2159,10 @@ void __myqtt_reader_get_reply_on_close (MyQttConn * conn, axlPointer data)
 MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, int timeout, axl_bool peer_ids)
 {
 	MyQttAsyncQueue * queue;
-	MyQttAsyncQueue * queue2;
 	MyQttMsg        * msg = NULL;
 	MyQttCtx        * ctx;
 	axlHash         * hash;
+	struct timeval    start, now, diff;
 
 	if (conn == NULL)
 		return NULL;
@@ -2187,6 +2177,8 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 
 	/* get queue and remove it from the set of wait replies */
 	queue = axl_hash_get (hash, INT_TO_PTR (packet_id));
+	/** NOTE: you can remove here the queue: axl_hash_delete
+	    because it must be in the hash so the pusher finds it */
 
 	/* release lock */
 	myqtt_mutex_unlock (&conn->op_mutex);
@@ -2212,79 +2204,44 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 	} /* end if */
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "QUEUE: Getting reply on queue=%p packet_id=%d conn-id=%d conn=%p peer-ids=%d", queue, packet_id, conn->id, conn, peer_ids);
-	
-	if (myqtt_conn_is_ok (conn, axl_false)) {
-		/* install a connection on close handler before calling to wait */
-		myqtt_conn_set_on_close (conn, axl_false, __myqtt_reader_get_reply_on_close, queue);
 
+	/* prepare wait */
+	if (timeout > 0)
+		gettimeofday (&start, NULL);
+
+	while (myqtt_conn_is_ok (conn, axl_false)) {
 		/* call to wait for message */
-		if (timeout > 0)
-			msg = myqtt_async_queue_timedpop (queue, timeout * 1000000);
-		else
-			msg = myqtt_async_queue_pop (queue);
+		msg = myqtt_async_queue_timedpop (queue, timeout * 1000);
+		if (msg)
+			break;
 
-		/* remove connection close after finishing wait */
-		myqtt_conn_remove_on_close (conn, __myqtt_reader_get_reply_on_close, queue);
+		/* if no timeout requested, just keep on waiting */
+		if (timeout <= 0)
+			continue;
 
-	} else {
-		myqtt_log (MYQTT_LEVEL_WARNING, "Connection close detected during __myqtt_reader_get_reply call conn-id=%d, packet_id=%d, timeout=%d",
-			   conn->id, packet_id, timeout);
-		if (myqtt_async_queue_items (queue) > 0)
-			msg = myqtt_async_queue_pop (queue);
-	} /* end if */
+		/* reached this point, timeout was requested */
+		gettimeofday (&now, NULL);
+		/* get the difference */
+		myqtt_timeval_substract (&now, &start, &diff);
 
-	if (PTR_TO_INT (msg) == -1) 
-		msg = NULL;
+		if (diff.tv_sec >= timeout)
+			break;
+	} /* end while */
+
+	/* try to recover from queue */
+	if (msg == NULL && myqtt_async_queue_items (queue) > 0)
+		msg = myqtt_async_queue_pop (queue);
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "QUEUE: reply received msg=%p msg-id=%d from queue=%p packet_id=%d conn-id=%d conn=%p", 
 		   msg, msg ? msg->id : -1, queue, packet_id, conn->id, conn);
 
-	/* null reference received, try to remove the queue but first
-	 * we have to acquire the reference */
-	myqtt_mutex_lock (&conn->op_mutex);
-
-	/* get the queue to release it: the following code is fighting
-	 * against the thread planner which may return the (queue)
-	 * reference before this code, then serve the code and just
-	 * before calling here freezes this thread, and allows another
-	 * thread to install a new queue into the hash with the same
-	 * packet_id: isn't it fun? 
-	 *
-	 * As a measure, we get the queue in a critical section and
-	 * compare the reference, if it is the same, then remove from
-	 * the hash if not, it has been removed previously...
-	 *
-	 * ...and the most imporant thing, that the (queue) reference
-	 * is not updated with a reference to a queue which is not the
-	 * one we want to remove. */
-	queue2 = axl_hash_get (hash, INT_TO_PTR (packet_id)); 
-	if (queue2 == queue)
-		axl_hash_delete (hash, INT_TO_PTR (packet_id));
-	/* else : let the queue as is because it will be released by
-	 * another call to this function that is taking place right
-	 * now */
-	
 	/* release lock */
+	myqtt_mutex_lock (&conn->op_mutex);
+	axl_hash_delete (hash, INT_TO_PTR (packet_id));
 	myqtt_mutex_unlock (&conn->op_mutex);
 
-	/* release queue if defined */
-	if (queue) {
-		/* check if the connection is ok: if that's the case,
-		 * then we can safely release the queue reference
-		 * because we can be sure that the connection on_close
-		 * wasn't called  */
-		if (myqtt_conn_is_ok (conn, axl_false))
-			myqtt_async_queue_unref (queue);
-		else {
-			/* thread planner playing with us, on
-			 * connection close was called, but may have
-			 * been freezed in the middle but we have to
-			 * release the queue, so for that, link the
-			 * queue to the connection os that it is
-			 * released when the connection is finished */ 
-			myqtt_conn_set_data_full (conn, axl_strdup_printf ("%p", queue), queue, axl_free, (axlDestroyFunc) myqtt_async_queue_unref);
-		}
-	}
+	/* release queue */
+	myqtt_async_queue_unref (queue);
 
 	/* release reference counting */
 	myqtt_conn_unref (conn, "__myqtt_reader_get_reply");
