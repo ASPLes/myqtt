@@ -1598,6 +1598,85 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 	return;
 }
 
+typedef struct __MyQttReaderOnwardDeliveryData {
+	MyQttMsg  * msg;
+	MyQttConn * conn;
+	MyQttCtx  * ctx;
+} MyQttReaderOnwardDeliveryData;
+
+MyQttReaderOnwardDeliveryData * __myqtt_reader_prepare_delivery (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg)
+{
+	MyQttReaderOnwardDeliveryData * data;
+
+	/* create data to hold references */
+	data = axl_new (MyQttReaderOnwardDeliveryData, 1);
+	if (data == NULL)
+		return NULL;
+	
+	/* get a reference during the whole process: conn */
+	if (! myqtt_conn_ref (conn, "onward_delivery")) {
+		axl_free (data);
+		return NULL;
+	} /* end if */
+
+	/* get a reference during the whole process: msg */
+	if (! myqtt_msg_ref (msg)) {
+		myqtt_conn_unref (conn, "onward_delivery");
+		axl_free (data);
+		return NULL;
+	} /* end if */
+
+	/* get a reference during the whole process: ctx */
+	if (! myqtt_ctx_ref (ctx)) {
+		myqtt_conn_unref (conn, "onward_delivery");
+		myqtt_msg_unref (msg);
+		axl_free (data);
+		return NULL;
+	} /* end if */
+
+	/* get references */
+	data->conn = conn;
+	data->ctx  = ctx;
+	data->msg  = msg;
+
+	return data;
+}
+
+axlPointer __myqtt_reader_initiate_onward_delivery (axlPointer _data)
+{
+	MyQttReaderOnwardDeliveryData * data  = _data;
+	MyQttConn                     * conn  = data->conn;
+	MyQttMsg                      * msg   = data->msg;
+	MyQttCtx                      * ctx   = data->ctx;
+
+	if (conn->role == MyQttRoleInitiator) {
+		/**** CLIENT HANDLING **** 
+		 * we have received a PUBLISH packet as client, we have to
+		 * notify it to the application level */
+
+		/* call to notify message */
+		if (conn->on_msg)
+			conn->on_msg (ctx, conn, msg, conn->on_msg_data);
+		else if (ctx->on_msg)
+			ctx->on_msg (ctx, conn, msg, ctx->on_msg_data);
+
+	} else if (conn->role == MyQttRoleListener) {
+		/**** SERVER HANDLING ****
+		 * we have received a publish package as server, notify to all subscribers */
+
+		/* call to do publish with all subscribers */
+		__myqtt_reader_do_publish (ctx, conn, msg);
+
+	} /* end if */
+
+	/* call to unref msg, context and connection */
+	myqtt_msg_unref (msg);
+	myqtt_ctx_unref (&ctx);
+	myqtt_conn_unref (conn, "onward_delivery");
+	axl_free (data);
+
+	return NULL;
+}
 
 /** 
  * @internal PUBLISH handling..
@@ -1605,10 +1684,11 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _data)
 {
 	/* local variables */
-	int                      desp = 0;
-	unsigned char          * reply;
-	MyQttMsg               * response;
-	axl_bool                 have_wild_cards;
+	int                              desp = 0;
+	unsigned char                  * reply;
+	MyQttMsg                       * response;
+	axl_bool                         have_wild_cards;
+	MyQttReaderOnwardDeliveryData  * data;
 
 	/* parse content received inside message */
 	msg->topic_name = __myqtt_reader_get_utf8_string (ctx, msg->payload, msg->size);
@@ -1698,26 +1778,13 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 		
 	} /* end if */
 
+	/* prepare data */
+	data = __myqtt_reader_prepare_delivery (ctx, conn, msg);
+	if (data == NULL)
+		return; /* memory allocation failure */
 
-	if (conn->role == MyQttRoleInitiator) {
-		/**** CLIENT HANDLING **** 
-		 * we have received a PUBLISH packet as client, we have to
-		 * notify it to the application level */
-
-		/* call to notify message */
-		if (conn->on_msg)
-			conn->on_msg (ctx, conn, msg, conn->on_msg_data);
-		else if (ctx->on_msg)
-			ctx->on_msg (ctx, conn, msg, ctx->on_msg_data);
-
-	} else if (conn->role == MyQttRoleListener) {
-		/**** SERVER HANDLING ****
-		 * we have received a publish package as server, notify to all subscribers */
-
-		/* call to do publish with all subscribers */
-		__myqtt_reader_do_publish (ctx, conn, msg);
-
-	} /* end if */
+	/* do delivery */
+	myqtt_thread_pool_new_task (ctx, __myqtt_reader_initiate_onward_delivery, data);
 
 	/* now, for QoS1 and QoS2 produce the pending replies needed */
 	if (msg->qos == MYQTT_QOS_1 || msg->qos == MYQTT_QOS_2) {

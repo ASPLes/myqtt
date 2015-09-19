@@ -2405,7 +2405,7 @@ axl_bool __test_15_check (MyQttMsg * msg, int * count_qos0, int * count_qos1, in
 		(*count_qos2)++;
 
 	/* more checks here */
-	printf ("Test 15: received msg with topic: %s\n", myqtt_msg_get_topic (msg));
+	printf ("Test 15: received msg with topic: %s <%s>\n", myqtt_msg_get_topic (msg), (const char *) myqtt_msg_get_app_msg (msg));
 
 	/* release message */
 	myqtt_msg_unref (msg);
@@ -2425,6 +2425,7 @@ axl_bool test_15_common (int wildcard) {
 	int               count_qos0 = 0, count_qos1 = 0, count_qos2 = 0;
 	const char      * sub_topic  = NULL;
 	const char      * test_label = "15";
+	int               failures;
 
 	if (! ctx)
 		return axl_false;
@@ -2575,19 +2576,43 @@ axl_bool test_15_common (int wildcard) {
 	} /* end if */
 
 	iterator = 0;
+	failures = 0;
 	while (iterator < 10) {
 		/* get first message */
 		msg = myqtt_async_queue_timedpop (queue, 3000000);
+		if (msg == NULL && failures < 10) {
+			failures++;
+			printf ("Test --: null message found, retrying ... (failures=%d)\n", failures);
+			myqtt_sleep (1000000);
+			continue;
+		} /* end if */
+
 		if (! __test_15_check (msg, &count_qos0, &count_qos1, &count_qos2))
 			return axl_false;
 
 		/* get first message */
 		msg = myqtt_async_queue_timedpop (queue, 3000000);
+		if (msg == NULL && failures < 10) {
+			failures++;
+			printf ("Test --: null message found, retrying ... (failures=%d)\n", failures);
+			myqtt_sleep (1000000);
+			continue;
+		} /* end if */
+
+
 		if (! __test_15_check (msg, &count_qos0, &count_qos1, &count_qos2))
 			return axl_false;
 
 		/* get first message */
 		msg = myqtt_async_queue_timedpop (queue, 3000000);
+		if (msg == NULL && failures < 10) {
+			failures++;
+			printf ("Test --: null message found, retrying ... (failures=%d)\n", failures);
+			myqtt_sleep (1000000);
+			continue;
+		} /* end if */
+
+
 		if (! __test_15_check (msg, &count_qos0, &count_qos1, &count_qos2))
 			return axl_false;
 
@@ -2615,7 +2640,8 @@ axl_bool test_15_common (int wildcard) {
 		return axl_false;
 	}
 
-	printf ("Test %s: all messages received OK, now closing connection..\n", test_label);
+	printf ("Test %s: all messages received OK (count_qos1=%d, count_qos0=%d, count_qos2=%d, now closing connection..\n", 
+		test_label, count_qos1, count_qos0, count_qos2);
 
 	/* close connection */
 	myqtt_conn_close (conn);
@@ -2677,6 +2703,9 @@ axl_bool test_15_common (int wildcard) {
 	/* release context */
 	printf ("Test %s: releasing context..\n", test_label);
 	myqtt_exit_ctx (ctx, axl_true);
+
+	/* small wait to allow next test to work */
+	myqtt_sleep (1);
 
 	return axl_true;
 }
