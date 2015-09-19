@@ -722,10 +722,13 @@ def test_11_log_handler (ctx, __file, line, log_level, msg, data):
     level_label = "-----"
     if log_level == myqtt.level_debug:
         level_label = "Debug"
+        data['debug'] += 1
     elif log_level == myqtt.level_warning:
         level_label = "Warng"
+        data['warn'] += 1
     elif log_level == myqtt.level_critical:
         level_label = "Error"
+        data['error'] += 1
 
     # print "  1) %s" % level_label
     # print "  2) %s" % __file
@@ -745,8 +748,10 @@ def test_11 ():
         error ("Failed to init MyQtt context")
         return False
 
+    data = { 'debug' : 0, 'warn' : 0, 'error' : 0}
+
     # configure log handler
-    ctx.set_log_handler (test_11_log_handler)
+    ctx.set_log_handler (test_11_log_handler, data)
 
     # call to create a connection
     conn = myqtt.Conn (ctx, host, port)
@@ -775,6 +780,10 @@ def test_11 ():
     conn.close ()
 
     # no need to release queue
+
+    if (data['debug'] + data['warn'] + data['error']) == 0:
+        error ("Expected to find log reported but found no log reported in debug, warn or error type..")
+        return False
 
     # no need to close conn
     # no need to close conn2
