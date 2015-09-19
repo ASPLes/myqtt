@@ -2232,8 +2232,8 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 	if (msg == NULL && myqtt_async_queue_items (queue) > 0)
 		msg = myqtt_async_queue_pop (queue);
 
-	myqtt_log (MYQTT_LEVEL_DEBUG, "QUEUE: reply received msg=%p msg-id=%d from queue=%p packet_id=%d conn-id=%d conn=%p", 
-		   msg, msg ? msg->id : -1, queue, packet_id, conn->id, conn);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "QUEUE: reply received (%s) msg=%p msg-id=%d from queue=%p packet_id=%d conn-id=%d conn=%p", 
+		   myqtt_msg_get_type_str (msg), msg, msg ? msg->id : -1, queue, packet_id, conn->id, conn);
 
 	/* release lock */
 	myqtt_mutex_lock (&conn->op_mutex);
