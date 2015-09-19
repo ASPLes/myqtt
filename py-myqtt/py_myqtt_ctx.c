@@ -1096,6 +1096,9 @@ void  py_myqtt_ctx_log_handler (MyQttCtx         * ctx,
 	/* unrecord handler */
 	CLOSE_HANDLER (log_handler_obj->log_handler);
 
+	/* handle and clear exception */
+	py_myqtt_handle_and_clear_exception (NULL);
+
 	/* release args */
 	Py_DECREF (args);
 
