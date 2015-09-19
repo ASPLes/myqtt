@@ -2131,7 +2131,8 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 	if (! myqtt_sequencer_send (conn, MYQTT_PUBLISH, msg, size)) {
 
 		/* release packet id */
-		__myqtt_conn_release_pkgid (ctx, conn, packet_id);
+		/* do not release package id on failure to avoid overwriting packages ids */
+		/* __myqtt_conn_release_pkgid (ctx, conn, packet_id); */
 
 		/* only release message if it was stored */
 		if (! skip_storage) {
@@ -2192,7 +2193,8 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to continue with QoS2 publication, PUBREC failed");
 
 			/* release packet id */
-			__myqtt_conn_release_pkgid (ctx, conn, packet_id);
+			/* do not release package id on failure to avoid overwriting packages ids */
+			/* __myqtt_conn_release_pkgid (ctx, conn, packet_id); */
 
 			return axl_false;
 		} /* end if */
@@ -2208,7 +2210,8 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create PUBREL message, empty/NULL value reported by myqtt_msg_build()");
 
 			/* release packet id */
-			__myqtt_conn_release_pkgid (ctx, conn, packet_id);
+			/* do not release package id on failure to avoid overwriting packages ids */
+			/* __myqtt_conn_release_pkgid (ctx, conn, packet_id); */
 
 			return axl_false;
 		} /* end if */
@@ -2220,7 +2223,8 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Sending PUBREL for packet_id=%d conn-id=%d conn=%p", packet_id, conn->id, conn);
 		if (! myqtt_sequencer_send (conn, MYQTT_PUBREL, msg, size)) {
 			/* release packet id */
-			__myqtt_conn_release_pkgid (ctx, conn, packet_id);
+			/* do not release package id on failure to avoid overwriting packages ids */
+			/* __myqtt_conn_release_pkgid (ctx, conn, packet_id); */
 			
 			/* free build */
 			/* REALLY IMPORTANT: do not release here because this
@@ -2245,8 +2249,16 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 
 	} /* end if */
 
-	/* release packet id */
-	__myqtt_conn_release_pkgid (ctx, conn, packet_id);
+	/** 
+	 * @internal Only release packet_id when publish operation
+	 * finishes ok to avoid reusing that packet id which may cause
+	 * producing a new operation using same packet-id for a packet
+	 * that may clash with the previous one which may be delaying.
+	 */
+	if (result) {
+		/* release packet id */
+		__myqtt_conn_release_pkgid (ctx, conn, packet_id);
+	} /* end if */
 
 	if (! skip_storage) {
 		/* release message */
