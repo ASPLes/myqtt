@@ -1117,6 +1117,66 @@ void  py_myqtt_ctx_log_handler (MyQttCtx         * ctx,
 	return;
 }
 
+#include <syslog.h>
+void  __py_myqtt_ctx_syslog_report  (MyQttCtx         * ctx,
+				     const char       * file,
+				     int                line,
+				     MyQttDebugLevel    log_level,
+				     const char       * msg,
+				     va_list            _args,
+				     axlPointer         _data)
+{
+	/* open syslog */
+	openlog ("myqtt", LOG_PID, LOG_DAEMON);
+
+	/* report */
+	switch (log_level) {
+	case MYQTT_LEVEL_DEBUG:
+		syslog (LOG_ERR, "info: (%s:%d) %s", file, line, msg);
+		break;
+	case MYQTT_LEVEL_CRITICAL:
+		syslog (LOG_ERR, "*** ERROR ***: (%s:%d) %s", file, line, msg);
+		break;
+	case MYQTT_LEVEL_WARNING:
+		syslog (LOG_ERR, "warning: (%s:%d) %s", file, line, msg);
+		break;
+	} /* end if */
+
+	return;
+}
+
+static PyObject * py_myqtt_ctx_syslog_report (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	axl_bool  enable = axl_true;
+	
+	/* now parse arguments */
+	static char *kwlist[] = {"enable", NULL};
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords(args, kwds, "i", kwlist, &enable))
+		return NULL;
+
+	/* instruct engine to prepare log lines */
+	myqtt_log_set_prepare_log (
+		/* the ctx */
+		py_myqtt_ctx_get (self),
+		axl_true);
+
+	myqtt_log_set_handler (
+		/* the ctx */
+		py_myqtt_ctx_get (self),
+		/* the handler */
+		__py_myqtt_ctx_syslog_report,
+		NULL);
+	
+	/* return None */
+	Py_INCREF (Py_None);
+	return Py_None;
+}
+	    
+
+
+
 static PyObject * py_myqtt_ctx_set_log_handler (PyObject * self, PyObject * args, PyObject * kwds)
 {
 	PyObject                      * log_handler        = NULL;
@@ -1245,6 +1305,9 @@ static PyMethodDef py_myqtt_ctx_methods[] = {
 	/* set_log_handler */
 	{"set_log_handler", (PyCFunction) py_myqtt_ctx_set_log_handler, METH_VARARGS | METH_KEYWORDS,
 	 "Allows to configure a python function that will be called to register/notify all logs producted by a given context (myqtt.Ctx). This is a binding for myqtt_log_set_handler."},
+	/* enable_syslog_report */
+	{"syslog_report", (PyCFunction) py_myqtt_ctx_syslog_report, METH_VARARGS | METH_KEYWORDS,
+	 "Makes current myqtt.Ctx to report all debug information to syslog if syslog_report (True) is called. If False is provided, syslog report is disabled. This function will disable any log handler reporting previous configured (like ctx.set_log_handler)"},
 	/* enable_too_long_notify_to_file */
 	{"enable_too_long_notify_to_file", (PyCFunction) py_myqtt_ctx_enable_too_long_notify_to_file, METH_VARARGS | METH_KEYWORDS,
 	 "Allows to activate a too long notification handler that will long into the provided file a notification every time is found a handler that is taking too long to finish."},
