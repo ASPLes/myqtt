@@ -442,9 +442,9 @@ MyQttPublishCodes __myqttd_run_on_publish_msg (MyQttCtx * myqtt_ctx, MyQttConn *
 		iterator++;
 	} /* end while */
 
-	msg ("%s : PUB id %d (%s:%s) -> [%s] (qos %d) : ok", domain->name, myqtt_msg_get_id (msg), 
+	msg ("%s : PUB id %d (%s:%s) -> [%s] (qos %d, size %d, total %d) : ok", domain->name, myqtt_msg_get_id (msg), 
 	     myqtt_conn_get_host (conn), myqtt_conn_get_port (conn), myqtt_msg_get_topic (msg),
-	     myqtt_msg_get_qos (msg));
+	     myqtt_msg_get_qos (msg), myqtt_msg_get_app_msg_size (msg), myqtt_msg_get_payload_size (msg));
 	
 	return MYQTT_PUBLISH_OK; /* allow publish */
 }

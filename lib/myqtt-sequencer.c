@@ -213,7 +213,7 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 				size = data->message_size - data-> step;
 
 			myqtt_log (MYQTT_LEVEL_DEBUG, "Sending %s (%s): size=%d, message-size=%d, step=%d, conn-id=%d", 
-				   ((data->message_size - data->step) > 4096) ? "fragment" : "msg",
+				   ((data->message_size - data->step) > 4096) ? "fragment" : "complete msg",
 				   myqtt_msg_get_type_str2 (data->type), size, data->message_size, data->step, conn->id);
 			if (! myqtt_msg_send_raw (conn, data->message + data->step, size)) {
 				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send MQTT message (type: %d, size: %d (total: %d), step: %d) error was errno=%d",  
