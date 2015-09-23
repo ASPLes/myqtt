@@ -588,7 +588,8 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 		}
 
 
-		myqtt_log (MYQTT_LEVEL_DEBUG, "bytes ready this time: %d", bytes_read);
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Bytes received this time: %d, expected: %d, total message size: %d, conn-id: %d", 
+			   bytes_read, remaining, msg->size, connection->id);
 
 		/* check data received */
 		if (bytes_read != remaining) {
