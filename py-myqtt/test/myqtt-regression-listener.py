@@ -70,6 +70,7 @@ def on_publish (ctx, conn, msg, data):
 
     if msg.topic == "myqtt/admin/get-client-identifier":
         time.sleep (1)
+        info ("Sending client identifier...")
         if not conn.pub ("myqtt/admin/get-client-identifier", conn.client_id, len (conn.client_id), myqtt.qos0, False, 0):
             error ("Error: failed to publish the client identifier")
 

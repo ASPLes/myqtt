@@ -342,10 +342,12 @@ static PyObject * py_myqtt_ctx_new (PyTypeObject *type, PyObject *args, PyObject
  */
 static void py_myqtt_ctx_dealloc (PyMyQttCtx* self)
 {
+	axl_bool disable_gc =  PTR_TO_INT (myqtt_ctx_get_data (self->ctx, "py:ctx:gc:disable"));
+
 	py_myqtt_log (PY_MYQTT_DEBUG, "collecting myqtt.Ctx ref: %p (self->ctx: %p, count: %d)", self, self->ctx, myqtt_ctx_ref_count (self->ctx));
 
 	/* check for pending exit */
-	if (self->exit_pending) {
+	if (self->exit_pending && ! disable_gc) {
 		py_myqtt_log (PY_MYQTT_DEBUG, "found myqtt.Ctx () exiting pending flag enabled, finishing context..");
 		Py_DECREF ( py_myqtt_ctx_exit (self) );
 	} /* end if */
@@ -611,6 +613,27 @@ axl_bool py_myqtt_ctx_bridge_event (MyQttCtx * ctx, axlPointer user_data, axlPoi
 
 	/* return value from python handler */
 	return _result;
+}
+
+static PyObject * py_myqtt_ctx_gc (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	MyQttCtx * ctx;
+	axl_bool   disable_gc = axl_true;
+
+	/* now parse arguments */
+	static char *kwlist[] = {"disable_gc", NULL};
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords (args, kwds, "i", kwlist,  &disable_gc))
+		return NULL;
+
+	/* configure path */
+	ctx = py_myqtt_ctx_get (self);
+	myqtt_ctx_set_data (ctx, "py:ctx:gc:disable", INT_TO_PTR (disable_gc));
+
+	/* return None */
+	Py_INCREF (Py_None);
+	return Py_None;
 }
 
 static PyObject * py_myqtt_ctx_storage_set_path (PyObject * self, PyObject * args, PyObject * kwds)
@@ -1284,6 +1307,9 @@ static PyMethodDef py_myqtt_ctx_methods[] = {
 	/* init */
 	{"init", (PyCFunction) py_myqtt_ctx_init, METH_NOARGS,
 	 "Inits the MyQtt context starting all myqtt functions associated. This API call is required before using the rest of the MyQtt API."},
+	/* gc */
+	{"gc", (PyCFunction) py_myqtt_ctx_gc, METH_VARARGS | METH_KEYWORDS,
+	 "Allows to flag this Python object to avoid deallocating it internally, triggering myqtt_ctx_exit, when it is collected by python engine."},
 	/* exit */
 	{"exit", (PyCFunction) py_myqtt_ctx_exit, METH_NOARGS,
 	 "Finish the MyQtt context. This call must be the last one MyQtt API usage (for this context)."},

@@ -513,13 +513,13 @@ def test_08 ():
     # keep_alive = 30
     conn = myqtt.Conn (ctx, host, port, None, True, 30, opts)
     if not conn.is_ok ():
-        error ("Expected to find proper connection..")
+        error ("Expected to find proper connection (test_08)..")
         return False
 
     # connect without options
     conn2 = myqtt.Conn (ctx, host, port, None, True, 30)
     if not conn2.is_ok ():
-        error ("Expected to find proper connection..")
+        error ("Expected to find proper connection (test_08 -- 002)..")
         return False
 
     # subscripbe
@@ -531,7 +531,7 @@ def test_08 ():
     # create a third connection but without subscription
     conn3 = myqtt.Conn (ctx, host, port, None, True, 30)
     if not conn3.is_ok ():
-        error ("Expected to find proper connection..")
+        error ("Expected to find proper connection (test_08 -- 003)..")
         return False
 
     info ("Test --: 3 links connected, now close connection with will")
@@ -587,13 +587,13 @@ def test_09 ():
     # keep_alive = 30
     conn = myqtt.Conn (ctx, host, port, None, True, 30, opts)
     if not conn.is_ok ():
-        error ("Expected to find proper connection..")
+        error ("Expected to find proper connection (test_09 -- 001)..")
         return False
 
     # connect without options
     conn2 = myqtt.Conn (ctx, host, port, None, True, 30)
     if not conn2.is_ok ():
-        error ("Expected to find proper connection..")
+        error ("Expected to find proper connection (test_09 -- 002)..")
         return False
 
     # subscripbe
@@ -605,7 +605,7 @@ def test_09 ():
     # create a third connection but without subscription
     conn3 = myqtt.Conn (ctx, host, port, None, True, 30)
     if not conn3.is_ok ():
-        error ("Expected to find proper connection..")
+        error ("Expected to find proper connection (test_09 -- 003)..")
         return False
 
     info ("Test --: 3 links connected, now close connection with will")
@@ -718,6 +718,66 @@ def test_10 ():
     # no need to finish ctx
     return True
 
+def test_10a_queue (ctx, conn, msg, queue):
+    info ("Test 10-a: received message from listener, pushing into queue: " + msg.content)
+    info ("Test 10-a: topic=%s" % msg.topic)
+    queue.push (msg)
+    return
+
+def test_10a_configure_context ():
+    # call to initilize a context and to finish it 
+    ctx = myqtt.Ctx ()
+
+    # init context and finish it */
+    info ("init context..")
+    if not ctx.init ():
+        error ("Failed to init MyQtt context")
+        return False
+
+    # call to create a connection
+    # client_identifier = "test_10a_different"
+    # clean_session = False
+    # keep_alive = 30
+    conn = myqtt.Conn (ctx, host, port, "test_10a_different", True, 30)
+    if not conn.is_ok ():
+        error ("Expected being able to connect to %s:%s" % (host, tls_port))
+        return False
+
+    # configure reconnect function
+    queue = myqtt.AsyncQueue ()
+    conn.set_on_msg (test_10a_queue, queue)
+
+    if not conn.pub ("myqtt/admin/get-client-identifier", "", 0, myqtt.qos0, False, 0):
+        error ("Failed to publish message requesting client identifier..")
+        return False
+
+    time.sleep (1)
+
+    # ensure this context is not finished when this python variable is
+    # collected
+    info ("Test 10-a: disabling garbage connection ...")
+    ctx.gc (True)
+    conn.gc (True)
+
+    return queue
+
+def test_10a ():
+
+    # call to create context, connection, configure message handler
+    # and receive queue
+    info ("Test 10-a: create context, connection, queue, etc")
+    queue = test_10a_configure_context ()
+
+    # get message
+    info ("Test 10-a: getting message")
+    msg = queue.pop ()
+
+    
+    # no need to release queue
+    # no need to close conn
+    # no need to finish ctx
+    return True
+
 def test_11_log_handler (ctx, __file, line, log_level, msg, data):
     level_label = "-----"
     if log_level == myqtt.level_debug:
@@ -809,7 +869,7 @@ def test_17c_common (label, topic, msg_content, qos):
     # keep_alive = 30
     conn = myqtt.Conn (ctx, host, port, None, False, 30, None)
     if not conn.is_ok ():
-        error ("Expected to find proper connection..")
+        error ("Expected to find proper connection (test_17c -- 001)..")
         return False
 
     # subscripbe
@@ -926,10 +986,19 @@ def test_17d ():
     # client_identifier = None
     # clean_session     = True
     # keep_alive        = 30
-    conn = myqtt.Conn (ctx, host, port, "test_01", True, 30, None)
-    if not conn.is_ok ():
-        error ("Expected to find proper connection..")
-        return False
+    iterator = 0
+    while iterator < 10:
+        conn = myqtt.Conn (ctx, host, port, "test_01", True, 30, None)
+        if conn.is_ok ():
+            break
+        
+        if iterator > 10:
+            error ("Expected to find proper connection (test-17d)..")
+            return False
+        # end if
+
+        iterator += 1
+    # end while
 
     import hashlib
     topic = "my/product/reply/%s" % hashlib.md5 ("%s" % conn).hexdigest ()
@@ -958,7 +1027,7 @@ def test_17d ():
     # keep_alive        = 30
     conn2 = myqtt.Conn (ctx, host, port, "test_02", True, 30, None)
     if not conn2.is_ok ():
-        error ("Expected to find proper connection..")
+        error ("Expected to find proper connection (test-17d test_02)..")
         return False
 
     # subscribe
@@ -983,7 +1052,7 @@ def test_17d ():
     # keep_alive        = 30
     conn3 = myqtt.Conn (ctx, host, port, "test_03", True, 30, None)
     if not conn3.is_ok ():
-        error ("Expected to find proper connection..")
+        error ("Expected to find proper connection (test-17d test_03)..")
         return False
 
     if not conn3.pub ("get/my/products", topic, len (topic), 2, False, 10):
@@ -1159,7 +1228,7 @@ def test_19 ():
     # keep_alive = 30
     conn = myqtt.tls.create_conn (ctx, host, "1911", None, False, 30, opts)
     if conn.is_ok ():
-        error ("Expected to find proper connection..")
+        error ("Expected to find proper connection (test_19)..")
         return False
 
     # no need to close conn
@@ -1190,7 +1259,7 @@ def test_22_close_recover_and_send (conn, queue, label):
     queue.timedpop (10000000)
 
     if not conn.is_ok ():
-        error ("Expected to find proper connectiong working after reconnect but found it failing..")
+        error ("Expected to find proper connection working after reconnect but found it failing..")
         return False
 
     if conn.socket <= 0:
@@ -1202,7 +1271,7 @@ def test_22_close_recover_and_send (conn, queue, label):
     info ("Test --: %s -- so far, we should receive a reconnect.." % label)
 
     if not conn.is_ok ():
-        error ("Expected to find proper connectiong working after reconnect but found it failing (2)..")
+        error ("Expected to find proper connection working after reconnect but found it failing (2)..")
         return False
 
     if conn.socket <= 0:
@@ -1344,6 +1413,7 @@ tests = [
    (test_08,   "Check PyMyqtt test will support (without auth)"),
    (test_09,   "Check PyMyqtt test will is not published with disconnect (without auth)"),
    (test_10,   "Check PyMyqtt automatic reference collection"),
+   (test_10a,  "Check PyMyqtt check automatic deallocation doesn't finish context and connection "),
    (test_11,   "Check PyMyqtt set log handler "),
    (test_17c,  "Check PyMyqtt big message support"),
    (test_17d,  "Check PyMyqtt different exchanges with QoS 2 messages"),
