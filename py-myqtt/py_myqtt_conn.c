@@ -218,10 +218,11 @@ static PyObject * py_myqtt_conn_new (PyTypeObject *type, PyObject *args, PyObjec
 static void py_myqtt_conn_dealloc (PyMyQttConn* self)
 {
 #if defined(ENABLE_PY_MYQTT_LOG)
-	int conn_id = myqtt_conn_get_id (self->conn);
+	int        conn_id = myqtt_conn_get_id (self->conn);
 #endif
-	int ref_count;
+	int        ref_count;
 	PyObject * py_myqtt_ctx = NULL;
+	axl_bool   disable_gc   =  PTR_TO_INT (myqtt_conn_get_data (self->conn, "py:conn:gc:disable"));
 
 	py_myqtt_log (PY_MYQTT_DEBUG, "finishing PyMyQttConn id: %d (%p, MyQttConn %p, role: %s, close-ref: %d)", 
 		       conn_id, self, self->conn, __py_myqtt_conn_stringify_role (self->conn), self->close_ref);
@@ -239,7 +240,7 @@ static void py_myqtt_conn_dealloc (PyMyQttConn* self)
 			       myqtt_conn_ref_count (self->conn));
 
 		/* shutdown conn if itsn't flagged that way */
-		if (! self->skip_conn_close) {
+		if (! self->skip_conn_close && ! disable_gc) {
 			/* allow threads */
 			Py_BEGIN_ALLOW_THREADS
 			myqtt_conn_shutdown (self->conn);
@@ -247,9 +248,11 @@ static void py_myqtt_conn_dealloc (PyMyQttConn* self)
 			Py_END_ALLOW_THREADS
 		}
 
-		ref_count = myqtt_conn_ref_count (self->conn);
-		myqtt_conn_unref (self->conn, "py_myqtt_conn_dealloc when is ok");
-		py_myqtt_log (PY_MYQTT_DEBUG, "ref count after close: %d", ref_count - 1);
+		if (! disable_gc) {
+			ref_count = myqtt_conn_ref_count (self->conn);
+			myqtt_conn_unref (self->conn, "py_myqtt_conn_dealloc when is ok");
+			py_myqtt_log (PY_MYQTT_DEBUG, "ref count after close: %d", ref_count - 1);
+		}
 	} else {
 		py_myqtt_log (PY_MYQTT_DEBUG, "unref the conn id: %d", myqtt_conn_get_id (self->conn));
 		/* only unref the conn */
@@ -1181,6 +1184,27 @@ static PyObject * py_myqtt_conn_get_data (PyMyQttConn * self, PyObject * args)
 	return obj;
 }
 
+static PyObject * py_myqtt_conn_gc (PyObject * self, PyObject * args, PyObject * kwds)
+{
+	MyQttConn  * conn;
+	axl_bool     disable_gc = axl_true;
+
+	/* now parse arguments */
+	static char *kwlist[] = {"disable_gc", NULL};
+
+	/* parse and check result */
+	if (! PyArg_ParseTupleAndKeywords (args, kwds, "i", kwlist,  &disable_gc))
+		return NULL;
+
+	/* configure path */
+	conn = py_myqtt_conn_get (self);
+	myqtt_conn_set_data (conn, "py:conn:gc:disable", INT_TO_PTR (disable_gc));
+
+	/* return None */
+	Py_INCREF (Py_None);
+	return Py_None;
+}
+
 static PyMethodDef py_myqtt_conn_methods[] = { 
 	/* is_ok */
 	{"is_ok", (PyCFunction) py_myqtt_conn_is_ok, METH_NOARGS,
@@ -1236,6 +1260,9 @@ static PyMethodDef py_myqtt_conn_methods[] = {
 	/* is_blocked */
 	{"is_blocked", (PyCFunction) py_myqtt_conn_is_blocked, METH_VARARGS,
 	 "Allows to check blocked status applied by myqtt.Conn.block method."},
+	/* gc */
+	{"gc", (PyCFunction) py_myqtt_conn_gc, METH_VARARGS | METH_KEYWORDS,
+	 "Allows to flag this Python object to avoid deallocating it internally, triggering myqtt_ctx_exit, when it is collected by python engine."},
  	{NULL}  
 }; 
 
