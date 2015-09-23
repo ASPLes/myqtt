@@ -606,7 +606,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 		connection->buffer     = NULL;
 		connection->last_msg = NULL;
 
-		myqtt_log (MYQTT_LEVEL_DEBUG, "this already complete (total size: %d", msg->size);
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Incoming message + buffer complete (expected to receive %d, which completes total size: %d)", remaining, msg->size);
 		goto process_buffer;
 	} /* end if */
 	
@@ -982,7 +982,7 @@ axl_bool             myqtt_msg_send_raw     (MyQttConn * connection, const unsig
 		goto end;
 	}
 
-	myqtt_log (MYQTT_LEVEL_DEBUG, "bytes written: %d", bytes);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "bytes written: bytes=%d, requested=%d conn-id=%d", bytes, msg_size, connection->id);
 
 	if (bytes == 0) {
 		__myqtt_conn_shutdown_and_record_error (
@@ -1010,7 +1010,7 @@ axl_bool             myqtt_msg_send_raw     (MyQttConn * connection, const unsig
  		/* do retry operation */
  		goto implement_retry;
   	}
-	myqtt_log (MYQTT_LEVEL_DEBUG, "write on socket request=%d written=%d", msg_size, bytes);
+
  end:
 
  	/* clear waiting set before returning */
