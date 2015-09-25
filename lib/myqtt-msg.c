@@ -678,7 +678,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	iterator = 0;
 	while (iterator < 3) {
 		/* check if the highest order bit indicates whether
-		 * there is more bytes */
+		 * there are more bytes */
 		if (myqtt_get_bit (header[1 + iterator], 7) == 0)
 			break;
 
@@ -747,8 +747,8 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	msg->id   = __myqtt_msg_get_next_id (ctx, "get-next");
 	msg->ctx  = ctx;
 
-	myqtt_log (MYQTT_LEVEL_DEBUG, "New packet received: %s (msg-id=%d, type=%d, QoS=%d, dup=%d, retain=%d, conn-id=%d, conn=%p), header size indication is: %d (iterator=%d)", 
-		   myqtt_msg_get_type_str (msg), msg->id, msg->type, msg->qos, msg->dup, msg->retain, connection->id, connection, remaining, iterator);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "New packet received: %s (msg-id=%d, type=%d, QoS=%d, dup=%d, retain=%d, conn-id=%d, conn=%p), header size indication is: %d, total message size: %d", 
+		   myqtt_msg_get_type_str (msg), msg->id, msg->type, msg->qos, msg->dup, msg->retain, connection->id, connection, remaining, remaining + iterator + 1);
 
 	if (msg->size == 0) {
 		/* report message with empty payload */
