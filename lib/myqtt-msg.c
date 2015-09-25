@@ -300,7 +300,9 @@ unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 				return NULL;
 			} /* end if */
 
-			/* add the additional vlue */
+			myqtt_log (MYQTT_LEVEL_DEBUG, "MYQTT_PARAM_UTF8_STRING: Adding %d bytes + 2 to total: %d", ref_size, total_size);
+
+			/* add the additional value */
 			ref_size += 2;
 
 			break;
@@ -317,6 +319,8 @@ unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 				return NULL;
 			} /* end if */
 
+			myqtt_log (MYQTT_LEVEL_DEBUG, "MYQTT_PARAM_8BIT_INT: Adding %d to total: %d", ref_size, total_size);
+
 			break;
 		case MYQTT_PARAM_16BIT_INT:
 			/* report size */
@@ -331,6 +335,8 @@ unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 				return NULL;
 			} /* end if */
 
+			myqtt_log (MYQTT_LEVEL_DEBUG, "MYQTT_PARAM_16BIT_INT: Adding %d to total: %d", ref_size, total_size);
+
 			break;
 		case MYQTT_PARAM_BINARY_PAYLOAD:
 			/* get size */
@@ -344,6 +350,8 @@ unsigned char        * myqtt_msg_build        (MyQttCtx     * ctx,
 				va_end (args);
 				return NULL;
 			} /* end if */
+
+			myqtt_log (MYQTT_LEVEL_DEBUG, "MYQTT_PARAM_BINARY_PAYLOAD: Adding %d to total: %d", ref_size, total_size);
 
 			break;
 		case MYQTT_PARAM_SKIP:

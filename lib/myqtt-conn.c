@@ -2367,6 +2367,11 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 					 /* message */
 					 MYQTT_PARAM_BINARY_PAYLOAD, app_message_size, app_message,
 					 MYQTT_PARAM_END);
+
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Built PUBLISH qos=0 message size=%d packet-id=%d app-message-size=%d conn-id=%d",
+			   size, packet_id, app_message_size, conn->id);
+
+
 	} else if ((qos & MYQTT_QOS_1) == 1 || (qos & MYQTT_QOS_2) == 2) {
 
 		/* get free packet id */
@@ -2388,6 +2393,9 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 			return axl_false;
 		} /* end if */
 
+		myqtt_log (MYQTT_LEVEL_DEBUG, "Built PUBLISH qos=%d message size=%d packet-id=%d app-message-size=%d conn-id=%d",
+			   qos, size, packet_id, app_message_size, conn->id);
+
 		if (! skip_storage) {
 			/* store message before attempting to deliver it */
 			handle = myqtt_storage_store_msg (ctx, conn, packet_id, (qos & MYQTT_QOS_1) == 1 ? 1 : 2, msg, size);
@@ -2401,6 +2409,10 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
 				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to storage message for publication, unable to continue");
 				return axl_false;
 			} /* end if */
+
+			myqtt_log (MYQTT_LEVEL_DEBUG, "Stored PUBLISH message size=%d packet-id=%d app-message-size=%d conn-id=%d",
+				   size, packet_id, app_message_size, conn->id);
+
 		} /* end if */
 
 	} else {
