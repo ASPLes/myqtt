@@ -595,14 +595,17 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 			return NULL;
 		}
 
+		/* check if no data was received this type */
+		if (bytes_read == -2) 
+		        goto no_data_was_found;
+
 
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Bytes received this time: %d, expected: %d, total message size: %d, conn-id: %d", 
 			   bytes_read, remaining, msg->size, connection->id);
 
 		/* check data received */
 		if (bytes_read != remaining) {
-			/* add bytes read to keep on reading */
-			bytes_read += connection->bytes_read;
+		        bytes_read += connection->bytes_read;
 			myqtt_log (MYQTT_LEVEL_DEBUG, "the msg fragment isn't still complete, total read: %d", bytes_read);
 			goto save_buffer;
 		}
@@ -622,6 +625,9 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	/* parse msg header, read the first line */
 	bytes_read = myqtt_msg_receive_raw (connection, header, 2);
 	if (bytes_read == -2) {
+
+	no_data_was_found:
+
 		/* count number of non-blocking operations on this
 		 * connection to avoid iterating for ever */
 		connection->no_data_opers++;
@@ -783,6 +789,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 		 * connection will return the rest of msg to be read. */
 
 	save_buffer:
+
 		/* save current msg */
 		connection->last_msg = msg;
 		
