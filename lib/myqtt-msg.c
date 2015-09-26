@@ -82,6 +82,9 @@ int  __myqtt_msg_get_next_id (MyQttCtx * ctx, char  * from)
  * @{
  */
 
+#if defined(ENABLE_INTERNAL_TRACE_CODE)
+axl_bool __myqtt_msg_receive_raw_failure_count_ewouldblock = 0;
+#endif
 
 /** 
  * @internal
@@ -106,6 +109,21 @@ int         myqtt_msg_receive_raw  (MyQttConn * connection, unsigned char  * buf
 	/* avoid calling to read when no good socket is defined */
 	if (connection->session == -1)
 		return -1;
+
+
+#if defined(ENABLE_INTERNAL_TRACE_CODE)
+	if (__myqtt_msg_receive_raw_failure_count_ewouldblock > 0)  {
+                myqtt_log (MYQTT_LEVEL_WARNING,
+			   "simulating error (__myqtt_msg_receive_raw_failure_count_ewouldblock=%d)",
+			   __myqtt_msg_receive_raw_failure_count_ewouldblock);
+		/* simulate errno */
+		errno = MYQTT_EWOULDBLOCK;
+
+		__myqtt_msg_receive_raw_failure_count_ewouldblock--;
+		return -2;
+	} /* end if */
+#endif
+
 
  __myqtt_msg_readn_keep_reading:
 	/* clear buffer */

@@ -1287,6 +1287,11 @@ axl_bool __myqtt_conn_do_greetings_exchange (MyQttCtx      * ctx,
 			continue;
 		} else {
 
+			if (errno == MYQTT_EWOULDBLOCK) {
+				/* try to get connection again */
+				continue;
+			} /* end if */
+
 			/* null msg received */
 			myqtt_log (MYQTT_LEVEL_CRITICAL,
 				   "Connection refused. Received nul msg were it was expected initial greetings, finish connection id=%d", connection->id);

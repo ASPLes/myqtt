@@ -22,7 +22,7 @@ endif
 
 INCLUDES = $(compiler_options) $(ansi_option) -I$(top_srcdir) -D__COMPILING_MYQTT__ -D_BSD_SOURCE -D__axl_disable_broken_bool_def__  \
 	$(AXL_CFLAGS) $(INCLUDE_MYQTT_LOG) $(PTHREAD_CFLAGS) \
-	-DVERSION=\""$(MYQTT_VERSION)"\" \
+	-DVERSION=\""$(MYQTT_VERSION)"\" -DENABLE_INTERNAL_TRACE_CODE \
 	-DPACKAGE_DTD_DIR=\""$(datadir)"\" \
 	-DPACKAGE_TOP_DIR=\""$(top_srcdir)"\" $(INCLUDE_MYQTT_POLL) $(INCLUDE_MYQTT_EPOLL) $(INCLUDE_DEFAULT_EPOLL) $(INCLUDE_DEFAULT_POLL)
 
