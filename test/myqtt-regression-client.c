@@ -3364,6 +3364,129 @@ axl_bool test_17d (void) {
 	return axl_true;
 }
 
+#if defined(ENABLE_INTERNAL_TRACE_CODE)
+axl_bool test_17e (void) {
+	MyQttCtx          * ctx = init_ctx ();
+	MyQttConn         * conn;
+	MyQttConn         * conn2;
+	int                 sub_result;
+	MyQttAsyncQueue   * queue;
+	MyQttMsg          * msg;
+	const char        * label;
+	extern axl_bool     __myqtt_msg_receive_raw_failure_count_ewouldblock;
+
+	printf ("Test 17-e: checking test_03_common with connection failures..\n");
+	/* force a failure 10 times */
+	__myqtt_msg_receive_raw_failure_count_ewouldblock = 10;
+
+	if (! ctx)
+		return axl_false;
+
+	printf ("Test 17-e: creating connection..\n");
+
+	/* now connect to the listener:
+	   client_identifier -> test_03
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	conn = myqtt_conn_new (ctx, "test_03", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 17-e: connected without problems (enabling network errors..)..\n");
+
+	/* force a failure 10 times */
+	__myqtt_msg_receive_raw_failure_count_ewouldblock = 10;
+
+	/* now connect to the listener:
+	   client_identifier -> test_03
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	conn2 = myqtt_conn_new (ctx, "test_03-2", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn2, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 17-e: connected without problems (without subscriptions)..\n");
+
+	/* subscribe to a topic */
+	label = "myqtt/test";
+
+	/* force a failure 10 times */
+	__myqtt_msg_receive_raw_failure_count_ewouldblock = 10;
+
+	printf ("Test 17-e: subscribing to %s\n", label);
+	if (! myqtt_conn_sub (conn, 10, label, 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* register on message handler */
+	queue = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+	myqtt_conn_set_on_msg (conn2, test_03_fail, NULL);
+
+	/* force a failure 10 times */
+	__myqtt_msg_receive_raw_failure_count_ewouldblock = 10;
+
+	/* publish application message (the message sent here is
+	 * bigger than 24, this is on purpose) */
+	if (! myqtt_conn_pub (conn, "myqtt/test", "This is test message........", 24, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message, myqtt_conn_pub() failed\n");
+		return axl_false;
+	} /* end if */
+
+	/* force a failure 10 times */
+	__myqtt_msg_receive_raw_failure_count_ewouldblock = 10;
+
+	/* waiting for reply */
+	printf ("Test 17-e: waiting for reply..\n");
+	msg   = myqtt_async_queue_pop (queue);
+	if (msg == NULL) {
+		printf ("ERROR: expected to find message from queue, but NULL was found..\n");
+		return axl_false;
+	} /* end if */
+
+	/* check content */
+	if (myqtt_msg_get_app_msg_size (msg) != 24) {
+		printf ("ERROR: expected payload size of 24 but found %d\n", myqtt_msg_get_app_msg_size (msg));
+		return axl_false;
+	} /* end if */
+
+	if (myqtt_msg_get_type (msg) != MYQTT_PUBLISH) {
+		printf ("ERROR: expected to receive PUBLISH message but found: %s\n", myqtt_msg_get_type_str (msg));
+		return axl_false;
+	} /* end if */
+
+	/* check content */
+	if (! axl_cmp ((const char *) myqtt_msg_get_app_msg (msg), "This is test message....")) {
+		printf ("ERROR: expected to find different content..\n");
+		return axl_false;
+	} /* end if */
+
+	/* release message */
+	printf ("Test 17-e: releasing references=%d\n", myqtt_msg_ref_count (msg));
+	myqtt_msg_unref (msg);
+ 
+	/* close connection */
+	printf ("Test 17-e: closing connection..\n");
+	myqtt_conn_close (conn);
+	myqtt_conn_close (conn2);
+
+	myqtt_async_queue_unref (queue);
+
+	/* release context */
+	printf ("Test 17-e: releasing context refs=%d..\n", myqtt_ctx_ref_count (ctx));
+	myqtt_exit_ctx (ctx, axl_true);
+
+
+
+	return axl_true;
+}
+#endif
+
 #if defined(ENABLE_TLS_SUPPORT)
 axl_bool test_18 (void) {
 
@@ -5056,6 +5179,11 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_17d")
 	run_test (test_17d, "Test 17-d: check different exchanges with QoS 2 messages"); 
+
+#if defined(ENABLE_INTERNAL_TRACE_CODE)
+	CHECK_TEST("test_17e")
+	run_test (test_17e, "Test 17-e: check receiving content with connections returning EWOULDBLOCK");
+#endif
 
 #if defined(ENABLE_TLS_SUPPORT)
 	CHECK_TEST("test_18")

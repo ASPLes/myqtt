@@ -29,7 +29,7 @@ endif
 
 noinst_PROGRAMS = myqtt-regression-client myqtt-regression-listener
 
-INCLUDES = -I$(top_srcdir)/lib $(AXL_CFLAGS)  $(PTHREAD_CFLAGS) \
+INCLUDES = -I$(top_srcdir)/lib $(AXL_CFLAGS)  $(PTHREAD_CFLAGS) -DENABLE_INTERNAL_TRACE_CODE \
 	-I$(READLINE_PATH)/include $(compiler_options) -D__axl_disable_broken_bool_def__   \
         -DVERSION=\""$(MYQTT_VERSION)"\" -I$(top_srcdir)/lib $(INCLUDE_MYQTT_POLL) $(INCLUDE_MYQTT_EPOLL) $(INCLUDE_MYQTT_LOG) $(INCLUDE_TLS_SUPPORT) $(INCLUDE_WEBSOCKET_SUPPORT) $(INCLUDE_MOSQUITTO)
 
