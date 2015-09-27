@@ -225,7 +225,34 @@ Module API
 
       By default, any :class:`myqtt.Conn` object created will be finished when its environment finishes. This means that when the function that created the connection finished, then the connection will be finished automatically.
 
-      In many situations this is a desirable behaviour because your python application finishes automatically all the stuff opened. However, when the connection is created inside a handler or some method that implements connection startup but do not waits for the reply (asynchronous replies), then the connection must be still running until reply arrives. For these scenarios you have to use :meth:`skip_conn_close`.
+      In many situations this is a desirable behaviour because your
+      python application finishes automatically all the stuff
+      opened. However, when the connection is created inside a handler
+      or some method that implements connection startup but do not
+      waits for the reply (asynchronous replies), then the connection
+      must be still running until reply arrives. For these scenarios
+      you have to use :meth:`skip_conn_close`.
+
+   .. method:: gc ([disable_gc = True])
+
+      Allows to disable automatic memory collection for python
+      references finished. By default, PyMyQtt closes connections,
+      releases messages and finishes contexts when they are no longer
+      used (as notified by Python engine via _dealloc internal C
+      funciton).
+      
+      In general this is the recommended approach and in most of the
+      cases you'll notice any problem. 
+      
+      However, in some cases where it might be needed to disable this
+      deallocation (causing an automatic connection close, context
+      close, etc) when the scope where that variable is finished, then
+      use this function.
+
+      NOTE: using this code is really only recommended in very few
+      cases where myqtt usage is being done from a process that starts
+      and finishes on every requests, thus, resource deallocation is
+      not an issue. However, it is highly not recommended.
       
    .. attribute:: id
 
@@ -302,7 +329,6 @@ Module API
       used by this connection (if any) during CONNECT. It may not be
       defined later (because engine clears this value once used). In
       the case reconnect support is enabled, it will remain available.
-
 
    .. attribute:: ref_count
 
