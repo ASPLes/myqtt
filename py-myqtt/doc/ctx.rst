@@ -133,5 +133,25 @@ Module API
       value allows to group temporal messages into the number of
       folders provided. 4096 is a good recommended values.
 
+   .. method:: gc ([disable_gc = True])
+
+      Allows to disable automatic memory collection for python
+      references finished. By default, PyMyQtt closes connections,
+      releases messages and finishes contexts when they are no longer
+      used (as notified by Python engine via _dealloc internal C
+      funciton).
       
+      In general this is the recommended approach and in most of the
+      cases you'll notice any problem. 
+      
+      However, in some cases where it might be needed to disable this
+      deallocation (causing an automatic connection close, context
+      close, etc) when the scope where that variable is finished, then
+      use this function.
+
+      NOTE: using this code is really only recommended in very few
+      cases where myqtt usage is being done from a process that starts
+      and finishes on every requests, thus, resource deallocation is
+      not an issue. However, it is highly not recommended.
+            
     

@@ -758,6 +758,11 @@ def test_10a_configure_context ():
     info ("Test 10-a: disabling garbage connection ...")
     ctx.gc (True)
     conn.gc (True)
+    ## NOTE: using this code is really only recommended in very few
+    ## cases where myqtt usage is being done from a process that
+    ## starts and finishes on every requests, thus, resource
+    ## deallocation is not an issue. However, it is highly not
+    ## recommended.
 
     return queue
 
