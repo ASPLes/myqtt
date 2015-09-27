@@ -148,6 +148,8 @@ Module API
       deallocation (causing an automatic connection close, context
       close, etc) when the scope where that variable is finished, then
       use this function.
+      
+      Note using this function is very rare and highly not recommended.
 
       NOTE: using this code is really only recommended in very few
       cases where myqtt usage is being done from a process that starts
