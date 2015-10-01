@@ -23,6 +23,9 @@
 * Review:
   http://www.hivemq.com/mqtt-security-fundamentals-authorization/
 
+* Review:
+  http://www.hivemq.com/blog/mqtt-security-fundamentals-oauth-2-0-mqtt
+
 * Review fuzzing tool and use to check myqtt stack:
   https://groups.google.com/d/msg/mqtt/XoHva7vPsDM/UJhytUsmBLcJ
   https://github.com/F-Secure/mqtt_fuzz
