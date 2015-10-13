@@ -1,0 +1,82 @@
+                 --== MyQtt MQTT stack ==--
+                         Freebird
+                          0.6.3
+
+Advanced Software Production Line is proud to announce the first
+public stable release of the MyQtt MQTT statck.
+
+MyQtt is an Open Source professional MQTT stack written in ANSI C,
+which supports v3.1.1 and v3.1, focused on providing support to create
+MQTT servers/brokers. MyQtt has a modular design that allows creating
+MQTT brokers/servers by using the API provided by libMyQtt (which in
+fact is composed by several libraries: libmyqtt, libmyqtt-tls,
+libmyqtt-websocket). 
+
+It is also provided a ready to use MQTT broker called MyQttD which is
+built on top of libMyQtt. MyQttD server is extensible by adding C
+plugins.
+
+Commercially supported, it is released under the terms of LGPL 2.1 (so
+you can build OpenSource or commercial applications) and currently is
+being used by Core-Admin to provide a gateway to its API and by
+http://asplhosting.com as a M2M protocol to coordinate customer data and
+service activation across machines.
+
+Resources
+~~~~~~~~~
+
+   MyQtt homepage
+   [ http://www.aspl.es/myqtt ]
+
+   Commercial support
+   [ http://www.aspl.es/myqtt/commercial.html ]
+
+   Advanced Software Production Line, S.L.
+   [ http://www.aspl.es ]
+
+   Featured project: Core-Admin
+   [ http://www.core-admin.com ]
+
+This release in short
+~~~~~~~~~~~~~~~~~~~~~
+
+   First public stable release that includes support for the following
+   components:
+
+   - libMyQtt : C core library for all MQTT functions
+
+   - libMyQtt-TLS : C library with support for TLS/SSL 
+
+   - libMyQtt-WebSocket : C library with support for WebSocket
+
+   - PyMyQtt : Python API on top of libMyQtt, libMyQtt-TLS and
+     libMyQtt-WebSocket that provides full python support for client
+     and server side programming
+
+   - MyQttD : ready to use MQTT server built on top of libMyQtt
+
+Changes from previous release
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  - First public release :-)
+
+
+About Advanced Software Production Line, S.L. (ASPL)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Advanced Software Production Line (ASPL) provides GNU/Linux support
+  and consulting services to enable organisation to introduce
+  GNU/Linux into their processes, making other platforms to properly
+  interact with it.
+
+  You can contact us, using English or Spanish, at:
+
+       http://www.aspl.es - info@aspl.es
+
+  We hope MyQtt may be useful you. Enjoy MyQtt MQTT stack!
+
+--
+Francis Brosnan Blázquez           - francis@aspl.es
+Advanced Software Production Line  - http://www.aspl.es
+14th Oct 2015, Madrid (Spain)
+

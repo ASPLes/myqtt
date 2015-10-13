@@ -42,9 +42,9 @@ copyright = '2015, Advanced Software Production Line, S.L.'
 # other places throughout the built documents.
 #
 # The short X.Y version.
-version = '0.6.3'
+version = '0.6.3.b330'
 # The full version, including alpha/beta/rc tags.
-release = '0.6.3'
+release = '0.6.3.b330'
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:
