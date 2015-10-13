@@ -433,7 +433,7 @@ int main (int argc, char ** argv)
 		argc--;
 	} /* end if */
 
-	/* call to init the base library and close it */
+	/* call to init the base library */
 	ctx = init_ctx ();
 
 	/* configure storage */
