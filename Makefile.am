@@ -27,7 +27,7 @@ SUBDIRS = lib $(TLS_SUPPORT_DIR) $(WEBSOCKET_SUPPORT_DIR) server $(MYQTT_CLIENT_
 EXTRA_DIST = myqtt-1.0.pc.in VERSION get-python-config check-python-dir.py
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = myqtt-1.0.pc
+pkgconfig_DATA = myqtt-1.0.pc $(TLS_PKGCONFIG) $(WEBSOCKET_PKGCONFIG)
 
 all-local: update-defs
 

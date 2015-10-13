@@ -1523,7 +1523,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * \section licensing MyQtt stack licensing
  *
  * MyQtt stack is Open Source releaesd under LGPL 2.1, which allows to
- * used by Open and Closed source projects. See licensing for more information: http://www.aspl.es/myqtt/licensing
+ * used by Open and Closed source projects. See licensing for more information: http://www.aspl.es/myqtt/licensing.html
  *
  * \section documentation MyQttD Documentation
  *
@@ -1544,7 +1544,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * - \ref libmyqtt_api_reference
  * - \ref libmyqtt_api_manual
  * - \ref myqttd_developer_manual
- * - <a href="http://www.aspl.es/myqtt/py-myqtt/index.html">PyMyQtt API reference and manual</a>
+ * - <a href="http://www.aspl.es/myqtt/py-myqtt/html/index.html">PyMyQtt API reference and manual</a>
  *
  * <h2>Contact us</h2>
  *
@@ -1554,7 +1554,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * If you are interested in getting commercial support, you can
  * contact us at: <a href="mailto:info@aspl.es?subject=Myqtt support">info@aspl.es</a>. For more information see:
- * http://www.aspl.es/myqtt/commercial
+ * http://www.aspl.es/myqtt/commercial.html
  */
 
 /** 
@@ -1589,7 +1589,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * enabled) for all transports supported (mqtt, mqtt-tls, mqtt-ws and
  * myqtt-wss).
  *
- * - <b>Full support for Python</b> through <b>PyMyQtt</b>, see: http://www.aspl.es/myqtt/py-myqtt/index.html  
+ * - <b>Full support for Python</b> through <b>PyMyQtt</b>, see: http://www.aspl.es/myqtt/py-myqtt/html/index.html  
  *   (more bindings will be added).
  */
 
@@ -1628,7 +1628,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * \section installing_myqtt 1.1 Installing MyQtt using packages available
  *
- * Please, check the following page for ready to install MyQtt packages: http://www.aspl.es/myqtt/downloads
+ * Please, check the following page for ready to install MyQtt packages: http://www.aspl.es/myqtt/downloads.html
  *
  *
  * \section installing_myqtt_from_sources 1.2 Installing MyQtt from sources
@@ -1655,7 +1655,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * <h3>Building MyQttD from source on POSIX / Unix environments</h3>
  * 
  * It is assumed you have a platform that have autoconf, libtool, and
- * the rest of GNU tools to build software. Get the source code at the download page: http://www.aspl.es/myqtt/downloads
+ * the rest of GNU tools to build software. Get the source code at the download page: http://www.aspl.es/myqtt/downloads.html
  * 
  * MyQttD is compiled following the standard autoconf-compatible
  * procedure:
@@ -1672,7 +1672,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * - For <b>libMyQtt</b>: see \ref libmyqtt_api_manual "this manual" and also check \ref libmyqtt_api_reference
  *
- * - For <b>PyMyQtt</b>: see http://www.aspl.es/myqtt/py-myqtt/index.html 
+ * - For <b>PyMyQtt</b>: see http://www.aspl.es/myqtt/py-myqtt/html/index.html 
  *
  * - For <b>MyQttD</b>: now you must configure your MyQttD installation. See \ref configuring_myqttd
  *
@@ -2150,18 +2150,51 @@ const char    * myqttd_ensure_str      (const char * string)
 /** 
  * \page libmyqtt_api_manual libMyQtt API Manual
  *
- * \section libmyqtt_api_manual_intro Introduction
+ * \section libmyqtt_api_manual_index Index
+ * 
+ * <b>1. Client initial operations</b>
+ *
+ *  - \ref libmyqtt_api_manual_intro
+ *  - \ref libmyqtt_api_manual_creating_ctx
+ *  - \ref libmyqtt_api_manual_creating_conn
+ *  - \ref libmyqtt_api_manual_subscribe
+ *  - \ref libmyqtt_api_manual_publish
+ *  - \ref libmyqtt_api_manual_blocking_receive
+ *  - \ref libmyqtt_api_manual_async_on_message
+ *
+ * <b>2. Client connection options</b>
+ *
+ *  - \ref libmyqtt_api_manual_auth_on_connect
+ *  - \ref libmyqtt_api_manual_setup_will
+ *
+ * <b>3. MQTT over TLS support</b>
+ * 
+ *  - \ref  libmyqtt_api_manual_client_tls
+ *  - \ref  libmyqtt_api_manual_client_tls_mutual_auth
+ *
+ * <b>4. MQTT over WebSocket/TLS-WebSocket support</b>
+ *
+ *  - \ref  libmyqtt_api_manual_client_websocket
+ *
+ * <b>5. Server initial operations</b>
+ *
+ *  - \ref libmyqtt_api_manual_server_create
+ *  - \ref libmyqtt_api_manual_server_handling_on_connect
+ *  - \ref libmyqtt_api_manual_server_handling_on_publish
+ *
+ *
+ * \section libmyqtt_api_manual_intro 1.1 Introduction
  *
  * libMyQtt is a state-less, context based library that provides all
- * core functions needed to create a MQTT broker and client. libMyQtt
- * uses a threaded design and a set of handlers that the user must
- * configure to get async notifications at right time when: a message
- * is received, a connection is closed, etc..
+ * core functions needed to create a MQTT server/broker or
+ * client. libMyQtt uses a threaded design and a set of handlers that
+ * the user must configure to get async notifications at the right
+ * time when: a message is received, a connection is closed, etc..
  *
- * libMyQtt has core MQTT functions. Then, an independant and optional
- * library is provided to support SSL/TLS functions
- * (libMyQtt-TLS). The same happens with MQTT WebSocket support, which
- * is provided by libMyQtt-WebSocket
+ * <b>libMyQtt</b> implements core MQTT functions. Then, an independent
+ * optional library is provided to support SSL/TLS functions
+ * (<b>libMyQtt-TLS</b>). The same happens with MQTT WebSocket support, which
+ * is provided by <b>libMyQtt-WebSocket</b>.
  *
  * This manual assumes you already have libMyQtt installed in your
  * system. If this is not the case, please, check the following
@@ -2178,7 +2211,27 @@ const char    * myqttd_ensure_str      (const char * string)
  * - https://dolphin.aspl.es/svn/publico/myqtt/test/myqtt-regression-client.c    (Client code)
  * - https://dolphin.aspl.es/svn/publico/myqtt/test/myqtt-regression-listener.c   (Listener code)
  *
- * \section libmyqtt_api_manual_creating_ctx Creating a MyQttContext (MyQttCtx)
+ * To use libMyQtt, you'll have to include the following header:
+ *
+ * \code
+ * #include <myqtt.h>
+ * \endcode
+ *
+ * Then use pkg-config to include flags needed (they may change in your system/setup):
+ *
+ * \code
+ * >> pkg-config --cflags myqtt-1.0
+ * -pthread -I/usr/include/myqtt-1.0 -I/usr/include/axl  
+ * \endcode
+ *
+ * ...and libs:
+ *
+ * \code
+ * >> pkg-config --libs myqtt-1.0
+ * -lmyqtt-1.0 -lpthread -laxl -lm  
+ * \endcode
+ *
+ * \section libmyqtt_api_manual_creating_ctx 1.2 Creating a MyQttContext (MyQttCtx)
  *
  * The very first thing we have to do is to create a \ref MyQttCtx
  * (MyQtt context) which is the object that holds various
@@ -2209,13 +2262,403 @@ const char    * myqttd_ensure_str      (const char * string)
  * myqtt_storage_set_path (ctx, ".myqtt", 4096);
  * \endcode
  *
- * \section libmyqtt_api_manual_creating_conn Creating a MQTT Connection (MyQttConn)
+ * \section libmyqtt_api_manual_creating_conn 1.3 Creating a MQTT Connection (MyQttConn)
  *
  * Now, with a context created, we can create a client connection by
  * doing something like this:
  *
  * \code
+ * // now connect to the listener:  client_identifier -> test_01,  clean_session -> axl_true,  keep_alive -> 30 
+ * conn = myqtt_conn_new (ctx, "test_01", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+ * if (! myqtt_conn_is_ok (conn, axl_false)) {
+ *     printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+ *     return axl_false;
+ * } 
+ *
+ * // do here useful work
+ *
+ * // after that, close connection
+ * myqtt_conn_close (conn);
  * \endcode
+ *
+ * \section libmyqtt_api_manual_subscribe 1.4 Subscribing to a particular topic
+ *
+ * The following will attempt subscription to the provided topic, with
+ * QoS \ref MYQTT_QOS_0 (which could also be \ref MYQTT_QOS_1 and \ref
+ * MYQTT_QOS_2).
+ *
+ * Result is reported on sub_result variable. It is also posible to
+ * configure a wait timeout for subscription response (to avoid
+ * waiting for ever),
+ *
+ * \code
+ * int  sub_result;
+ *
+ * // subscribe to a topic 
+ * if (! myqtt_conn_sub (conn, 10, "myqtt/test", MYQTT_QOS_0, &sub_result)) {
+ *     printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+ *     return axl_false;
+ * } 
+ * \endcode
+ *
+ * \section libmyqtt_api_manual_publish 1.5 Publishing to a particular topic
+ *
+ * Publishing to a particular topic is pretty straightfoward:
+ *
+ * \code
+ * // publish an small message
+ * if (! myqtt_conn_pub (conn, "myqtt/test", "This is test message........", 24, MYQTT_QOS_0, axl_false, 0)) {
+ *     printf ("ERROR: unable to publish message, myqtt_conn_pub() failed\n");
+ *     return axl_false;
+ * } 
+ * \endcode
+ *
+ * Because publishing QoS \ref MYQTT_QOS_2 requires storing the
+ * message before sending it, you have to configure your client to
+ * indicate where to store those messages with:
+ *
+ * \code
+ * myqtt_storage_set_path (ctx, "<your-storage-folder>", 4096);
+ * \endcode
+ *
+ * \section libmyqtt_api_manual_blocking_receive 1.6 Blocking reception (for client code)
+ *
+ * For very simple setups, you can use the following call to get next
+ * incoming message due to subscriptions or server side
+ * configuration. This is never recommended for server side
+ * programming using libMyQtt (where async notifications are used):
+ *
+ * \code
+ * // publish an small message
+ * while (some_condition)  {
+ *      // push a message to ask for clientid identifier 
+ *      msg   = myqtt_conn_get_next (conn, 10000);
+ *      if (msg) {
+ *            // process message 
+ *      }
+ *
+ *      // release message after finishing
+ *      myqtt_msg_unref (msg);
+ * } 
+ * \endcode
+ *
+ * \section libmyqtt_api_manual_async_on_message 1.7 Async on message handler (receiving a notification when a message arrives)
+ *
+ * This is more sophisticated but recommended because it allows your
+ * application to keep on working and have it interrupted when a
+ * message arrives, calling to handler previously configured.
+ *
+ * \code
+ * // at some point you configure the on message handler
+ * myqtt_conn_set_on_msg (conn, on_message_received, NULL);
+ * \endcode
+ *
+ * Now, when a message is received, your handler <b>on_message_recieved</b> will be called for message processing:
+ *
+ * \code
+ * void on_message_recieved (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+ * {
+ *
+ *	// process your message handler 
+ *
+ *      // no need to myqtt_msg_unref (msg) because that reference remains valid during execution
+ *      // of this handler
+ *	return;
+ * }
+ * \endcode
+ *
+ * 
+ * \section libmyqtt_api_manual_auth_on_connect 2.1 Configuring authentication on connect
+ *
+ * \note Also check test_07 () implementation from regression test for a fully working example about this https://dolphin.aspl.es/svn/publico/myqtt/test/myqtt-regression-client.c
+ *
+ * If your MQTT server requires auth credentials you can set them
+ * before connecting as follows:
+ *
+ * \code
+ * // some variables needed
+ * MyQttConn       * conn;
+ * MyQttConnOpts   * opts;
+ *
+ * // create connection options and setup passwords user=aspl, password=test 
+ * opts = myqtt_conn_opts_new ();
+ * myqtt_conn_opts_set_auth (opts, "aspl", "test");
+ *
+ * // now connect to the server, passing opts
+ * conn = myqtt_conn_new (ctx, NULL, axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+ * if (myqtt_conn_is_ok (conn, axl_false)) {
+ *     printf ("ERROR: expected OK LOGIN but found failure operation to %s:%s..\n", listener_host, listener_port);
+ *     return axl_false;
+ * }
+ * \endcode
+ *
+ * \section libmyqtt_api_manual_setup_will 2.2 Will configuration
+ *
+ * \note Also check test_08 () implementation from regression test for a fully working example about this https://dolphin.aspl.es/svn/publico/myqtt/test/myqtt-regression-client.c
+ *
+ * Will message is configured using a connection option \ref myqtt_conn_opts_new , here is a example:
+ *
+ * \code
+ * // set will 
+ * myqtt_conn_opts_set_will (opts, MYQTT_QOS_2, "I lost connection", "Hey I lost connection, this is my status:....", axl_false);
+ * \endcode
+ * 
+ * \section libmyqtt_api_manual_client_tls 3.1 Connecting using TLS/SSL support
+ *
+ * \note Also check test_18 () implementation from regression test for a fully working example about this https://dolphin.aspl.es/svn/publico/myqtt/test/myqtt-regression-client.c
+ *
+ * You can create a \ref MyQttConn reference, representing a TLS
+ * connection using the following code. After it is created, the rest
+ * of the API provided by libMyQtt works the same. 
+ *
+ * To use libMyQttTLS you'll have to include the header like this:
+ *
+ * \code
+ * #include <myqtt-tls.h>
+ * \endcode
+ *
+ * Then, update your compilation references to include new flags and libs (it may change in your system):
+ * \code
+ * >> pkg-config --cflags myqtt-tls-1.0
+ * -pthread -DENABLE_TLS_SUPPORT -I/usr/include/myqtt-1.0 -I/usr/include/axl  
+ * \endcode
+ *
+ * ...and libs needed:
+ *
+ * \code
+ * >> pkg-config --libs myqtt-tls-1.0
+ * -lmyqtt-tls-1.0 -lmyqtt-1.0 -lpthread -laxl -lm  
+ * \endcode
+ *
+ * Now, having all compilation references in place, to create a basic TLS/SSL connection use the following:
+ *
+ * \code
+ * // disable verification (during development to support server side self-signed certificate)
+ * // otherwise, remove this code to let defaults, that is, ssl peer verify on
+ * opts = myqtt_conn_opts_new ();
+ * myqtt_tls_opts_ssl_peer_verify (opts, axl_false);
+ *
+ * // do a simple connection 
+ * conn = myqtt_tls_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_tls_port, opts, NULL, NULL);
+ * if (! myqtt_conn_is_ok (conn, axl_false)) {
+ *     printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_tls_port);
+ *     return axl_false;
+ * }
+ * \endcode
+ *
+ * \section libmyqtt_api_manual_client_tls_mutual_auth 3.2 Connecting using TLS/SSL support with mutual Auth (client certificates)
+ *
+ * \note Also check test_19 () implementation from regression test for a fully working example about this https://dolphin.aspl.es/svn/publico/myqtt/test/myqtt-regression-client.c
+ *
+ * In the case you want to enable mutual authentication, making client
+ * side to also provide certificates and may optionally be signed by a
+ * root certificate used by the MQTT server, expand your client TLS
+ * code to use the following option:
+ *
+ * \code
+ * // enable client side certificates and also, root ca certificate
+ * myqtt_tls_opts_set_ssl_certs (opts, 
+ *                               // certificate
+ *                               "client.pem",
+ *                               // private key 
+ *                               "client.pem",
+ *                               NULL,
+ *                               // ca certificate 
+ *                               "root.pem");
+ * \endcode
+ * 
+ *
+ * \section libmyqtt_api_manual_client_websocket 4.1 Connecting using WebSocke and WebSocket-TLS support
+ *
+ * \note Also check test_20 () implementation from regression test for a fully working example about this https://dolphin.aspl.es/svn/publico/myqtt/test/myqtt-regression-client.c
+ *
+ * You can create a \ref MyQttConn reference, representing a WebSocket
+ * connection using the following code. After it is created, the rest
+ * of the API provided by libMyQtt works the same. Note WebSocket
+ * support is provided through noPoll library
+ * (http://www.aspl.es/nopoll).
+ *
+ * To use libMyQttWebsocket you'll have to include the header like this:
+ *
+ * \code
+ * #include <myqtt-web-socket.h>
+ * \endcode
+ *
+ * Then, update your compilation references to include new flags and libs (it may change in your system):
+ * \code
+ * >> pkg-config --cflags myqtt-web-socket-1.0
+ * -pthread -DENABLE_WEBSOCKET_SUPPORT -I/usr/include/myqtt-1.0 -I/usr/include/nopoll -I/usr/include/axl
+ * \endcode
+ *
+ * ...and libs needed:
+ *
+ * \code
+ * >> pkg-config --libs myqtt-web-socket-1.0
+ * -lmyqtt-web-socket-1.0 -lmyqtt-1.0 -lpthread -lnopoll -laxl -lm
+ * \endcode
+ *
+ * Now, having all compilation references in place, to create a basic WebSocket connection use the following:
+ *
+ * \code
+ * // create first a noPoll connection, for that we need to
+ * // create a context 
+ * nopoll_ctx   = nopoll_ctx_new ();
+ * nopoll_conn  = nopoll_conn_new (nopoll_ctx, listener_host, listener_websocket_port, NULL, NULL, NULL, NULL);
+ * if (! nopoll_conn_is_ok (nopoll_conn)) {
+ *     printf ("ERROR: failed to connect remote host through WebSocket..\n");
+ *     return nopoll_false;
+ * } 
+ *
+ * // with the noPoll connection working, now create the MQTT session on top of it
+ * conn = myqtt_web_socket_conn_new (ctx, NULL, axl_false, 30, nopoll_conn, NULL, NULL, NULL);
+ * if (! myqtt_conn_is_ok (conn, axl_false)) {
+ *     printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_websocket_port);
+ *     return axl_false;
+ * }
+ * \endcode
+ *
+ * \section libmyqtt_api_manual_server_create 5.1 Creating a basic MQTT server 
+ *
+ * \note Also check server side regression for a fully working example about this https://dolphin.aspl.es/svn/publico/myqtt/test/myqtt-regression-listener.c
+ *
+ * To create a MQTT server with a basic behaviour where all messages
+ * are relied and all users are accepted use the following code:
+ *
+ * \code
+ * // call to init the base library
+ * ctx = init_ctx ();
+ *
+ * // init server storage folder
+ * myqtt_storage_set_path (ctx, ".myqtt-listener", 4096);
+ *
+ * // now create as many listeners as you want with
+ * listener = myqtt_listener_new (ctx, listener_host, listener_port, NULL, NULL, NULL);
+ * if (! myqtt_conn_is_ok (listener, axl_false)) {
+ *    printf ("ERROR: failed to start listener at: %s:%s..\n", listener_host, listener_port);
+ *    exit (-1);
+ * }
+ * \endcode
+ *
+ * After that, you can keep on configuring more settings and handlers
+ * to do interesting things but for now, let's have a working simple
+ * MQTT server running. Having said that, you need to make your
+ * listener code (usually a standalone console application) to call to
+ * the following function to wait for events:
+ *
+ * \code 
+ * // wait for listeners 
+ * printf ("Ready and accepting connections..OK\n");
+ * myqtt_listener_wait (ctx);
+ *
+ * // now close the library 
+ * myqtt_exit_ctx (ctx, axl_true);
+ * \endcode
+ *
+ * \section libmyqtt_api_manual_server_handling_on_connect 5.2 Handling on connect at server side
+ *
+ * With a working bare minimum MQTT server you can add on connect
+ * handler to accept or drop incoming connections based on any
+ * connection's attribute (source address for example) and/or auth
+ * indication or client id.
+ *
+ * Before calling to \ref myqtt_listener_wait, call to the following
+ * function, setting your on connect handler:
+ *
+ * \code
+ * // set on connect handler
+ * myqtt_ctx_set_on_connect (ctx, on_connect, NULL);
+ * \endcode
+ *
+ * Now, somewhere before in your code, define a function like this:
+ *
+ * \code
+ * MyQttConnAckTypes on_connect (MyQttCtx * ctx, MyQttConn * conn, axlPointer user_data)
+ * {
+ *	// check support for auth operations 
+ *	const char * username = myqtt_conn_get_username (conn);
+ *      const char * password = myqtt_conn_get_password (conn);
+ *
+ *	// check for user and password (if provided).  
+ *	if (username && password) {
+ *		if (! axl_cmp (username, "aspl") || !axl_cmp (password, "test")) {
+ *
+ *			// user and/or password is wrong 
+ *			return MYQTT_CONNACK_BAD_USERNAME_OR_PASSWORD;
+ *		}
+ *
+ *	}
+ *
+ *	if (axl_cmp (myqtt_conn_get_client_id (conn), "test_23")) {
+ *		printf ("Deferring connection accept for user aspl..\n");
+ *		myqtt_conn_ref (conn, "reply_deferred");
+ *		myqtt_thread_pool_new_event (ctx, 2000000, reply_deferred, conn, NULL);
+ *		
+ *		// user and/or password is wrong 
+ *		return MYQTT_CONNACK_DEFERRED;
+ *	} 
+ *
+ *	// report connection accepted 
+ *	return MYQTT_CONNACK_ACCEPTED;
+ *
+ *
+ * } // end on_connect 
+ * \endcode
+ * 
+ * As you can see, this is an example extracted from the regression
+ * test, where the on connect function allows to check username and
+ * password and do a very simple authentication code (which can be
+ * evolved to check those values against a MySQL database or something
+ * similar)..also there is a code that implements connection response
+ * according to the client id
+ *
+ * \section libmyqtt_api_manual_server_handling_on_publish 5.3 Handling on publish at server side: intercepting, routing, directing, updating and discarding  messages 
+ * 
+ * Possibly, the most interesting handler is the on publish method
+ * because it allows a server application built on top of libMyQtt to
+ * intercept a message and then do whatever it is needed.
+ *
+ * This is done by installing an on publish handler like follows:
+ *
+ * \code
+ * myqtt_ctx_set_on_publish (ctx, on_publish, NULL);
+ * \endcode
+ *
+ * Now, somewhere in your code before, you declare a function like this:
+ * \code
+ * MyQttPublishCodes on_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer user_data)
+ * {
+ *
+ *	// do something according to the topic received 
+ *	if (axl_cmp ("get-subscriptions", myqtt_msg_get_topic (msg))) {
+ *
+ *              // send a reply with a particular content	       
+ *		if (! myqtt_conn_pub (conn, myqtt_msg_get_topic (msg),
+ *				      // content 
+ *                                    content,
+ *				      // content length
+ *				      length,
+ *				      // options
+ *				      MYQTT_QOS_0, axl_false, 0)) 
+ *			printf ("ERROR: failed to publish..\n");
+ *		axl_free (aux_value);
+ *		return MYQTT_PUBLISH_DISCARD; // report received PUBLISH should be discarded 
+ *	} 
+ *
+ *
+ *	// by default allow all publish operations 
+ *	return MYQTT_PUBLISH_OK;
+ * }
+ * \endcode
+ *
+ * This is an example taken from the regression test (https://dolphin.aspl.es/svn/publico/myqtt/test/myqtt-regression-listener.c)
+ *
+ * In this example, the code applies some selection code to then use
+ * \ref MYQTT_PUBLISH_DISCARD to avoid publishing incoming message
+ * received, but before that, it publishes a different message to just
+ * the connection from where the initial message was received.
+ *
+ * Finally, if the handler wants to let go the message and continue
+ * with publish operation, it must return \ref MYQTT_PUBLISH_OK
  *
  */
 
@@ -2242,7 +2685,7 @@ const char    * myqttd_ensure_str      (const char * string)
  * Please, always refer to the following page to find ready to use
  * packages for your distribution:
  *
- * http://www.aspl.es/myqtt/downloads
+ * http://www.aspl.es/myqtt/downloads.html
  *
  * \section myqtt_quick_install_deps 2. Getting dependencies installed
  *
