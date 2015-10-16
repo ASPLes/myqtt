@@ -512,7 +512,10 @@ void __myqtt_reader_handle_connect (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 
 	/* handle deferred responses */
 	if (response == MYQTT_CONNACK_DEFERRED) {
-		myqtt_log (MYQTT_LEVEL_DEBUG, "CONNECT decision deferred");
+		myqtt_log (MYQTT_LEVEL_DEBUG, "CONNECT decision deferred id=%d to %s:%s (socket: %d, ctx: %p)", 
+			   conn->id,
+			   axl_check_undef (conn->host), 
+			   axl_check_undef (conn->port), conn->session, ctx);
 		return;
 	} /* end if */
 
