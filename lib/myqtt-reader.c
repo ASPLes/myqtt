@@ -223,6 +223,7 @@ void __myqtt_reader_async_run (MyQttConn * conn, MyQttMsg * msg, MyQttReaderHand
 		myqtt_msg_unref (msg);
 		myqtt_ctx_unref (&ctx);
 		myqtt_conn_unref (conn, "async-run-proxy");
+		axl_free (data);
 	}
 
 	return;
