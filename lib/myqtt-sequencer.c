@@ -50,6 +50,10 @@ axl_bool myqtt_sequencer_queue_data (MyQttCtx * ctx, MyQttSequencerData * data)
 
 	/* check state before handling this message with the sequencer */
 	if (ctx->myqtt_exit) {
+	        myqtt_log (MYQTT_LEVEL_CRITICAL, 
+			   "Unable to queue data for delivery, failed to send message, myqtt_sequencer_queue_data() failed, context is finishing (ctx->myqtt_exit=%d)",
+			   ctx->myqtt_exit);
+
 		/* axl_free (data->message); */
 		myqtt_msg_free_build (ctx, data->message, data->message_size);
 		axl_free (data);
@@ -132,7 +136,6 @@ axl_bool myqtt_sequencer_send                     (MyQttConn            * conn,
 	data->type         = type;
 
 	if (! myqtt_sequencer_queue_data (ctx, data)) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to queue data for delivery, failed to send message, myqtt_sequencer_queue_data() failed");
 		/* IMPORTANT NOTE: do not release msg here because
 		   this is already handled by
 		   myqtt_sequencer_queue_data */
