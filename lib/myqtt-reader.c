@@ -1753,8 +1753,11 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 
 		/* configure header */
 		reply    = axl_new (unsigned char, 4);
-		if (reply == NULL)
+		if (reply == NULL) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "PUBLISH: dropping publish request received (axl_new failed) (qos: %d, topic name: %s, packet id: %d, app msg size: %d, msg size: %d, conn-id=%d, conn=%p)",
+				   msg->qos, msg->topic_name, msg->packet_id, msg->app_message_size, msg->size, conn->id, conn);
 			return;
+		} /* end if */
 
 		/* prepare PUBREC reply */
 		reply[0] = (( 0x00000f & MYQTT_PUBREC) << 4);
@@ -1780,8 +1783,11 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 
 	/* prepare data */
 	data = __myqtt_reader_prepare_delivery (ctx, conn, msg);
-	if (data == NULL)
+	if (data == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "PUBLISH: dropping publish request received (__myqtt_reader_prepare_delivery failed) (qos: %d, topic name: %s, packet id: %d, app msg size: %d, msg size: %d, conn-id=%d, conn=%p)",
+			   msg->qos, msg->topic_name, msg->packet_id, msg->app_message_size, msg->size, conn->id, conn);
 		return; /* memory allocation failure */
+	} /* end if */
 
 	/* do delivery */
 	myqtt_thread_pool_new_task (ctx, __myqtt_reader_initiate_onward_delivery, data);
@@ -1827,8 +1833,11 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 
 		/* configure header to send PUBACK or PUBCOMP according to the QoS */
 		reply    = axl_new (unsigned char, 4);
-		if (reply == NULL)
+		if (reply == NULL) {
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "PUBLISH: dropping/failed to continue publish request received (axl_new failed) (qos: %d, topic name: %s, packet id: %d, app msg size: %d, msg size: %d, conn-id=%d, conn=%p)",
+				   msg->qos, msg->topic_name, msg->packet_id, msg->app_message_size, msg->size, conn->id, conn);
 			return;
+		} /* end if */
 
 		if (msg->qos == MYQTT_QOS_1)
 			reply[0] = (( 0x00000f & MYQTT_PUBACK) << 4);
