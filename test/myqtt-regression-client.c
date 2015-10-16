@@ -2907,7 +2907,7 @@ axl_bool test_17_publish_and_check (MyQttConn * conn, MyQttAsyncQueue * queue, a
 
 	/* check message received */
 	if (! axl_cmp (myqtt_msg_get_topic (msg), "this/is/a/test")) {
-		printf ("ERROR (1): expected to find a different topic but found: %s\n", myqtt_msg_get_topic (msg));
+		printf ("ERROR (1): expected to find a different topic but found: 'this/is/a/test' = '%s'\n", myqtt_msg_get_topic (msg));
 		return axl_false;
 	} /* end if */
 
@@ -3481,6 +3481,134 @@ axl_bool test_17e (void) {
 	printf ("Test 17-e: releasing context refs=%d..\n", myqtt_ctx_ref_count (ctx));
 	myqtt_exit_ctx (ctx, axl_true);
 
+
+
+	return axl_true;
+}
+
+axl_bool test_17f (void) {
+
+	MyQttCtx          * ctx = init_ctx ();
+
+	MyQttConn         * conn;
+	MyQttConn         * conn2;
+
+	int                 sub_result;
+	MyQttAsyncQueue   * queue;
+	MyQttMsg          * msg;
+	extern axl_bool     __myqtt_reader_close_conn_in_publish_onward_delivery;
+	MyQttConn         * listener;
+	const char        * listener_host = "127.0.0.1";
+	const char        * listener_port = "27891";
+	int                 iterator;
+
+	printf ("Test 17-f: checking connection failure during PUBLISH operation..\n");
+	/* enable force connection close on publish */
+	__myqtt_reader_close_conn_in_publish_onward_delivery = 1;
+
+	if (! ctx)
+		return axl_false;
+
+	/* create a local listener */
+	listener = myqtt_listener_new (ctx, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (listener, axl_false)) {
+		printf ("ERROR: failed to start listener at myqtt_listener_new () %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	iterator = 0;
+	while (iterator < 10) {
+		/* now connect to the listener:
+		   client_identifier -> test_03
+		   clean_session -> axl_true
+		   keep_alive -> 30 */
+		printf ("Test 17-f: creating connection (iterator = %d)..\n", iterator);
+		conn = myqtt_conn_new (ctx, "test_03", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+		if (myqtt_conn_is_ok (conn, axl_false))
+			break;
+		myqtt_conn_close (conn);
+		
+		/* sleep 50ms */
+		myqtt_sleep (50000);
+		iterator++;
+	}
+
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+		
+	printf ("Test 17-f: subscribing to myqtt/test\n");
+	if (! myqtt_conn_sub (conn, 10, "myqtt/test", 0, &sub_result)) {
+		printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d\n", sub_result);
+		return axl_false;
+	} /* end if */
+
+	/* register on message handler */
+	queue = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+
+	printf ("Test 17-f: subscribed..\n");
+
+	/* now connect to the listener:
+	   client_identifier -> test_03
+	   clean_session -> axl_true
+	   keep_alive -> 30 */
+	conn2 = myqtt_conn_new (ctx, "test_04", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn2, axl_false)) {
+		printf ("ERROR: unable to connect (2) to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* publish application message (the message sent here is
+	 * bigger than 24, this is on purpose) */
+	if (! myqtt_conn_pub (conn2, "myqtt/test", "This is test message........", 24, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message, myqtt_conn_pub() failed\n");
+		return axl_false;
+	} /* end if */
+
+	/* waiting for reply */
+	printf ("Test 17-f: waiting for reply (wait for 5 seconds)..\n");
+	msg   = myqtt_async_queue_timedpop (queue, 5000000);
+	if (msg == NULL) {
+		printf ("ERROR: expected to find message from queue, but NULL was found..\n");
+		return axl_false;
+	} /* end if */
+
+	/* check content */
+	if (myqtt_msg_get_app_msg_size (msg) != 24) {
+		printf ("ERROR: expected payload size of 24 but found %d\n", myqtt_msg_get_app_msg_size (msg));
+		return axl_false;
+	} /* end if */
+
+	if (myqtt_msg_get_type (msg) != MYQTT_PUBLISH) {
+		printf ("ERROR: expected to receive PUBLISH message but found: %s\n", myqtt_msg_get_type_str (msg));
+		return axl_false;
+	} /* end if */
+
+	/* check content */
+	if (! axl_cmp ((const char *) myqtt_msg_get_app_msg (msg), "This is test message....")) {
+		printf ("ERROR: expected to find different content..\n");
+		return axl_false;
+	} /* end if */
+
+	/* release message */
+	printf ("Test 17-f: releasing references=%d\n", myqtt_msg_ref_count (msg));
+	myqtt_msg_unref (msg);
+ 
+	/* close connection */
+	printf ("Test 17-f: closing connection..\n");
+	myqtt_conn_close (conn);
+	myqtt_conn_close (conn2);
+
+	myqtt_async_queue_unref (queue);
+
+	/* release context */
+	printf ("Test 17-f: releasing context refs=%d..\n", myqtt_ctx_ref_count (ctx));
+	myqtt_exit_ctx (ctx, axl_true);
+
+	/* restore default behaviour */
+	__myqtt_reader_close_conn_in_publish_onward_delivery = 0;
 
 
 	return axl_true;
@@ -5183,6 +5311,9 @@ int main (int argc, char ** argv)
 #if defined(ENABLE_INTERNAL_TRACE_CODE)
 	CHECK_TEST("test_17e")
 	run_test (test_17e, "Test 17-e: check receiving content with connections returning EWOULDBLOCK");
+
+	CHECK_TEST("test_17f")
+	run_test (test_17f, "Test 17-f: check connection close in the middle of a PUBLISH operation");
 #endif
 
 #if defined(ENABLE_TLS_SUPPORT)

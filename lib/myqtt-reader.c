@@ -218,7 +218,12 @@ void __myqtt_reader_async_run (MyQttConn * conn, MyQttMsg * msg, MyQttReaderHand
 		conn->is_blocked = axl_true;
 
 	/* run task */
-	myqtt_thread_pool_new_task (ctx, __myqtt_reader_async_run_proxy, data);
+	if (! myqtt_thread_pool_new_task (ctx, __myqtt_reader_async_run_proxy, data)) {
+		/* reduce message reference previously acquired */
+		myqtt_msg_unref (msg);
+		myqtt_ctx_unref (&ctx);
+		myqtt_conn_unref (conn, "async-run-proxy");
+	}
 
 	return;
 }
@@ -1607,6 +1612,10 @@ typedef struct __MyQttReaderOnwardDeliveryData {
 	MyQttCtx  * ctx;
 } MyQttReaderOnwardDeliveryData;
 
+#if defined(ENABLE_INTERNAL_TRACE_CODE)
+axl_bool __myqtt_reader_close_conn_in_publish_onward_delivery = 0;
+#endif
+
 MyQttReaderOnwardDeliveryData * __myqtt_reader_prepare_delivery (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg)
 {
 	MyQttReaderOnwardDeliveryData * data;
@@ -1615,9 +1624,17 @@ MyQttReaderOnwardDeliveryData * __myqtt_reader_prepare_delivery (MyQttCtx * ctx,
 	data = axl_new (MyQttReaderOnwardDeliveryData, 1);
 	if (data == NULL)
 		return NULL;
+
+#if defined(ENABLE_INTERNAL_TRACE_CODE)
+	/* force connection close preparing delivery */
+	if (__myqtt_reader_close_conn_in_publish_onward_delivery) {
+		myqtt_conn_shutdown (conn);
+	} /* end if */
+#endif
+
 	
 	/* get a reference during the whole process: conn */
-	if (! myqtt_conn_ref (conn, "onward_delivery")) {
+	if (! myqtt_conn_uncheck_ref (conn)) {
 		axl_free (data);
 		return NULL;
 	} /* end if */
