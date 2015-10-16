@@ -2294,6 +2294,11 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to get reply (__myqtt_reader_get_reply()), conn reference failed (myqtt_conn_ref) for packet_id=%d, conn-id=%d, conn=%p",
 			   packet_id, conn->id, conn);
 
+		/* release lock */
+		myqtt_mutex_lock (&conn->op_mutex);
+		axl_hash_delete (hash, INT_TO_PTR (packet_id));
+		myqtt_mutex_unlock (&conn->op_mutex);
+
 		/* failed to acquire reference, it is not safe to
 		 * continue, release the queue */
 		myqtt_async_queue_unref (queue);

@@ -1294,7 +1294,7 @@ axl_bool               myqtt_async_queue_ref       (MyQttAsyncQueue * queue)
 	v_return_val_if_fail (queue, axl_false);
 	
 	if (! (queue->reference > 0))
-	    return axl_false;
+		return axl_false;
 
 	/* get the mutex */
 	myqtt_mutex_lock (&queue->mutex);

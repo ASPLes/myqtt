@@ -3209,6 +3209,7 @@ void test_17_d_reply_message  (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg,
 	printf ("Test 17-d: sending reply message (message-test-17-d.txt) size=%d\n", size);
 	if (! myqtt_conn_pub (conn, myqtt_msg_get_app_msg (msg), (axlPointer) content, size, 2, axl_false, 10)) {
 		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		axl_free (content);
 		return;
 	} /* end if */
 
@@ -3641,13 +3642,13 @@ axl_bool test_18 (void) {
 	printf ("Test 18: pushing messages\n");
 
 	/* publish a message with retention */
-	if (! myqtt_conn_pub (conn, "this/is/a/test/18", "Test message 1", 14, MYQTT_QOS_2, axl_true, 10)) {
+	if (! myqtt_conn_pub (conn, "this/is/a/test/18/tls", "Test message 1", 14, MYQTT_QOS_2, axl_true, 10)) {
 		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
 		return axl_false;
 	} /* end if */
 
 	/* publish a message with retention */
-	if (! myqtt_conn_pub (conn, "this/is/a/test/18", "Test message 2", 14, MYQTT_QOS_2, axl_true, 10)) {
+	if (! myqtt_conn_pub (conn, "this/is/a/test/18/tls", "Test message 2", 14, MYQTT_QOS_2, axl_true, 10)) {
 		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
 		return axl_false;
 	} /* end if */
