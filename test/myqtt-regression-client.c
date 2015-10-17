@@ -174,6 +174,25 @@ const char * listener_tls_port = "1910";
 const char * listener_websocket_port = "1918";
 const char * listener_websocket_s_port = "1919";
 
+void __init_ctx_log_handler (MyQttCtx         * ctx,
+			     const char       * file,
+			     int                line,
+			     MyQttDebugLevel   log_level,
+			     const char       * message,
+			     va_list            args,
+			     axlPointer         user_data)
+{
+	if (log_level != MYQTT_LEVEL_CRITICAL)
+		return;
+
+	/* skip any notification about following message */
+	if (strstr (message, "remote side has disconnected without closing properly this session") != NULL)
+		return;
+
+	printf ("***\n*** critical %s:%d -- %s\n***\n", file, line,message);
+	return;
+}
+
 MyQttCtx * init_ctx (void)
 {
 	MyQttCtx * ctx;
@@ -195,6 +214,10 @@ MyQttCtx * init_ctx (void)
 
 	/* configure default storage location */
 	myqtt_storage_set_path (ctx, ".myqtt-regression-client", 4096);
+
+	/* configure critical reporting */
+	myqtt_log_set_handler (ctx, __init_ctx_log_handler, NULL);
+	myqtt_log_set_prepare_log (ctx, axl_true);
 
 	return ctx;
 }
@@ -2907,22 +2930,26 @@ axl_bool test_17_publish_and_check (MyQttConn * conn, MyQttAsyncQueue * queue, a
 
 	/* check message received */
 	if (! axl_cmp (myqtt_msg_get_topic (msg), "this/is/a/test")) {
-		printf ("ERROR (1): expected to find a different topic but found: 'this/is/a/test' = '%s'\n", myqtt_msg_get_topic (msg));
+		printf ("ERROR (1) -- %s (line %d): expected to find a different topic but found: 'this/is/a/test' = '%s'\n", 
+			test_label, __AXL_LINE__, myqtt_msg_get_topic (msg));
 		return axl_false;
 	} /* end if */
 
 	if (! axl_cmp (myqtt_msg_get_app_msg (msg), "This is a retained message for future subscribers..")) {
-		printf ("ERROR (2): expected to find a different app msg but found: %s\n", (const char *) myqtt_msg_get_app_msg (msg));
+		printf ("ERROR (2) -- %s (line: %d): expected to find a different app msg but found: %s\n", 
+			test_label, __AXL_LINE__, (const char *) myqtt_msg_get_app_msg (msg));
 		return axl_false;
 	} /* end if */
 
 	if (myqtt_msg_get_app_msg_size (msg) != 51) {
-		printf ("ERROR (3): expected to receive 51 as app msg size but found: %d\n", myqtt_msg_get_app_msg_size (msg));
+		printf ("ERROR (3) -- %s (line: %d): expected to receive 51 as app msg size but found: %d\n", 
+			test_label, __AXL_LINE__, myqtt_msg_get_app_msg_size (msg));
 		return axl_false;
 	} /* end if */
 
 	if (! myqtt_conn_unsub (conn, sub_topic, 14)) {
-		printf ("ERROR: unable to subscribe, myqtt_conn_unsub () failed, sub_result=%d\n", sub_result);
+		printf ("ERROR -- %s (line: %d): unable to subscribe, myqtt_conn_unsub () failed, sub_result=%d\n", 
+			test_label, __AXL_LINE__, sub_result);
 		return axl_false;
 	} /* end if */
 
@@ -2975,7 +3002,8 @@ axl_bool test_17_common (int wildcard) {
 
 	/* publish a message with retention */
 	if (! myqtt_conn_pub (conn, "this/is/a/test", "This is a retained message for future subscribers..", 51, MYQTT_QOS_2, axl_true, 10)) {
-		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		printf ("ERROR -- %s (line %d): unable to publish retained message.. myqtt_conn_pub () failed..\n",
+			test_label, __AXL_LINE__);
 		return axl_false;
 	} /* end if */
 
@@ -2988,7 +3016,7 @@ axl_bool test_17_common (int wildcard) {
 	queue = myqtt_async_queue_new ();
 
 	/* do a simple connection */
-	conn = myqtt_conn_new (ctx, NULL, axl_false, 30, listener_host, listener_port, NULL, NULL, NULL);
+	conn = myqtt_conn_new (ctx, NULL, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		printf ("ERROR: expected being able to connect to %s:%s..\n", listener_host, listener_port);
 		return axl_false;
@@ -3086,7 +3114,8 @@ axl_bool test_17c_common (const char * label, const char * topic, const char * m
 
 	/* publish a message with retention */
 	if (! myqtt_conn_pub (conn, topic, (axlPointer) msg_content, strlen (msg_content), qos, retain_flag, 10)) {
-		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		printf ("ERROR -- %s (line %d): unable to publish retained message.. myqtt_conn_pub () failed..\n",
+			label, __AXL_LINE__);
 		return axl_false;
 	} /* end if */
 
@@ -3208,7 +3237,7 @@ void test_17_d_reply_message  (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg,
 	/* publish message to the provided topic */
 	printf ("Test 17-d: sending reply message (message-test-17-d.txt) size=%d\n", size);
 	if (! myqtt_conn_pub (conn, myqtt_msg_get_app_msg (msg), (axlPointer) content, size, 2, axl_false, 10)) {
-		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
+		printf ("ERROR -- Test 17-d: unable to publish retained message.. myqtt_conn_pub () failed..\n");
 		axl_free (content);
 		return;
 	} /* end if */
@@ -3619,9 +3648,13 @@ axl_bool test_17f (void) {
 #if defined(ENABLE_TLS_SUPPORT)
 axl_bool test_18 (void) {
 
-	MyQttCtx        * ctx = init_ctx ();
-	MyQttConn       * conn;
-	MyQttConnOpts   * opts;
+	MyQttCtx           * ctx = init_ctx ();
+	MyQttConn          * conn;
+	MyQttConnOpts      * opts;
+	char               * client_id;
+	char               * msg_content;
+	MyQttAsyncQueue    * queue;
+	MyQttMsg           * msg;
 
 	if (! ctx)
 		return axl_false;
@@ -3639,6 +3672,28 @@ axl_bool test_18 (void) {
 		return axl_false;
 	} /* end if */
 
+	/* register on message handler */
+	queue = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+
+	/* call to get client identifier */
+	if (! myqtt_conn_pub (conn, "myqtt/admin/get-client-identifier", "", 0, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: unable to publish message to get client identifier..\n");
+		return axl_false;
+	} /* end if */
+
+	/* get message */
+	msg   = myqtt_async_queue_pop (queue);
+	if (msg == NULL) {
+		printf ("ERROR: failed to get client identifier, NULL message received..\n");
+		return axl_false;
+	} /* end if */
+
+	myqtt_async_queue_unref (queue);
+	client_id = axl_strdup (myqtt_msg_get_app_msg (msg));
+	myqtt_msg_unref (msg);
+	printf ("Test 18: client identifier as a consequence of connecting is: %s\n", client_id);
+
 	printf ("Test 18: pushing messages\n");
 
 	/* publish a message with retention */
@@ -3648,10 +3703,12 @@ axl_bool test_18 (void) {
 	} /* end if */
 
 	/* publish a message with retention */
-	if (! myqtt_conn_pub (conn, "this/is/a/test/18/tls", "Test message 2", 14, MYQTT_QOS_2, axl_true, 10)) {
+	msg_content = axl_strdup_printf ("Test message 2 %s", client_id);
+	if (! myqtt_conn_pub (conn, "this/is/a/test/18/tls", msg_content, strlen (msg_content), MYQTT_QOS_2, axl_true, 10)) {
 		printf ("ERROR: unable to publish retained message.. myqtt_conn_pub () failed..\n");
 		return axl_false;
 	} /* end if */
+	axl_free (msg_content);
 
 	printf ("Test 18: checking connection\n");
 
@@ -3672,6 +3729,9 @@ axl_bool test_18 (void) {
 	/* release context */
 	printf ("Test 18: releasing context\n");
 	myqtt_exit_ctx (ctx, axl_true);
+
+	/* clear client id */
+	axl_free (client_id);
 
 	return axl_true;
 }
@@ -4019,6 +4079,7 @@ axl_bool test_20b (void) {
 	noPollCtx       * nopoll_ctx;
 	noPollConnOpts  * opts;
 	MyQttMsg        * msg;
+	MyQttAsyncQueue * queue;
 
 	if (! ctx)
 		return axl_false;
@@ -4077,6 +4138,11 @@ axl_bool test_20b (void) {
 		return axl_false;
 	} /* end if */
 
+	printf ("Test 20-b: publishing message, myqtt_conn_pub () \n");
+	/* create queue */
+	queue = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+
 	/* call to get client identifier */
 	if (! myqtt_conn_pub (conn, "myqtt/admin/get-tls-status", "", 0, MYQTT_QOS_0, axl_false, 0)) {
 		printf ("ERROR: unable to publish message to get client identifier..\n");
@@ -4084,9 +4150,11 @@ axl_bool test_20b (void) {
 	} /* end if */
 
 	/* push a message to ask for clientid identifier */
-	msg   = myqtt_conn_get_next (conn, 10000);
+	printf ("Test 20-b: Waiting for message (myqtt_conn_get_next), (10seconds at most) \n");
+	msg   = myqtt_async_queue_timedpop (queue, 10000000);
+	myqtt_async_queue_unref (queue);
 	if (msg == NULL) {
-		printf ("ERROR: expected to find message reply...but nothing was found..\n");
+		printf ("ERROR: expected to find message reply (test-20-b)...but nothing was found..\n");
 		return axl_false;
 	} /* end if */
 

@@ -89,7 +89,7 @@ void __myqtt_conn_init_mutex (MyQttConn * connection)
 
 
 /** 
- * @internal Fucntion that perform the connection socket sanity check.
+ * @internal Function that perform the connection socket sanity check.
  * 
  * This prevents from having problems while using socket descriptors
  * which could conflict with reserved file descriptors such as 0,1,2..
@@ -158,7 +158,7 @@ int  myqtt_conn_default_receive (MyQttConn          * connection,
 }
 
 /** 
- * @internal Support function for connection identificators.
+ * @internal Support function for connection identifications.
  *
  * This is used to generate and return the next connection identifier.
  *
@@ -220,7 +220,7 @@ typedef struct _MyQttConnOnCloseData {
  * This function also sets the default handler for sending and
  * receiving data using the send and recv operations. If you are
  * developing a MQTT solution which needs to notify the way data is actually
- * sent or received you should change that behavior after calling
+ * sent or received you should change that behaviour after calling
  * this function. This is done by using:
  *
  *  - \ref myqtt_conn_set_send_handler
@@ -265,7 +265,7 @@ MyQttConn * myqtt_conn_new_empty            (MyQttCtx *    ctx,
  * @param role The connection role to be set to this function.
  * 
  * @return A newly created connection, using the provided data, that
- * must be deallocated using \ref myqtt_conn_close.
+ * must be de-allocated using \ref myqtt_conn_close.
  */
 MyQttConn * myqtt_conn_new_empty_from_conn (MyQttCtx        * ctx,
 					    MYQTT_SOCKET      socket,
@@ -527,15 +527,15 @@ axl_bool      myqtt_conn_set_blocking_socket (MyQttConn    * connection)
 }
 
 /** 
- * \brief Allows to change connection semantic to nonblocking.
+ * \brief Allows to change connection semantic to non-blocking.
  *
  * Sets a connection to be non-blocking while sending and receiving
  * data. This function should not be useful for MyQtt Library
  * consumers.
  * 
- * @param connection the connection to set as nonblocking.
+ * @param connection the connection to set as non-blocking.
  * 
- * @return axl_true if nonblocking state was set or axl_false if not.
+ * @return axl_true if non-blocking state was set or axl_false if not.
  */
 axl_bool      myqtt_conn_set_nonblocking_socket (MyQttConn * connection)
 {
@@ -569,14 +569,14 @@ axl_bool      myqtt_conn_set_nonblocking_socket (MyQttConn * connection)
 		return axl_false;
 	}
 
-	myqtt_log (MYQTT_LEVEL_DEBUG, "actual flags state before setting nonblocking: %d", flags);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "actual flags state before setting non-blocking: %d", flags);
 	flags |= O_NONBLOCK;
 	if (fcntl (connection->session, F_SETFL, flags) < 0) {
 		__myqtt_conn_shutdown_and_record_error (
 			connection, MyQttError, "unable to set non-blocking I/O");
 		return axl_false;
 	}
-	myqtt_log (MYQTT_LEVEL_DEBUG, "actual flags state after setting nonblocking: %d", flags);
+	myqtt_log (MYQTT_LEVEL_DEBUG, "actual flags state after setting non-blocking: %d", flags);
 #endif
 	myqtt_log (MYQTT_LEVEL_DEBUG, "setting connection as non-blocking");
 	return axl_true;
@@ -615,7 +615,7 @@ axl_bool                 myqtt_conn_set_sock_tcp_nodelay   (MYQTT_SOCKET socket,
 } /* end */
 
 /** 
- * @brief Allows to enable/disable non-blocking/blocking behavior on
+ * @brief Allows to enable/disable non-blocking/blocking behaviour on
  * the provided socket.
  * 
  * @param socket The socket to be configured.
@@ -650,7 +650,7 @@ axl_bool                 myqtt_conn_set_sock_block         (MYQTT_SOCKET socket,
 		} /* end if */
 #endif
 	} else {
-		/* enable nonblocking mode */
+		/* enable non-blocking mode */
 #if defined(AXL_OS_WIN32)
 		/* win32 case */
 		if (!myqtt_win32_nonblocking_enable (socket)) {
@@ -680,7 +680,7 @@ void __free_addr_info (axlPointer ptr)
 
 /** 
  * @internal wrapper to avoid possible problems caused by the
- * gethostbyname implementation which is not required to be reentrant
+ * gethostbyname implementation which is not required to be re-entrant
  * (thread safe).
  *
  * @param ctx The context where the operation will be performed.
@@ -688,7 +688,7 @@ void __free_addr_info (axlPointer ptr)
  * @param hostname The host to translate.
  * 
  * @return A reference to the struct hostent or NULL if it fails to
- * resolv the hostname.
+ * resolve the hostname.
  */
 struct addrinfo * myqtt_gethostbyname (MyQttCtx           * ctx, 
 					const char          * hostname, 
@@ -703,10 +703,10 @@ struct addrinfo * myqtt_gethostbyname (MyQttCtx           * ctx,
 	if (ctx == NULL || hostname == NULL)
 		return NULL;
 	
-	/* lock and resolv */
+	/* lock and resolve */
 	myqtt_mutex_lock (&ctx->connection_hostname_mutex);
 
-	/* resolv using the hash */
+	/* resolve using the hash */
 	key = axl_strdup_printf ("%s:%s", hostname, port);
 	res = axl_hash_get (ctx->connection_hostname, (axlPointer) key);
 	if (res) {
@@ -757,7 +757,7 @@ struct addrinfo * myqtt_gethostbyname (MyQttCtx           * ctx,
 	myqtt_mutex_unlock (&ctx->connection_hostname_mutex);
 
 	/* no need to release key here: this will be done once
-	 * ctx->connection_hostname hash is fihished */
+	 * ctx->connection_hostname hash is finished */
 
 	return res;
 	
@@ -834,7 +834,7 @@ int __myqtt_conn_wait_on (MyQttCtx           * ctx,
 				
 		/* perform wait operation */
 		err = myqtt_io_waiting_invoke_wait (ctx, wait_set, session, wait_for);
-		myqtt_log (MYQTT_LEVEL_DEBUG, "__myqtt_conn_wait_on (sock=%d) operation finished, err=%d, errno=%d (%s), wait_for=%d (ellapsed: %d)",
+		myqtt_log (MYQTT_LEVEL_DEBUG, "__myqtt_conn_wait_on (sock=%d) operation finished, err=%d, errno=%d (%s), wait_for=%d (elapsed: %d)",
 			    session, err, errno, myqtt_errno_get_error (errno) ? myqtt_errno_get_error (errno) : "", wait_for, (int) (time (NULL) - start_time));
 
 		/* check for bad file description error */
@@ -870,7 +870,7 @@ int __myqtt_conn_wait_on (MyQttCtx           * ctx,
 
 	} /* end while */
 	
-	myqtt_log (MYQTT_LEVEL_DEBUG, "timeout operation finished, with err=%d, errno=%d, ellapsed time=%d (seconds)", 
+	myqtt_log (MYQTT_LEVEL_DEBUG, "timeout operation finished, with err=%d, errno=%d, elapsed time=%d (seconds)", 
 		    err, errno, (int) (time (NULL) - start_time));
 
 	/* destroy waiting set */
@@ -1033,7 +1033,7 @@ MYQTT_SOCKET myqtt_conn_sock_connect_common (MyQttCtx            * ctx,
 
 	/* if a connection timeout is defined, wait until connect */
 	if (timeout && ((*timeout) > 0)) {
-		/* wait for write operation, signaling that the
+		/* wait for write operation, signalling that the
 		 * connection is available */
 		err = __myqtt_conn_wait_on (ctx, WRITE_OPERATIONS, session, timeout);
 
@@ -1177,7 +1177,7 @@ axl_bool      myqtt_conn_parse_greetings_and_enable (MyQttConn * connection,
 {
 	MyQttCtx        * ctx;
 
-	/* check parametes received */
+	/* check parameters received */
 	if (connection == NULL || msg == NULL)
 		return axl_false;
 
@@ -1261,7 +1261,7 @@ axl_bool __myqtt_conn_do_greetings_exchange (MyQttCtx      * ctx,
 		} else if (timeout > 0 && myqtt_conn_is_ok (connection, axl_false)) {
 
 			myqtt_log (MYQTT_LEVEL_WARNING, 
-				    "found NULL msg referecence connection=%d, checking to wait timeout=%d seconds for read operation..",
+				    "found NULL msg reference connection=%d, checking to wait timeout=%d seconds for read operation..",
 				    connection->id, timeout);
 
 			/* try to perform a wait operation */
@@ -1294,7 +1294,7 @@ axl_bool __myqtt_conn_do_greetings_exchange (MyQttCtx      * ctx,
 
 			/* null msg received */
 			myqtt_log (MYQTT_LEVEL_CRITICAL,
-				   "Connection refused. Received nul msg were it was expected initial greetings, finish connection id=%d", connection->id);
+				   "Connection refused. Received null msg were it was expected initial greetings, finish connection id=%d", connection->id);
 			
 			/* timeout reached while waiting for the connection to terminate */
 			shutdown (connection->session, SHUT_RDWR);
@@ -1339,7 +1339,7 @@ void __myqtt_conn_new_internal (MyQttCtx * ctx, MyQttConn * connection, MyQttCon
 		/* init setup user data */
 		setup_user_data = connection->setup_user_data;
 
-		/* before calling sesion setup, check and call init session setup if defined */
+		/* before calling session setup, check and call init session setup if defined */
 		if (setup_user_data == NULL &&  opts && opts->init_session_setup_ptr) {
 			/* call to create the session setup pointer */
 			setup_user_data = opts->init_session_setup_ptr (ctx, connection, 
@@ -1518,7 +1518,7 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
 	struct timeval     stamp;
 	char               hostname[513];
 
-	/* check context is initialized */
+	/* check context is initialised */
 	if ((! myqtt_init_check (ctx)) || ctx->myqtt_exit) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create connection myqtt_init_check () is failing or myqtt is exiting");
 		return NULL;
@@ -1655,7 +1655,7 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
  *
  * @param user_data User defined pointer that will be passed to the on_connected handler (in case it is defined).
  *
- * @return A reference to the newli created connection or NULL if
+ * @return A reference to the newly created connection or NULL if
  * on_connected handler is provided. In both cases, the reference
  * returned (or received at the on_connected handler) must be checked
  * with \ref myqtt_conn_is_ok. 
@@ -1665,7 +1665,7 @@ MyQttConn  * myqtt_conn_new_full_common        (MyQttCtx             * ctx,
  * After successful connection with clean_session set to axl_false and
  * defined client identifier, the library will resend any queued or in
  * flight QoS1/QoS2 messages (as well as QoS0 if they were
- * stored). This is done in background without intefering the caller.
+ * stored). This is done in background without interfering the caller.
  *
  * If you need to get the number of queued messages that are going to
  * be sent use \ref myqtt_storage_queued_messages_offline. In the case
@@ -1720,7 +1720,7 @@ MyQttConn  * myqtt_conn_new                    (MyQttCtx       * ctx,
  *
  * @param user_data User defined pointer that will be passed to the on_connected handler (in case it is defined).
  *
- * @return A reference to the newli created connection or NULL if
+ * @return A reference to the newly created connection or NULL if
  * on_connected handler is provided. In both cases, the reference
  * returned (or received at the on_connected handler) must be checked
  * with \ref myqtt_conn_is_ok.
@@ -1739,7 +1739,7 @@ MyQttConn  * myqtt_conn_new6                   (MyQttCtx       * ctx,
 	return myqtt_conn_new_full_common (ctx, client_identifier, clean_session, keep_alive, host, port, 
 					   /* session setup handlers */
 					   NULL, NULL, 
-					   /* on onnected handlers, transport, options and user data */
+					   /* on connected handlers, transport, options and user data */
 					   on_connected, MYQTT_IPv6, opts, user_data);
 }
 
@@ -1974,7 +1974,7 @@ const char        * myqtt_conn_get_code_to_err (MyQttConnAckTypes code)
 	case MYQTT_CONNACK_BAD_USERNAME_OR_PASSWORD:
 		return "Return code for connection refused, bad user name or password";
 	case MYQTT_CONNACK_NOT_AUTHORIZED:
-		return "Return code for connection refused, not authorized";
+		return "Return code for connection refused, not authorised";
 	}
 
 	return "Unknown error code";
@@ -1993,7 +1993,7 @@ int __myqtt_conn_get_next_pkgid_aux (MyQttCtx * ctx, MyQttConn * conn, MyQttQos 
 
 	/* init pkgids database */
 	if (! myqtt_storage_init (ctx, conn, MYQTT_STORAGE_PKGIDS)) {
-		/* failed to initialize package ids */
+		/* failed to initialise package ids */
 		return pkg_id;
 	} /* end if */
 
@@ -2162,8 +2162,8 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 		/* wait here for puback reply limiting wait by wait_sub */
 		reply = __myqtt_reader_get_reply (conn, packet_id, wait_publish, axl_false);
 		if (reply == NULL || reply->type != MYQTT_PUBACK || reply->packet_id != packet_id) {
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expecting PUBACK, received empty reply, wrong reply type or different packet id in reply=%p (%s) (packet id=%d != %d) conn=%p conn-id=%d",
-				   reply, reply ? myqtt_msg_get_type_str (reply) : "UNKNOWN", reply ? reply->packet_id : -1, packet_id, conn, conn->id);
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expecting PUBACK, received empty reply, wrong reply type or different packet id in reply=%p (%s) (packet id=%d != %d) conn=%p conn-id=%d, wait_publish=%d",
+				   reply, reply ? myqtt_msg_get_type_str (reply) : "UNKNOWN", reply ? reply->packet_id : -1, packet_id, conn, conn->id, wait_publish);
 			result = axl_false; /* signal that publication didn't work */
 		} /* end if */
 		myqtt_msg_unref (reply);
@@ -2176,8 +2176,8 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Getting PUBREC reply for packet_id=%d conn-id=%d conn=%p", packet_id, conn->id, conn);
 		reply = __myqtt_reader_get_reply (conn, packet_id, wait_publish, axl_false);
 		if (reply == NULL || reply->type != MYQTT_PUBREC || reply->packet_id != packet_id) {
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expecting PUBREC, received empty reply (%p), wrong reply type (%s) or different packet id in reply (%d ? %d)",
-				   reply, reply ? myqtt_msg_get_type_str (reply) : "UNKNOWN", reply ? reply->packet_id : -1, packet_id);
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expecting PUBREC, received empty reply (%p), wrong reply type (%s) or different packet id in reply (%d ? %d), wait_publish=%d",
+				   reply, reply ? myqtt_msg_get_type_str (reply) : "UNKNOWN", reply ? reply->packet_id : -1, packet_id, wait_publish);
 			result = axl_false; /* signal that publication didn't work */
 		} /* end if */
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Received PUBREC reply for packet_id=%d conn-id=%d conn=%p (ok matches)", packet_id, conn->id, conn);
@@ -2244,8 +2244,8 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Getting PUBCOMP reply for packet_id=%d conn-id=%d conn=%p", packet_id, conn->id, conn);
 		reply = __myqtt_reader_get_reply (conn, packet_id, wait_publish, axl_false);
 		if (reply == NULL || reply->type != MYQTT_PUBCOMP || reply->packet_id != packet_id) {
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expecting PUBCOMP, received empty reply (%p), wrong reply type (%s) or different packet id in reply (%d != %d)",
-				   reply, reply ? myqtt_msg_get_type_str (reply) : "UNKNOWN", reply ? reply->packet_id : -1, packet_id);
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Expecting PUBCOMP, received empty reply (%p), wrong reply type (%s) or different packet id in reply (%d != %d), wait_reply=%d",
+				   reply, reply ? myqtt_msg_get_type_str (reply) : "UNKNOWN", reply ? reply->packet_id : -1, packet_id, wait_publish);
 			result = axl_false; /* signal that publication didn't work */
 		} else { 
 			myqtt_log (MYQTT_LEVEL_DEBUG, "Received PUBCOMP reply for packet_id=%d conn-id=%d conn=%p (ok matches)", packet_id, conn->id, conn);
@@ -2438,7 +2438,7 @@ axl_bool            myqtt_conn_pub             (MyQttConn           * conn,
  *
  * @param client_identifier The client identifier where the message
  * will be stored. Once a new connection is created with this client
- * identifer, then those messages queued, along those unfinished
+ * identifier, then those messages queued, along those unfinished
  * in-flight messages, will be sent.
  *
  * @param topic_name The name of the topic for the application message published.
@@ -2501,8 +2501,8 @@ axl_bool            myqtt_conn_offline_pub     (MyQttCtx            * ctx,
 
 	/* init message for the provide client identifier */
 	if (! myqtt_storage_init_offline (ctx, client_identifier, MYQTT_STORAGE_PKGIDS)) {
-		/* failed to initialize package ids */
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to initialize pkgids database for the provided client identifier, unable to queue messages");
+		/* failed to initialise package ids */
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to initialise pkgids database for the provided client identifier, unable to queue messages");
 		return axl_false;
 	} /* end if */
 
@@ -3077,7 +3077,7 @@ axl_bool            myqtt_conn_ping            (MyQttConn           * conn,
  *
  * @param connection The connection to be closed. 
  *
- * @return axl_true if the connection was closed, othewise axl_false
+ * @return axl_true if the connection was closed, otherwise axl_false
  * is returned. 
  */
 axl_bool                    myqtt_conn_close                  (MyQttConn * connection)
@@ -3149,12 +3149,12 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
 
 
 		/* update the connection reference to avoid race
-		 * conditions caused by deallocations */
+		 * conditions caused by de-allocations */
 		if (! myqtt_conn_ref (connection, "myqtt_conn_close")) {
 
 			__myqtt_conn_shutdown_and_record_error (
 				connection, MyQttError,
-				"failed to update reference counting on the connection during close operation, skiping clean close operation..");
+				"failed to update reference counting on the connection during close operation, skipping clean close operation..");
 			myqtt_conn_unref (connection, "myqtt_conn_close");
 			return axl_true;
 		} /* end if */
@@ -3179,11 +3179,11 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
 			connection, MyQttConnectionCloseCalled, "close connection called");
 
 		/* update the connection reference to avoid race
-		 * conditions caused by deallocations */
+		 * conditions caused by de-allocations */
 		refcount = connection->ref_count;
 		myqtt_conn_unref (connection, "myqtt_conn_close");
 
-		/* check special case where the caller have stoped a
+		/* check special case where the caller have stopped a
 		 * listener reference without taking a reference to it */
 		if ((refcount - 1) == 0) {
 			return axl_true;
@@ -3218,7 +3218,7 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
 /** 
  * @brief Allows to create an empty connection options. 
  *
- * See the following funcionts to handle the object before passing it
+ * See the following functions to handle the object before passing it
  * to any of the connect functions (\ref myqtt_conn_new).
  *
  * - \ref myqtt_conn_opts_set_auth
@@ -3285,7 +3285,7 @@ void                myqtt_conn_opts_set_auth (MyQttConnOpts * opts,
 }
 
 /** 
- * @brief Allows to configrue the reuse option. By default connection
+ * @brief Allows to configure the reuse option. By default connection
  * options aren't used across connection calls. In the case you want
  * to do so, call this function passing reuse=axl_true.
  *
@@ -3353,7 +3353,7 @@ void                myqtt_conn_opts_set_will (MyQttConnOpts  * opts,
  *
  * @param opts The connection options where the configuration is done.
  *
- * @param enable_reconnect axl_true to enable reconnect everytime a
+ * @param enable_reconnect axl_true to enable reconnect every time a
  * connection is closed, axl_false to disable this mechanism.
  *
  * SECURITY NOTE: keep in mind that using this option along with
@@ -3503,7 +3503,7 @@ axl_bool               myqtt_conn_ref_internal                    (MyQttConn * c
  * 
  * Conn reference counting allows to every on going thread to notify
  * the system that connection reference is no longer in use so, if the
- * reference counting reachs zero, connection resources will be
+ * reference counting reaches zero, connection resources will be
  * collected.
  *
  * Keep in mind that using this function also implies to use \ref
@@ -3563,7 +3563,7 @@ axl_bool               myqtt_conn_uncheck_ref           (MyQttConn * connection)
  * @brief Decrease myqtt connection reference counting.
  *
  * Allows to decrease connection reference counting. If this reference
- * counting goes under 0 the connection resources will be deallocated. 
+ * counting goes under 0 the connection resources will be de-allocated. 
  *
  * See also \ref myqtt_conn_ref
  * 
@@ -3603,7 +3603,7 @@ void               myqtt_conn_unref                  (MyQttConn * connection,
 	count = connection->ref_count;
 	myqtt_mutex_unlock (&(connection->ref_mutex));
 
-	/* if counf is 0, free the connection */
+	/* if count is 0, free the connection */
 	if (count == 0) {
 	        /* printf ("**\n** Releasing conn-id=%d conn=%p (refs=0)\n**\n", connection->id, connection); */
 		myqtt_conn_free (connection);
@@ -3641,7 +3641,7 @@ int                 myqtt_conn_ref_count              (MyQttConn * connection)
 }
 
 /** 
- * @brief Allows to configure myqtt internal timeouts for synchrnous
+ * @brief Allows to configure myqtt internal timeouts for synchronous
  * operations.
  * 
  * This function allows to set the timeout to use on new
@@ -3756,7 +3756,7 @@ long                myqtt_conn_get_timeout (MyQttCtx * ctx)
 	
 	/* check reference */
 	if (ctx == NULL) {
-		/* this value must be synchrnozied by the value
+		/* this value must be synchronised by the value
 		 * configured at myqtt_conn_init. */
 		return (60000000);
 	} /* end if */
@@ -3805,7 +3805,7 @@ long              myqtt_conn_get_connect_timeout (MyQttCtx * ctx)
 	/* check if we have used the current environment variable */
 	if (! ctx->connection_connect_timeout_checked) {
 		ctx->connection_connect_timeout_checked = axl_true;
-		/* get value from enviroment */
+		/* get value from environment */
 		ctx->connection_connect_std_timeout  = myqtt_support_getenv_int ("MYQTT_CONNECT_TIMEOUT");
 	} /* end if */
 
@@ -3973,7 +3973,7 @@ void               myqtt_conn_free (MyQttConn * connection)
 	axl_list_free (connection->sent_pkgids);
 	connection->sent_pkgids = NULL;
 
-	/* free posible msg and buffer */
+	/* free possible msg and buffer */
 	axl_free (connection->buffer);
 
 	/* release ping resp queue if defined */
@@ -3988,7 +3988,7 @@ void               myqtt_conn_free (MyQttConn * connection)
 		/* if it is: 
 		 *
 		 *  a) master role connection release or 
-		 *  b) it has reconect enabled but without reuse on 
+		 *  b) it has reconnect enabled but without reuse on 
 		 * 
 		 * then, release myqtt_conn_opts_free (opts)
 		 */
@@ -4044,7 +4044,7 @@ void                myqtt_conn_set_close_socket       (MyQttConn * connection,
 
 /** 
  * @internal Function used by myqtt to notify that this connection
- * has either writen or received content, setting a timestamp, which
+ * has either written or received content, setting a time stamp, which
  * allows checking if the connection was idle.
  *
  * @param conn The connection that received or produced content.
@@ -4128,7 +4128,7 @@ void                myqtt_conn_check_idle_status            (MyQttConn * conn, M
  * function will return the actual host used by the listener.
  *
  * You must not free returned value.  If you do so, you will get
- * unexpected behaviors.
+ * unexpected behaviours.
  * 
  * 
  * @param connection the connection to get host value.
@@ -4144,7 +4144,7 @@ const char         * myqtt_conn_get_host             (MyQttConn * connection)
 }
 
 /** 
- * @internal Function used to setup manuall values returned by \ref
+ * @internal Function used to setup manual values returned by \ref
  * myqtt_conn_get_host and \ref myqtt_conn_get_port.
  */
 void                myqtt_conn_set_host_and_port      (MyQttConn * connection, 
@@ -4406,7 +4406,7 @@ void __myqtt_conn_invoke_on_close_do_notify (MyQttConn            * conn,
  *
  * Function used to perform on close invocation
  * 
- * @param conneciton The connection where all on close handlers will
+ * @param connection The connection where all on close handlers will
  * be notified.
  */
 void __myqtt_conn_invoke_on_close (MyQttConn * connection)
@@ -4510,7 +4510,7 @@ void                myqtt_conn_block                        (MyQttConn * conn,
  * state.
  * 
  * @return axl_true if the connection is blocked (no read I/O operation
- * available), otherwise axl_false is returned, signaling the connection
+ * available), otherwise axl_false is returned, signalling the connection
  * is fully I/O operational. Keep in mind the function returns axl_false
  * if the reference provided is NULL.
  */
@@ -4568,7 +4568,7 @@ axl_bool __myqtt_conn_do_reconnect_third_step (MyQttCtx * ctx, axlPointer _conn,
 
 	} /* end if */
 
-	/* ok, now call to reconnect in this independant thread */
+	/* ok, now call to reconnect in this independent thread */
 	__myqtt_conn_new_internal (conn->ctx, conn, conn->opts);
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "..reconnect: after connect ctx=%p, conn=%p, socket=%d, myqtt_conn_is_ok (conn,axl_false)=%d", 
@@ -4608,7 +4608,7 @@ void __myqtt_conn_do_reconnect (MyQttConn * conn)
 {
 	/* acquire a reference to the connection during the process */
 	if (! myqtt_conn_ref_internal (conn, "myqtt-conn-reconnect", axl_false))
-		return; /* if we fail to acquiere a reference, just return */
+		return; /* if we fail to acquire a reference, just return */
 
 	/* remove connection from the reader while we are working */
 	myqtt_reader_unwatch_connection (conn->ctx, conn, __myqtt_conn_do_reconnect_second_step, NULL);
@@ -4627,7 +4627,7 @@ void __myqtt_conn_do_reconnect (MyQttConn * conn)
  * connection. The first time the function is called sets to axl_false
  * connection state and its error message. It also close the MQTT
  * session and sets its socket to -1 in order to make it easily to
- * recognize for other functions.
+ * recognise for other functions.
  *
  * It doesn't make a connection unref. This actually done by the
  * MyQtt Library internal process once they detect that the given
@@ -4678,7 +4678,7 @@ void           __myqtt_conn_set_not_connected (MyQttConn * connection,
 		/* check for the close handler full definition */
 		if (connection->on_close_full != NULL) {
 			myqtt_log (MYQTT_LEVEL_DEBUG, "notifying connection-id=%d close handlers", connection->id);
-			/* invokin on close handler full */ 
+			/* invoking on close handler full */ 
 			__myqtt_conn_invoke_on_close (connection);
 		}
 
@@ -4772,7 +4772,7 @@ void                myqtt_conn_delete_key_data        (MyQttConn * connection,
 /** 
  * @brief Allows to store user space data into the connection like
  * \ref myqtt_conn_set_data does but configuring functions to
- * be called once required to deallocate data stored.
+ * be called once required to de-allocate data stored.
  *
  * While storing user defined data into the connection it could be
  * necessary to also define destroy functions for the value stored and
@@ -4786,12 +4786,12 @@ void                myqtt_conn_delete_key_data        (MyQttConn * connection,
  * [...]
  * void destroy_data_1 (axlPointer data) 
  * {
- *     // perform a memory deallocation for data1
+ *     // perform a memory de-allocation for data1
  * }
  * 
  * void destroy_data_2 (axlPointer data) 
  * {
- *     // perform a memory deallocation for data2
+ *     // perform a memory de-allocation for data2
  * }
  * [...]
  * // store data 1 providing a destroy value function
@@ -4808,8 +4808,8 @@ void                myqtt_conn_delete_key_data        (MyQttConn * connection,
  * @param connection    The connection where the data will be stored.
  * @param key           The unique string key value.
  * @param value         The value to be stored associated to the given key.
- * @param key_destroy   An optional key destroy function used to destroy (deallocate) memory used by the key.
- * @param value_destroy An optional value destroy function used to destroy (deallocate) memory used by the value.
+ * @param key_destroy   An optional key destroy function used to destroy (de-allocate) memory used by the key.
+ * @param value_destroy An optional value destroy function used to destroy (de-allocate) memory used by the value.
  */
 void                myqtt_conn_set_data_full          (MyQttConn * connection,
 							      char             * key,
@@ -4843,7 +4843,7 @@ void                myqtt_conn_set_data_full          (MyQttConn * connection,
  * to the provided connection.
  *
  * Though you can use \ref myqtt_conn_set_data_full or \ref myqtt_conn_set_data, this function allows to set a pointer
- * that can be retreived by using \ref myqtt_conn_get_hook with a low cpu usage.
+ * that can be retrieved by using \ref myqtt_conn_get_hook with a low cpu usage.
  *
  * @param connection The connection where the user land pointer is associated.
  *
@@ -4937,7 +4937,7 @@ MyQttPeerRole      myqtt_conn_get_role               (MyQttConn * connection)
  * accepted and created the current connection. In the case this
  * function is called over a client connection NULL will be returned.
  * 
- * @param connection The connection that is requried to return the
+ * @param connection The connection that is required to return the
  * master connection associated (the master connection will have the
  * role: \ref MyQttRoleMasterListener).
  * 
@@ -4975,7 +4975,7 @@ const char        * myqtt_conn_get_server_name        (MyQttConn * conn)
  * @internal Allows to configure the serverName under which this
  * connection is working.
  *
- * @param conn The conection to be configured.
+ * @param conn The connection to be configured.
  *
  * @param serverName the server name to be configured. 
  */
@@ -4996,7 +4996,7 @@ void                myqtt_conn_set_server_name        (MyQttConn * conn, const c
  * @brief Allows to get the context under which the connection was
  * created. 
  * 
- * @param connection The connection that is requried to return the context under
+ * @param connection The connection that is required to return the context under
  * which it was created.
  * 
  * @return A reference to the context associated to the connection or
@@ -5137,7 +5137,7 @@ void                   myqtt_conn_set_default_io_handler (MyQttConn * connection
  *
  * @param on_msg The handler to be configured.
  *
- * @param on_msg_data User defined pointer to be passed in to on_msg handler everytime it is called.
+ * @param on_msg_data User defined pointer to be passed in to on_msg handler every time it is called.
  *
  */
 void                   myqtt_conn_set_on_msg         (MyQttConn          * conn,
@@ -5178,9 +5178,7 @@ void __myqtt_conn_queue_msgs (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, 
 }
 
 /** 
- * @brief Allows to implement a simple sincronouns wait for the next
- * message (PUBLISH) received on the provided connection limiting that
- * wait to the provided timeout (in milliseconds).
+ * @brief Allows to implement a simple synchronous wait for the next message (PUBLISH) received on the provided connection limiting that wait to the provided timeout (in milliseconds).
  *
  * @param conn The connection where the wait operation for the next (\ref MYQTT_PUBLISH) message will take place.
  *
@@ -5195,6 +5193,44 @@ void __myqtt_conn_queue_msgs (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, 
  * NOTE: the function will replace the \ref MyQttOnMsgReceived handler
  * that was previously configured by \ref myqtt_conn_set_on_msg but it
  * will be restored once the function finishes.
+ *
+ * <b>Notes about using this function to receive a particular message</b>
+ *
+ * This function is useful for simple generic blocking wait
+ * operation. However, it is not recommended when expected to receive
+ * a particular message because a particular \ref myqtt_conn_pub done
+ * before. Here is why:
+ *
+ * If you \ref myqtt_conn_pub to the server, and then call to this
+ * function (expecting to receive a reply), you may lose it because at
+ * the time you are about to call to \ref myqtt_conn_get_next, the
+ * thread planner may give priority to notify incoming message and,
+ * because you didn't set any on message handler, that message is lost
+ * and hence, calling to \ref myqtt_conn_get_next will not return it.
+ *
+ * So, the recommended solution to work out this situation is to call
+ * first to setup a \ref MyQttOnMsgReceived to ensure that reception
+ * mechanism is already in place when you issue the PUB (\ref
+ * myqtt_conn_pub) message. 
+ *
+ * Here is a short example:
+ *
+ * \code
+ * // create queue 
+ * queue = myqtt_async_queue_new ();
+ * myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
+ *
+ * // call to get client identifier 
+ * if (! myqtt_conn_pub (conn, "myqtt/admin/get-tls-status", "", 0, MYQTT_QOS_0, axl_false, 0)) {
+ *     printf ("ERROR: unable to publish message to get client identifier..\n");
+ *     return axl_false;
+ * } 
+ *
+ * // push a message to ask for client id identifier 
+ * msg   = myqtt_async_queue_timedpop (queue, 10000000);
+ * myqtt_async_queue_unref (queue);
+ * \endcode
+ * 
  *
  */
 MyQttMsg *             myqtt_conn_get_next (MyQttConn * conn, long timeout)
@@ -5455,7 +5491,7 @@ void                    myqtt_conn_set_on_close_full2  (MyQttConn          * con
  * the same pointer data as provided on handler installation. This is
  * done to avoid removing a handler that was installed twice but with
  * different contexts. Think about a function that install the same
- * handler but with different data. The appropiate handler to
+ * handler but with different data. The appropriate handler to
  * uninstall and its associated data can only be matched this way.
  * 
  * @return axl_true if the function uninstalled the handler otherwise
@@ -5515,7 +5551,7 @@ axl_bool   myqtt_conn_remove_on_close (MyQttConn          * connection,
  *
  * @param connection The connection where the receive handler will be invoked.
  * @param buffer     The buffer to be received.
- * @param buffer_len The buffe size to be received.
+ * @param buffer_len The buffer size to be received.
  * 
  * @return How many data was actually received or -1 if it fails. The
  * function returns -2 if the connection isn't still prepared to read
@@ -5568,7 +5604,7 @@ int                 myqtt_conn_invoke_send            (MyQttConn           * con
  * 
  * This happens when the user app issue a <b>close() </b> call over
  * the previous standard descriptors (<b>0,1,2</b>) causing myqtt to
- * allocate a reserved descriptor with some funny behaviors.
+ * allocate a reserved descriptor with some funny behaviours.
  * 
  * Starting from previous context, any user app call issuing a console
  * print will cause to automatically send to the remote site the
@@ -5583,7 +5619,7 @@ int                 myqtt_conn_invoke_send            (MyQttConn           * con
  *
  * @param ctx The context where the operation will be performed.
  * 
- * @param enable According to the value, the santicy check will be
+ * @param enable According to the value, the sanity check will be
  * enabled or disabled.
  * 
  */
@@ -5603,7 +5639,7 @@ void                myqtt_conn_sanity_socket_check (MyQttCtx * ctx, axl_bool    
  * @internal Allows to init the connection module using the provided
  * context (\ref MyQttCtx).
  * 
- * @param ctx The myqtt context that is going to be initialized (only the connection module)
+ * @param ctx The myqtt context that is going to be initialised (only the connection module)
  */
 void                myqtt_conn_init                   (MyQttCtx        * ctx)
 {
@@ -5648,7 +5684,7 @@ void                myqtt_conn_cleanup                (MyQttCtx        * ctx)
 }
 
 /** 
- * @brief Allows to get maximum segment size negociated.
+ * @brief Allows to get maximum segment size negotiated.
  * 
  * @param connection The connection where to get maximum segment size.
  * 
@@ -5711,7 +5747,7 @@ axl_bool myqtt_conn_check_socket_limit (MyQttCtx * ctx, MYQTT_SOCKET socket_to_c
 		myqtt_conf_get (ctx, MYQTT_HARD_SOCK_LIMIT, &hard_limit);
 		
 		myqtt_log (MYQTT_LEVEL_CRITICAL, 
-			    "droping socket connection, reached process limit: soft-limit=%d, hard-limit=%d\n",
+			    "drooping socket connection, reached process limit: soft-limit=%d, hard-limit=%d\n",
 			    soft_limit, hard_limit);
 		return axl_false; /* limit reached */
 
