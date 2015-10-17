@@ -2118,7 +2118,8 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 	axl_bool     result = axl_true;
 
 	/* skip storage if requested by the caller. */
-	axl_bool     skip_storage = (qos & MYQTT_QOS_SKIP_STORAGE) == MYQTT_QOS_SKIP_STORAGE;
+	axl_bool     skip_storage         = (qos & MYQTT_QOS_SKIP_STORAGE) == MYQTT_QOS_SKIP_STORAGE;
+	axl_bool     wait_reply_installed = axl_false;
 
 	if (msg == NULL || size == 0) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create PUBLISH message, empty/NULL value reported by myqtt_msg_build()");
@@ -2128,12 +2129,17 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 	if (((qos & MYQTT_QOS_1) == MYQTT_QOS_1 || (qos & MYQTT_QOS_2) == MYQTT_QOS_2) && wait_publish > 0) {
 		/* prepare reply */
 		__myqtt_reader_prepare_wait_reply (conn, packet_id, axl_false);
+		wait_reply_installed = axl_true;
 	} /* end if */
 
 	/* configure package to send */
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Sending PUBLISH with packet_id=%d conn-id=%d conn=%p qos=%d wait_publish=%d", 
 		   packet_id, conn->id, conn, qos, wait_publish);
 	if (! myqtt_sequencer_send (conn, MYQTT_PUBLISH, msg, size)) {
+
+		/* release wait reply queue */
+		if (wait_reply_installed) 
+			__myqtt_reader_remove_wait_reply (conn, packet_id, axl_false);
 
 		/* release packet id */
 		/* do not release package id on failure to avoid overwriting packages ids */
@@ -2235,6 +2241,9 @@ axl_bool __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx,
 			/* REALLY IMPORTANT: do not release here because this
 			   is already handled by myqtt_sequencer_send */
 			/* myqtt_msg_free_build (ctx, msg, size); */
+
+			/* release wait reply queue */
+			__myqtt_reader_remove_wait_reply (conn, packet_id, axl_false);
 			
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to queue data for delivery (PUBREL), failed to send PUBREL message");
 			return axl_false;
@@ -2764,6 +2773,9 @@ axl_bool            myqtt_conn_sub             (MyQttConn           * conn,
 		/* release pkgid */
 		__myqtt_conn_release_pkgid (ctx, conn, packet_id);
 
+		/* release wait reply queue */
+		__myqtt_reader_remove_wait_reply (conn, packet_id, axl_false);
+
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to queue data for delivery, failed to send publish message");
 		return axl_false;
 	} /* end if */
@@ -2912,6 +2924,9 @@ axl_bool            myqtt_conn_unsub           (MyQttConn           * conn,
 		/* REALLY IMPORTANT: do not release here because this
 		   is already handled by myqtt_sequencer_send */
 		/* myqtt_msg_free_build (ctx, msg, size); */
+
+		/* release wait reply queue */
+		__myqtt_reader_remove_wait_reply (conn, packet_id, axl_false);
 
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to acquire memory to send message, unable to subscribe");
 		return axl_false;

@@ -1797,8 +1797,12 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Sending reply PUBCREC (%d) to packet-id=%d, conn-id=%d (%p)", 
 			   reply[1], msg->packet_id, conn->id, conn);
 
-		if (! myqtt_sequencer_send (conn, MYQTT_PUBREC, reply, 4))
+		if (! myqtt_sequencer_send (conn, MYQTT_PUBREC, reply, 4)) {
+			/* release wait reply queue */
+			__myqtt_reader_remove_wait_reply (conn, msg->packet_id, axl_true);
+
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send PUBREC message, errno=%d", errno);
+		}
 		
 	} /* end if */
 
@@ -2234,6 +2238,40 @@ void        __myqtt_reader_prepare_wait_reply (MyQttConn * conn, int packet_id, 
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Installed queue=%p for wait reply in hash %p (%s), packet_id=%d conn=%p conn-id=%d", 
 		   queue, hash, peer_ids ? "conn->peer_wait_replies" : "conn->wait_replies", packet_id, conn, conn->id);
+
+	return;
+}
+
+/** 
+ * @internal Function to remove wait reply when a call to
+ * __myqtt_reader_get_reply is not finally done.
+ */
+void        __myqtt_reader_remove_wait_reply (MyQttConn * conn, int packet_id, axl_bool peer_ids)
+{
+	axlHash         * hash;
+	MyQttAsyncQueue * queue;
+
+	if (conn == NULL)
+		return;
+
+	/* get wait to wait on */
+	myqtt_mutex_lock (&conn->op_mutex);
+
+	if (peer_ids)
+		hash = conn->peer_wait_replies;
+	else
+		hash = conn->wait_replies;
+
+	/* get queue and remove it from the set of wait replies */
+	queue = axl_hash_get (hash, INT_TO_PTR (packet_id));
+	/** NOTE: you can remove here the queue: axl_hash_delete
+	    because it must be in the hash so the pusher finds it */
+
+	/* release lock */
+	myqtt_mutex_unlock (&conn->op_mutex);
+
+	/* release queue */
+	myqtt_async_queue_unref (queue);
 
 	return;
 }
