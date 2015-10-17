@@ -64,6 +64,8 @@ void myqtt_reader_notify_change_done_io_api   (MyQttCtx * ctx);
 
 void        __myqtt_reader_prepare_wait_reply (MyQttConn * conn, int packet_id, axl_bool peer_ids);
 
+void        __myqtt_reader_remove_wait_reply  (MyQttConn * conn, int packet_id, axl_bool peer_ids);
+
 MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, int timeout, axl_bool peer_ids);
 
 /**** internal API: do not use this, it may change at any time ****/

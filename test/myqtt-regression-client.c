@@ -2930,8 +2930,8 @@ axl_bool test_17_publish_and_check (MyQttConn * conn, MyQttAsyncQueue * queue, a
 
 	/* check message received */
 	if (! axl_cmp (myqtt_msg_get_topic (msg), "this/is/a/test")) {
-		printf ("ERROR (1) -- %s (line %d): expected to find a different topic but found: 'this/is/a/test' = '%s'\n", 
-			test_label, __AXL_LINE__, myqtt_msg_get_topic (msg));
+		printf ("ERROR (1) -- %s (line %d): expected to find a different topic but found: 'this/is/a/test' = '%s'  (content: %s)\n", 
+			test_label, __AXL_LINE__, myqtt_msg_get_topic (msg), (const char *) myqtt_msg_get_app_msg (msg));
 		return axl_false;
 	} /* end if */
 
