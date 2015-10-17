@@ -187,8 +187,8 @@ void __myqtt_reader_async_run (MyQttConn * conn, MyQttMsg * msg, MyQttReaderHand
 		return;
 	} /* end if */
 
-	if (! myqtt_conn_ref (conn, "async-run-proxy")) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to handle incoming request, failed to acquire connection refere");
+	if (! myqtt_conn_uncheck_ref (conn)) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to handle incoming request, failed to acquire connection reference");
 		myqtt_msg_unref (msg);
 		myqtt_ctx_unref (&ctx);
 		return;
@@ -2260,6 +2260,7 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 	MyQttCtx        * ctx;
 	axlHash         * hash;
 	struct timeval    start, now, diff;
+	axl_bool          timeout_reached;
 
 	if (conn == NULL)
 		return NULL;
@@ -2290,7 +2291,7 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 	} /* end if */
 
 	/* get a reference during the whole operation */
-	if (! myqtt_conn_ref (conn, "__myqtt_reader_get_reply")) {
+	if (! myqtt_conn_uncheck_ref (conn)) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to get reply (__myqtt_reader_get_reply()), conn reference failed (myqtt_conn_ref) for packet_id=%d, conn-id=%d, conn=%p",
 			   packet_id, conn->id, conn);
 
@@ -2311,6 +2312,7 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 	if (timeout > 0)
 		gettimeofday (&start, NULL);
 
+	timeout_reached = axl_false;
 	while (myqtt_conn_is_ok (conn, axl_false)) {
 		/* call to wait for message */
 		msg = myqtt_async_queue_timedpop (queue, timeout * 1000);
@@ -2326,16 +2328,26 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 		/* get the difference */
 		myqtt_timeval_substract (&now, &start, &diff);
 
-		if (diff.tv_sec >= timeout)
+		if (diff.tv_sec >= timeout)  {
+			timeout_reached = axl_true;
 			break;
+		} /* end if */
 	} /* end while */
 
 	/* try to recover from queue */
 	if (msg == NULL && myqtt_async_queue_items (queue) > 0)
 		msg = myqtt_async_queue_pop (queue);
 
-	myqtt_log (MYQTT_LEVEL_DEBUG, "QUEUE: reply received (%s) msg=%p msg-id=%d from queue=%p packet_id=%d conn-id=%d conn=%p", 
-		   myqtt_msg_get_type_str (msg), msg, msg ? msg->id : -1, queue, packet_id, conn->id, conn);
+	if (msg) {
+		myqtt_log (MYQTT_LEVEL_DEBUG, "QUEUE: reply received (%s) msg=%p msg-id=%d from queue=%p packet_id=%d conn-id=%d conn=%p", 
+			   myqtt_msg_get_type_str (msg), msg, msg ? msg->id : -1, queue, packet_id, conn->id, conn);
+	} else if (msg == NULL && timeout_reached) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "QUEUE: timeout reached waiting for packet_id=%d with fqueue=%p over conn-id=%d conn=%p, conn-status=%d", 
+			   packet_id, queue, conn->id, conn, myqtt_conn_is_ok (conn, axl_false));
+	} else if (msg == NULL) {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "QUEUE: connection failed during wait for packet_id=%d with queue=%p over conn-id=%d conn=%p, conn-status=%d", 
+			   packet_id, queue, conn->id, conn, myqtt_conn_is_ok (conn, axl_false));
+	}
 
 	/* release lock */
 	myqtt_mutex_lock (&conn->op_mutex);
