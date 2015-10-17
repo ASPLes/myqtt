@@ -351,6 +351,7 @@ myqtt_thread_pool_get_running_threads
 myqtt_thread_pool_init
 myqtt_thread_pool_new_event
 myqtt_thread_pool_new_task
+myqtt_thread_pool_new_task_full
 myqtt_thread_pool_remove
 myqtt_thread_pool_remove_event
 myqtt_thread_pool_remove_internal
