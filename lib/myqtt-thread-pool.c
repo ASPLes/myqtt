@@ -79,8 +79,9 @@ struct _MyQttThreadPool {
 /* myqtt thread pool struct used by myqtt library to notify to tasks
  * to be performed to myqtt thread pool */
 typedef struct _MyQttThreadPoolTask {
-	MyQttThreadFunc   func;
+	MyQttThreadFunc    func;
 	axlPointer         data;
+	axlDestroyFunc     destroy_data;
 } MyQttThreadPoolTask;
 
 /* struct used to represent async events */
@@ -801,8 +802,10 @@ void myqtt_thread_pool_remove        (MyQttCtx        * ctx,
 void myqtt_thread_pool_exit (MyQttCtx * ctx) 
 {
 	/* get current context */
-	int             iterator;
-	MyQttThread  * thread;
+	int                    iterator;
+	MyQttThread          * thread;
+	MyQttThreadPoolTask  * task;
+
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "stopping thread pool..");
 
@@ -849,6 +852,17 @@ void myqtt_thread_pool_exit (MyQttCtx * ctx)
 	axl_list_free (ctx->thread_pool->stopped);
 
 	/* unref the queue */
+	while (myqtt_async_queue_items (ctx->thread_pool->queue) > 0) {
+		/* call to get pending task */
+		task = myqtt_async_queue_pop (ctx->thread_pool->queue);
+
+		/* if destroy function is defined, call to release */
+		if (task->destroy_data)
+			task->destroy_data (task->data);
+
+		/* release pool task data */
+		axl_free (task);
+	} /* end while */
 	myqtt_async_queue_unref (ctx->thread_pool->queue);
 
 	/* terminate mutex */
@@ -895,12 +909,19 @@ void myqtt_thread_pool_being_closed        (MyQttCtx * ctx)
  * @param func the function to execute.
  * @param data the data to be passed in to the function.
  *
+ * @param destroy_data Data destroy function called when the task
+ * finally is not executed because MyQttCtx is finishing or
+ * finished. This function is not called when task was finally called.
+ *
  * 
  * @return axl_true in the case the task was queued. Otherwise
  * axl_false is reported. The function returns axl_false the the
  * thread pool is being stopped and or memory allocation failure.
  **/
-axl_bool myqtt_thread_pool_new_task (MyQttCtx * ctx, MyQttThreadFunc func, axlPointer data)
+axl_bool myqtt_thread_pool_new_task_full       (MyQttCtx        * ctx,
+						MyQttThreadFunc   func, 
+						axlPointer         data,
+						axlDestroyFunc     destroy_data)
 {
 	/* get current context */
 	MyQttThreadPoolTask * task;
@@ -917,11 +938,38 @@ axl_bool myqtt_thread_pool_new_task (MyQttCtx * ctx, MyQttThreadFunc func, axlPo
 		return axl_false;
 	task->func = func;
 	task->data = data;
+	task->destroy_data = destroy_data;
 
 	/* queue the task for the next available thread */
 	myqtt_async_queue_push (ctx->thread_pool->queue, task);
 
 	return axl_true; /* report it was queued */
+}
+
+/** 
+ * @brief *** DEPRECATED** Queue a new task inside the MyQttThreadPool.
+ *
+ * Use \ref myqtt_thread_pool_new_task_full to provide a data destroy
+ * function to ensure no leak happens when context is stopped with
+ * pending tasks.
+ * 
+ * Queue a new task to be performed. This function is used by myqtt
+ * for internal purpose so it should not be useful for myqtt library
+ * consumers.
+ *
+ * @param ctx The context where the operation will be performed.
+ * @param func the function to execute.
+ * @param data the data to be passed in to the function.
+ *
+ * 
+ * @return axl_true in the case the task was queued. Otherwise
+ * axl_false is reported. The function returns axl_false the the
+ * thread pool is being stopped and or memory allocation failure.
+ **/
+axl_bool myqtt_thread_pool_new_task (MyQttCtx * ctx, MyQttThreadFunc func, axlPointer data)
+{
+	/* call complete function */
+	return myqtt_thread_pool_new_task_full (ctx, func, data, NULL);
 }
 
 /** 

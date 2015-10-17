@@ -164,6 +164,14 @@ axlPointer __myqtt_reader_async_run_proxy (axlPointer _data)
 	return NULL;
 }
 
+void __myqtt_reader_async_run_proxy_release (axlPointer _data) {
+	MyQttReaderAsyncData * data = _data;
+	myqtt_msg_unref (data->msg);
+	myqtt_conn_unref (data->conn, "async-run-proxy");
+	myqtt_ctx_unref (&(data->conn->ctx));
+	return;
+}
+
 /** 
  * @internal Function used to create MyQttReaderData that is to convey
  * (conn, msg) into the threaded function and then call if everything
@@ -218,7 +226,7 @@ void __myqtt_reader_async_run (MyQttConn * conn, MyQttMsg * msg, MyQttReaderHand
 		conn->is_blocked = axl_true;
 
 	/* run task */
-	if (! myqtt_thread_pool_new_task (ctx, __myqtt_reader_async_run_proxy, data)) {
+	if (! myqtt_thread_pool_new_task_full (ctx, __myqtt_reader_async_run_proxy, data, __myqtt_reader_async_run_proxy_release)) {
 		/* reduce message reference previously acquired */
 		myqtt_msg_unref (msg);
 		myqtt_ctx_unref (&ctx);

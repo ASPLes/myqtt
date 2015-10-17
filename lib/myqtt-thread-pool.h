@@ -74,6 +74,11 @@ axl_bool myqtt_thread_pool_new_task            (MyQttCtx        * ctx,
 						MyQttThreadFunc   func, 
 						axlPointer         data);
 
+axl_bool myqtt_thread_pool_new_task_full       (MyQttCtx        * ctx,
+						MyQttThreadFunc   func, 
+						axlPointer         data,
+						axlDestroyFunc     destroy_data);
+
 int  myqtt_thread_pool_new_event           (MyQttCtx              * ctx,
 					    long                     microseconds,
 					    MyQttThreadAsyncEvent   event_handler,
