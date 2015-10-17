@@ -2385,14 +2385,21 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 		msg = myqtt_async_queue_pop (queue);
 
 	if (msg) {
-		myqtt_log (MYQTT_LEVEL_DEBUG, "QUEUE: reply received (%s) msg=%p msg-id=%d from queue=%p packet_id=%d conn-id=%d conn=%p", 
-			   myqtt_msg_get_type_str (msg), msg, msg ? msg->id : -1, queue, packet_id, conn->id, conn);
+		myqtt_log (MYQTT_LEVEL_DEBUG, "QUEUE: reply received (%s) msg=%p msg-id=%d from queue=%p packet_id=%d conn-id=%d conn=%p  from %s:%s (socket: %d)", 
+			   myqtt_msg_get_type_str (msg), msg, msg ? msg->id : -1, queue, packet_id, conn->id, conn,
+			   axl_check_undef (conn->host), 
+			   axl_check_undef (conn->port), conn->session);
 	} else if (msg == NULL && timeout_reached) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "QUEUE: timeout reached waiting for packet_id=%d with fqueue=%p over conn-id=%d conn=%p, conn-status=%d", 
-			   packet_id, queue, conn->id, conn, myqtt_conn_is_ok (conn, axl_false));
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "QUEUE: timeout reached waiting for packet_id=%d with fqueue=%p over conn-id=%d conn=%p, conn-status=%d from %s:%s (socket: %d)", 
+			   packet_id, queue, conn->id, conn, myqtt_conn_is_ok (conn, axl_false),
+			   axl_check_undef (conn->host), 
+			   axl_check_undef (conn->port), conn->session);
 	} else if (msg == NULL) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "QUEUE: connection failed during wait for packet_id=%d with queue=%p over conn-id=%d conn=%p, conn-status=%d", 
-			   packet_id, queue, conn->id, conn, myqtt_conn_is_ok (conn, axl_false));
+		myqtt_log (MYQTT_LEVEL_CRITICAL, 
+			   "QUEUE: connection failed during wait for packet_id=%d with queue=%p over conn-id=%d conn=%p, conn-status=%d from %s:%s (socket: %d)", 
+			   packet_id, queue, conn->id, conn, myqtt_conn_is_ok (conn, axl_false),
+			   axl_check_undef (conn->host), 
+			   axl_check_undef (conn->port), conn->session);
 	}
 
 	/* release lock */
