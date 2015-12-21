@@ -31,7 +31,9 @@
   https://github.com/F-Secure/mqtt_fuzz
 
 * Review checking tools like mqtt-malaria and Jmeter
-  
+
+* Add support for topic symlinks: 
+  https://groups.google.com/d/msg/mqtt/bHL_FbaNxWg/vqxcLoAaCwAJ  
 
 * Add support to get a list of active topics: 
   https://groups.google.com/d/msg/mqtt/03QiWpz4kHY/1g52eTb9ou4J
@@ -49,7 +51,7 @@
 * Make client library to try to connect with 3.1.1 and if it fails, with 
   3.1.
 
-* After publishing first or second release, make the way to have myqtt
+* After publishing second release, make the way to have myqtt
   listed under: http://mqtt.org/wiki/doku.php/server_support
 
 * Limit utf-8 strings to avoid memory consumption. It makes no sense
@@ -108,6 +110,7 @@
 
 --== release names ==--
 
+One way or another
 Sweet child O' Mine
 FreeBird
 Inspiring steps
