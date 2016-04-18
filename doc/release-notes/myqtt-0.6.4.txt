@@ -1,0 +1,115 @@
+                 --== MyQtt MQTT stack ==--
+                     One way or another
+                          0.6.4
+
+Advanced Software Production Line is proud to announce the first
+public stable release of the MyQtt MQTT statck.
+
+MyQtt is an Open Source professional MQTT stack written in ANSI C,
+which supports v3.1.1 and v3.1, focused on providing support to create
+MQTT servers/brokers. MyQtt has a modular design that allows creating
+MQTT brokers/servers by using the API provided by libMyQtt (which in
+fact is composed by several libraries: libmyqtt, libmyqtt-tls,
+libmyqtt-websocket). 
+
+It is also provided a ready to use MQTT broker called MyQttD which is
+built on top of libMyQtt. MyQttD server is extensible by adding C
+plugins.
+
+Commercially supported, it is released under the terms of LGPL 2.1 (so
+you can build OpenSource or commercial applications) and currently is
+being used by Core-Admin to provide a gateway to its API and by
+http://asplhosting.com as a M2M protocol to coordinate customer data
+and service activation across machines.
+
+Resources
+~~~~~~~~~
+
+   MyQtt homepage
+   [ http://www.aspl.es/myqtt ]
+
+   Commercial support
+   [ http://www.aspl.es/myqtt/commercial.html ]
+
+   Advanced Software Production Line, S.L.
+   [ http://www.aspl.es ]
+
+   Featured project: Core-Admin
+   [ http://www.core-admin.com ]
+
+This release in short
+~~~~~~~~~~~~~~~~~~~~~
+
+New stable release including several updates to make MyQtt engine more
+resistant to connection failures found in the middle of send and relay
+operations.
+
+
+Changes from previous release
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* [fix] Improved error reporting when when a message cannot be queued
+  internal to be sent (myqtt_sequencer_queue_data).
+
+* [fix] Updated error reported when publish operation cannot be
+  continued totally or partially because allocation or internal errors
+  (wrong references..).
+
+* [fix] Updated myqtt-reader.c module to report connection referred..
+
+* [fix] Fixed support to keep on publishing when originating
+  connection closes in the middle. Added regtest test-17f to simulate
+  the condition and check fix introduced..
+
+* [fix] Fixed releasing container itself when doing handler activation
+  and when myqtt_thread_pool_new_task fails..
+
+* [fix] Removing queue from internal hash, when connection is not
+  working when internal function __myqtt_reader_get_reply is called.
+
+* [fix] Making internal __myqtt_reader_get_reply to use
+  myqtt_conn_unchecked_ref to implement wait operation intead of
+  myqtt_conn_ref to make it more resistant to connection failures
+  durign waits... Added additional error reporting to give additional
+  indications when a timeout was found or a connection failure.
+
+* [fix] Updated regression tests to also report critical errors
+  reported by the engine..
+
+* [fix] Moving version file for next release..
+
+* [fix] Updated myqtt wait reply code to remove queue installed when
+  it is not going to be used because myqtt sequencer failures..
+
+* [fix] Extended myqtt thread pool API to include a new version to
+  initiate a task but also providing a destroy data function to
+  release data task when task is finally not called.
+
+* [fix] Updated log reporting for failures produced by
+  myqtt_sequencer_queue_data
+
+* [fix] Improved error reporting when queue reply wait fails when
+  connection close is detected to also report source ip and port..
+
+* [fix] Improved error reporting at myqtt_sequencer_queue_data to show
+  endpoint address for the connection that fails with myqtt_conn_ref
+
+
+About Advanced Software Production Line, S.L. (ASPL)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Advanced Software Production Line (ASPL) provides GNU/Linux support
+  and consulting services to enable organisation to introduce
+  GNU/Linux into their processes, making other platforms to properly
+  interact with it.
+
+  You can contact us, using English or Spanish, at:
+
+       http://www.aspl.es/myqtt - info@aspl.es
+
+  We hope MyQtt may be useful you. Enjoy MyQtt MQTT stack!
+
+--
+Advanced Software Production Line  - http://www.aspl.es
+18th Apr 2016, Madrid (Spain)
+
