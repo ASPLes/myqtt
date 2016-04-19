@@ -219,6 +219,9 @@ int  main_init_exarg (int argc, char ** argv)
 	exarg_install_arg ("enable-retain", "r", EXARG_NONE,
 			   "Use this option to enable retain flag in publish operations");
 
+	exarg_install_arg ("ping", "g", EXARG_NONE,
+			   "Allows to send a ping message to the server.");
+
 	/* call to parse arguments */
 	exarg_parse (argc, argv);
 
@@ -522,6 +525,33 @@ void client_handle_get_msgs_operation (int argc, char ** argv)
 	return;
 }
 
+void client_handle_ping (int argc, char ** argv)
+{
+	MyQttConn       * conn;
+	int               wait_publish = 10; /* by default wait 10 */
+
+	/* create connection */
+	conn  = make_connection ();
+
+	/* get wait publish configuration */
+	if (exarg_is_defined ("wait"))
+		wait_publish = myqtt_support_strtod (exarg_get_string ("wait"), NULL);
+
+	msg ("Calling to send ping to server with wait_publish=%d", wait_publish);
+	
+	/* call ping */
+	if (! myqtt_conn_ping (conn, wait_publish)) {
+		printf ("ERROR: server ping failed..\n");
+		exit (-1);
+	} 
+
+	printf ("INFO: server ping reply received..\n");
+
+	/* close connection */
+	myqtt_conn_close (conn);
+	
+}
+
 void client_handle_topic_match (int argc, char ** argv)
 {
 	printf ("INFO: checking filter: %s\n", exarg_get_string ("topic-match"));
@@ -562,6 +592,8 @@ int main (int argc, char ** argv)
 		client_handle_get_msgs_operation (argc, argv);
 	else if (exarg_is_defined ("topic-match"))
 		client_handle_topic_match (argc, argv);
+	else if (exarg_is_defined ("ping"))
+		client_handle_ping (argc, argv);
 	else {
 		printf ("ERROR: no operation defined, please run %s --help to get information\n", argv[0]);
 		exit (-1);

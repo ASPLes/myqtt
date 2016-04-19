@@ -2900,6 +2900,8 @@ const char    * myqttd_ensure_str      (const char * string)
  * - \ref myqtt_client_manual_publish
  * - \ref myqtt_client_manual_login
  * - \ref myqtt_client_manual_topic_match
+ * - \ref myqtt_client_manual_ping
+ * - \ref myqtt_client_manual_transport_selection
  *
  * \section myqtt_client_manual_intro Introduction
  *
@@ -2913,7 +2915,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * Use the following command to subscribe to a given topic with a particular QoS:
  *
- *  \code
+ * \code
  * >> myqtt-client --host localhost --port 1883 --client-id test_01 --subscribe "0,myqtt/this/is/a/test"
  * \endcode
  *
@@ -2950,4 +2952,27 @@ const char    * myqttd_ensure_str      (const char * string)
  * \code
  * >> myqtt-client -c '+/accounts' 'balance/accounts'
  * \endcode
+ *
+ * \section myqtt_client_manual_ping Sending MQTT ping to server from the command line
+ *
+ * Use the following code code to send a ping to the server:
+ *
+ * \code
+ * >> myqtt-client --host localhost --port 1883 --client-id test_01 --ping
+ * \endcode
+ *
+ * \section myqtt_client_manual_transport_selection Transport selection for MQTT connection
+ *
+ * Use -l or --protocol to select the kind of protocol to use while
+ * connecting to the remote server.
+ *
+ * \code
+ *
+ * mqtt (default)  : plain MQTT protocol
+ * mqtt-tls : plain MQTT protocol over TLS/SSL
+ * mqtt-ws : plain MQTT protocol over WebSocket
+ * mqtt-wss : plain MQTT protocol over Secure WebSocket
+ *
+ * \endcode
+ * 
  */
