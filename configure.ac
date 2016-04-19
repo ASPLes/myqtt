@@ -206,7 +206,35 @@ fi
 AM_CONDITIONAL(ENABLE_AF_ARCH_DOC, test "x$DOXYGEN" = "xyes")
 
 dnl LibAxl library support.
-PKG_CHECK_MODULES(AXL, axl >= 0.6.4)
+PKG_CHECK_MODULES(AXL, axl >= 0.7.0, [enable_axl_support=yes], [enable_axl_support=no])
+if test "$enable_axl_support" = "no" ; then
+   if test -z $PKG_CONFIG_PATH ; then
+       PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig
+       export PKG_CONFIG_PATH
+       # echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+       PKG_CHECK_MODULES(AXL, axl >= 0.7.0, [enable_axl_support=yes], [enable_axl_support=no])
+   fi
+fi
+if test "$enable_axl_support" = "no" ; then
+   dnl Try to find by header
+   AC_CHECK_HEADER(axl/axl.h,enable_axl_support=yes,enable_axl_support=no)
+   if test "$enable_axl_support" = "yes" ; then
+       AXL_CFLAGS=
+       AXL_LIBS=-laxl
+   else
+       dnl Try to find files at /usr/local/lib/pkgconfig/axl.pc
+       if test -f /usr/local/lib/pkgconfig/axl.pc; then
+       	  dnl alternative location found, try to tell the system to use this location
+	  export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
+	  PKG_CHECK_MODULES(AXL, axl >= 0.7.0, [enable_axl_support=yes], [enable_axl_support=no])
+       fi
+       if test "$enable_axl_support" = "no" ; then
+       	  AC_MSG_ERROR([ERROR: LibAxl wasn't found installed on this system. Unable to compile MyQtt without it.])
+       fi
+   fi
+fi
+AXL_CFLAGS=`echo $AXL_CFLAGS | sed 's@ \/@/@g'`
+AXL_LIBS=`echo $AXL_LIBS | sed 's@ \/@/@g'`
 AC_SUBST(AXL_CFLAGS)
 AC_SUBST(AXL_LIBS)
 
