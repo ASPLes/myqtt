@@ -2739,8 +2739,8 @@ int main (int argc, char ** argv)
 	printf ("**     >> libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes --error-limit=no ./test_01 [--debug]\n**\n");
 	printf ("** Providing --run-test=NAME will run only the provided regression test.\n");
 	printf ("** Available tests: test_00, test_01, test_02, test_03, test_04, test_05\n");
-	printf ("**                  test_06, test_07, test_08, test_09, test_10, test_11\n");
-	printf ("**                  test_12, test_13, test_14\n");
+	printf ("**                  test_06, test_07, test_08, test_09, test_10, test_10a, test_10b, test_11\n");
+	printf ("**                  test_12, test_13, test_14, test_15, test_16\n");
 	printf ("**\n");
 	printf ("** Report bugs to:\n**\n");
 	printf ("**     <myqtt@lists.aspl.es> MyQtt Mailing list\n**\n");
