@@ -1684,6 +1684,8 @@ const char    * myqttd_ensure_str      (const char * string)
 /** 
  * \page myqttd_administrator_manual MyQttD Administrator manual (reference manual)
  *
+ * \section myqttd_administrator_manual_intro Manual
+ *
  * <b>Section 1: Installation notes</b>
  *
  *   - \ref installing_myqtt

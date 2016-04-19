@@ -49,8 +49,8 @@ MyQttdCtx * ctx = NULL;
 axlDoc    * mod_status_conf = NULL;
 
 /** MyQttdUsersUnloadDb **/
-void __mod_status_unload (MyQttdCtx * ctx, 
-			      axlPointer  _backend)
+void __mod_status_unload (MyQttdCtx   * ctx, 
+			  axlPointer    _backend)
 {
 	return;
 }
@@ -84,8 +84,14 @@ MyQttPublishCodes __mod_status_on_publish (MyQttdCtx * ctx,       MyQttdDomain *
 	char   * content;
 	int      size;
 
-
+	
+	/* 
+	 * @internal Implementation for
+	 * myqtt/my-status/get-subscriptions: allows to get current
+	 * subscriptions for the calling connection.
+	 */
 	if (axl_cmp ("myqtt/my-status/get-subscriptions", myqtt_msg_get_topic (msg))) {
+
 		/* create empty document */
 		doc = axl_doc_parse ("<reply></reply>", 17, NULL);
 		if (doc == NULL)

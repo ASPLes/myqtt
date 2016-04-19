@@ -254,7 +254,7 @@ void myqttd_place_pidfile (void)
 	msg ("Creating pid file at: %s", pidfile);
 	pid_file = fopen (pidfile, "w");
 	if (pid_file == NULL) {
-		abort_error ("Unable to open pid file at: %s", pidfile);
+		abort_error ("Unable to open pid file at: %s, errno=%d (%s)", pidfile, errno, strerror (errno));
 		return;
 	} /* end if */
 	
