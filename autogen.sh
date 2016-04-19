@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 #  MyQtt: A high performance open source MQTT implementation
-#  Copyright (C) 2014 Advanced Software Production Line, S.L.
+#  Copyright (C) 2016 Advanced Software Production Line, S.L.
 #
 #  This program is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU Lesser General Public License
@@ -62,7 +62,7 @@ touch NEWS README AUTHORS ChangeLog
 libtoolize --force;
 aclocal $ACLOCAL_FLAGS; 
 autoheader --warnings=error;
-automake --add-missing --Werror;
+automake --add-missing;
 autoconf --force --warnings=error;
 
 
