@@ -856,6 +856,10 @@ void myqtt_thread_pool_exit (MyQttCtx * ctx)
 		/* call to get pending task */
 		task = myqtt_async_queue_pop (ctx->thread_pool->queue);
 
+		/* skip operating over these two values (stop beacon == 1, thread stopper == 2) */
+		if (PTR_TO_INT (task) == 1 || PTR_TO_INT (task) == 2)
+			continue;
+
 		/* if destroy function is defined, call to release */
 		if (task->destroy_data)
 			task->destroy_data (task->data);
