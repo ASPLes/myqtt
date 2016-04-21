@@ -2445,6 +2445,8 @@ axl_bool  test_13 (void) {
 	return axl_true;
 }
 
+#endif /* defined(ENABLE_WEBSOCKET_SUPPORT) */
+
 axl_bool  test_14 (void) {
 	
 	MyQttdCtx       * ctx;
@@ -2661,7 +2663,67 @@ axl_bool  test_16 (void) {
 	
 }
 
-#endif /* defined(ENABLE_WEBSOCKET_SUPPORT) */
+axl_bool  test_17 (void) {
+
+	MyQttdCtx       * ctx;
+	MyQttConn       * conn;
+	MyQttCtx        * myqtt_ctx;
+	int               sub_result = -1;
+	MyQttdDomain    * domain;
+
+	/* call to init the base library and close it */
+	printf ("Test 17: init library and server engine..\n");
+	ctx       = common_init_ctxd (NULL, "test_17.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 17: library and server engine started.. ok (ctxd = %p, ctx = %p\n", ctx, MYQTTD_MYQTT_CTX (ctx));
+
+	/* create connection to local server and test domain support */
+	myqtt_ctx = common_init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 17: connecting to myqtt server (client ctx = %p)..\n", myqtt_ctx);
+	conn = myqtt_conn_new (myqtt_ctx, "test_01_kdjfkj345", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it shouldn't connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* try to subscribe to a wildcarid topic */
+	myqtt_conn_sub (conn, 10, "myqtt/#", 10, &sub_result);
+
+	/* get domain by name */
+	domain = myqttd_domain_find_by_name (ctx, "anonymous");
+	if (domain == NULL) {
+		printf ("ERROR: expected to find domain by name [test_01.context] but found NULL reference..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 17: items in the hash: %d (ctx->myqtt_ctx->wild_subs = %p)\n", axl_hash_items (domain->myqtt_ctx->wild_subs), domain->myqtt_ctx->wild_subs);
+	if (axl_hash_items (domain->myqtt_ctx->wild_subs) > 0) {
+		printf ("ERROR: it shouldn't allow us to subscribe to the provided topic, but it was allowed..\n");
+		return axl_false;
+	} /* end if */	
+
+	/* close connection */
+	myqtt_conn_close (conn);
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+
+	printf ("Test 17: finishing MyQttdCtx..\n");
+
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+		
+	return axl_true;
+	
+}
+
 
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
@@ -2740,7 +2802,7 @@ int main (int argc, char ** argv)
 	printf ("** Providing --run-test=NAME will run only the provided regression test.\n");
 	printf ("** Available tests: test_00, test_01, test_02, test_03, test_04, test_05\n");
 	printf ("**                  test_06, test_07, test_08, test_09, test_10, test_10a, test_10b, test_11\n");
-	printf ("**                  test_12, test_13, test_14, test_15, test_16\n");
+	printf ("**                  test_12, test_13, test_14, test_15, test_16, test_17\n");
 	printf ("**\n");
 	printf ("** Report bugs to:\n**\n");
 	printf ("**     <myqtt@lists.aspl.es> MyQtt Mailing list\n**\n");
@@ -2814,6 +2876,7 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_13")
 	run_test (test_13, "Test 13: checking domain activation when connected with WebSocket TLS (hostname == domain name)");
+#endif
 
 	CHECK_TEST("test_14")
 	run_test (test_14, "Test 14: checks that authentication fails when provided right hostname but wrong credentials");
@@ -2823,7 +2886,9 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_16")
 	run_test (test_16, "Test 16: check wildcard subscription can be disabled globally or at certain domain or for a certain user");
-#endif
+
+	CHECK_TEST("test_17")
+	run_test (test_17, "Test 17: check anonymous authentication with mod-auth-xml");
 
 	/* check support to limit amount of subscriptions a user can
 	 * do */

@@ -47,8 +47,10 @@ MyQttdCtx * ctx = NULL;
 
 typedef struct _ModAuthXmlBackend {
 
-	char   * full_path;
-	axlDoc * doc;
+	char     * full_path;
+	axlDoc   * doc;
+
+	axl_bool   anonymous;
 
 } ModAuthXmlBackend;
 
@@ -59,6 +61,7 @@ axlPointer __mod_auth_xml_load (MyQttdCtx  * ctx,
 {
 	char              * full_path = myqtt_support_build_filename (path, "users.xml", NULL);
 	axlDoc            * doc;
+	axlNode           * node;
 	ModAuthXmlBackend * backend;
 	axlError          * err = NULL;
 	
@@ -87,6 +90,10 @@ axlPointer __mod_auth_xml_load (MyQttdCtx  * ctx,
 	backend->full_path = full_path;
 	backend->doc       = doc;
 
+	/* configure anonymous status */
+	node = axl_doc_get (doc, "/myqtt-users");
+	backend->anonymous = HAS_ATTR_VALUE (node, "anonymous", "yes");
+
 	/* report backend */
 	return backend;
 }
@@ -101,6 +108,10 @@ axl_bool     __mod_auth_xml_user_exists (MyQttdCtx  * ctx,
 	ModAuthXmlBackend * backend    = _backend;
 	axlNode           * node       = axl_doc_get (backend->doc, "/myqtt-users/user");
 	int                 check_mode = 0;
+
+	if (backend->anonymous) {
+		return axl_true; /* user exists */
+	} /* end if */
 
 	/* check type of checking we have to implement */
 	check_mode = myqttd_support_check_mode (user_name, client_id);
@@ -148,6 +159,12 @@ axl_bool     __mod_auth_xml_auth_user (MyQttdCtx  * ctx,
 	ModAuthXmlBackend * backend    = _backend;
 	axlNode           * node       = axl_doc_get (backend->doc, "/myqtt-users/user");
 	int                 check_mode = 0;
+
+	/* check to authorize user if the is we have anonymous option
+	 * enabled */
+	if (backend->anonymous) {
+		return axl_true; /* user exists */
+	} /* end if */
 
 	/* check type of checking we have to implement */
 	check_mode = myqttd_support_check_mode (user_name, client_id);
@@ -269,6 +286,12 @@ END_C_DECLS
 /** 
  * \page myqttd_mod_auth_xml mod-auth-xml Authentication backend supported on XML files
  *
+ * \section myqttd_mod_auth_xml_index Index
+ *
+ * - \ref myqttd_mod_auth_xml_intro
+ * - \ref myqttd_mod_auth_xml_enabling
+ * - \ref myqttd_mod_auth_xml_configuring
+ *
  * \section myqttd_mod_auth_xml_intro Introduction to mod-auth-xml
  *
  * Authentication support for MyQttD is delegated to auth backends that are registered at run-time via \ref myqttd_users_register_backend
@@ -327,5 +350,18 @@ END_C_DECLS
  * \note It is possible to use same database for different domains.
  * 
  * 
+ * \section myqttd_mod_auth_xml_anonymous Configuring anonymous login
+ *
+ * <b>mod-auth-xml</b> also allows configure a MyQttd domain to work
+ * with anoymous login/connection scheme. Note that enabling this
+ * option will make the domain configured as such to "catch" all
+ * connections reached to this domain.
+ *
+ * To configure anonymous support create a users.xml with the following format:
+ *
+ * \htmlinclude anonymous.example.xml-tmp
+ *
+ * Note that enabling this option will accept any connection reaching
+ * this domain no matter if it provides a user/password or not.
  *
  */
