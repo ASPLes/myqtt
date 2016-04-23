@@ -378,7 +378,6 @@ void myqtt_run_load_domain (MyQttdCtx * ctx, axlDoc * doc, axlNode * node)
 	if (! myqttd_domain_add (ctx, name, storage, users_db, use_settings)) {
 		/* report failure */
 		error ("Unable to add domain name='%s'", name);
-
 		/* fail here because clean start is enabled? */
 	} /* end if */
 

@@ -163,7 +163,12 @@ void            myqttd_ctx_set_myqtt_ctx (MyQttdCtx * ctx,
 
 /** 
  * @brief Allows to configure (add) a new onPublish handler that will
- * be called everything a publish operation is received.
+ * be called every time a publish operation is received.
+ *
+ * Handlers configured here (see \ref MyQttdOnPublish) will be able to
+ * report any of the codes supported by \ref MyQttPublishCodes,
+ * allowing to discard, accept or close the connection (for
+ * example). See \ref MyQttPublishCodes for more reference.
  *
  * @param ctx The context where the onpublish handler is configured.
  *
