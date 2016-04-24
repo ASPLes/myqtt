@@ -2190,6 +2190,7 @@ void __myqtt_storage_get_retained_topics_dir (MyQttCtx * ctx, const char * topic
 	DIR           * sub_dir;
 	struct dirent * entry;
 	char          * aux_path;
+	axl_bool        added_to_the_list;
 
 	/* try to open path */
 	sub_dir = opendir (full_path);
@@ -2233,12 +2234,21 @@ void __myqtt_storage_get_retained_topics_dir (MyQttCtx * ctx, const char * topic
 		topic_name = NULL;
 		__myqtt_storage_read_content_into_reference (ctx, aux_path, &topic_name, &ref_size);
 		axl_free (aux_path);
-
+		added_to_the_list = axl_false;
+		
 		/* save into the list the topic name recovered */
 		if (topic_name && strlen ((const char *) topic_name) > 0) {
 			/* check if the topic matches with the filter */
-			if (myqtt_reader_topic_filter_match ((const char *) topic_name, topic_filter))
+			if (myqtt_reader_topic_filter_match ((const char *) topic_name, topic_filter)) {
 				axl_list_append (list, topic_name);
+				/* notify added to the list */
+				added_to_the_list = axl_true;
+			}
+		} /* end if */
+
+		if (! added_to_the_list) {
+			/* release if it wasn't added to the list */
+			axl_free (topic_name);
 		} /* end if */
 
 		/* get next entry */
