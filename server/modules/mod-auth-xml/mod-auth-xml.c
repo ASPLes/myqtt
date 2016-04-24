@@ -45,12 +45,26 @@ BEGIN_C_DECLS
 
 MyQttdCtx * ctx = NULL;
 
+/** 
+ * @internal Definition to capture the code that signals when to apply
+ * global acls: before or after user acls.
+ */
+typedef enum {
+	MOD_AUTH_XML_APPLY_BEFORE = 1,
+	MOD_AUTH_XML_APPLY_AFTER  = 2
+} ModAuthXmlWhenToApply;
+
 typedef struct _ModAuthXmlBackend {
 
-	char     * full_path;
-	axlDoc   * doc;
+	char         * full_path;
+	axlDoc       * doc;
 
-	axl_bool   anonymous;
+	axl_bool       anonymous;
+	axlNode      * global_acls;
+	
+	MyQttPublishCodes     no_match_policy;
+	ModAuthXmlWhenToApply when_to_apply;
+	MyQttPublishCodes     deny_action;
 
 } ModAuthXmlBackend;
 
@@ -64,6 +78,7 @@ axlPointer __mod_auth_xml_load (MyQttdCtx  * ctx,
 	axlNode           * node;
 	ModAuthXmlBackend * backend;
 	axlError          * err = NULL;
+	const char        * value;
 	
 	if (full_path == NULL)
 		return NULL;
@@ -93,6 +108,42 @@ axlPointer __mod_auth_xml_load (MyQttdCtx  * ctx,
 	/* configure anonymous status */
 	node = axl_doc_get (doc, "/myqtt-users");
 	backend->anonymous = HAS_ATTR_VALUE (node, "anonymous", "yes");
+
+	/* now get current global configuration */
+	backend->global_acls = axl_doc_get (backend->doc, "/myqtt-users/global-acls");
+	if (backend->global_acls) {
+		/* get no match policy to quickly haccess it */
+		value = ATTR_VALUE (backend->global_acls, "no-match-policy");
+		if (axl_cmp (value, "close"))
+			backend->no_match_policy = MYQTT_PUBLISH_CONN_CLOSE;
+		else if (axl_cmp (value, "discard") || axl_cmp (value, "deny"))
+			backend->no_match_policy = MYQTT_PUBLISH_DISCARD;
+		else if (axl_cmp (value, "ignore") || axl_cmp (value, "allow"))
+			backend->no_match_policy = MYQTT_PUBLISH_OK;
+		else
+			backend->no_match_policy = MYQTT_PUBLISH_OK; /* by default ok for no-match-policy */
+		
+		/* and deny action if defined */
+		value = ATTR_VALUE (backend->global_acls, "deny-action");
+		if (axl_cmp (value, "close"))
+			backend->deny_action = MYQTT_PUBLISH_CONN_CLOSE;
+		else if (axl_cmp (value, "discard"))
+			backend->deny_action = MYQTT_PUBLISH_DISCARD;
+		else if (axl_cmp (value, "ignore"))
+			backend->deny_action = MYQTT_PUBLISH_OK;
+		else
+			backend->deny_action = MYQTT_PUBLISH_DISCARD; /* by default discard */
+		
+		/* and when to apply if defined */
+		value = ATTR_VALUE (backend->global_acls, "when-to-apply");
+		if (axl_cmp (value, "before"))
+			backend->when_to_apply = MOD_AUTH_XML_APPLY_BEFORE;
+		else if (axl_cmp (value, "after"))
+			backend->when_to_apply = MOD_AUTH_XML_APPLY_AFTER;
+		else
+			backend->when_to_apply = MOD_AUTH_XML_APPLY_BEFORE; /* by default apply before */
+		
+	} /* end if */
 
 	/* report backend */
 	return backend;
@@ -179,18 +230,33 @@ axl_bool     __mod_auth_xml_auth_user (MyQttdCtx  * ctx,
 			/* user and client id (and password) */
 			if (axl_cmp (client_id, ATTR_VALUE (node, "id")) && 
 			    axl_cmp (user_name, ATTR_VALUE (node, "username")) &&
-			    axl_cmp (password, ATTR_VALUE (node, "password")))
+			    axl_cmp (password, ATTR_VALUE (node, "password"))) {
+
+				/* anotate this node into the connection */
+				myqtt_conn_set_data (conn, "mod:auth:xml:user-node", node);
+				
 				return axl_true;
+			}
 			break;
 		case 2:
 			/* client id */
-			if (axl_cmp (client_id, ATTR_VALUE (node, "id")))
+			if (axl_cmp (client_id, ATTR_VALUE (node, "id"))) {
+				
+				/* anotate this node into the connection */
+				myqtt_conn_set_data (conn, "mod:auth:xml:user-node", node);
+				
 				return axl_true;
+			}
 			break;
 		case 1:
 			/* user */
-			if (axl_cmp (user_name, ATTR_VALUE (node, "username")))
+			if (axl_cmp (user_name, ATTR_VALUE (node, "username"))) {
+				
+				/* anotate this node into the connection */
+				myqtt_conn_set_data (conn, "mod:auth:xml:user-node", node);
+				
 				return axl_true;
+			} /* end if */
 			break;
 		} /* end switch */
 
@@ -217,6 +283,109 @@ void __mod_auth_xml_unload (MyQttdCtx * ctx,
 	return;
 }
 
+axl_bool __mod_auth_xml_on_publish_acl_deny (ModAuthXmlBackend * backend, axlNode * acl, MyQttMsg * msg, MyQttConn * conn) {
+
+	if (acl == NULL)
+		return axl_true; /* not denied */
+
+	while (acl) {
+
+		/* printf ("ACL: checking %s == %s\n", ATTR_VALUE (acl, "topic"), myqtt_msg_get_topic (msg)); */
+		if (axl_cmp (ATTR_VALUE (acl, "topic"), myqtt_msg_get_topic (msg))) {
+			
+			/* acl found, see policy */
+			if (strstr ("w", ATTR_VALUE (acl, "mode"))) {
+				/* found write acl in PUBLISH acl, so allow it */
+				/* printf ("ACL: allowed (1)\n"); */
+				return axl_true;
+			}
+			
+			/* acl found, see policy */
+			if (strstr ("publish", ATTR_VALUE (acl, "mode"))) {
+				/* found write acl in PUBLISH acl, so allow it */
+				/* printf ("ACL: allowed (2)\n"); */
+				return axl_true;
+			}
+
+			/* reached this point, acl was found, but it
+			 * does not allow PUBLISH (write) */
+			error ("Denied PUBLISH operation from %s:%s (client-id: %s, user: %s) because acl %s (%s)",
+			       myqtt_conn_get_host (conn), myqtt_conn_get_port (conn),
+			       myqtt_conn_get_client_id (conn), myqtt_conn_get_username (conn) ? myqtt_conn_get_username (conn) : "<not defined>",
+			       myqtt_msg_get_topic (msg),
+			       backend->full_path);
+			return axl_false;
+			
+		} /* end while */
+
+		
+		/* call to get next acl node */
+		acl = axl_node_get_next_called (acl, "acl");
+		
+	} /* end while */
+	
+	return axl_true; /* not denied */
+}
+
+MyQttPublishCodes __mod_auth_xml_report (MyQttdCtx * ctx, MyQttMsg * msg, MyQttConn * conn, MyQttPublishCodes code)
+{
+	if (code == MYQTT_PUBLISH_DISCARD)
+		error ("Discarding PUBLISH (%s) from %s:%s (due to acl)", myqtt_msg_get_topic (msg), myqtt_conn_get_host (conn), myqtt_conn_get_port (conn));
+	else if (code == MYQTT_PUBLISH_CONN_CLOSE)
+		error ("Closing connection after PUBLISH (%s) from %s:%s (due to acl)", myqtt_msg_get_topic (msg), myqtt_conn_get_host (conn), myqtt_conn_get_port (conn));  
+
+	return code;
+}
+
+MyQttPublishCodes __mod_auth_xml_init_on_publish (MyQttdCtx * ctx,       MyQttdDomain * domain, 
+						  MyQttCtx  * myqtt_ctx, MyQttConn    * conn, 
+						  MyQttMsg  * msg,       axlPointer     user_data)
+{
+
+	MyQttdUsers       * users = myqttd_domain_get_users_backend (domain);
+	ModAuthXmlBackend * backend;
+	axlNode           * node;
+
+	if (users == NULL) {
+		error ("Connection close on publish because Users' backend is not available..");
+		return MYQTT_PUBLISH_CONN_CLOSE;
+	} /* end if */
+
+	/* call to get backed associated to this domain */
+	backend = myqttd_users_get_backend_ref (users);
+	if (backend == NULL) {
+		error ("Connection close on publish because User's backend is not available from myqttd_users_get_backend_ref ()");
+		return __mod_auth_xml_report (ctx, msg, conn, MYQTT_PUBLISH_CONN_CLOSE);
+	} /* end if */
+
+	if (backend->when_to_apply == MOD_AUTH_XML_APPLY_BEFORE) {
+		
+		/* do acl apply before applying users' acls */
+		if (! __mod_auth_xml_on_publish_acl_deny (backend, axl_node_get_child_called (backend->global_acls, "acl"), msg, conn))
+			return __mod_auth_xml_report (ctx, msg, conn, backend->deny_action);
+		
+	} /* end if */
+
+	/* find user and apply its acls if defined */
+	node = myqtt_conn_get_data (conn, "mod:auth:xml:user-node");
+
+	/* apply acls if defined for the provided user node */
+	if (! __mod_auth_xml_on_publish_acl_deny (backend, axl_node_get_child_called (node, "acl"), msg, conn))
+		return __mod_auth_xml_report (ctx, msg, conn, backend->deny_action);
+
+
+	if (backend->when_to_apply == MOD_AUTH_XML_APPLY_AFTER) {
+		
+		/* do acl apply after applying users' acls */
+		if (! __mod_auth_xml_on_publish_acl_deny (backend, axl_node_get_child_called (backend->global_acls, "acl"), msg, conn))
+			return __mod_auth_xml_report (ctx, msg, conn, backend->deny_action);
+		
+	} /* end if */
+
+	/* report publish is ok so return default deny policy */
+	return __mod_auth_xml_report (ctx, msg, conn, backend->no_match_policy);
+}
+
 /** 
  * @brief Init function, perform all the necessary code to register
  * handlers, configure MyQtt, and any other init task. The function
@@ -241,6 +410,10 @@ static int  mod_auth_xml_init (MyQttdCtx * _ctx)
 		error ("Failed to install mod-auth-xml authentication handlers..");
 		return axl_false;
 	} /* end if */
+
+	/* register an on publish */
+	myqttd_ctx_add_on_publish (ctx, __mod_auth_xml_init_on_publish, NULL);
+	
 	
 	return axl_true;
 }

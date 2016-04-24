@@ -48,6 +48,8 @@ MyQttdUsers * myqttd_users_load (MyQttdCtx  * ctx,
 				 MyQttConn  * conn,
 				 const char * path);
 
+axlPointer    myqttd_users_get_backend_ref (MyQttdUsers * users);
+
 axl_bool      myqttd_users_do_auth (MyQttdCtx    * ctx,
 				    MyQttdUsers  * users,
 				    MyQttConn    * conn,

@@ -73,6 +73,8 @@ int               myqttd_domain_count_enabled (MyQttdCtx * ctx);
 
 int               myqttd_domain_conn_count (MyQttdDomain * domain);
 
+MyQttdUsers     * myqttd_domain_get_users_backend (MyQttdDomain * domain);
+
 void              myqttd_domain_cleanup (MyQttdCtx * ctx);
 
 #endif

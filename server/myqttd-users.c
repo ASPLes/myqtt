@@ -148,6 +148,28 @@ MyQttdUsers * myqttd_users_load (MyQttdCtx  * ctx,
 }
 
 /** 
+ * @brief Allows to get the internal reference that was created at the
+ * time the backend was initialized. This is module especific pointer.
+ *
+ * NOTE for developers: the pointer returned by this function is the
+ * pointer returned by handler registered at \ref
+ * myqttd_users_register_backend, called <b>loadBackend</b> (\ref
+ * MyQttdUsersLoadDb).
+ *
+ * @param users The MyQttdUsers where the internal reference is being requested.
+ *
+ * @return The backend reference or NULL if it fails or it is not defined.
+ */
+axlPointer    myqttd_users_get_backend_ref (MyQttdUsers * users)
+{
+	if (users == NULL)
+		return NULL;
+	
+	/* internal opaque references to the users' backend */
+	return users->backend_reference;
+}
+
+/** 
  * @brief Allows to do an auth operation on the provided users backend
  * (users) in the context of the provided connection (optionally
  * provided) with credentials provided.

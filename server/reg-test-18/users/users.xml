@@ -1,0 +1,15 @@
+<myqtt-users password-format="plain">
+  <!-- no-match-policy : allow | deny | close -->
+  <!-- deny-action : close | discard | ignore -->
+  <!-- when-to-apply : before | after -->
+  <global-acls no-match-policy="close" deny-action="close" when-to-apply="before" >
+    <!-- mode : r rw r,w publish publish,subscribe -->
+    <acl topic="myqtt/allowed/topic" mode="rw" />
+    <acl topic="myqtt/allowed/topic2" mode="rw" />
+  </global-acls>
+  
+  <user id="test_05" />
+  <user id="test_06" />
+  <user id="test_18.client.id" />
+  <user id="test_18.client.id.pub" />
+</myqtt-users>

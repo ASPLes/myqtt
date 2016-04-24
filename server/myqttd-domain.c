@@ -438,6 +438,20 @@ int               myqttd_domain_conn_count (MyQttdDomain * domain)
 }
 
 /** 
+ * @brief Allows to get currently loaded users backend for the
+ * provided domain (or NULL if nothing is still loaded).
+ *
+ * @param domain The domain where the operation is going to happen.
+ *
+ * @return A reference to the MyQttdUsers object that represents the user's backend.
+ */
+MyQttdUsers     * myqttd_domain_get_users_backend (MyQttdDomain * domain)
+{
+	/* report domain users backend */
+	return domain->users;
+}
+
+/** 
  * @internal Cleanups the domain module for this context.
  */
 void myqttd_domain_cleanup (MyQttdCtx * ctx)
