@@ -1808,8 +1808,9 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 		if (! myqtt_sequencer_send (conn, MYQTT_PUBREC, reply, 4)) {
 			/* release wait reply queue */
 			__myqtt_reader_remove_wait_reply (conn, msg->packet_id, axl_true);
-
+			
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send PUBREC message, errno=%d", errno);
+			return;
 		}
 		
 	} /* end if */
