@@ -3,7 +3,7 @@
   <!-- deny-action : close | discard | ignore -->
   <!-- when-to-apply : before | after -->
   <global-acls no-match-policy="close" deny-action="close" when-to-apply="before" >
-    <!-- mode : r rw r,w publish publish,subscribe -->
+    <!-- mode : r rw r,w publish publish,subscribe, publish0, publish1, publish2 -->
     <acl topic="myqtt/allowed/topic" mode="rw" />
     <acl topic="myqtt/allowed/topic2" mode="rw" />
   </global-acls>
