@@ -2816,6 +2816,98 @@ axl_bool  test_18 (void) {
 }
 
 
+axl_bool  test_19 (void) {
+
+	MyQttdCtx       * ctx;
+	MyQttConn       * conn;
+	MyQttConn       * conn2;
+	MyQttCtx        * myqtt_ctx;
+	int               sub_result = -1;
+	MyQttAsyncQueue * queue;
+
+	/* call to init the base library and close it */
+	printf ("Test 19: init library and server engine..\n");
+	ctx       = common_init_ctxd (NULL, "test_19.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 19: library and server engine started.. ok (ctxd = %p, ctx = %p\n", ctx, MYQTTD_MYQTT_CTX (ctx));
+
+	/* create connection to local server and test domain support */
+	myqtt_ctx = common_init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 19: connecting to myqtt server (client ctx = %p)..\n", myqtt_ctx);
+	conn = myqtt_conn_new (myqtt_ctx, "test_05", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it shouldn't connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	conn2 = myqtt_conn_new (myqtt_ctx, "test_06", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn2, axl_false)) {
+		printf ("ERROR: it shouldn't connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	/* try to subscribe to a wildcarid topic */
+	myqtt_conn_sub (conn, 10, "myqtt/#", 10, &sub_result);
+
+	/* register on message handler */
+	queue = myqtt_async_queue_new ();
+	myqtt_conn_set_on_msg (conn, common_queue_message_received, queue);
+
+	/* now publish content to certain topics ... but I should only
+	 * receive some of them */
+	if (! myqtt_conn_pub (conn, "myqtt/allowed/topic", "this is a test", 14, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: failed to publish message ...(1)..\n");
+		return axl_false;
+	}
+
+	if (! myqtt_conn_pub (conn, "myqtt/allowed/topic2", "this is a test", 14, MYQTT_QOS_0, axl_false, 0)) {
+		printf ("ERROR: failed to publish message ...(2)..\n");
+		return axl_false;
+	}
+
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected to NOT find connection failure after publish.....\n");
+		return axl_false;
+	} /* end if */
+
+	/*** IN THIS CASE: for testing purposes we use qos2 to force
+	 * this client to wait for the reply ***/
+	if (myqtt_conn_pub (conn, "myqtt/not-allowed-allowed/topic", "this is a test", 14, MYQTT_QOS_2, axl_false, 10)) {
+		printf ("ERROR: these publish shouldn't happen (policy seem to be not working)...\n");
+		return axl_false;
+	}
+
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: expected to find connection failure due to publish deny action that should have close the connection..\n");
+		return axl_false;
+	} /* end if */
+
+	/* close connection */
+	myqtt_conn_close (conn);
+	myqtt_conn_close (conn2);
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
+
+	myqtt_async_queue_unref (queue);
+
+	printf ("Test 18: finishing MyQttdCtx..\n");
+
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+		
+	return axl_true;
+	
+}
+
+
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
 
 typedef axl_bool (* MyQttTestHandler) (void);
@@ -2983,6 +3075,9 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_18")
 	run_test (test_18, "Test 18: check global acls with mod-auth-xml");
+
+	CHECK_TEST("test_19")
+	run_test (test_19, "Test 19: check user acls with mod-auth-xml");
 
 	/* check support to limit amount of subscriptions a user can
 	 * do */

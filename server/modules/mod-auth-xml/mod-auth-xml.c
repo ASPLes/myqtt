@@ -296,14 +296,20 @@ axl_bool __mod_auth_xml_on_publish_acl_deny (ModAuthXmlBackend * backend, axlNod
 			/* acl found, see policy */
 			if (strstr ("w", ATTR_VALUE (acl, "mode"))) {
 				/* found write acl in PUBLISH acl, so allow it */
-				/* printf ("ACL: allowed (1)\n"); */
 				return axl_true;
 			}
 			
 			/* acl found, see policy */
 			if (strstr ("publish", ATTR_VALUE (acl, "mode"))) {
 				/* found write acl in PUBLISH acl, so allow it */
-				/* printf ("ACL: allowed (2)\n"); */
+				return axl_true;
+			}
+
+			/* acl found, see policy */
+			if ((strstr ("publish0", ATTR_VALUE (acl, "mode")) && myqtt_msg_get_qos (msg) == MYQTT_QOS_0) ||
+			    (strstr ("publish1", ATTR_VALUE (acl, "mode")) && myqtt_msg_get_qos (msg) == MYQTT_QOS_1) ||
+			    (strstr ("publish2", ATTR_VALUE (acl, "mode")) && myqtt_msg_get_qos (msg) == MYQTT_QOS_2)) {
+				/* found write acl in PUBLISH acl, so allow it */
 				return axl_true;
 			}
 
@@ -337,9 +343,9 @@ MyQttPublishCodes __mod_auth_xml_report (MyQttdCtx * ctx, MyQttMsg * msg, MyQttC
 	return code;
 }
 
-MyQttPublishCodes __mod_auth_xml_init_on_publish (MyQttdCtx * ctx,       MyQttdDomain * domain, 
-						  MyQttCtx  * myqtt_ctx, MyQttConn    * conn, 
-						  MyQttMsg  * msg,       axlPointer     user_data)
+MyQttPublishCodes __mod_auth_xml_on_publish (MyQttdCtx * ctx,       MyQttdDomain * domain, 
+					     MyQttCtx  * myqtt_ctx, MyQttConn    * conn, 
+					     MyQttMsg  * msg,       axlPointer     user_data)
 {
 
 	MyQttdUsers       * users = myqttd_domain_get_users_backend (domain);
@@ -411,8 +417,11 @@ static int  mod_auth_xml_init (MyQttdCtx * _ctx)
 		return axl_false;
 	} /* end if */
 
-	/* register an on publish */
-	myqttd_ctx_add_on_publish (ctx, __mod_auth_xml_init_on_publish, NULL);
+	/* register an on publish (write, publish, publish0, publish1, publish2) */
+	myqttd_ctx_add_on_publish (ctx, __mod_auth_xml_on_publish, NULL);
+
+	/* register on subscribe */
+	myqttd_ctx_add_on_subscribe (ctx, __mod_auth_xml_on_subscribe, NULL);
 	
 	
 	return axl_true;
