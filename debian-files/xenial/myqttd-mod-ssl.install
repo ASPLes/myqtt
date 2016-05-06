@@ -1,0 +1,7 @@
+usr/lib/myqtt/modules/mod-ssl.so
+usr/lib/myqtt/modules/mod-ssl.la
+usr/lib/myqtt/modules/mod-ssl.so.0
+usr/lib/myqtt/modules/mod-ssl.a
+usr/lib/myqtt/modules/mod-ssl.so.0.0.0
+etc/myqtt/ssl/ssl.example.conf
+etc/myqtt/mods-available/mod-ssl.xml

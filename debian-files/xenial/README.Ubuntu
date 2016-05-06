@@ -1,0 +1,9 @@
+MyQtt for Ubuntu 16.04 Xenial Xerus
+-----------------------------------
+
+This is MyQtt OpenSource stack, an opensource MQTT implementation to
+allow providing MQTT support to existing projects or to create MQTT
+server solutions.
+
+More info at: http://www.aspl.es/myqtt
+

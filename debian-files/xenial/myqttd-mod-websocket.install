@@ -1,0 +1,7 @@
+usr/lib/myqtt/modules/mod-web-socket.so.0.0.0
+usr/lib/myqtt/modules/mod-web-socket.so.0
+usr/lib/myqtt/modules/mod-web-socket.a
+usr/lib/myqtt/modules/mod-web-socket.la
+usr/lib/myqtt/modules/mod-web-socket.so
+etc/myqtt/mods-available/mod-web-socket.xml
+etc/myqtt/web-socket/web-socket.example.conf
