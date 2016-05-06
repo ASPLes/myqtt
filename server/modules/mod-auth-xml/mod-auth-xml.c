@@ -421,7 +421,7 @@ static int  mod_auth_xml_init (MyQttdCtx * _ctx)
 	myqttd_ctx_add_on_publish (ctx, __mod_auth_xml_on_publish, NULL);
 
 	/* register on subscribe */
-	myqttd_ctx_add_on_subscribe (ctx, __mod_auth_xml_on_subscribe, NULL);
+	/* myqttd_ctx_add_on_subscribe (ctx, __mod_auth_xml_on_subscribe, NULL); */
 	
 	
 	return axl_true;
