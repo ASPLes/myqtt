@@ -1,0 +1,129 @@
+Source: myqtt
+Priority: extra
+Maintainer: Francis Brosnan <francis@aspl.es>
+Build-Depends: debhelper (>= 5), autotools-dev, pkg-config, 
+  libaxl-dev (>= 0.7.0), libssl-dev, 
+Standards-Version: 3.7.2
+Section: libs
+
+Package: libmyqtt-1.0
+Section: libs
+Architecture: any
+Depends: libc6, libaxl1 (>= 0.7.0)
+Description: OpenSource MQTT stack written in ANSI C
+  MyQtt is an Open Source professional MQTT stack written in ANSI C,
+  focused on providing support to create MQTT brokers. MyQtt has a
+  modular design that allows creating MQTT brokers by using the API
+  provided by libMyQtt (which in fact is composed by several
+  libraries: libmyqtt, libmyqtt-tls, libmyqtt-websocket). It is also
+  provided a ready to use MQTT broker called MyQttD which is built on
+  top of libMyQtt. MyQttD server is extensible by adding C plugins.
+
+Package: libmyqtt-1.0-dev
+Section: libdevel
+Architecture: any
+Depends: libaxl-dev (>= 0.7.0), libmyqtt-1.0 (= ${Source-Version})
+Description: OpenSource MQTT stack written in ANSI C
+  Development headers for the core library implementation. 
+
+Package: libmyqtt-tls-1.0
+Section: libs
+Architecture: any
+Depends: libc6, libaxl1 (>= 0.7.0), libmyqtt-1.0 (= ${Source-Version}),
+  libssl1.0.0
+Description: TLS extension support for libMyQtt
+ This package contains the extension library to add support for TLS
+ to libMyQtt
+
+Package: libmyqtt-tls-1.0-dev
+Section: libdevel
+Architecture: any
+Depends: libaxl-dev (>= 0.7.0), libmyqtt-1.0-dev (= ${Source-Version}),
+  libssl-dev, libmyqtt-tls-1.0 (= ${Source-Version})
+Description: TLS extension support for libMyQtt (develpment headers)
+ Development headers for TLS libMyQtt
+
+Package: libmyqtt-websocket-1.0
+Section: libs
+Architecture: any
+Depends: libc6, libaxl1 (>= 0.7.0), libmyqtt-1.0 (= ${Source-Version}),
+  libnopoll0
+Description: WebSocket extension support for libMyQtt
+ This package contains the extension library to add support for WebSocket
+ to libMyQtt
+
+Package: libmyqtt-websocket-1.0-dev
+Section: libdevel
+Architecture: any
+Depends: libaxl-dev (>= 0.6.4), libmyqtt-1.0-dev (= ${Source-Version}),
+ libmyqtt-websocket-1.0 (= ${Source-Version}), libnopoll0-dev
+Description: WebSocket extension support for libMyQtt (develpment headers)
+ Development headers for WebSocket libMyQtt
+ 
+Package: myqtt-client-1.0
+Section: net
+Architecture: any
+Depends: libmyqtt-1.0 (= ${Source-Version}),
+  libmyqtt-websocket-1.0 (= ${Source-Version}),
+  libmyqtt-tls-1.0 (=  ${Source-Version})
+Description: MyQtt command line client
+  myqtt-client command line client.
+
+Package: python-myqtt
+Section: libs
+Architecture: any
+Depends: libmyqtt-1.0 (= ${Source-Version}), python,
+  libpython2.7
+Description: Python bindings for libMyQtt
+ Python bindings for MyQtt (base library)
+
+Package: python-myqtt-tls
+Section: libs
+Architecture: any
+Depends: libmyqtt-1.0 (= ${Source-Version}), python-myqtt,
+  libmyqtt-tls-1.0 (= ${Source-Version})
+Description: Python bindings for MyQtt TLS support
+ Python bindings for MyQtt TLS support.
+
+Package: libmyqttd-server-1.0
+Section: libs
+Architecture: any
+Depends: libmyqtt-1.0 (= ${Source-Version})
+Description: libMyQttD library, core library used by MyQttD broker/server
+ Main library used by MyQttD broker/server
+
+Package: myqttd-server
+Section: libs
+Architecture: any
+Depends: libmyqtt-1.0 (= ${Source-Version})
+Description: Opensource MQTT Server -- MyQttD server 
+ Opensource MQTT Server -- MyQttD server
+
+Package: myqttd-mod-auth-xml
+Section: libs
+Architecture: any
+Depends: libmyqtt-1.0 (= ${Source-Version})
+Description: Extension auth plugin to provide auth-xml backend
+ Extension auth plugin to provide auth-xml backend
+
+Package: myqttd-mod-ssl
+Section: libs
+Architecture: any
+Depends: libmyqtt-1.0 (= ${Source-Version})
+Description: Extension plugin that provides SSL/TLS support to MyQttD
+ Extension plugin that provides SSL/TLS support to MyQttD
+
+Package: myqttd-mod-websocket
+Section: libs
+Architecture: any
+Depends: libmyqtt-1.0 (= ${Source-Version})
+Description: Extension plugin that provides WebSocket support to MyQttD
+ Extension plugin that provides WebSocket support to MyQttD
+
+Package: myqttd-mod-status
+Section: libs
+Architecture: any
+Depends: libmyqtt-1.0 (= ${Source-Version})
+Description: Extension plugin that provides status options to clients
+ Extension plugin that provides status options to clients
+
