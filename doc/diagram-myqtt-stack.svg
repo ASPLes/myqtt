@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="562.63013mm"
+   height="468.28726mm"
+   viewBox="0 0 1993.5713 1659.2856"
+   id="svg38076"
+   version="1.1"
+   inkscape:version="0.91 r13725"
+   sodipodi:docname="diagram-myqtt-stack.svg">
+  <defs
+     id="defs38078" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.35"
+     inkscape:cx="1007.5"
+     inkscape:cy="659.64278"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     inkscape:window-width="1920"
+     inkscape:window-height="1003"
+     inkscape:window-x="0"
+     inkscape:window-y="24"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata38081">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Capa 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(208.21428,601.56632)">
+    <rect
+       style="opacity:1;fill:#555753;fill-opacity:1;stroke:#ffffff;stroke-width:5.00079823;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="rect38368"
+       width="1988.5704"
+       height="1654.2848"
+       x="-205.71388"
+       y="-599.06592"
+       ry="52.566063" />
+    <g
+       id="g38346"
+       transform="translate(-2.8571429,31.428571)">
+      <rect
+         ry="0"
+         rx="0"
+         y="611.63733"
+         x="-69.331146"
+         height="347.16409"
+         width="1747.8167"
+         id="rect37157"
+         style="opacity:1;fill:#5c3566;stroke:#ffffff;stroke-width:12.62204361;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <text
+         sodipodi:linespacing="125%"
+         id="text37159"
+         y="732.89282"
+         x="-0.78418213"
+         style="font-style:normal;font-weight:normal;font-size:86.42718506px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         xml:space="preserve"><tspan
+           style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std Semi-Bold';fill:#ffffff"
+           y="732.89282"
+           x="-0.78418213"
+           id="tspan37161"
+           sodipodi:role="line">libMyQtt  (ansi C)</tspan><tspan
+           id="tspan38135"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:60px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+           y="821.13397"
+           x="-0.78418213"
+           sodipodi:role="line">Core MQTT functions server and client </tspan><tspan
+           id="tspan38137"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:60px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+           y="896.13397"
+           x="-0.78418213"
+           sodipodi:role="line">handling</tspan></text>
+    </g>
+    <g
+       id="g38339"
+       transform="translate(1.7200565,0)">
+      <rect
+         ry="0"
+         rx="0"
+         y="245.26006"
+         x="-73.142723"
+         height="351.34714"
+         width="771.99976"
+         id="rect37157-1"
+         style="opacity:1;fill:#204a87;stroke:#ffffff;stroke-width:8.43900299;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <text
+         sodipodi:linespacing="125%"
+         id="text37159-2"
+         y="368.60709"
+         x="-2.5042336"
+         style="font-style:normal;font-weight:normal;font-size:86.42718506px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         xml:space="preserve"><tspan
+           style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std Semi-Bold';fill:#ffffff"
+           y="368.60709"
+           x="-2.5042336"
+           id="tspan37161-8"
+           sodipodi:role="line">libMyQttTls</tspan><tspan
+           id="tspan38137-2"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:60px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+           y="456.84821"
+           x="-2.5042336"
+           sodipodi:role="line">Extension library with</tspan><tspan
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:60px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+           y="531.84821"
+           x="-2.5042336"
+           sodipodi:role="line"
+           id="tspan38180">TLS/SSL support</tspan></text>
+    </g>
+    <g
+       id="g38353"
+       transform="translate(8.8628492,0)">
+      <rect
+         ry="0"
+         rx="0"
+         y="245.69017"
+         x="731.57312"
+         height="350.48691"
+         width="939.71094"
+         id="rect37157-1-0"
+         style="opacity:1;fill:#ce5c00;stroke:#ffffff;stroke-width:9.2992382;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <text
+         sodipodi:linespacing="125%"
+         id="text37159-2-1"
+         y="362.89279"
+         x="776.06726"
+         style="font-style:normal;font-weight:normal;font-size:86.42718506px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         xml:space="preserve"><tspan
+           style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std Semi-Bold';fill:#ffffff"
+           y="362.89279"
+           x="776.06726"
+           id="tspan37161-8-1"
+           sodipodi:role="line">libMyQttWebSocket</tspan><tspan
+           id="tspan38137-2-9"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:45px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+           y="439.89954"
+           x="776.06726"
+           sodipodi:role="line">Extension library with</tspan><tspan
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:45px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+           y="496.14954"
+           x="776.06726"
+           sodipodi:role="line"
+           id="tspan38180-9">WebSocket support through</tspan><tspan
+           id="tspan38224"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:45px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+           y="552.39954"
+           x="776.06726"
+           sodipodi:role="line">aspl.es/nopoll</tspan></text>
+    </g>
+    <g
+       id="g38280"
+       transform="translate(-342.56567,40)">
+      <rect
+         ry="0"
+         rx="0"
+         y="-331.88278"
+         x="271.14301"
+         height="351.34714"
+         width="771.99976"
+         id="rect37157-1-4"
+         style="opacity:1;fill:#8f5902;stroke:#ffffff;stroke-width:8.43900299;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <text
+         sodipodi:linespacing="125%"
+         id="text37159-2-0"
+         y="-208.53578"
+         x="341.78149"
+         style="font-style:normal;font-weight:normal;font-size:86.42718506px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         xml:space="preserve"><tspan
+           style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std Semi-Bold';fill:#ffffff"
+           y="-208.53578"
+           x="341.78149"
+           id="tspan37161-8-7"
+           sodipodi:role="line">PyMyQtt</tspan><tspan
+           id="tspan38255"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:60px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+           y="-120.29466"
+           x="341.78149"
+           sodipodi:role="line">Full bindings to writie </tspan><tspan
+           id="tspan38259"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:60px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+           y="-45.294662"
+           x="341.78149"
+           sodipodi:role="line">python MQTT servers</tspan></text>
+    </g>
+    <rect
+       style="opacity:1;fill:#4e9a06;stroke:#ffffff;stroke-width:7.11023998;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="rect37157-1-4-7"
+       width="1753.3286"
+       height="109.81876"
+       x="-72.087189"
+       y="98.881401"
+       rx="0"
+       ry="0" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:59.60845947px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       x="330.14267"
+       y="171.92258"
+       id="text38276"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan38278"
+         x="330.14267"
+         y="171.92258"
+         style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std Semi-Bold';fill:#ffffff">MyQtt Stack (all myqtt libraries)</tspan></text>
+    <g
+       id="g38361"
+       transform="translate(11.719997,0)">
+      <rect
+         ry="0"
+         rx="0"
+         y="-291.50153"
+         x="748.66711"
+         height="350.58463"
+         width="919.80865"
+         id="rect37157-1-4-3"
+         style="opacity:1;fill:#a40000;stroke:#ffffff;stroke-width:9.20151901;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <text
+         sodipodi:linespacing="125%"
+         id="text37159-2-0-9"
+         y="-168.5358"
+         x="818.92432"
+         style="font-style:normal;font-weight:normal;font-size:86.42718506px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         xml:space="preserve"><tspan
+           style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std Semi-Bold';fill:#ffffff"
+           y="-168.5358"
+           x="818.92432"
+           id="tspan37161-8-7-3"
+           sodipodi:role="line">MyQttD server</tspan><tspan
+           id="tspan38259-4"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:60px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+           y="-80.294678"
+           x="818.92432"
+           sodipodi:role="line">Ready to use MQTT server</tspan><tspan
+           id="tspan38324"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:60px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+           y="-5.2946763"
+           x="818.92432"
+           sodipodi:role="line">built on top of libMyQtt</tspan></text>
+    </g>
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot38326"
+       style="font-style:normal;font-weight:normal;font-size:40px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"><flowRegion
+         id="flowRegion38328"><rect
+           id="rect38330"
+           width="2522.8572"
+           height="1714.2858"
+           x="-460"
+           y="-453.35208" /></flowRegion><flowPara
+         id="flowPara38332"></flowPara></flowRoot>    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:176.63777161px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       x="-71.030914"
+       y="-382.31082"
+       id="text38373"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan38375"
+         x="-71.030914"
+         y="-382.31082"
+         style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std Semi-Bold';fill:#ffffff">MyQtt Stack</tspan></text>
+  </g>
+</svg>
