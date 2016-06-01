@@ -15,8 +15,11 @@
    viewBox="0 0 1425.2744 877.77185"
    id="svg35607"
    version="1.1"
-   inkscape:version="0.91 r13725"
-   sodipodi:docname="myqtt-main-features.svg">
+   inkscape:version="0.91 r"
+   sodipodi:docname="myqtt-main-features.svg"
+   inkscape:export-filename="/home/acinom/myqtt/doc/myqtt-main-features.png"
+   inkscape:export-xdpi="82"
+   inkscape:export-ydpi="82">
   <defs
      id="defs35609">
     <linearGradient
@@ -420,8 +423,8 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="0.35"
-     inkscape:cx="480.24065"
-     inkscape:cy="246.66702"
+     inkscape:cx="535.95494"
+     inkscape:cy="132.38131"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -429,10 +432,10 @@
      fit-margin-left="0"
      fit-margin-right="0"
      fit-margin-bottom="0"
-     inkscape:window-width="1920"
-     inkscape:window-height="1003"
+     inkscape:window-width="1280"
+     inkscape:window-height="950"
      inkscape:window-x="0"
-     inkscape:window-y="24"
+     inkscape:window-y="25"
      inkscape:window-maximized="1" />
   <metadata
      id="metadata35612">
@@ -442,7 +445,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -460,41 +463,47 @@
        y="65.443169"
        rx="15.714286"
        ry="15.714286" />
-    <g
-       id="g37962"
-       transform="translate(82.832509,-86.873119)">
-      <rect
-         ry="17.804432"
-         rx="19.752001"
-         y="694.58881"
-         x="-584.04761"
-         height="192.28784"
-         width="426.64325"
-         id="rect37157"
-         style="opacity:1;fill:#ad7fa8;stroke:#ffffff;stroke-width:4.641119;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
-      <text
-         sodipodi:linespacing="125%"
-         id="text37159"
-         y="756.5976"
-         x="-562.30127"
-         style="font-style:normal;font-weight:normal;font-size:40px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-         xml:space="preserve"><tspan
-           style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std Semi-Bold';fill:#ffffff"
-           y="756.5976"
-           x="-562.30127"
-           id="tspan37161"
-           sodipodi:role="line">Librería servidor</tspan><tspan
-           id="tspan37184"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:35px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
-           y="802.85278"
-           x="-562.30127"
-           sodipodi:role="line">Crea el servidor MQTT</tspan><tspan
-           id="tspan37186"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:35px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
-           y="846.60278"
-           x="-562.30127"
-           sodipodi:role="line">que necesitas</tspan></text>
-    </g>
+    <rect
+       style="opacity:1;fill:#ad7fa8;stroke:#ffffff;stroke-width:5.64918709;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="rect37157"
+       width="425.63519"
+       height="285.56549"
+       x="-500.71106"
+       y="608.21973"
+       rx="19.705332"
+       ry="26.441252" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:40px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       x="-479.46875"
+       y="669.72449"
+       id="text37159"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         x="-479.46875"
+         y="669.72449"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:35px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+         id="tspan37186">MQTT Stack</tspan><tspan
+         sodipodi:role="line"
+         x="-479.46875"
+         y="713.47449"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:35px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+         id="tspan4301">No solo una librería,</tspan><tspan
+         sodipodi:role="line"
+         x="-479.46875"
+         y="757.22449"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:35px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+         id="tspan4303">o un servidor MQTT.</tspan><tspan
+         sodipodi:role="line"
+         x="-479.46875"
+         y="800.97449"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:35px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+         id="tspan4305">Crea la solución MQTT</tspan><tspan
+         sodipodi:role="line"
+         x="-479.46875"
+         y="844.72449"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:35px;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
+         id="tspan4307">que necesitas</tspan></text>
     <g
        id="g37952"
        transform="translate(72.730983,30.304576)">

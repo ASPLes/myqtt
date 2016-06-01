@@ -15,8 +15,11 @@
    viewBox="0 0 1885.7143 1365.7142"
    id="svg16051"
    version="1.1"
-   inkscape:version="0.91 r13725"
-   sodipodi:docname="diagram-spanish-mqtt-protocol.svg">
+   inkscape:version="0.91 r"
+   sodipodi:docname="diagram-spanish-mqtt-protocol.svg"
+   inkscape:export-filename="/home/acinom/myqtt/doc/diagram-spanish-mqtt-protocol.png"
+   inkscape:export-xdpi="57.27"
+   inkscape:export-ydpi="57.27">
   <defs
      id="defs16053">
     <marker
@@ -1401,8 +1404,8 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="0.35"
-     inkscape:cx="603.91241"
-     inkscape:cy="463.03153"
+     inkscape:cx="966.84541"
+     inkscape:cy="445.88867"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -1410,10 +1413,10 @@
      fit-margin-left="0"
      fit-margin-right="0"
      fit-margin-bottom="0"
-     inkscape:window-width="1920"
-     inkscape:window-height="1003"
+     inkscape:window-width="1280"
+     inkscape:window-height="950"
      inkscape:window-x="0"
-     inkscape:window-y="24"
+     inkscape:window-y="25"
      inkscape:window-maximized="1" />
   <metadata
      id="metadata16056">
@@ -1423,7 +1426,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -4226,7 +4229,7 @@
          x="-389.63306"
          y="626.98541"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'ITC Lubalin Graph Std';-inkscape-font-specification:'ITC Lubalin Graph Std';fill:#ffffff"
-         id="tspan23098">qos=1,2,3</tspan></text>
+         id="tspan23098">qos=0,1,2</tspan></text>
     <path
        style="fill:none;fill-rule:evenodd;stroke:#ffffff;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow1Lend-33)"
        d="M 807.18616,85.22741 555.72829,238.45371"
