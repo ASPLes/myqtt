@@ -1495,18 +1495,28 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * \section intro MyQtt Introduction
  *
+ * <div style='float: right; padding: 10px'>
+ * \image html diagram-myqtt-stack-400x333.png "MyQtt Stack diagram reference"
+ * </div>
+ * <div>
  * MyQtt is an <b>Open Source</b> professional <a href="http://www.mqtt.org">MQTT</a> stack <b>written in ANSI C</b>,
  * which supports v3.1.1 and v3.1, focused on providing support <b>to
- * create MQTT servers/brokers</b>.  MyQtt has a modular design that
- * allows creating MQTT brokers by using the API provided by
- * <b>libMyQtt</b> (which in fact is composed by several libraries:
- * libmyqtt, libmyqtt-tls, libmyqtt-websocket), but it is also
- * provided <b>a ready to use MQTT broker</b> called <b>MyQttD</b>
- * which is built on top of <b>libMyQtt</b>. <b>MyQttD</b> server is
- * extensible by adding C plugins.
+ * create MQTT servers/brokers</b>.  
  *
- * At this point it is also provided a <b>Python interface to libMyQtt</b> so
+ * MyQtt has a modular design that allows creating MQTT brokers by
+ * using the API provided by <b>libMyQtt</b> (which in fact is
+ * composed by several libraries: <b>libmyqtt</b>, <b>libmyqtt-tls</b>,
+ * <b>libmyqtt-websocket</b>).
+ *
+ * It is also provided <b>a ready to use MQTT broker</b> called
+ * <b>MyQttD</b> which is built on top of
+ * <b>libMyQtt</b>. <b>MyQttD</b> server is extensible by adding C
+ * plugins.
+ *
+ * At this point it is also supported a <b>Python interface to libMyQtt</b> so
  * it's possible <b>to write fully functional MQTT brokers in Python</b>.
+ *
+ * \section myqtt_stack_status MyQtt stack focus, status and features
  *
  * MyQtt stack is <b>focused on security</b>, <b>very well tested and
  * stable</b> across releases (<b>thorough regression tests</b> are
@@ -1524,6 +1534,9 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * MyQtt stack is Open Source releaesd under LGPL 2.1, which allows to
  * used by Open and Closed source projects. See licensing for more information: http://www.aspl.es/myqtt/licensing.html
+ *
+ * </div>
+ * <div style='clear: both'></div>
  *
  * \section documentation MyQttD Documentation
  *
@@ -1564,16 +1577,17 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * - <b>Broker as a library</b>: Designed as a reusable library that
  *  allows to write MQTT brokers and client solutions. Want to create
- *  a MQTT server with an specific functionally? or provide support of
- *  MQTT to your existing project?, then <b>libMyQTT</b> is for you.
+ *  a MQTT server with a specific functionally? or provide MQTT
+ *  support to your existing project?, then <b>MyQTT statck</b> is for
+ *  you.
  *
  * - <b>Several contexts</b>: libMyQtt can start several context into
  * the same process allowing to start different configurations with
  * different settings.
  *
  * - <b>Multi-thread support</b>: the library and all components are
- * designed and built using multi-threading so multi-core scenarios
- * can take advantage of it.
+ * designed and built using multi-threading from the beginning so
+ * multi-core scenarios can take advantage of them.
  * 
  * - <b>External Eventloop support</b>: MyQtt library supports several external
  *  I/O wait mechanism. By default epoll() is used if present.
