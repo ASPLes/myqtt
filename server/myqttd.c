@@ -1724,7 +1724,7 @@ const char    * myqttd_ensure_str      (const char * string)
  *
  * <b>Section 4: Modules documentation</b> 
  *
- *   - \ref myqttd_mod_auth_xml    "4.1 mod-auth-xml: Authentication backend support through xml-files "
+ *   - \ref myqttd_mod_auth_xml    "4.1 mod-auth-xml: Authentication and Acls plugin supported on XML files for MyQttd broker "
  *   - \ref myqttd_mod_tls    "4.2 mod-ssl: SSL/TLS support for MyQttD (secure connections)"
  *
  * \section configuring_myqttd 2.1 MyQttD configuration

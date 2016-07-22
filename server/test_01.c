@@ -2898,7 +2898,7 @@ axl_bool  test_19 (void) {
 
 	myqtt_async_queue_unref (queue);
 
-	printf ("Test 18: finishing MyQttdCtx..\n");
+	printf ("Test 19: finishing MyQttdCtx..\n");
 
 	/* finish server */
 	myqttd_exit (ctx, axl_true, axl_true);

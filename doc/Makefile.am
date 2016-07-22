@@ -14,7 +14,8 @@ tmp_xml_examples = \
 	     myqttd-modules.xml-tmp \
 	     module-conf.xml-tmp \
 	     myqtt-domain.example.xml-tmp \
-	     myqtt.yourdomain.com.xml-tmp
+	     myqtt.yourdomain.com.xml-tmp \
+	     ../server/reg-test-18/users/users.xml-tmp
 
 xml_examples = \
 	     domain-settings-basic.xml \
@@ -32,7 +33,8 @@ xml_examples = \
 	     myqttd-modules.xml \
 	     module-conf.xml \
 	     myqtt-domain.example.xml \
-	     myqtt.yourdomain.com.xml
+	     myqtt.yourdomain.com.xml \
+	     ../server/reg-test-18/users/users.xml
 
 EXTRA_DIST = $(tmp_xml_examples) $(xml_examples) myqtt.doxygen \
 	     myqtt.doxygen.in \

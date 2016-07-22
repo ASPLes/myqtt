@@ -118,7 +118,7 @@ axlPointer __mod_auth_xml_load (MyQttdCtx  * ctx,
 			backend->no_match_policy = MYQTT_PUBLISH_CONN_CLOSE;
 		else if (axl_cmp (value, "discard") || axl_cmp (value, "deny"))
 			backend->no_match_policy = MYQTT_PUBLISH_DISCARD;
-		else if (axl_cmp (value, "ignore") || axl_cmp (value, "allow"))
+		else if (axl_cmp (value, "ok") || axl_cmp (value, "allow"))
 			backend->no_match_policy = MYQTT_PUBLISH_OK;
 		else
 			backend->no_match_policy = MYQTT_PUBLISH_OK; /* by default ok for no-match-policy */
@@ -127,9 +127,9 @@ axlPointer __mod_auth_xml_load (MyQttdCtx  * ctx,
 		value = ATTR_VALUE (backend->global_acls, "deny-action");
 		if (axl_cmp (value, "close"))
 			backend->deny_action = MYQTT_PUBLISH_CONN_CLOSE;
-		else if (axl_cmp (value, "discard"))
+		else if (axl_cmp (value, "discard") || axl_cmp (value, "deny"))
 			backend->deny_action = MYQTT_PUBLISH_DISCARD;
-		else if (axl_cmp (value, "ignore"))
+		else if (axl_cmp (value, "ok") || axl_cmp (value, "allow"))
 			backend->deny_action = MYQTT_PUBLISH_OK;
 		else
 			backend->deny_action = MYQTT_PUBLISH_DISCARD; /* by default discard */
@@ -303,7 +303,7 @@ axl_bool __mod_auth_xml_on_publish_acl_deny (ModAuthXmlBackend * backend, axlNod
 			if (strstr ("publish", ATTR_VALUE (acl, "mode"))) {
 				/* found write acl in PUBLISH acl, so allow it */
 				return axl_true;
-			}
+			} 
 
 			/* acl found, see policy */
 			if ((strstr ("publish0", ATTR_VALUE (acl, "mode")) && myqtt_msg_get_qos (msg) == MYQTT_QOS_0) ||
@@ -320,7 +320,8 @@ axl_bool __mod_auth_xml_on_publish_acl_deny (ModAuthXmlBackend * backend, axlNod
 			       myqtt_conn_get_client_id (conn), myqtt_conn_get_username (conn) ? myqtt_conn_get_username (conn) : "<not defined>",
 			       myqtt_msg_get_topic (msg),
 			       backend->full_path);
-			return axl_false;
+			
+			return axl_false; /** DENIED **/
 			
 		} /* end while */
 
@@ -364,6 +365,7 @@ MyQttPublishCodes __mod_auth_xml_on_publish (MyQttdCtx * ctx,       MyQttdDomain
 		return __mod_auth_xml_report (ctx, msg, conn, MYQTT_PUBLISH_CONN_CLOSE);
 	} /* end if */
 
+	/** GLOBAL: apply global acls before users' acls */
 	if (backend->when_to_apply == MOD_AUTH_XML_APPLY_BEFORE) {
 		
 		/* do acl apply before applying users' acls */
@@ -375,11 +377,12 @@ MyQttPublishCodes __mod_auth_xml_on_publish (MyQttdCtx * ctx,       MyQttdDomain
 	/* find user and apply its acls if defined */
 	node = myqtt_conn_get_data (conn, "mod:auth:xml:user-node");
 
-	/* apply acls if defined for the provided user node */
+	/* USER: apply acls if defined for the provided user node */
 	if (! __mod_auth_xml_on_publish_acl_deny (backend, axl_node_get_child_called (node, "acl"), msg, conn))
 		return __mod_auth_xml_report (ctx, msg, conn, backend->deny_action);
 
 
+	/** GLOBAL: apply global acls after users' acls */
 	if (backend->when_to_apply == MOD_AUTH_XML_APPLY_AFTER) {
 		
 		/* do acl apply after applying users' acls */
@@ -466,7 +469,7 @@ END_C_DECLS
 
 
 /** 
- * \page myqttd_mod_auth_xml mod-auth-xml Authentication backend supported on XML files
+ * \page myqttd_mod_auth_xml mod-auth-xml Authentication and Acls plugin supported on XML files for MyQttd broker
  *
  * \section myqttd_mod_auth_xml_index Index
  *
@@ -545,5 +548,51 @@ END_C_DECLS
  *
  * Note that enabling this option will accept any connection reaching
  * this domain no matter if it provides a user/password or not.
+ *
+ * \section myqttd_mod_auth_global_acls Configuring global acls for all users inside your domain
+ *
+ * <b>mod-auth-xml</b> includes support to configure global acls and
+ * user level acls. Here is how it is declared a basic global acl
+ * configuration inside the users.xml file (see
+ * <b>&lt;global-acls></b> section):
+ *
+ * \htmlinclude ../server/reg-test-18/users/users.xml-tmp
+ *
+ * As you can see, there is a new <b>&lt;global-acls></b> section that
+ * includes different configurations and a list of acls that are
+ * applied one after another, with the following indications:
+ *
+ * - <b>when-to-apply</b>: indicates if these global acls should be
+ *     configured <b>before</b> or <b>after</b> user defined acls. In
+ *     the case you want to be sure global acls applies first and
+ *     overrides users' acls. In the case you want your users' acls to
+ *     apply first then configure here <b>after</b>. This allows you configure different policies, for example, <i>"server global acls decides first"</i> (an alias for <b>before</b>) or <i>"users' acls decide first"</i> (an alias for <b>after</b>).
+ *
+ * - <b>no-match-policy</b>: this is the indication to instruct the
+ *     server what to do if the chain of acls is ended without any
+ *     result, that is, no acl denied or allowed the given
+ *     operation. If you want your server to accept only what's
+ *     configured use <b>close</b>, <b>discard</b> or <b>deny</b>
+ *     ---they are now explained. If you want your server to accept
+ *     everything that was not matched by any acl use <b>ok</b> or <b>allow</b>.
+ *
+ * - <b>deny-action</b>: as it name indicates, it instructs the server
+ *     what is the deny action to be taken in the case a deny acl
+ *     matches (either global or user level). You can use same values
+ *     as <b>no-match-policy</b> <i>This <b>deny-action</b> applies to
+ *     all acls defined in this users.xml backend, including global
+ *     and users' acls. </i>
+ *
+ * Here is the list of actions:
+ *
+ * - <b>close</b>: if applied, causes the event connection to be closed.
+ *
+ * - <b>discard</b>: if applied, causes the PUBLISH, SUBSCRIBE and UNSUBSCRIBE operation to be silently discarded. This is the default value for <b>deny-action</b> if nothing is configured.
+ *
+ * - <b>deny</b>: alias for <b>discard</b>
+ *
+ * - <b>ok</b>: if applied, causes the given operation to be accepted. This is the default value for <b>no-match-policy</b> if nothing is configured.
+ *
+ * - <b>allow</b>: alias for <b>ok</b>
  *
  */

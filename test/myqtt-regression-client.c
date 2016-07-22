@@ -3283,6 +3283,8 @@ axl_bool test_17d (void) {
 		return axl_false;
 	} /* end if */
 
+	
+
 	/* create an specific topic */
 	topic = axl_strdup_printf ("my/product/reply/%p", conn);
 	printf ("Test 17-d: created reply topic to subscribe to: %s\n", topic);
