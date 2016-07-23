@@ -35,14 +35,13 @@ dnl      Email address:
 dnl         info@aspl.es - http://www.aspl.es/mqtt
 dnl                        http://www.aspl.es/myqtt
 
-AC_INIT(lib/myqtt.h)
+AC_INIT(myqtt, m4_esyscmd([cat VERSION | tr -d '\n']))
 
-configure_dir=`dirname "$0"`
-MYQTT_VERSION=`cat $configure_dir/VERSION`
+MYQTT_VERSION=`cat VERSION`
 AC_SUBST(MYQTT_VERSION)
 
-AC_CONFIG_AUX_DIR(.)
-AM_INIT_AUTOMAKE(myqtt, $MYQTT_VERSION)
+AM_INIT_AUTOMAKE
+AC_CONFIG_SRCDIR([lib/myqtt.h])
 AM_CONFIG_HEADER(config.h)
 AM_MAINTAINER_MODE
 
@@ -387,7 +386,23 @@ case $host in
 	echo "platform found: $host"
     ;;
 esac
-AC_SUBST(EXARG_FLAGS)	
+AC_SUBST(EXARG_FLAGS)
+
+dnl mod-sasl-mysql flags
+MYSQL_CFLAGS=`mysql_config --cflags 2>/dev/null`
+MYSQL_LIBS=`mysql_config --libs 2>/dev/null`
+AC_SUBST(MYSQL_CFLAGS)
+AC_SUBST(MYSQL_LIBS)
+AC_TRY_COMPILE([#include <mysql/mysql.h>
+#include <stdlib.h>],
+  [mysql_init(NULL);],
+  mysql_devel_found=yes,
+  mysql_devel_found=no)
+AC_MSG_RESULT([MySQL development headers status: $mysql_devel_found])
+if test "x$mysql_devel_found" = "xno"; then
+   AC_MSG_WARN([Cannot find mysql.h header or current MySQL development environment do not compile symbols required. On debian/ubuntu try to install libmysqlclient-dev package.])
+fi
+AM_CONDITIONAL(ENABLE_MYSQL_SUPPORT, test "x$mysql_devel_found" = "xyes")
 
 AC_OUTPUT([
 Makefile
@@ -406,6 +421,8 @@ server/modules/mod-status/Makefile
 server/modules/mod-status/mod-status.xml
 server/modules/mod-test/Makefile
 server/modules/mod-test/mod-test.xml
+server/modules/mod-auth-mysql/Makefile
+server/modules/mod-auth-mysql/mod-auth-mysql.xml
 client/Makefile
 py-myqtt/Makefile
 py-myqtt/test/Makefile
@@ -471,15 +488,27 @@ else
    echo "     NOTE: To enable WebSocket support you need to have libnopoll"
    echo "           installed on your system and use --enable-websocket-support option."
 fi
-echo
+
+mysql_msg=""
+if test "x$mysql_devel_found" = "xno"; then
+     mysql_msg=" (Applications using MySQL, like mod-auth-mysql, won't work)"
+fi
+
+echo "   Build with MySQL support:       [$mysql_devel_found]$mysql_msg"
+if test "x$mysql_devel_found" = "xyes"; then
+echo "     flags: $MYSQL_CFLAGS"
+echo "     libs: $MYSQL_LIBS"
+fi
+echo 
+
 if test x$enable_py_myqtt_support = xyes ; then
-   echo "   Build PyMyQtt support:                   enabled"
+   echo "   Build PyMyQtt support:             enabled"
    echo "     python install dir: ${python_install_dir}"
    echo "     python dir: ${pythondir}"
    echo "     python cflags:      ${PYTHON_CFLAGS}"
    echo "     python libs:        ${PYTHON_LIBS}"
 else
-   echo "   Build PyMyQtt support:                   disabled"
+   echo "   Build PyMyQtt support:             disabled"
    echo 
    echo "     NOTE: To enable PyMyQtt support you have to install python development headers and "
    echo "           use --enable-py-myqtt option."
