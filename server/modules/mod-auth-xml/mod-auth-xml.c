@@ -595,4 +595,23 @@ END_C_DECLS
  *
  * - <b>allow</b>: alias for <b>ok</b>
  *
+ * Then, either inside a <b>&lt;global-acls></b> or inside <b>&lt;user></b> ---according to where you want the acl to be applied--- you declare the <b>&lt;acl></b> node with the following attributes:
+ *
+ * <ul>
+ *   <li><i><b>mode</b></i> is the acl mode, which supports a list of comma separated values to allow:
+ *     <ul>
+ *       <li><b>r</b> : Allows unsubscribing, subscribing and receiving PUBLISH updates</li>
+ *       <li><b>w</b> : Allows sending PUBLISH, including qos 0, 1, 2</li>
+ *       <li><b>publish</b> : Alias for w</li>
+ *       <li><b>subscribe</b> : Allows subscribing</li>
+ *       <li><b>publish0</b> : Allows sending PUBLISH qos0 requests</li>
+ *       <li><b>publish1</b> : Allows sending PUBLISH qos1 requests</li>
+ *       <li><b>publish2</b> : Allows sending PUBLISH qos2 requests</li>
+ *     </ul>
+ *   <li><i><b>topic</b></i> the topic to allow by this acl, including MQTT topics wildcards.
+ * </ul>
+ *
+ * 
+ * 
+ *
  */
