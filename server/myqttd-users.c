@@ -51,9 +51,11 @@
  */
 
 typedef struct _MyQttdUserLoadData {
-	MyQttdCtx  * ctx;
-	MyQttConn  * conn;
-	const char * path;
+	MyQttdCtx           * ctx;
+	MyQttConn           * conn;
+	const char          * path;
+
+	MyQttdDomain        * domain;
 
 	/* output variables */
 	const char          * backend_type;
@@ -75,7 +77,7 @@ axl_bool __myqttd_users_load (axlPointer _key,
 	MyQttdUsersBackend * backend      = _data;
 	
 	/* try to load backend database */
-	data->backend_reference = backend->load (data->ctx, data->conn, data->path);
+	data->backend_reference = backend->load (data->ctx, data->domain, data->conn, data->path);
 	if (data->backend_reference) {
 		/* backend loaded, report log */
 		msg ("Found users database at %s:%s", backend_type, data->path);
@@ -95,9 +97,10 @@ axl_bool __myqttd_users_load (axlPointer _key,
  *
  * @param path 
  */
-MyQttdUsers * myqttd_users_load (MyQttdCtx  * ctx, 
-				 MyQttConn  * conn,
-				 const char * path)
+MyQttdUsers * myqttd_users_load (MyQttdCtx    * ctx,
+				 MyQttdDomain * domain,
+				 MyQttConn    * conn,
+				 const char   * path)
 {
 	
 	MyQttdUsers        * users;
@@ -112,9 +115,10 @@ MyQttdUsers * myqttd_users_load (MyQttdCtx  * ctx,
 		return NULL;
 
 	/* set values on data to be used by the foreach handler */
-	data->conn = conn;
-	data->ctx  = ctx;
-	data->path = path;
+	data->conn   = conn;
+	data->domain = domain;
+	data->ctx    = ctx;
+	data->path   = path;
 
 	/* iterate and find a backend loading the path */
 	msg ("Attempting to load users backend at %s (registered backends %d)",
@@ -176,6 +180,18 @@ axlPointer    myqttd_users_get_backend_ref (MyQttdUsers * users)
  *
  * @param ctx The context where the operation takes place.
  *
+ * @param domain The domain where the operation will take place.
+ *
+ * @param domain_selected External indication to signal auth backend
+ * that the domain was already selected or not. Once a domain is
+ * <b>selected</b>, it is assumed that any auth operation in this
+ * domain with the given username/client_id/password will be final: no
+ * other domain will be checked. This is important in the sense that
+ * MyQttd engine try to find the domain by various methods, and one of
+ * them is by checking auth over all domains. However, because in that
+ * context the search for domain is done by using auth operations,
+ * then the auth backend may want to disable certain mechanism (like anonymous login) in the case <b>domain_selected == axl_false</b>.
+ *
  * @param users The users' backend where auth operation is requested.
  *
  * @param conn The connection where the auth operation is taking
@@ -192,6 +208,8 @@ axlPointer    myqttd_users_get_backend_ref (MyQttdUsers * users)
  * otherwise, axl_false is returned.
  */
 axl_bool      myqttd_users_do_auth (MyQttdCtx    * ctx,
+				    MyQttdDomain * domain,
+				    axl_bool       domain_selected,
 				    MyQttdUsers  * users,
 				    MyQttConn    * conn,
 				    const char   * username, 
@@ -201,7 +219,7 @@ axl_bool      myqttd_users_do_auth (MyQttdCtx    * ctx,
 	if (users == NULL || ctx == NULL)
 		return axl_false; /* minimum parameters not received */
 
-	if (users->backend->auth (ctx, conn, users->backend_reference, client_id, username, password)) {
+	if (users->backend->auth (ctx, domain, domain_selected, users, conn, users->backend_reference, client_id, username, password)) {
 		return axl_true; /* auth operation ok */
 	} /* end if */
 

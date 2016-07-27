@@ -44,13 +44,16 @@
 
 #include <myqttd.h>
 
-MyQttdUsers * myqttd_users_load (MyQttdCtx  * ctx, 
-				 MyQttConn  * conn,
-				 const char * path);
+MyQttdUsers * myqttd_users_load (MyQttdCtx    * ctx,
+				 MyQttdDomain * domain,
+				 MyQttConn    * conn,
+				 const char   * path);
 
 axlPointer    myqttd_users_get_backend_ref (MyQttdUsers * users);
 
 axl_bool      myqttd_users_do_auth (MyQttdCtx    * ctx,
+				    MyQttdDomain * domain,
+				    axl_bool       domain_selected,
 				    MyQttdUsers  * users,
 				    MyQttConn    * conn,
 				    const char   * username, 
