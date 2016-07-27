@@ -840,7 +840,7 @@ typedef enum {
 	/** 
 	 * @brief Reports to the engine that the publish operation can continue.
 	 */
-	MYQTT_PUBLISH_OK = 1,
+	MYQTT_PUBLISH_OK          = 1,
 	/** 
 	 * @brief Reports to the engine that the message must be
 	 * discarded and to skip any publish/relay. Note MQTT protocol
@@ -849,11 +849,17 @@ typedef enum {
 	 * taking any further action (including publishing it to
 	 * subscribers).
 	 */
-	MYQTT_PUBLISH_DISCARD = 2,
+	MYQTT_PUBLISH_DISCARD     = 2,
 	/** 
 	 * @brief Close publisher's connection.
 	 */
-	MYQTT_PUBLISH_CONN_CLOSE = 3,
+	MYQTT_PUBLISH_CONN_CLOSE  = 3,
+	/** 
+	 * @brief Publish autorization code that means neutral result:
+	 * it means the server will take no action and a further rule
+	 * will have the decide (or a user/server configuration).
+	 */
+	MYQTT_PUBLISH_DUNNO      = 4,
 } MyQttPublishCodes;
 
 /** 
