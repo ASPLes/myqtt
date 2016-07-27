@@ -261,18 +261,45 @@ ModCloseFunc       myqttd_module_get_close (MyQttdModule * module)
 /** 
  * @brief Allows to check if there is another module already
  * registered with the same name.
+ *
+ * @param module The module to check if it already exists
+ *
+ * @return Returns if the module exists (axl_true), otherwise
+ * axl_false is returned. Keep in mind that the function returns
+ * axl_false in the case references received are NULL.
  */
 axl_bool           myqttd_module_exists      (MyQttdModule * module)
 {
-	MyQttdCtx    * ctx;
+	if (module == NULL)
+		return axl_false;
+	if (module->def == NULL)
+		return axl_false;
+	if (module->def->mod_name == NULL)
+		return axl_false;
+
+	return myqttd_module_exists_by_name (module->ctx, module->def->mod_name);
+}
+
+/** 
+ * @brief Allows to check if there is another module already
+ * registered with the same name.
+ *
+ * @param ctx The context where the operation will take place.
+ * @param mod_name The module name to check check.
+ *
+ * @return Returns if the module exists (axl_true), otherwise
+ * axl_false is returned. Keep in mind that the function returns
+ * axl_false in the case references received are NULL.
+ */
+axl_bool myqttd_module_exists_by_name (MyQttdCtx * ctx, const char * mod_name)
+{
+	
 	int                iterator;
 	MyQttdModule * mod_added;
 
 	/* check values received */
-	v_return_val_if_fail (module, axl_false);
-
-	/* get context reference */
-	ctx = module->ctx;
+	v_return_val_if_fail (ctx, axl_false);
+	v_return_val_if_fail (mod_name, axl_false);
 
 	/* register the module */
 	myqtt_mutex_lock (&ctx->registered_modules_mutex);
@@ -284,7 +311,7 @@ axl_bool           myqttd_module_exists      (MyQttdModule * module)
 		mod_added = axl_list_get_nth (ctx->registered_modules, iterator);
 
 		/* check mod name */
-		if (axl_cmp (mod_added->def->mod_name, module->def->mod_name)) {
+		if (axl_cmp (mod_added->def->mod_name, mod_name)) {
 			myqtt_mutex_unlock (&ctx->registered_modules_mutex);
 			return axl_true;
 		} /* end if */

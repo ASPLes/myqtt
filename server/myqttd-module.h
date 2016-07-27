@@ -59,6 +59,8 @@ ModCloseFunc       myqttd_module_get_close   (MyQttdModule * module);
 
 axl_bool           myqttd_module_exists      (MyQttdModule * module);
 
+axl_bool           myqttd_module_exists_by_name (MyQttdCtx * ctx, const char * mod_name);
+
 axl_bool           myqttd_module_register    (MyQttdModule * module);
 
 void               myqttd_module_unregister  (MyQttdModule * module);
