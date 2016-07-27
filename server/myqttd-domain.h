@@ -52,6 +52,8 @@ axl_bool          myqttd_domain_add  (MyQttdCtx  * ctx,
 				      const char * user_db,
 				      const char * use_settings);
 
+const char      * myqttd_domain_get_name (MyQttdDomain * domain);
+
 MyQttdDomain    * myqttd_domain_find_by_name (MyQttdCtx   * ctx,
 					      const char  * name);
 
@@ -64,6 +66,7 @@ MyQttdDomain    * myqttd_domain_find_by_indications (MyQttdCtx  * ctx,
 
 axl_bool          myqttd_domain_do_auth (MyQttdCtx    * ctx,
 					 MyQttdDomain * domain,
+					 axl_bool       domain_selected,
 					 MyQttConn    * conn,
 					 const char   * username, 
 					 const char   * password,
@@ -72,6 +75,8 @@ axl_bool          myqttd_domain_do_auth (MyQttdCtx    * ctx,
 int               myqttd_domain_count_enabled (MyQttdCtx * ctx);
 
 int               myqttd_domain_conn_count (MyQttdDomain * domain);
+
+int               myqttd_domain_conn_count_all (MyQttdDomain * domain);
 
 MyQttdUsers     * myqttd_domain_get_users_backend (MyQttdDomain * domain);
 

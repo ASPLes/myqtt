@@ -204,9 +204,13 @@ axl_bool __myqttd_domain_find_by_username_client_id_foreach (axlPointer _name,
 	const char             * password  = data->password;
 	MyQttConn              * conn      = data->conn;
 
-	/* reached this point, domain has a users database backend
-	   loaded, now check if this domain recognizes */
-	if (myqttd_domain_do_auth (ctx, domain, conn, username, password, client_id)) {
+	/* Reached this point, domain has a users database backend
+	   loaded, now check if this domain recognizes.  Configure
+	   domain_selected = axl_false becaus this domain was not
+	   selected previously but we are attempting to auth this user
+	   against this domain. */
+	if (myqttd_domain_do_auth (ctx, domain, /* domain_selected */ axl_false,
+				   conn, username, password, client_id)) {
 		/* report domain to the caller */
 		data->result = domain;
 		return axl_true; /* domain found, report it to the caller */
@@ -306,7 +310,7 @@ MyQttdDomain    * myqttd_domain_find_by_indications (MyQttdCtx  * ctx,
 			/* if domain is found, implement authentication to ensure this domain is
 			 * accesible by the connecting user providing the username+client_id+password
 			 * credentials */
-			if (myqttd_domain_do_auth (ctx, domain, conn, username, password, client_id)) 
+			if (myqttd_domain_do_auth (ctx, domain, axl_true, conn, username, password, client_id)) 
 				return domain; /* domain found, report it to the caller */
 			
 			/* domain found but authentication failed */
@@ -336,6 +340,16 @@ MyQttdDomain    * myqttd_domain_find_by_indications (MyQttdCtx  * ctx,
  *
  * @param domain The domain where the auth operation will take place.
  *
+ * @param domain_selected External indication to signal auth backend
+ * that the domain was already selected or not. Once a domain is
+ * <b>selected</b>, it is assumed that any auth operation in this
+ * domain with the given username/client_id/password will be final: no
+ * other domain will be checked. This is important in the sense that
+ * MyQttd engine try to find the domain by various methods, and one of
+ * them is by checking auth over all domains. However, because in that
+ * context the search for domain is done by using auth operations,
+ * then the auth backend may want to disable certain mechanism (like anonymous login) in the case <b>domain_selected == axl_false</b>.
+ *
  * @param conn The connection where the authentication operation will
  * take place. This is an optional reference that may not be received.
  *
@@ -350,6 +364,7 @@ MyQttdDomain    * myqttd_domain_find_by_indications (MyQttdCtx  * ctx,
  */
 axl_bool          myqttd_domain_do_auth (MyQttdCtx    * ctx,
 					 MyQttdDomain * domain,
+					 axl_bool       domain_selected,
 					 MyQttConn    * conn,
 					 const char   * username, 
 					 const char   * password,
@@ -365,7 +380,7 @@ axl_bool          myqttd_domain_do_auth (MyQttdCtx    * ctx,
 		myqtt_mutex_lock (&domain->mutex);
 		if (domain->users == NULL) {
 			/* load users database object from path */
-			domain->users = myqttd_users_load (ctx, conn, domain->users_db);
+			domain->users = myqttd_users_load (ctx, domain, conn, domain->users_db);
 			if (domain->users == NULL) {
 				error ("Failed to load database from %s for domain %s", domain->users_db, domain->name);
 				myqtt_mutex_unlock (&domain->mutex);
@@ -379,11 +394,11 @@ axl_bool          myqttd_domain_do_auth (MyQttdCtx    * ctx,
 
 	/* now for the users database loaded, try to do a complete
 	   auth operation */
-	if (domain->users->backend->auth (ctx, conn, domain->users->backend_reference, client_id, username, password)) {
+	if (myqttd_users_do_auth (ctx, domain, domain_selected, domain->users, conn, username, password, client_id)) {
 		msg ("Authentication: %s, username=%s, client_id=%s : login ok", 
 		     domain->name, myqttd_ensure_str (username), myqttd_ensure_str (client_id));
 		return axl_true; /* authentication done */
-	}
+	} /* end if */
 
 	return axl_false;
 }
@@ -424,7 +439,9 @@ int               myqttd_domain_count_enabled (MyQttdCtx * ctx)
  *
  * @param domain The domain that is being checked for number of connections.
  *
- * @return Number of connections.
+ * @return Number of connections (without including listener
+ * connections). If you want to return count for all connections
+ * (accepted and listeners) use \ref myqttd_domain_conn_count_all
  */
 int               myqttd_domain_conn_count (MyQttdDomain * domain)
 {
@@ -435,6 +452,42 @@ int               myqttd_domain_conn_count (MyQttdDomain * domain)
 
 	/* list of connections currently watched */
 	return axl_list_length (domain->myqtt_ctx->conn_list);
+}
+
+/** 
+ * @brief Allows to get the amount of connections the provide domain
+ * have (users connected at this moment) plus listener connections.
+ *
+ * @param domain The domain that is being checked for number of connections.
+ *
+ * @return Number of connections  including listener
+ * connections.
+ */
+int               myqttd_domain_conn_count_all (MyQttdDomain * domain)
+{
+	if (domain == NULL)
+		return 0;
+	if (! domain->initialized)
+		return 0;
+	if (! domain->myqtt_ctx)
+		return 0;
+
+	/* list of connections currently watched */
+	return axl_list_length (domain->myqtt_ctx->conn_list) + axl_list_length (domain->myqtt_ctx->srv_list);
+}
+
+/** 
+ * @brief Allows to get internal domain name attribute. 
+ *
+ * @param domain where the operatation takes place.
+ *
+ * @return A reference to the domain name or NULL if it fails.
+ */
+const char      * myqttd_domain_get_name (MyQttdDomain * domain)
+{
+	if (domain == NULL)
+		return NULL;
+	return domain->name;
 }
 
 /** 
