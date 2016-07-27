@@ -1,0 +1,3 @@
+<mod-auth-mysql>
+  <dsn name='__main__' db="myqtt_reg_test" dbuser="myqtt_reg_test" dbpassword="myqtt_reg_test" dbhost="127.0.0.1" dbport="" />
+</mod-auth-mysql>
