@@ -105,7 +105,7 @@ char * main_common_get_config_location (MyQttdCtx * ctx,
 
 	/* configure lookup domain, and load configuration file */
 	myqtt_support_add_domain_search_path_ref (myqtt_ctx, axl_strdup ("myqtt-conf"), 
-						   myqtt_support_build_filename (SYSCONFDIR, "myqtt", NULL));
+						  myqtt_support_build_filename (SYSCONFDIR, "myqtt", NULL));
 	myqtt_support_add_domain_search_path     (myqtt_ctx, "myqtt-conf", ".");
 
 	/* find the configuration file */

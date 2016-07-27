@@ -104,20 +104,30 @@ typedef axl_bool (*MyQttdLoopOnRead) (MyQttdLoop   * loop,
 
 /** 
  * @brief Handler used to define the set of functions that can load an
- * user's backend from the provided path.
+ * user's backend for a given connection and/or myqtt domain
  *
  * @param ctx The context where the operation takes place
+ *
+ * @param domain The domain where this users' backend is being requested to load.
  *
  * @param conn The connection that triggered loading this database.
  *
  * @param path The Path to the users directory for a particular domain
- * where the configuration and database files are found.
+ * where the configuration and database files are found. This value is
+ * the <b>users-db=</b> attribute declarated inside the
+ * <b>;lt;domain</b> node, pointing to the directory configured by the
+ * system administrator or any other particular setting required by
+ * the auth backend. For example, <b>mod-auth-xml</b> module requires
+ * this value to point to the directory where the <b>users.xml</b>
+ * file is stored. In the case of <b>mod-auth-mysql</b>, this value is
+ * ignored and database settings are ignored but taken from
+ * $sysconfdir/mysql/mysql.xml file (\ref myqttd_sysconfdir).
  *
  * @return The function must return NULL or a valid reference to the
  * database backend to be used by the engine to complete users'
  * operations.
  */
-typedef axlPointer (*MyQttdUsersLoadDb) (MyQttdCtx * ctx, MyQttConn * conn, const char * path);
+typedef axlPointer (*MyQttdUsersLoadDb) (MyQttdCtx * ctx, MyQttdDomain * domain, MyQttConn * conn, const char * path);
 
 /** 
  * @brief Handler used to define the set of functions that allows to
@@ -125,6 +135,21 @@ typedef axlPointer (*MyQttdUsersLoadDb) (MyQttdCtx * ctx, MyQttConn * conn, cons
  * combination of them exists in the provided backend.
  *
  * @param ctx The context where the operation takes place.
+ *
+ * @param domain The domain where the operation is taking place. 
+ *
+ * @param domain_selected External indication to signal auth backend
+ * that the domain was already selected or not. Once a domain is
+ * <b>selected</b>, it is assumed that any auth operation in this
+ * domain with the given username/client_id/password will be final: no
+ * other domain will be checked. This is important in the sense that
+ * MyQttd engine try to find the domain by various methods, and one of
+ * them is by checking auth over all domains. However, because in that
+ * context the search for domain is done by using auth operations,
+ * then the auth backend may want to disable certain mechanism (like anonymous login) in the case <b>domain_selected == axl_false</b>.
+ *
+ *
+ * @param users The users database backend where the operation is taking place.
  *
  * @param conn The connection where the auth operation is taking
  * place. This reference may not be defined because it is run by a
@@ -143,11 +168,14 @@ typedef axlPointer (*MyQttdUsersLoadDb) (MyQttdCtx * ctx, MyQttConn * conn, cons
  * happens for just checking user_name (only done when client_id is
  * NULL).
  */
-typedef axl_bool   (*MyQttdUsersExists) (MyQttdCtx   * ctx, 
-					 MyQttConn   * conn,
-					 axlPointer    backend, 
-					 const char  * client_id, 
-					 const char  * user_name);
+typedef axl_bool   (*MyQttdUsersExists) (MyQttdCtx    * ctx,
+					 MyQttdDomain * domain,
+					 axl_bool       domain_selected,
+					 MyQttdUsers  * users,
+					 MyQttConn    * conn,
+					 axlPointer     backend, 
+					 const char   * client_id, 
+					 const char   * user_name);
 
 /** 
  * @brief Handler used to define the set of functions that allows to
@@ -156,6 +184,20 @@ typedef axl_bool   (*MyQttdUsersExists) (MyQttdCtx   * ctx,
  * backend.
  *
  * @param ctx The context where the operation takes place.
+ *
+ * @param domain The domain where the operation is taking place. 
+ *
+ * @param domain_selected External indication to signal auth backend
+ * that the domain was already selected or not. Once a domain is
+ * <b>selected</b>, it is assumed that any auth operation in this
+ * domain with the given username/client_id/password will be final: no
+ * other domain will be checked. This is important in the sense that
+ * MyQttd engine try to find the domain by various methods, and one of
+ * them is by checking auth over all domains. However, because in that
+ * context the search for domain is done by using auth operations,
+ * then the auth backend may want to disable certain mechanism (like anonymous login) in the case <b>domain_selected == axl_false</b>.
+ *
+ * @param users The users database backend where the operation is taking place.
  *
  * @param conn The connection where the auth operation is taking
  * place. This reference may not be defined because it is run by a
@@ -174,10 +216,13 @@ typedef axl_bool   (*MyQttdUsersExists) (MyQttdCtx   * ctx,
  * and password matches, or user_name+password combination is
  * found. Othewise, axl_false is returned.
  */
-typedef axl_bool   (*MyQttdUsersAuthUser) (MyQttdCtx  * ctx, 
-					   MyQttConn  * conn, axlPointer backend, 
-					   const char * client_id, const char * user_name, 
-					   const char * password);
+typedef axl_bool   (*MyQttdUsersAuthUser) (MyQttdCtx    * ctx,
+					   MyQttdDomain * domain,
+					   axl_bool       domain_selected,
+					   MyQttdUsers  * users,
+					   MyQttConn    * conn, axlPointer backend, 
+					   const char   * client_id, const char * user_name, 
+					   const char   * password);
 
 /** 
  * @brief Handler used to define the set of functions that unaloads an
