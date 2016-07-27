@@ -45,7 +45,7 @@
 
 #define LOG_DOMAIN "myqtt-reader"
 
-/**
+/** 
  * \defgroup myqtt_reader MyQtt Reader: The module that reads your msgs. 
  *
  * This is the module used by libMyQtt to implement of the I/O wait
@@ -142,8 +142,6 @@ axlPointer __myqtt_reader_async_run_proxy (axlPointer _data)
 	MyQttReaderAsyncData * data = _data;
 	MyQttCtx             * ctx  = data->conn->ctx;
 
-	/* printf ("**\n** __myqtt_reader_async_run_proxy: Conn-id=%d Conn=%p Ctx=%p  (refs=%d, is_ok: %d)\n**\n", data->conn->id, data->conn, ctx, data->conn->ref_count, myqtt_conn_is_ok (data->conn, axl_false)); */
-	
 	/* call function */
 	data->func (ctx, data->conn, data->msg, NULL);
 
@@ -690,8 +688,6 @@ void __myqtt_reader_subscribe (MyQttCtx * ctx, const char * client_identifier, M
 		axl_hash_insert_full (sub_hash, strdup (client_identifier), axl_free, INT_TO_PTR (qos), NULL);
 	} else {
 		myqtt_log (MYQTT_LEVEL_DEBUG, "   ..storing connection %p with qos %d on conn hash %p for topic_filter='%s'", conn, qos, sub_hash, topic_filter);
-		/*printf ("**\n** Adding conn Conn=%p conn-id=%d into subhash %p, inside ctx=%p conn->ctx=%p, topic=%s\n**\n",
-		  conn, conn->id, sub_hash, ctx, conn->ctx, topic_filter); */
 		axl_hash_insert (sub_hash, conn, INT_TO_PTR (qos));
 	} /* end if */
 
@@ -761,16 +757,11 @@ axl_bool myqtt_reader_topic_filter_match (const char * topic_name, const char * 
 	iterator2 = 0;
 	while (topic_name[iterator] != 0 && topic_filter[iterator2] != 0) {
 		
-		/* printf ("  ..start: ----------------\n");
-		printf ("  ..matching: iterator=%d %s\n", iterator, topic_name + iterator);
-		printf ("             iterator2=%d %s\n", iterator2, topic_filter + iterator2); */
-			
 		
 		if (topic_filter[iterator2] == '/') {
 			/* case where empty topic level was found in
 			 * the filter */
 			if (topic_name[iterator] != topic_filter[iterator2]) {
-				/* printf (".1.1 : iterator=%d (%c) != (%d) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2); */
 				return axl_false; /* mismatch found in empty topic level */
 			}
 
@@ -785,11 +776,8 @@ axl_bool myqtt_reader_topic_filter_match (const char * topic_name, const char * 
 				iterator++;
 
 			if (topic_name[iterator] != '/' && topic_name[iterator] != 0) {
-				/* printf (".1.2 : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2); */
 				return axl_false; /* mismatch, expected to find / at the end */
 			}
-
-			/* printf ("  ..case 1.2 : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2); */
 
 			/* next step */
 			if (topic_name[iterator] != 0)
@@ -802,20 +790,16 @@ axl_bool myqtt_reader_topic_filter_match (const char * topic_name, const char * 
 			
 			
 		} else if (topic_filter[iterator2] == '#' && topic_name[iterator] != '$') {
-			/* printf ("  ..case 1.5 : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2); */
-
+			
 			return axl_true; /* matches the reset */
+			
 		} else {
-			/* printf ("  ..case 1.3 : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2); */
 
 			/* basic case where each byte must match piece by piece */
 			while (topic_name[iterator] != 0 && topic_filter[iterator2] != 0) {
-				if (topic_name[iterator] != topic_filter[iterator2]) {
-					/* printf (".1.3 : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2); */
+				
+				if (topic_name[iterator] != topic_filter[iterator2]) 
 					return axl_false; /* mismatch found */
-				}
-
-				/* printf ("  ..matched : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2); */
 
 				iterator++;
 				iterator2++;
@@ -840,12 +824,9 @@ axl_bool myqtt_reader_topic_filter_match (const char * topic_name, const char * 
 
 	
 
-	if (topic_name[iterator] != topic_filter[iterator2]) {
-		/* printf (".1.4 : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2);	 */
+	if (topic_name[iterator] != topic_filter[iterator2]) 
 		return axl_false;
-	}
 
-	/* printf (".1.4.1 : iterator=%d (%c) != (%c) iterator2=%d\n", iterator, topic_name[iterator], topic_filter[iterator2], iterator2);	 */
 	return topic_name[iterator] == topic_filter[iterator2]; /* topic matches */
 }
 
@@ -965,7 +946,6 @@ void __myqtt_reader_handle_subscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg
 		} /* end if */
 
 		/** CONNECTION REGISTRY **/
-		/* printf ("**\n** __myqtt_reader_handle_subscribe : calling to __myqtt_reader_subscribe..\n**\n"); */
 		__myqtt_reader_subscribe (ctx, conn->client_identifier, conn, topic_filter, qos, /* offline */ axl_false);
 		
 	} /* end while */
@@ -1034,7 +1014,6 @@ void __myqtt_reader_move_online_to_offline_aux (MyQttCtx * ctx, MyQttConn * conn
 		qos          = PTR_TO_INT (axl_hash_cursor_get_value (cursor));
 
 		/* register and create a new reference to topic_filter */
-		/* printf ("**\n** __myqtt_reader_move_online_to_offline_aux : calling to __myqtt_reader_subscribe..\n**\n"); */
 		__myqtt_reader_subscribe (ctx, conn->client_identifier, NULL, axl_strdup (topic_filter), qos, axl_true /* offline */);
 
 		/* go for the next registry */
@@ -1421,8 +1400,6 @@ void __myqtt_reader_do_publish_aux (MyQttCtx * ctx, axlHashCursor * cursor, MyQt
 	/* get connection and qos */
 	conn = axl_hash_cursor_get_key (cursor);
 	
-	/* printf ("**\n** Handling publishing on connection conn=%p ctx=%p\n**\n", conn, ctx);*/
-	
 	/* skip connection because it is not ok */
 	if (! myqtt_conn_is_ok (conn, axl_false)) 
 		return;
@@ -1444,7 +1421,6 @@ void __myqtt_reader_do_publish_aux (MyQttCtx * ctx, axlHashCursor * cursor, MyQt
 		   msg->topic_name, qos, msg->app_message_size, conn);
 	
 	/* retain = axl_false always : MQTT-2.1.2-11 */
-	/* printf ("INFO: publshing %s on conn=%p conn-id=%d\n", myqtt_msg_get_topic (msg), conn, conn->id); */
 	if (! myqtt_conn_pub (conn, msg->topic_name, (axlPointer) msg->app_message, msg->app_message_size, qos, axl_false, 60))
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to publish message message, errno=%d", errno); 
 	
@@ -1458,35 +1434,11 @@ void __myqtt_reader_do_publish_aux (MyQttCtx * ctx, axlHashCursor * cursor, MyQt
  */
 void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg)
 {
-	MyQttPublishCodes        pub_codes;
 	axlHash                * sub_hash;
 	axlHashCursor          * cursor;
 	axlHashCursor          * cursor2;
 	const char             * topic_filter;
 	axl_bool                 someone_subscribed = axl_false;
-
-	if (ctx->on_publish) {
-		/* call to on publish */
-		pub_codes = ctx->on_publish (ctx, conn, msg, ctx->on_publish_data);
-		switch (pub_codes) {
-		case MYQTT_PUBLISH_OK:
-			/* just break, do nothing */
-			break;
-		case MYQTT_PUBLISH_DISCARD:
-			/* releaes message and return */
-			myqtt_log (MYQTT_LEVEL_WARNING, "On publish handler reported to discard msg-id=%d from conn-id=%d from %s:%s", 
-				   msg->id, conn->id, conn->host, conn->port);
-			return;
-		case MYQTT_PUBLISH_CONN_CLOSE:
-			/* connection close */
-			myqtt_log (MYQTT_LEVEL_WARNING, "On publish handler reported to close connection for msg-id=%d from conn-id=%d from %s:%s, closing connection..", 
-				   msg->id, conn->id, conn->host, conn->port);
-			myqtt_conn_shutdown (conn);
-			return;
-		} /* end if */
-	} /* end if */
-
-	/* printf ("**\n** Doing publish operation from conn-id=%d, conn=%p, ctx=%p, conn->ctx=%p\n**\n", conn->id, conn, ctx, conn->ctx); */
 
 	/**** SERVER HANDLING ****
 	 *
@@ -1521,7 +1473,6 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 		while (axl_hash_cursor_has_item (cursor)) {
 			
 			/* call to do publish */
-			/* printf ("INFO: found matching topic %s\n", msg->topic_name); */
 			__myqtt_reader_do_publish_aux (ctx, cursor, msg);
 			someone_subscribed = axl_true;
 			
@@ -1554,7 +1505,6 @@ void __myqtt_reader_do_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg
 		while (axl_hash_cursor_has_item (cursor2)) {
 			
 			/* call to do publish */
-			/*printf ("INFO: found matching topic %s [%s]\n", msg->topic_name, topic_filter); */
 			__myqtt_reader_do_publish_aux (ctx, cursor2, msg);
 			someone_subscribed = axl_true;
 			
@@ -1718,6 +1668,7 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	MyQttMsg                       * response;
 	axl_bool                         have_wild_cards;
 	MyQttReaderOnwardDeliveryData  * data;
+	MyQttPublishCodes                pub_codes;
 
 	/* parse content received inside message */
 	msg->topic_name = __myqtt_reader_get_utf8_string (ctx, msg->payload, msg->size);
@@ -1760,6 +1711,43 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 
 	myqtt_log (MYQTT_LEVEL_DEBUG, "PUBLISH: incoming publish request received (qos: %d, topic name: %s, packet id: %d, app msg size: %d, msg size: %d, conn-id=%d, conn=%p)",
 		   msg->qos, msg->topic_name, msg->packet_id, msg->app_message_size, msg->size, conn->id, conn);
+
+	/*** 
+	 * @internal BEFORE CONTINUE: call user space to check if we have to continue, or what..
+	 */
+	if (ctx->on_publish) {
+
+		/* call to on publish */
+		pub_codes = ctx->on_publish (ctx, conn, msg, ctx->on_publish_data);
+
+		switch (pub_codes) {
+		case MYQTT_PUBLISH_DUNNO:
+		case MYQTT_PUBLISH_OK:
+			/* just break, do nothing */
+			break;
+		case MYQTT_PUBLISH_DISCARD:
+			/* releaes message and return */
+			myqtt_log (MYQTT_LEVEL_WARNING, "On publish handler reported to discard msg-id=%d from conn-id=%d from %s:%s", 
+				   msg->id, conn->id, conn->host, conn->port);
+			return;
+		case MYQTT_PUBLISH_CONN_CLOSE:
+			/* connection close */
+			myqtt_log (MYQTT_LEVEL_WARNING, "On publish handler reported to close connection for msg-id=%d from conn-id=%d from %s:%s, closing connection..", 
+				   msg->id, conn->id, conn->host, conn->port);
+			
+			/* flag we are closing this connection,
+			 * because user wants to, so we can avoid
+			 * reporting "remote side has disconnected */
+			myqtt_conn_set_data (conn, "closed-by-engine", INT_TO_PTR (1));
+			myqtt_conn_shutdown (conn);
+			return;
+		} /* end if */
+
+	} /* end if */
+
+	/***
+	 * @internal Reached this point, we can continue with the operation.
+	 */
 
 	/* now, for QoS1 we have to reply with a puback */
 	if (msg->qos == MYQTT_QOS_2) {
@@ -1996,7 +1984,6 @@ void __myqtt_reader_process_socket (MyQttCtx  * ctx,
 		break;
 	case MYQTT_PUBLISH:
 		/* handle PUBLISH packet */
-	        /* printf ("**\n** __calling __myqtt_reader_handler_publish: Conn-id=%d Conn=%p Ctx=%p  (refs=%d, is_ok: %d)\n**\n", conn->id, conn, ctx, conn->ref_count, myqtt_conn_is_ok (conn, axl_false)); */
 		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_publish, axl_false);
 		break;
 	case MYQTT_PUBACK:
@@ -2569,7 +2556,6 @@ void       __myqtt_reader_remove_conn_from_hash (MyQttConn * conn, axlHashCursor
 		} /* end if */
 
 		/* remove the connection from that connection hash */
-		/* printf ("INFO: removing conn=%p conn-id=%d from sub_hash=%p\n", conn, conn->id, sub_hash); */
 		axl_hash_remove (sub_hash, conn);
 		
 		/* delete sub hash if it is not storing any item, to keep it updated */
@@ -2688,7 +2674,6 @@ axlPointer __myqtt_reader_remove_conn_refs_aux (axlPointer _conn)
 	__myqtt_reader_check_and_trigger_will (ctx, conn);
 
 	/* connection isn't ok, unref it */
-	/* printf ("**\n** __myqtt_reader_remove_conn_refs_aux myqtt_conn_unref: Conn-id=%d Conn=%p Ctx=%p  (refs=%d, is_ok: %d)\n**\n", conn->id, conn, ctx, conn->ref_count, myqtt_conn_is_ok (conn, axl_false));*/
 	myqtt_conn_unref (conn, "myqtt reader (build set)");
 
 	return NULL;
