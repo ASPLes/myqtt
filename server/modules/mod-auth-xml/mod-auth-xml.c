@@ -69,9 +69,10 @@ typedef struct _ModAuthXmlBackend {
 } ModAuthXmlBackend;
 
 /** Implementation for MyQttdUsersLoadDb **/
-axlPointer __mod_auth_xml_load (MyQttdCtx  * ctx, 
-				MyQttConn  * conn, 
-				const char * path)
+axlPointer __mod_auth_xml_load (MyQttdCtx    * ctx,
+				MyQttdDomain * domain,
+				MyQttConn    * conn, 
+				const char   * path)
 {
 	char              * full_path = myqtt_support_build_filename (path, "users.xml", NULL);
 	axlDoc            * doc;
@@ -82,6 +83,11 @@ axlPointer __mod_auth_xml_load (MyQttdCtx  * ctx,
 	
 	if (full_path == NULL)
 		return NULL;
+
+	/* check if the document exists */
+	if (! myqtt_support_file_test (full_path, FILE_EXISTS))
+		return NULL; /* this is not an error, it might be
+			      * another backend type */
 
 	/* load document */
 	doc = axl_doc_parse_from_file (full_path, &err);
@@ -112,6 +118,7 @@ axlPointer __mod_auth_xml_load (MyQttdCtx  * ctx,
 	/* now get current global configuration */
 	backend->global_acls = axl_doc_get (backend->doc, "/myqtt-users/global-acls");
 	if (backend->global_acls) {
+		
 		/* get no match policy to quickly haccess it */
 		value = ATTR_VALUE (backend->global_acls, "no-match-policy");
 		if (axl_cmp (value, "close"))
@@ -150,11 +157,14 @@ axlPointer __mod_auth_xml_load (MyQttdCtx  * ctx,
 }
 
 /** Implemenation for MyQttdUsersExists **/
-axl_bool     __mod_auth_xml_user_exists (MyQttdCtx  * ctx, 
-					 MyQttConn  * conn, 
-					 axlPointer   _backend,
-					 const char * client_id, 
-					 const char * user_name)
+axl_bool     __mod_auth_xml_user_exists (MyQttdCtx    * ctx,
+					 MyQttdDomain * domain,
+					 axl_bool       domain_selected,
+					 MyQttdUsers  * users,
+					 MyQttConn    * conn, 
+					 axlPointer     _backend,
+					 const char   * client_id, 
+					 const char   * user_name)
 {
 	ModAuthXmlBackend * backend    = _backend;
 	axlNode           * node       = axl_doc_get (backend->doc, "/myqtt-users/user");
@@ -200,12 +210,15 @@ axl_bool     __mod_auth_xml_user_exists (MyQttdCtx  * ctx,
 }
 
 /** Implementation for MyQttdUsersAuthUser **/
-axl_bool     __mod_auth_xml_auth_user (MyQttdCtx  * ctx, 
-				       MyQttConn  * conn,
-				       axlPointer   _backend,
-				       const char * client_id, 
-				       const char * user_name,
-				       const char * password)
+axl_bool     __mod_auth_xml_auth_user (MyQttdCtx    * ctx,
+				       MyQttdDomain * domain,
+				       axl_bool       domain_selected,
+				       MyQttdUsers  * users,
+				       MyQttConn    * conn,
+				       axlPointer     _backend,
+				       const char   * client_id, 
+				       const char   * user_name,
+				       const char   * password)
 {
 	ModAuthXmlBackend * backend    = _backend;
 	axlNode           * node       = axl_doc_get (backend->doc, "/myqtt-users/user");
