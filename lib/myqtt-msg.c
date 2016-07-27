@@ -683,7 +683,20 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 				errno);
 			return NULL;
 		} /* end if */
-	
+
+		/* check if this connection close is not cause by our
+		 * local engine */
+		if (PTR_TO_INT (myqtt_conn_get_data (connection, "closed-by-engine"))) {
+			/* connection has been closed by the engine,
+			 * see
+			 * myqtt-reader.c:__myqtt_reader_do_publish, so avoid reporting this errors */
+			__myqtt_conn_shutdown_and_record_error (
+				connection, MyQttConnectionForcedClose,
+				"myqtt engine has closed connection as requested by application level, session id=%d",
+				myqtt_conn_get_id (connection));
+			return NULL;
+		} /* end if */
+		
 		/* check if we have a non-blocking connection */
 		__myqtt_conn_shutdown_and_record_error (
 			connection, MyQttUnnotifiedConnectionClose,
