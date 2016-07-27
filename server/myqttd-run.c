@@ -759,7 +759,8 @@ MyQttConn * __myqttd_run_internal_copy (MyQttCtx * ctx, MyQttConn * ref)
 	conn->close_session = ref->close_session;
 
 	/* get socket */
-	conn->session = ref->session; ref->session = -1;
+	conn->session     = ref->session;
+	ref->session      = -1;
 	ref->is_connected = axl_false;
 
 	/* setup handlers */
@@ -844,7 +845,8 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 	if (domain->initialized && domain->use_settings) {
 		if (domain->settings) {
 			/* get current connections (plus 1, as we are simulating handling it) */
-			connections = axl_list_length (domain->myqtt_ctx->conn_list) + axl_list_length (domain->myqtt_ctx->srv_list) + 1;
+			connections = myqttd_domain_conn_count_all (domain) + 1;
+			
 			/* msg ("Connections: %d/%d (%s -- %p)", connections, domain->settings->conn_limit,
 			   domain->use_settings, domain->settings); */
 
@@ -916,7 +918,11 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 		myqtt_conn_shutdown (conn2);
 	} /* end if */
 
-	/* duplicate connection : this function creates a reference that is released at the end */
+	/* duplicate connection : this function creates a reference
+	 * that is released at the end. For function also transfers
+	 * the socket from conn -> conn2 so it starts working
+	 * everything inside conn2 (becoming conn a phantom connection
+	 * without any function) */
 	conn2 = __myqttd_run_internal_copy (domain->myqtt_ctx, conn);
 	if (conn2 == NULL) {
 	        error ("ERROR: failed to allocate copy for incoming connection, rejecting connection");

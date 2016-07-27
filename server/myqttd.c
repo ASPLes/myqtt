@@ -1150,6 +1150,15 @@ const char * __myqttd_system_path (MyQttdCtx * ctx, const char * path_name)
  *  - etc/myqtt/tls/tls.conf
  *  - etc/myqtt/web-socket/web-socket.conf
  *
+ * The function can also return the value configured at the
+ * <global-settings/system-paths/path> if configured.
+ *
+ * \code
+ * &lt;system-paths>
+ *    &lt;path name='sysconfdir' value='your-custom-path' />
+ * &lt;/system-paths>
+ * \endcode
+ *
  * @param ctx The myqttd ctx with the associated configuration
  * where we are getting the sysconfdir. If NULL is provided, default
  * value is returned.
@@ -1178,6 +1187,16 @@ const char    * myqttd_sysconfdir     (MyQttdCtx * ctx)
  * are located (mostly dtd files). Under unix system it is usually:
  * <b>/usr/share/myqtt</b>. On windows system it is usually
  * configured to: <b>../data</b>.
+ *
+ * The function can also return the value configured at the
+ * <global-settings/system-paths/path> if configured "datadir" is
+ * configured like:
+ *
+ * \code
+ * &lt;system-paths>
+ *    &lt;path name='datadir' value='your-custom-path' />
+ * &lt;/system-paths>
+ * \endcode
  *
  * @param ctx The myqttd ctx with the associated configuration
  * where we are getting the sysconfdir. If NULL is provided, default
@@ -1210,6 +1229,16 @@ const char    * myqttd_datadir        (MyQttdCtx  * ctx)
  * it is usually configured to: <b>../run-time</b>. Inside that
  * directory is found a directory called "myqttd" where runtime
  * content is found.
+ *
+ * The function can also return the value configured at the
+ * <global-settings/system-paths/path> if configured "runtime_datadir" is
+ * configured like:
+ *
+ * \code
+ * &lt;system-paths>
+ *    &lt;path name='datadir' value='runtime_datadir' />
+ * &lt;/system-paths>
+ * \endcode
  *
  * @param ctx The myqttd ctx with the associated configuration
  * where we are getting the sysconfdir. If NULL is provided, default
