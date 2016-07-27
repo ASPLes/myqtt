@@ -1,0 +1,3 @@
+<mod-auth-mysql>
+  <dsn name='__main__' db="db_name" dbuser="db_user" dbpassword="db_password" dbhost="127.0.0.1" dbport="" />
+</mod-auth-mysql>
