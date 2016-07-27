@@ -777,6 +777,10 @@ double   myqtt_support_strtod                     (const char * param, char ** s
 	axl_bool   second_try = axl_false;
 	char     * alt_string = NULL;
 
+	/* return 0 for empty strings */
+	if (param == NULL)
+		return 0;
+
 	/* provide a local reference */
 	if (string_aux == NULL)
 		string_aux = &alt_string;
