@@ -3980,6 +3980,8 @@ void               myqtt_conn_free (MyQttConn * connection)
 	/* free identifiers */
 	axl_free (connection->client_identifier);
 	axl_free (connection->username);
+	axl_free (connection->password);
+	connection->password = NULL;
 	axl_free (connection->will_topic);
 	axl_free (connection->will_msg);
 	axl_free (connection->serverName);

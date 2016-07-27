@@ -3074,6 +3074,30 @@ axl_bool  test_20 (void) {
 	} /* end if */
 	myqtt_conn_close (conn);
 
+	/* enable auth */
+	printf ("Test 20: checking username/password -- wrong password\n");
+	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, username, password, is_active) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), 'test_20_02', 1, 'test_20_user', 'fjf', 1)");
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_set_auth (opts, "test_20_user", "test_20_password");
+	conn = myqtt_conn_new (myqtt_ctx, "test_20_02", axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it shouldn't connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+
+	printf ("Test 20: checking username/password -- right password\n");
+	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM user");
+	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, username, password, is_active) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), 'test_20_02', 1, 'test_20_user', 'DE:B0:65:DA:A7:CA:0F:43:12:31:4C:AF:0D:32:46:90', 1)");
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_set_auth (opts, "test_20_user", "test_20_password");
+	conn = myqtt_conn_new (myqtt_ctx, "test_20_02", axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it SHOULD connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+
 
 	printf ("Test 20: finishing context..\n");
 	myqtt_exit_ctx (myqtt_ctx, axl_true);

@@ -989,6 +989,9 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 	const char   * client_id    = myqtt_conn_get_client_id (conn);
 	const char   * server_Name  = myqtt_conn_get_server_name (conn);
 
+	/* login failure pause */
+	long           pause_value;
+
 	/* conn limits */
 	MyQttConnAckTypes    codes;
 
@@ -997,6 +1000,19 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 	if (domain == NULL) {
 		error ("Login failed for username=%s client-id=%s server-name=%s : no domain was found to handle request",
 		       myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name));
+
+		/* implement a pause to disable brute force attacks */
+		/* setup default value if nothing is configured */
+		pause_value = 4;
+	
+		/* now get configured system value */
+		if (myqttd_config_exists_attr (ctx, "/myqtt/global-settings/login-failure-pause", "value"))
+			pause_value = myqttd_config_get_number (ctx, "/myqtt/global-settings/login-failure-pause", "value");
+
+		/* call to pause if we have to wait */
+		if (pause_value > 0)
+			myqttd_sleep (ctx, pause_value * 1000000);
+		
 		return MYQTT_CONNACK_IDENTIFIER_REJECTED;
 	} /* end if */
 
