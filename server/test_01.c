@@ -2918,6 +2918,7 @@ axl_bool  test_20 (void) {
 	MyQttConn       * conn2;
 	int               sub_result;
 	MyQttAsyncQueue * queue;
+	MyQttConnOpts   * opts;
 
 	printf ("Test 20: info: \n");
 	printf ("Test 20: info: \n");
@@ -2942,8 +2943,10 @@ axl_bool  test_20 (void) {
 	} /* end if */
 
 	/* prepare module */
+	printf ("Test 20: cleaning MySQL tables to start test...\n");
 	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM domain");
 	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM user");
+	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM domain_acl");
 
 	/* domain to make it work */
 	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO domain (name, is_active, default_acl) VALUES ('test_20.context', 1, 3)");
@@ -3017,8 +3020,62 @@ axl_bool  test_20 (void) {
 	} /* end if */
 
 	/* close connection */
+	printf ("Test 20: closing connections used until now..\n");
 	myqtt_conn_close (conn);
 	myqtt_conn_close (conn2);
+
+	printf ("Test 20: second phase..\n");
+
+
+	/* prepare module */
+	printf ("Test 20: cleaning MySQL tables to check wrong auths.....\n");
+	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM domain");
+	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM user");
+	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM domain_acl");
+
+	/* unknown client id */
+	printf ("Test 20: checking wrong connection with unknown clientid..\n");
+	conn = myqtt_conn_new (myqtt_ctx, "test_20_02", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it shouldn't connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+
+	printf ("Test 20: checking client connection with username and password..\n");
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_set_auth (opts, "test_20_user", "test_20_password");
+	conn = myqtt_conn_new (myqtt_ctx, "test_20_02", axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it shouldn't connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+
+	printf ("Test 20: creating again default domain record...check again..\n");
+	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO domain (name, is_active, default_acl) VALUES ('test_20.context', 1, 3)");
+
+	/* unknown client id */
+	printf ("Test 20: checking wrong connection with unknown clientid..\n");
+	conn = myqtt_conn_new (myqtt_ctx, "test_20_02", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it shouldn't connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+
+	printf ("Test 20: checking client connection with username and password..\n");
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_set_auth (opts, "test_20_user", "test_20_password");
+	conn = myqtt_conn_new (myqtt_ctx, "test_20_02", axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it shouldn't connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+
+
+	printf ("Test 20: finishing context..\n");
 	myqtt_exit_ctx (myqtt_ctx, axl_true);
 
 	myqtt_async_queue_unref (queue);	
@@ -3205,7 +3262,7 @@ int main (int argc, char ** argv)
 	run_test (test_19, "Test 19: check user acls with mod-auth-xml");
 
 	CHECK_TEST("test_20")
-	run_test (test_20, "Test 20: check auth mysql backend "); 
+	run_test (test_20, "Test 20: check auth mysql backend ");
 
 	/* check support to limit amount of subscriptions a user can
 	 * do */

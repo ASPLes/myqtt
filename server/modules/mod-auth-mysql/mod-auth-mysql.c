@@ -618,8 +618,11 @@ axl_bool     __mod_auth_mysql_auth_user (MyQttdCtx    * ctx,
 		return axl_false; /* failed to run query */
 	
 	row      = mysql_fetch_row (res);
-	if (row == NULL || row[0] == NULL)
+	if (row == NULL || row[0] == NULL) {
+		/* release result */
+		mysql_free_result (res);
 		return axl_false; /* empty query received */
+	}
 
 	/* get default domain acl */
 	default_acl = myqtt_support_strtod (__mod_auth_mysql_get_by_name (ctx, res, row, "default_acl"), NULL);
