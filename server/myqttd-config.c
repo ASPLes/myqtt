@@ -399,6 +399,35 @@ axl_bool        myqttd_config_is_attr_negative (MyQttdCtx * ctx,
 
 
 /** 
+ * @brief Allows to check if the attribute name under the provided xml path, exists.
+ *
+ * @param ctx The myqttd context where to get the configuration value.
+ *
+ * @param path The path to the node where the config is found.
+ *
+ * @param attr_name The attribute name to be checked.
+ *
+ * @return The function returns axl_true/axl_false according to the attribute name existence under the given xml path.
+ */
+axl_bool        myqttd_config_exists_attr (MyQttdCtx     * ctx,
+					   const char    * path,
+					   const char    * attr_name)
+{
+	axlNode * node;
+
+	/* check values received */
+	v_return_val_if_fail (ctx && path && attr_name, -2);
+
+	/* get the node */
+	node = axl_doc_get (ctx->config, path);
+	if (node == NULL) 
+		return axl_false;
+
+	/* now get the value */
+	return HAS_ATTR (node, attr_name);
+}
+
+/** 
  * @brief Allows to get the value found on provided config path at the
  * selected attribute.
  *

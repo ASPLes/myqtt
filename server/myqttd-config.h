@@ -82,8 +82,12 @@ axl_bool        myqttd_config_is_attr_positive (MyQttdCtx * ctx,
 						const char    * attr_name);
 
 axl_bool        myqttd_config_is_attr_negative (MyQttdCtx * ctx,
-						    axlNode       * node,
-						    const char    * attr_name);
+						axlNode       * node,
+						const char    * attr_name);
+
+axl_bool        myqttd_config_exists_attr (MyQttdCtx     * ctx,
+					   const char    * path,
+					   const char    * attr_name);
 
 int             myqttd_config_get_number (MyQttdCtx * ctx, 
 					  const char    * path,

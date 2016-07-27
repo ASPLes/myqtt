@@ -219,9 +219,11 @@ axl_bool      myqttd_users_do_auth (MyQttdCtx    * ctx,
 	if (users == NULL || ctx == NULL)
 		return axl_false; /* minimum parameters not received */
 
-	if (users->backend->auth (ctx, domain, domain_selected, users, conn, users->backend_reference, client_id, username, password)) {
+	if (users->backend->auth (ctx, domain, domain_selected, users, conn, users->backend_reference, client_id, username, password)) 
 		return axl_true; /* auth operation ok */
-	} /* end if */
+
+	/* do not implement a pause operation here: this function is
+	 * called to find domains internally */
 
 	return axl_false; /* auth operation failed */
 }
