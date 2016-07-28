@@ -3162,7 +3162,10 @@ void test_21_signal_received (int _signal) {
 axl_bool  test_21 (void) {
 
 	MyQttdCtx       * ctx;
+	MyQttCtx        * myqtt_ctx;
 	MyQttdDomain    * domain;
+	MyQttConn       * conn;
+	
 
 	/* remove file */
 	myqttd_unlink ("reg-test-21/domains.d/example2.com.conf");
@@ -3189,6 +3192,22 @@ axl_bool  test_21 (void) {
 		return axl_false;
 	} /* end if */
 
+	/* create connection to local server and test domain support */
+	myqtt_ctx = common_init_ctx ();
+	if (! myqtt_init_ctx (myqtt_ctx)) {
+		printf ("Error: unable to initialize MyQtt library..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 21: checking connection cannot work..\n");
+	conn = myqtt_conn_new (myqtt_ctx, "username1", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it SHOULD NOT  connect to %s:%s because account is disabled..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+	
+
 	printf ("Test 21: install default signal handling..\n");
 	/* install signal handler */
 	test_21_ctx = ctx;
@@ -3210,9 +3229,24 @@ axl_bool  test_21 (void) {
 		printf ("Test 21: EXPECTED to find example2.com domain, but it was not\n");
 		return axl_false;
 	} /* end if */
-	
+
+	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO domain (name, is_active, default_acl) VALUES ('example2.com', 1, 3)");
+	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, is_active) VALUES ((SELECT id FROM domain WHERE name = 'example2.com'), 'username1', 0, 1)");
+
+	printf ("Test 21: checking connection cannot work..\n");
+	conn = myqtt_conn_new (myqtt_ctx, "username1", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it SHOULD NOT  connect to %s:%s because account is disabled..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+	printf ("Test 21: connected right!\n");
+
 	/* finish server */
 	myqttd_exit (ctx, axl_true, axl_true);
+
+	printf ("Test 20: finishing context..\n");
+	myqtt_exit_ctx (myqtt_ctx, axl_true);
 
 	/* call to disable signal handling */
 	myqttd_signal_install (ctx, axl_true, axl_true, NULL /* null handler */);
