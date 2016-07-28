@@ -1172,6 +1172,38 @@ axl_bool myqttd_run_domain_settings_load (MyQttdCtx * ctx, axlDoc * doc)
 	return axl_true; /* domains loaded */
 }
 
+/* change to uid/gid configured */
+void myqttd_change_running_user (MyQttdCtx * ctx, axlDoc * doc)
+{
+	axlNode * node = axl_doc_get (doc, "/myqtt/global-settings/running-user");
+	int       gid;
+	int       uid;
+	if (! node)
+		return;
+
+	/* get user id and group id */
+	uid = myqttd_get_system_id (ctx, ATTR_VALUE (node, "uid"), axl_true);
+	gid = myqttd_get_system_id (ctx, ATTR_VALUE (node, "gid"), axl_true);
+
+	if (gid > 0) {
+		msg ("Changing running-group to group %s (gid=%d)", ATTR_VALUE (node, "gid"), gid);
+		if (setgid (gid) != 0) {
+			error ("Failed to set executing group id: %d, error (%d:%s)", 
+			       gid, errno, myqtt_errno_get_last_error ());
+		} /* end if */
+	}
+
+	if (uid > 0) {
+		msg ("Changing running-user to user %s (uid=%d)", ATTR_VALUE (node, "uid"), uid);
+		if (setuid (uid) != 0) {
+			error ("Failed to set executing user id: %d, error (%d:%s)", 
+			       uid, errno, myqtt_errno_get_last_error ());
+		} /* end if */
+	}
+
+	return;
+}
+
 /** 
  * @internal Takes current configuration, and starts all settings
  * required to run the server.
@@ -1267,6 +1299,9 @@ int  myqttd_run_config    (MyQttdCtx * ctx)
 	/* now install auth handler to accept conections and to
 	 * redirect them to the right domain */
 	myqtt_ctx_set_on_connect (ctx->myqtt_ctx, myqttd_run_handle_on_connect, ctx);
+
+	/* change to uid/gid configured */
+	myqttd_change_running_user (ctx, doc);
 
 	/* myqttd started properly */
 	return axl_true;
