@@ -130,6 +130,7 @@ fi
 if [ ! -f /etc/myqtt/myqtt.conf ]; then
         cp /etc/myqtt/myqtt.example.conf /etc/myqtt/myqtt.conf
 fi
+adduser --comment 'MyQttD server user' -s /bin/false -M myqttd
 service myqtt restart
 
 # libmyqttd-server-1.0-dev package

@@ -11,6 +11,9 @@ case "$1" in
         # create startup links
     	update-rc.d -f myqtt start 23 2 3 4 5 . stop 20 0 1 6 . > /dev/null
 
+	# create myqttd user
+	id -u myqttd &>/dev/null || adduser --gecos 'MyQttD server user' --disabled-login --disabled-password --no-create-home --force-badname myqttd
+
 	# restart server if it were installed
 	/etc/init.d/myqtt restart
     ;;
