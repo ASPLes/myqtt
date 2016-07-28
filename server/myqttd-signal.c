@@ -128,9 +128,9 @@ void myqttd_signal_sigchld (MyQttdCtx * ctx, axl_bool enable)
  * @brief Allows to install default signal handling.
  */
 void myqttd_signal_install (MyQttdCtx           * ctx, 
-				axl_bool                  enable_sigint, 
-				axl_bool                  enable_sighup,
-				MyQttdSignalHandler   signal_handler)
+			    axl_bool              enable_sigint, 
+			    axl_bool              enable_sighup,
+			    MyQttdSignalHandler   signal_handler)
 {
 	/* install default handlers */
 	/* check for sigint */
@@ -148,7 +148,7 @@ void myqttd_signal_install (MyQttdCtx           * ctx,
 
 	/* check for sighup */
 	if (enable_sighup)
-		signal (SIGHUP,  signal_handler);
+		signal (SIGHUP, signal_handler);
 	else
 		signal (SIGHUP, NULL);
 #endif
@@ -159,12 +159,12 @@ void myqttd_signal_install (MyQttdCtx           * ctx,
 	return;
 }
 
-#define CHECK_AND_REPORT_MAIL_TO(subject, body, file) do{		           \
-	if (HAS_ATTR (node, "mail-to")) {				           \
+#define CHECK_AND_REPORT_MAIL_TO(subject, body, file) do{		   \
+	if (HAS_ATTR (node, "mail-to")) {				   \
 		myqttd_support_simple_smtp_send (ctx,		           \
-						     ATTR_VALUE (node, "mail-to"), \
-						     subject, body, file);         \
-	} /* end if */							           \
+						 ATTR_VALUE (node, "mail-to"), \
+						 subject, body, file);	\
+	} /* end if */						           \
 } while (0)
 
 /** 

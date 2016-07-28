@@ -9,7 +9,9 @@ EXTRA_DIST = myqttd-ctx-private.h myqtt.example.conf \
 	test_16.conf \
 	test_17.conf \
 	test_18.conf \
-	test_19.conf
+	test_19.conf \
+	test_20.conf \
+	test_21.conf
 
 etcdir = $(sysconfdir)/myqtt
 etc_DATA = myqtt.example.conf

@@ -3134,8 +3134,37 @@ axl_bool  test_20 (void) {
 	myqttd_exit (ctx, axl_true, axl_true);
 		
 	return axl_true;
-	
 }
+
+axl_bool  test_21 (void) {
+
+	MyQttdCtx       * ctx;
+	MyQttdDomain    * domain;
+
+	/* call to init the base library and close it */
+	printf ("Test 21: init library and server engine..\n");
+	ctx       = common_init_ctxd (NULL, "test_21.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 21: library and server engine started.. ok (ctxd = %p, ctx = %p\n", ctx, MYQTTD_MYQTT_CTX (ctx));
+	domain = myqttd_domain_find_by_name (ctx, "example.com");
+	if (! domain) {
+		printf ("Test 21: failed to find example.com domain, myqttd_domain_find_by_name () api is failing..\n");
+		return axl_false;
+	} /* end if */
+
+	/* install signal handler */
+	
+	
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+		
+	return axl_true;
+}
+
 
 
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
@@ -3311,6 +3340,9 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_20")
 	run_test (test_20, "Test 20: check auth mysql backend ");
+
+	CHECK_TEST("test_21")
+	run_test (test_21, "Test 21: check auth mysql backend ");
 
 	/* check support to limit amount of subscriptions a user can
 	 * do */

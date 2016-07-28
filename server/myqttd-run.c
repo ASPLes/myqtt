@@ -364,6 +364,11 @@ void myqtt_run_load_domain (MyQttdCtx * ctx, axlDoc * doc, axlNode * node)
 	const char * storage      = ATTR_VALUE (node, "storage");
 	const char * users_db     = ATTR_VALUE (node, "users-db");
 	const char * use_settings = ATTR_VALUE (node, "use-settings");
+	axl_bool     is_active    = axl_true;
+
+	/* check for is active attribue (if present) */
+	if (HAS_ATTR (node, "is-active"))
+		is_active = HAS_ATTR_VALUE (node, "is-active", "yes") || HAS_ATTR_VALUE (node, "is-active", "1");
 
 	/* do some logging */
 	msg ("Loading domain, name=%s, storage=%s, users-db=%s, use-settings=%s", 
@@ -375,7 +380,7 @@ void myqtt_run_load_domain (MyQttdCtx * ctx, axlDoc * doc, axlNode * node)
 	myqttd_config_ensure_attr (ctx, node, "users-db");
 
 	/* now ensure storage is present and initialize it */
-	if (! myqttd_domain_add (ctx, name, storage, users_db, use_settings)) {
+	if (! myqttd_domain_add (ctx, name, storage, users_db, use_settings, is_active)) {
 		/* report failure */
 		error ("Unable to add domain name='%s'", name);
 		/* fail here because clean start is enabled? */

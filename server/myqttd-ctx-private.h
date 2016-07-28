@@ -176,6 +176,7 @@ struct _MyQttdDomain {
 	char         * storage_path;
 	char         * users_db;
 	MyQttMutex     mutex;
+	axl_bool       is_active;
 
 	/* reference to the myqtt context for this domain */
 	axl_bool       initialized;

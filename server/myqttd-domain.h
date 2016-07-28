@@ -50,7 +50,8 @@ axl_bool          myqttd_domain_add  (MyQttdCtx  * ctx,
 				      const char * name, 
 				      const char * storage_path, 
 				      const char * user_db,
-				      const char * use_settings);
+				      const char * use_settings,
+				      axl_bool     is_active);
 
 const char      * myqttd_domain_get_name (MyQttdDomain * domain);
 

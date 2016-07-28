@@ -87,7 +87,7 @@ axl_bool   myqttd_domain_init (MyQttdCtx  * ctx)
 }
 
 /** 
- * @brief Allows to add a new domain with the provide initial data.
+ * @brief Allows to add/update a domain with the provide initial data.
  *
  * @param ctx The context where the domain will be added.
  *
@@ -96,12 +96,17 @@ axl_bool   myqttd_domain_init (MyQttdCtx  * ctx)
  *
  * @param user_db The storage path where user databse configuration is
  * found.
+ *
+ * @param is_active Flags the domain as activate (usable).
+ *
+ * @return axl_true when the domain was added or updated, otherwise axl_false is returned.
  */
 axl_bool   myqttd_domain_add  (MyQttdCtx  * ctx, 
 			       const char * name, 
 			       const char * storage_path, 
 			       const char * user_db,
-			       const char * use_settings)
+			       const char * use_settings,
+			       axl_bool     is_active)
 {
 	MyQttdDomain * domain;
 
@@ -152,6 +157,9 @@ axl_bool   myqttd_domain_add  (MyQttdCtx  * ctx,
 
 	/* setup new domain settings */
 	domain->use_settings = use_settings;
+
+	/* configure active */
+	domain->is_active    = is_active;
 	
 	/* reference to the settings configured */
 	if (use_settings) {
@@ -165,21 +173,31 @@ axl_bool   myqttd_domain_add  (MyQttdCtx  * ctx,
 }
 
 /** 
- * @brief Allows to find a domain by name (label configured at
+ * @brief Allows to find an active domain by name (label configured at
  * configuration file).
  *
  * @param ctx The context where the operation takes place
  *
  * @param name The domain name that is being looked for (<domain name='' />).
+ *
+ * @return A reference to the domain object (\ref MyQttdDomain) or
+ * NULL if it is not found or it is not active.
  */
 MyQttdDomain    * myqttd_domain_find_by_name (MyQttdCtx   * ctx,
 					      const char  * name)
 {
+	MyQttdDomain * domain;
+	
 	if (ctx == NULL || name == NULL)
 		return NULL;
 
 	/* report domain found */
-	return myqtt_hash_lookup (ctx->domains, (axlPointer) name);
+	domain =  myqtt_hash_lookup (ctx->domains, (axlPointer) name);
+	if (domain && ! domain->is_active)
+		return NULL; /* domain is disabled, so report NULL */
+
+	/* report reference found */
+	return domain;
 }
 
 /** 
@@ -225,6 +243,10 @@ axl_bool __myqttd_domain_find_by_username_client_id_foreach (axlPointer _name,
 	const char             * client_id = data->client_id;
 	const char             * password  = data->password;
 	MyQttConn              * conn      = data->conn;
+
+	/* check if the domain is active */
+	if (domain && ! domain->is_active)
+		return axl_false; /* keep on searching */
 
 	/* Reached this point, domain has a users database backend
 	   loaded, now check if this domain recognizes.  Configure
