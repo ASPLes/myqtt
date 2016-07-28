@@ -394,7 +394,8 @@ axl_bool myqttd_run_domains_load (MyQttdCtx * ctx, axlDoc * doc)
 	axlNode * node;
 	node = axl_doc_get (doc, "/myqtt/myqtt-domains/domain");
 	if (node == NULL) {
-		abort_error ("Unable to find any domain declaration inside %s file, under the xml section /myqtt/myqtt-domains/domain. Without a single domain declaration this server cannot accept connections");
+		abort_error ("Unable to find any domain declaration inside %s file, under the xml section /myqtt/myqtt-domains/domain. Without a single domain declaration this server cannot accept connections",
+			     ctx->config_path);
 		return axl_false;
 	} /* end if */
 	
