@@ -264,16 +264,16 @@ void                myqtt_conn_delete_key_data        (MyQttConn * conn,
 axlPointer          myqtt_conn_get_data               (MyQttConn * conn,
 							      const char       * key);
 
-MyQttPeerRole       myqtt_conn_get_role               (MyQttConn * conn);
+MyQttPeerRole          myqtt_conn_get_role               (MyQttConn * conn);
 
-MyQttConn         * myqtt_conn_get_listener           (MyQttConn * conn);
+MyQttConn            * myqtt_conn_get_listener           (MyQttConn * conn);
 
-const char        * myqtt_conn_get_server_name        (MyQttConn * conn);
+const char           * myqtt_conn_get_server_name        (MyQttConn * conn);
 
-void                myqtt_conn_set_server_name        (MyQttConn  * conn, 
+void                   myqtt_conn_set_server_name        (MyQttConn  * conn, 
 						       const char * serverName);
 
-MyQttCtx          * myqtt_conn_get_ctx                (MyQttConn * conn);
+MyQttCtx             * myqtt_conn_get_ctx                (MyQttConn * conn);
 
 MyQttSend              myqtt_conn_set_send_handler    (MyQttConn * conn,
 						       MyQttSend  send_handler);

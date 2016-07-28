@@ -3031,6 +3031,7 @@ axl_bool  test_20 (void) {
 	printf ("Test 20: cleaning MySQL tables to check wrong auths.....\n");
 	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM domain");
 	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM user");
+	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM user_log");
 	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM domain_acl");
 
 	/* unknown client id */

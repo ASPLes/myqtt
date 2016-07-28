@@ -44,6 +44,10 @@
 #include <myqtt-tls.h>
 #endif
 
+#if defined(ENABLE_WEBSOCKET_SUPPORT)
+#include <myqtt-web-socket.h>
+#endif
+
 /* mysql flags */
 #include <mysql.h>
 
@@ -550,22 +554,50 @@ axl_bool     __mod_auth_mysql_user_exists (MyQttdCtx    * ctx,
 }
 
 
-
-axl_bool __mod_auth_mysql_accept_user (MyQttdCtx * ctx, MyQttdDomain * domain, MyQttdUsers * users, MyQttConn * conn, int user_id)
+const char * __mod_auth_mysql_get_protocol (MyQttConn * conn)
 {
+	noPollConn * wconn;
+
+	wconn = myqtt_web_socket_get_conn (conn);
+	if (wconn) {
+		if (nopoll_conn_is_tls_on (wconn))
+			return "mqtt-wss";
+		return "mqtt-ws";
+	} /* end if */
+
+	if (myqtt_tls_is_on (conn)) 
+		return "mqtt-tls";
+	return "mqtt";
+}
+
+
+axl_bool __mod_auth_mysql_accept_user (MyQttdCtx * ctx, MyQttdDomain * domain, MyQttdUsers * users, MyQttConn * conn, int user_id, axlNode * dsn_node)
+{
+	char * query;
+	
+	
 	if (user_id > 0) {
 		/* save user_id into connection for later use */
 		myqtt_conn_set_data (conn, "mod:mysql:auth:user_id", INT_TO_PTR (user_id));
+
+		/* record here accepted connection from a given IP, user, etc */
+		query = axl_strdup_printf ("INSERT INTO user_log (user_id, timestamp, action, ip, protocol, description) VALUES ('%d', '%d', 'login-ok', '%s', '%s', 'Login ok received')",
+					   user_id, time (NULL), myqtt_conn_get_host (conn), __mod_auth_mysql_get_protocol (conn));
+		mod_auth_mysql_run_query_s (ctx, dsn_node, query);
+		axl_free (query);
+		
 	} /* end if */
-	
-	/* record here accepted connection from a given IP, user, etc */
 	
 	return axl_true; /* connection accepted */
 }
 
-axl_bool __mod_auth_mysql_reject_user (MyQttdCtx * ctx, MyQttdDomain * domain, MyQttdUsers * users, MyQttConn * conn, const char * reason)
+axl_bool __mod_auth_mysql_reject_user (MyQttdCtx * ctx, MyQttdDomain * domain, axl_bool domain_selected, MyQttdUsers * users, MyQttConn * conn, const char * reason)
 {
-	/* record here rejected connection from a given ip, user, etc */
+	/* do not record anything here for now. When a login failure
+	 * is detected, it is not clear to who user we have to attach
+	 * it. The same happens with the domain. At the same time
+	 * myqttd already records a login failure indication */
+	
 	return axl_false; /* connection rejected */
 }
 
@@ -633,7 +665,7 @@ axl_bool     __mod_auth_mysql_auth_user (MyQttdCtx    * ctx,
 	anonymous = myqtt_support_strtod (__mod_auth_mysql_get_by_name (ctx, res, row, "anonymous"), NULL);
 	if (anonymous && domain_selected) {
 		/* accept connection since anonymous is enabled */
-		return __mod_auth_mysql_accept_user (ctx, domain, users, conn, -1); 
+		return __mod_auth_mysql_accept_user (ctx, domain, users, conn, -1, dsn_node); 
 	} /* end if */
 	mysql_free_result (res);
 
@@ -644,20 +676,20 @@ axl_bool     __mod_auth_mysql_auth_user (MyQttdCtx    * ctx,
 						     "SELECT id, password from user WHERE is_active = '1' AND require_auth = 1 AND domain_id = (SELECT id FROM domain WHERE is_active = '1' AND name = '%s') AND BINARY username = '%s' AND BINARY clientid = '%s'",
 						     myqttd_domain_get_name (domain), user_name, clientid);
 		if (res == NULL) {
-			return __mod_auth_mysql_reject_user (ctx, domain, users, conn, "Username/Clientid/Password combination unknown for this domain, SQL failure");
+			return __mod_auth_mysql_reject_user (ctx, domain, domain_selected, users, conn, "Username/Clientid/Password combination unknown for this domain, SQL failure");
 		} /* end if */
 		
 		/* get first row from result */
 		row      = mysql_fetch_row (res);
 		if (row == NULL || row[1] == NULL) {
 			mysql_free_result (res);
-			return __mod_auth_mysql_reject_user (ctx, domain, users, conn, "Username/clientid combination unknown for this domain");
+			return __mod_auth_mysql_reject_user (ctx, domain, domain_selected, users, conn, "Username/clientid combination unknown for this domain");
 		} /* end if */
 
 		/* user and client id (and password) */
 		digest_password = myqtt_tls_get_digest (MYQTT_MD5, password);
 		if (digest_password == NULL) 
-			return __mod_auth_mysql_reject_user (ctx, domain, users, conn, "Unable to encode password into MD5 for query");
+			return __mod_auth_mysql_reject_user (ctx, domain, domain_selected, users, conn, "Unable to encode password into MD5 for query");
 
 		/* get result */
 		result  = axl_cmp (digest_password, row[1]);
@@ -666,22 +698,22 @@ axl_bool     __mod_auth_mysql_auth_user (MyQttdCtx    * ctx,
 		mysql_free_result (res);
 		
 		if (result)
-			return __mod_auth_mysql_accept_user (ctx, domain, users, conn, user_id);
-		return __mod_auth_mysql_reject_user (ctx, domain, users, conn, "Password failure for client-id/username");
+			return __mod_auth_mysql_accept_user (ctx, domain, users, conn, user_id, dsn_node);
+		return __mod_auth_mysql_reject_user (ctx, domain, domain_selected, users, conn, "Password failure for client-id/username");
 	case 2:
 		/* query database */
 		res      = mod_auth_mysql_run_query (ctx, dsn_node,
 						     "SELECT clientid, id from user WHERE is_active = '1' AND  require_auth = 0 AND domain_id = (SELECT id FROM domain WHERE is_active = '1' AND  name = '%s') AND BINARY clientid = '%s'",
 						     myqttd_domain_get_name (domain), clientid);
 		if (res == NULL) {
-			return __mod_auth_mysql_reject_user (ctx, domain, users, conn, "Clientid combination unknown for this domain, SQL failure");
+			return __mod_auth_mysql_reject_user (ctx, domain, domain_selected, users, conn, "Clientid combination unknown for this domain, SQL failure");
 		} /* end if */
 			
 		/* get first row from result */
 		row  = mysql_fetch_row (res);
 		if (row == NULL || row[0] == NULL) {
 			mysql_free_result (res);
-			return __mod_auth_mysql_reject_user (ctx, domain, users, conn, "Username/clientid combination unknown for this domain");
+			return __mod_auth_mysql_reject_user (ctx, domain, domain_selected, users, conn, "Username/clientid combination unknown for this domain");
 		} /* end if */
 
 		/* get result */
@@ -690,16 +722,16 @@ axl_bool     __mod_auth_mysql_auth_user (MyQttdCtx    * ctx,
 		mysql_free_result (res);
 		
 		if (result)
-			return __mod_auth_mysql_accept_user (ctx, domain, users, conn, user_id);
-		return __mod_auth_mysql_reject_user (ctx, domain, users, conn, "Client-id unknown");
+			return __mod_auth_mysql_accept_user (ctx, domain, users, conn, user_id, dsn_node);
+		return __mod_auth_mysql_reject_user (ctx, domain, domain_selected, users, conn, "Client-id unknown");
 	case 1:
 		/* case not supported */
-		return __mod_auth_mysql_reject_user (ctx, domain, users, conn, "Remove device only provided username");
+		return __mod_auth_mysql_reject_user (ctx, domain, domain_selected, users, conn, "Remove device only provided username");
 		
 	} /* end switch */
 		
 	/* user does not exists for this backend */
-	return __mod_auth_mysql_reject_user (ctx, domain, users, conn, "Remove device did not provided any valid credential");
+	return __mod_auth_mysql_reject_user (ctx, domain, domain_selected, users, conn, "Remove device did not provided any valid credential");
 }
 
 /** MyQttdUsersUnloadDb **/
@@ -936,6 +968,18 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 					     "description", "text",
 					     NULL);
 
+		/* user log */
+		mod_auth_mysql_ensure_table (ctx, dsn_node,
+					     "user_log",
+					     "id", "autoincrement int",
+					     "user_id", "int",
+					     "timestamp", "int",
+					     "action", "varchar(128)",
+					     "ip", "varchar(128)",
+					     "protocol", "varchar(128)", 
+					     "description", "text",
+					     NULL);
+		
 		/* domain_acl table */
 		mod_auth_mysql_ensure_table (ctx, dsn_node,
 					     "domain_acl",
