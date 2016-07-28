@@ -919,7 +919,8 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 					     "default_acl", "int",
 					     "name", "varchar(512)",
 					     "anonymous", "int",
-					     "description", "text");
+					     "description", "text",
+					     NULL);
 
 		/* user table */
 		mod_auth_mysql_ensure_table (ctx, dsn_node,
@@ -932,7 +933,8 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 					     "clientid", "varchar(512)",
 					     "username", "varchar(512)",
 					     "password", "varchar(512)",
-					     "description", "text");
+					     "description", "text",
+					     NULL);
 
 		/* domain_acl table */
 		mod_auth_mysql_ensure_table (ctx, dsn_node,
@@ -949,7 +951,8 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 					     "publish0", "int",
 					     "publish1", "int",
 					     "publish2", "int",
-					     "description", "text");
+					     "description", "text",
+					     NULL);
 
 		/* user_acl table */
 		mod_auth_mysql_ensure_table (ctx, dsn_node,
@@ -965,7 +968,8 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 					     "publish0", "int",
 					     "publish1", "int",
 					     "publish2", "int",
-					     "description", "text");
+					     "description", "text",
+					     NULL);
 					     
 		
 		/* get next node */

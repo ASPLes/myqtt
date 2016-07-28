@@ -3098,6 +3098,29 @@ axl_bool  test_20 (void) {
 	} /* end if */
 	myqtt_conn_close (conn);
 
+	printf ("Test 20: checking username/password -- right password but account disabled\n");
+	__mod_auth_mysql_run_query_for_test (ctx, "UPDATE user SET is_active = '0' WHERE username = 'test_20_user'");
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_set_auth (opts, "test_20_user", "test_20_password");
+	conn = myqtt_conn_new (myqtt_ctx, "test_20_02", axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it SHOULD NOT  connect to %s:%s because account is disabled..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+
+	printf ("Test 20: checking username/password -- right password but domain disabled\n");
+	__mod_auth_mysql_run_query_for_test (ctx, "UPDATE user SET is_active = '1' WHERE username = 'test_20_user'");
+	__mod_auth_mysql_run_query_for_test (ctx, "UPDATE domain SET is_active = '0' WHERE name = 'test_20.context'");
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_set_auth (opts, "test_20_user", "test_20_password");
+	conn = myqtt_conn_new (myqtt_ctx, "test_20_02", axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it SHOULD NOT  connect to %s:%s because account is disabled..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+
 
 	printf ("Test 20: finishing context..\n");
 	myqtt_exit_ctx (myqtt_ctx, axl_true);
