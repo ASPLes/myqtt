@@ -1,6 +1,6 @@
 SUBDIRS = modules
 
-EXTRA_DIST = myqttd-ctx-private.h myqtt.example.conf \
+EXTRA_DIST = myqttd-ctx-private.h myqtt.example.conf skeleton.conf \
 	test_01.conf \
 	test_02.conf \
 	test_10.conf \
@@ -15,6 +15,9 @@ EXTRA_DIST = myqttd-ctx-private.h myqtt.example.conf \
 
 etcdir = $(sysconfdir)/myqtt
 etc_DATA = myqtt.example.conf
+
+skeletondir = $(sysconfdir)/myqtt/domains.d
+skeleton_DATA = skeleton.conf
 
 # profile a flag to enable the source to code to react agaisnt the
 
