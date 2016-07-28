@@ -85,6 +85,19 @@ const char * listener_port = "1883";
 const char * listener_tls_port = "8883";
 #endif
 
+void write_content_into_file (const char * file, const char * content)
+{
+	FILE * f = fopen (file, "w");
+	if (f == NULL) {
+		printf ("ERROR: failed to open file %s, error was errno%d\n", file, errno);
+		exit (-1);
+	} /* end if */
+	fwrite (content, 1, strlen (content), f);
+	fclose (f);
+
+	
+	return;
+}
 
 MyQttCtx * common_init_ctx (void)
 {
@@ -134,6 +147,9 @@ MyQttdCtx * common_init_ctxd (MyQttCtx * myqtt_ctx, const char * config)
 		printf ("Failed to run current config, finishing process: %d", getpid ());
 		return NULL;
 	} /* end if */
+
+	/* signal context already started */
+	ctx->started = axl_true;
 
 	return ctx;
 }
@@ -3136,11 +3152,21 @@ axl_bool  test_20 (void) {
 	return axl_true;
 }
 
+MyQttdCtx * test_21_ctx = NULL;
+void test_21_signal_received (int _signal) {
+	/* default handling */
+	myqttd_signal_received (test_21_ctx, _signal);
+	return;
+}
+
 axl_bool  test_21 (void) {
 
 	MyQttdCtx       * ctx;
 	MyQttdDomain    * domain;
 
+	/* remove file */
+	myqttd_unlink ("reg-test-21/domains.d/example2.com.conf");
+	
 	/* call to init the base library and close it */
 	printf ("Test 21: init library and server engine..\n");
 	ctx       = common_init_ctxd (NULL, "test_21.conf");
@@ -3156,11 +3182,40 @@ axl_bool  test_21 (void) {
 		return axl_false;
 	} /* end if */
 
+	/* check that example2.com is not detected */
+	domain = myqttd_domain_find_by_name (ctx, "example2.com");
+	if (domain ) {
+		printf ("Test 21: expected NOT to find example2.com domain, but it was\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 21: install default signal handling..\n");
 	/* install signal handler */
-	
+	test_21_ctx = ctx;
+	myqttd_signal_install (ctx, axl_false /* disable sigint */, axl_true /* enable sighup */, test_21_signal_received);
+
+	printf ("Test 21: write content about new domain (example2.com)\n");
+	/* create file */
+	write_content_into_file ("reg-test-21/domains.d/example2.com.conf", "<domain name='example2.com' storage='/var/lib/myqtt/example.com' users-db='/var/lib/myqtt-dbs/example.com' use-settings='basic' />");
+
+	printf ("Test 21: sending local sighup signal ..\n");
+	raise (SIGHUP);
+
+	printf ("Test 21: waiting a little..\n");
+	sleep (2);
+
+	/* check that example2.com is not detected */
+	domain = myqttd_domain_find_by_name (ctx, "example2.com");
+	if (! domain ) {
+		printf ("Test 21: EXPECTED to find example2.com domain, but it was not\n");
+		return axl_false;
+	} /* end if */
 	
 	/* finish server */
 	myqttd_exit (ctx, axl_true, axl_true);
+
+	/* call to disable signal handling */
+	myqttd_signal_install (ctx, axl_true, axl_true, NULL /* null handler */);
 		
 	return axl_true;
 }

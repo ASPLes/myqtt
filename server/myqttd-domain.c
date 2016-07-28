@@ -146,12 +146,12 @@ axl_bool   myqttd_domain_add  (MyQttdCtx  * ctx,
 	} /* end if */
 
 	/* storage path */
-	if (! domain->storage_path)
+	if (domain->storage_path)
 		axl_free (domain->storage_path);
 	domain->storage_path = axl_strdup (storage_path);
 
 	/* users db */
-	if (! domain->users_db)
+	if (domain->users_db)
 		axl_free (domain->users_db);
 	domain->users_db     = axl_strdup (user_db);
 
