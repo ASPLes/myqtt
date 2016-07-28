@@ -43,8 +43,8 @@
 
 #include <myqttd.h>
 
-axl_bool        myqttd_config_load     (MyQttdCtx * ctx, 
-					    const char    * config);
+axl_bool        myqttd_config_load     (MyQttdCtx  * ctx, 
+					const char * config);
 
 void            myqttd_config_cleanup  (MyQttdCtx * ctx);
 
@@ -92,5 +92,8 @@ axl_bool        myqttd_config_exists_attr (MyQttdCtx     * ctx,
 int             myqttd_config_get_number (MyQttdCtx * ctx, 
 					  const char    * path,
 					  const char    * attr_name);
+
+/*** private API ***/
+axlDoc * __myqttd_config_load_from_file (MyQttdCtx * ctx, const char * config);
 
 #endif

@@ -111,21 +111,48 @@ axl_bool   myqttd_domain_add  (MyQttdCtx  * ctx,
 
 	/* ensure first the is no domain with the same name */
 	if (myqtt_hash_exists (ctx->domains, (axlPointer) name)) {
-		error ("Unable to add domain %s because it is already registered", name);
-		return axl_false; /* unable to add domain because it does exists */
+		if (! ctx->started) {
+			error ("Unable to add domain %s because it is already registered", name);
+			return axl_false; /* unable to add domain because it does exists */
+		} /* end if */
 	} /* end if */
 
-	/* it does not exists, add it */
-	domain = axl_new (MyQttdDomain, 1);
-	if (domain == NULL)
-		return axl_false; /* failed to allocate memory for domain, unable to add it */
+	/* reached this point, ctx->started == axl_true, so we are reloading */
+	domain = myqtt_hash_lookup (ctx->domains, (axlPointer) name);
+	if (! domain) {
+	
+		/* it does not exists, add it */
+		domain = axl_new (MyQttdDomain, 1);
+		if (domain == NULL)
+			return axl_false; /* failed to allocate memory for domain, unable to add it */
 
-	/* copy content */
-	domain->ctx          = ctx;
-	domain->name         = axl_strdup (name);
+		/* init mutex */
+		myqtt_mutex_create (&domain->mutex);
+
+		/* copy content */
+		domain->ctx          = ctx;
+
+		/* setup initial name */
+		domain->name         = axl_strdup (name);
+
+		/* add it into the domain hashes */
+		myqtt_hash_insert (ctx->domains, domain->name, domain);
+		
+	} /* end if */
+
+	/* storage path */
+	if (! domain->storage_path)
+		axl_free (domain->storage_path);
 	domain->storage_path = axl_strdup (storage_path);
+
+	/* users db */
+	if (! domain->users_db)
+		axl_free (domain->users_db);
 	domain->users_db     = axl_strdup (user_db);
+
+	/* setup new domain settings */
 	domain->use_settings = use_settings;
+	
 	/* reference to the settings configured */
 	if (use_settings) {
 		domain->settings = myqtt_hash_lookup (ctx->domain_settings, (axlPointer) use_settings);
@@ -133,11 +160,6 @@ axl_bool   myqttd_domain_add  (MyQttdCtx  * ctx,
 			error ("ERROR: failed to find settings (%s)", use_settings);
 	} /* end if */
 
-	myqtt_mutex_create (&domain->mutex);
-
-	/* add it into the domain hashes */
-	myqtt_hash_insert (ctx->domains, domain->name, domain);
-	
 	/* report added */
 	return axl_true;
 }

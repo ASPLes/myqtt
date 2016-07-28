@@ -72,7 +72,7 @@ axl_bool myqttd_config_find_include_nodes (axlNode    * node,
 			  * visited */
 }
 
-void myqttd_config_load_expand_nodes (MyQttdCtx * ctx)
+axl_bool myqttd_config_load_expand_nodes (MyQttdCtx * ctx, axlDoc * doc)
 {
 	axlList    * include_nodes;
 	int          iterator;
@@ -90,7 +90,7 @@ void myqttd_config_load_expand_nodes (MyQttdCtx * ctx)
 
 	/* create the list and iterate over all nodes */
 	include_nodes = axl_list_new (axl_list_always_return_1, NULL);
-	axl_doc_iterate (ctx->config, DEEP_ITERATION, myqttd_config_find_include_nodes, include_nodes);
+	axl_doc_iterate (doc, DEEP_ITERATION, myqttd_config_find_include_nodes, include_nodes);
 	msg ("Found include nodes %d, expanding..", axl_list_length (include_nodes));
 
 	/* next position */
@@ -184,9 +184,55 @@ void myqttd_config_load_expand_nodes (MyQttdCtx * ctx)
 	} /* end while */
 
 	axl_list_free (include_nodes);
-	return;
+	return axl_true;
 }
 
+
+/*
+ * @internal function that loads the configuration from the provided
+ * path, expanding all nodes and reporting the document to the caller,
+ * without setting it as official anywhere.
+ *
+ * @return A reference to the loaded document (axlDoc) or NULL if it fails. 
+ */
+axlDoc * __myqttd_config_load_from_file (MyQttdCtx * ctx, const char * config)
+{
+	axlError * err    = NULL;
+	axlDoc   * result;
+
+	/* check null value */
+	if (config == NULL) {
+		error ("config file not defined, failed to load configuration from file");
+		return NULL;
+	} /* end if */
+	
+	/* load the file */
+	result = axl_doc_parse_from_file (config, &err);
+	if (result == NULL) {
+		error ("unable to load file (%s), it seems a xml error: %s", 
+		       config, axl_error_get (err));
+
+		/* free resources */
+		axl_error_free (err);
+
+		/* call to finish myqttd */
+		return NULL;
+
+	} /* end if */
+
+	/* drop a message */
+	msg ("file %s loaded, ok", config);
+
+	/* now process inclusions */
+	if (! myqttd_config_load_expand_nodes (ctx, result)) {
+		error ("Failed to expand nodes, unable to load configuration file from %s", config);
+		axl_doc_free (result);
+		return NULL;
+	} /* end if */
+
+	/* report configuration load */
+	return result;
+}
 
 /** 
  * @internal Loads the myqttd main file, which has all definitions to make
@@ -200,37 +246,20 @@ void myqttd_config_load_expand_nodes (MyQttdCtx * ctx)
  */
 axl_bool  myqttd_config_load (MyQttdCtx * ctx, const char * config)
 {
-	axlError   * error;
+	axlDoc     * doc;
 
-	/* check null value */
-	if (config == NULL) {
-		error ("config file not defined, terminating myqttd");
-		return axl_false;
-	} /* end if */
+	/* call to load document */
+	doc = __myqttd_config_load_from_file (ctx, config);
+	if (! doc)
+		return axl_false; /* failed to load document */
+		
 
 	/* get a reference to the configuration path used for this context */
 	ctx->config_path = axl_strdup (config);
 
 	/* load the file */
-	ctx->config = axl_doc_parse_from_file (config, &error);
-	if (ctx->config == NULL) {
-		error ("unable to load file (%s), it seems a xml error: %s", 
-		       config, axl_error_get (error));
-
-		/* free resources */
-		axl_error_free (error);
-
-		/* call to finish myqttd */
-		return axl_false;
-
-	} /* end if */
-
-	/* drop a message */
-	msg ("file %s loaded, ok", config);
-
-	/* now process inclusions */
-	myqttd_config_load_expand_nodes (ctx);
-
+	ctx->config      = doc;
+	
 	return axl_true;
 }
 
@@ -273,9 +302,9 @@ axlDoc * myqttd_config_get (MyQttdCtx * ctx)
  * passed to the function is NULL).
  */
 axl_bool            myqttd_config_set      (MyQttdCtx * ctx,
-						const char    * path,
-						const char    * attr_name,
-						const char    * attr_value)
+					    const char    * path,
+					    const char    * attr_name,
+					    const char    * attr_value)
 {
 	axlNode * node;
 

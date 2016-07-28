@@ -71,4 +71,8 @@ axl_bool myqttd_run_check_no_load_module (MyQttdCtx  * ctx,
  * @}
  */
 
+/*** private API ***/
+axl_bool myqttd_run_domain_settings_load (MyQttdCtx * ctx, axlDoc * doc);
+axl_bool myqttd_run_domains_load         (MyQttdCtx * ctx, axlDoc * doc);
+
 #endif

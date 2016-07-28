@@ -262,7 +262,9 @@ axl_bool  myqttd_init (MyQttdCtx   * ctx,
 void     myqttd_reload_config       (MyQttdCtx * ctx, int value)
 {
 	/* get myqttd context */
-	int   already_notified = axl_false;
+	int       already_notified = axl_false;
+	axlDoc  * doc;
+	
 	
 	msg ("caught HUP signal, reloading configuration");
 	/* reconfigure signal received, notify myqttd modules the
@@ -276,6 +278,21 @@ void     myqttd_reload_config       (MyQttdCtx * ctx, int value)
 
 	/* call to reload logs */
 	__myqttd_log_reopen (ctx);
+
+	/* call to reload part of the configuration */
+	doc = __myqttd_config_load_from_file (ctx, ctx->config_path);
+	if (doc) {
+		/* load domain settings  */
+		if (! myqttd_run_domain_settings_load (ctx, doc)) 
+			error ("Failed to reload settings from loaded document at %s", ctx->config_path);
+
+		/* now, recognize domains supported */
+		if (! myqttd_run_domains_load (ctx, doc))
+			error ("Failed to reload domain settings");
+
+		/* release document loaded */
+		axl_doc_free (doc);
+	} /* end if */
 
 	/* reload modules */
 	myqttd_module_notify_reload_conf (ctx);
