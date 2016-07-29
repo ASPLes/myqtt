@@ -138,18 +138,20 @@ int  main_init_exarg (int argc, char ** argv)
 		config = main_common_get_config_location (ctx, myqtt_ctx_new ());
 		doc    = __myqttd_config_load_from_file (ctx, config);
 		if (! doc) {
-			printf ("ERROR: failed to load configuration file from %s\n", config);
+			printf ("ERROR: failed to load configuration file from %s\n", config ? config : "/etc/myqtt/myqtt.conf");
 			exit (-1);
 		} /* end if */
 		printf ("<domain-settings>\n");
 		node   = axl_doc_get (doc, "/myqtt/domain-settings/domain-setting");
 		while (node) {
+			/* dump, check status and print content */
+			if (axl_node_dump_pretty (node, &content, &size, 4)) {
+				printf ("%s\n", content);
+				axl_free (content);
+			} /* end if */
+			
+			/* get next after printing */
 			node = axl_node_get_next_called (node, "domain-setting");
-			if (! axl_node_dump_pretty (node, &content, &size, 4)) {
-				continue;
-			}
-			printf ("%s\n", content);
-			axl_free (content);
 		}
 		printf ("</domain-settings>\n");
 		exit (0);
