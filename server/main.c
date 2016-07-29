@@ -57,6 +57,12 @@ MyQttdCtx * ctx;
  */
 int  main_init_exarg (int argc, char ** argv)
 {
+	const char * config;
+	axlDoc     * doc;
+	axlNode    * node;
+	char       * content;
+	int          size;
+	
 	/* set starting process name */
 	myqttd_process_set_file_path (argv[0]);
 
@@ -120,8 +126,34 @@ int  main_init_exarg (int argc, char ** argv)
 	exarg_install_arg ("pidfile", NULL, EXARG_STRING,
 			   "Allows to configure pidfile location. If not provided, by default it will be placed at: /var/run/myqttd.pid");
 
+	exarg_install_arg ("show-plans", NULL, EXARG_NONE,
+			   "Allows to show currently configured myqtt plans in xml format");
+
 	/* call to parse arguments */
 	exarg_parse (argc, argv);
+
+	if (exarg_is_defined ("show-plans")) {
+		/* check and get config location */
+		config = main_common_get_config_location (ctx, myqtt_ctx_new ());
+		doc    = __myqttd_config_load_from_file (ctx, config);
+		if (! doc) {
+			printf ("ERROR: failed to load configuration file from %s\n", config);
+			exit (-1);
+		} /* end if */
+		printf ("<domain-settings>\n");
+		node   = axl_doc_get (doc, "/myqtt/domain-settings/domain-setting");
+		while (node) {
+			node = axl_node_get_next_called (node, "domain-setting");
+			if (! axl_node_dump_pretty (node, &content, &size, 4)) {
+				continue;
+			}
+			printf ("%s\n", content);
+			axl_free (content);
+		}
+		printf ("</domain-settings>\n");
+		exit (-1);
+		
+	} /* end if */
 
 	/* check for version request */
 	if (exarg_is_defined ("version")) {
