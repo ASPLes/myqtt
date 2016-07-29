@@ -86,6 +86,8 @@ axl_bool myqttd_config_load_expand_nodes (MyQttdCtx * ctx, axlDoc * doc)
 	DIR           * dir;
 	struct dirent * dirent;
 	int             length;
+	const char    * dir_aux;
+	const char    * middle_prefix;
 
 
 	/* create the list and iterate over all nodes */
@@ -129,7 +131,13 @@ axl_bool myqttd_config_load_expand_nodes (MyQttdCtx * ctx, axlDoc * doc)
 			while (dir && (dirent = readdir (dir))) {
 
 				/* build path */
-				full_path = axl_strdup_printf ("%s/%s", ATTR_VALUE (node, "dir"), dirent->d_name);
+				dir_aux       = ATTR_VALUE (node, "dir");
+				middle_prefix = "/";
+				if (dir_aux && (strlen (dir_aux) > 0) && (dir_aux[ strlen (dir_aux) - 1 ] == '/'))
+					middle_prefix = "";
+
+				/* create full clean path */
+				full_path = axl_strdup_printf ("%s%s%s", dir_aux, middle_prefix, dirent->d_name);
 
 				/* check for regular file */
 				if (! myqtt_support_file_test (full_path, FILE_IS_REGULAR)) {
