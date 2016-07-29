@@ -1161,7 +1161,8 @@ axl_bool myqttd_run_domain_settings_load (MyQttdCtx * ctx, axlDoc * doc)
 		/* storage-messages-limit */
 		__myqttd_run_get_value_by_node (ctx, node, "storage-messages-limit", "int", &(setting->storage_messages_limit),
 						ctx->default_setting->storage_messages_limit);
-		/* storage-quota-limit */
+		
+		/* storage-quota-limit (meastured in KB: all values configured will be multiplied by 1024) */
 		__myqttd_run_get_value_by_node (ctx, node, "storage-quota-limit", "int", &(setting->storage_quota_limit),
 						ctx->default_setting->storage_quota_limit);
 
