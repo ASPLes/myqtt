@@ -133,6 +133,7 @@ int  main_init_exarg (int argc, char ** argv)
 	exarg_parse (argc, argv);
 
 	if (exarg_is_defined ("show-plans")) {
+		
 		/* check and get config location */
 		config = main_common_get_config_location (ctx, myqtt_ctx_new ());
 		doc    = __myqttd_config_load_from_file (ctx, config);
@@ -151,7 +152,7 @@ int  main_init_exarg (int argc, char ** argv)
 			axl_free (content);
 		}
 		printf ("</domain-settings>\n");
-		exit (-1);
+		exit (0);
 		
 	} /* end if */
 
