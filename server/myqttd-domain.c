@@ -307,6 +307,91 @@ MyQttdDomain * myqttd_domain_find_by_username_client_id (MyQttdCtx  * ctx,
 	return domain;
 }
 
+MyQttdDomain * __myqttd_domain_auth_and_report (MyQttdCtx * ctx, MyQttdDomain * domain, axl_bool domain_selected,
+						MyQttConn * conn, const char * serverName, const char * username, const char * password, const char * client_id)
+{
+	/* Domain found, implement authentication to ensure this
+	 * domain is accesible by the connecting user providing the
+	 * username+client_id+password credentials */
+	
+	/* domain found by client id or username, try to authenticate */
+	if (myqttd_domain_do_auth (ctx, domain, axl_true, conn, username, password, client_id))
+		return domain; /* domain found, report it to the caller */
+
+	/* domain found but authentication failed */
+	error ("Domain was found (%s) for authentication failed username=%s client-id=%s server-name=%s : domain found but authentication failed",
+	       domain->name, username ? username : "", client_id ? client_id : "", serverName ? serverName : "");
+	return NULL;
+} 
+
+/** 
+ * @internal The following function implements client-id@<server-name>
+ * detection: that is, allowing a remote MQTT client to connect using
+ * clientid or username +  @<server-name> to indicate MyQtt engine which serverName has to be used.
+ *
+ * In the case @ is not detected in the auth_value (which can be
+ * clientid or username), the function just report NULL (no domain can
+ * be found because no @<server-name> indication was given).
+ */
+MyQttdDomain * myqttd_domain_find_by_auth_serverName (MyQttdCtx * ctx, const char * auth_value)
+{
+	int          iterator;
+	const char * serverName;
+	
+	if (auth_value == NULL)
+		return NULL;
+	if (strstr (auth_value, "@") == NULL)
+		return NULL;
+
+	iterator = 0;
+	while (auth_value[iterator]) {
+		if (auth_value[iterator] == '@') {
+			/* get reference to the server name */
+			serverName = auth_value + iterator + 1;
+
+			msg ("Found serverName=%s inside auth-value=%s", serverName, auth_value);
+
+			/* try to find server name by name */
+			return myqttd_domain_find_by_name (ctx, serverName);
+		} /* end if */
+		
+		/* next position */
+		iterator++;
+	} /* end while */
+	
+	return NULL; /* no domain with the provided server name
+		      * found */
+}
+
+/** 
+ * @internal Gets the auth value removing the @<server-name> part (if any).
+ */
+char * __myqttd_domain_auth_strip_serverName (MyQttdCtx * ctx, const char * auth_value)
+{
+	int iterator;
+	char * result;
+	
+	if (auth_value == NULL)
+		return NULL;
+	if (strstr (auth_value, "@") == NULL)
+		return axl_strdup (auth_value);
+
+	iterator = 0;
+	while (auth_value[iterator]) {
+		if (auth_value[iterator] == '@') {
+			result = axl_strdup (auth_value);
+			result[iterator] = 0;
+			return result; /* report auth value updated */
+		} /* end if */
+		
+		/* next position */
+		iterator++;
+	} /* end while */
+	
+	return axl_strdup (auth_value); /* never reached */
+	
+}
+
 /** 
  * @brief Allows to find the corresponding domain for the given
  * username, client id and serverName.
@@ -330,9 +415,12 @@ MyQttdDomain    * myqttd_domain_find_by_indications (MyQttdCtx  * ctx,
 						     const char * username,
 						     const char * client_id,
 						     const char * password,
-						     const char * server_Name)
+						     const char * serverName)
 {
 	MyQttdDomain * domain;
+	char         * aux_client_id;
+	char         * aux_username;
+	
 
 	/* find the domain by cache serverName */
 
@@ -344,23 +432,42 @@ MyQttdDomain    * myqttd_domain_find_by_indications (MyQttdCtx  * ctx,
 
 	/* reached this point, the item wasn't found by taking a lookt
 	   at the different caches, try to find by the data */
-	if (server_Name && strlen (server_Name) > 0) {
 
-		msg ("Finding domain by serverName=%s", server_Name ? server_Name : "");
+	/* by server name indication inside client_id and username: client_id@<server-name> or username@<server-name> */
+	domain = myqttd_domain_find_by_auth_serverName (ctx, client_id);
+	if (! domain) {
+		/* if it fails, try with username */
+		domain = myqttd_domain_find_by_auth_serverName (ctx, username);
+	} /* end if */
+	
+	if (domain) {
+
+		/* prepare username and client id */
+		aux_client_id = __myqttd_domain_auth_strip_serverName (ctx, client_id);
+		aux_username  = __myqttd_domain_auth_strip_serverName (ctx, username);
+		
+		/* domain found by serverName indication, try to do a final (domain_selected=axl_true) authentication */
+		domain        = __myqttd_domain_auth_and_report (ctx, domain, axl_true, conn, serverName,
+								 aux_username, password,
+								 aux_client_id);
+		
+		/* release prepared values */
+		axl_free (aux_client_id);
+		axl_free (aux_username);
+		return domain;
+	} /* end if */
+	
+
+	/* by server name */
+	if (serverName && strlen (serverName) > 0) {
+
+		msg ("Finding domain by serverName=%s", serverName ? serverName : "");
 
 		/* get domain by serverName indicated */
-		domain = myqttd_domain_find_by_serverName (ctx, server_Name);
+		domain = myqttd_domain_find_by_serverName (ctx, serverName);
 		if (domain) {
-			/* if domain is found, implement authentication to ensure this domain is
-			 * accesible by the connecting user providing the username+client_id+password
-			 * credentials */
-			if (myqttd_domain_do_auth (ctx, domain, axl_true, conn, username, password, client_id)) 
-				return domain; /* domain found, report it to the caller */
-			
-			/* domain found but authentication failed */
-			error ("Domain was found (%s) for authentication failed username=%s client-id=%s server-name=%s : domain found but authentication failed",
-			       domain->name, username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
-			return NULL;
+			/* domain found by serverName indication, try to do a final (domain_selected=axl_true) authentication */
+			return __myqttd_domain_auth_and_report (ctx, domain, axl_true, conn, serverName, username, password, client_id);
 		} /* end if */
 
 	} /* end if */
@@ -372,7 +479,7 @@ MyQttdDomain    * myqttd_domain_find_by_indications (MyQttdCtx  * ctx,
 
 	/* return NULL, no domain was found */
 	error ("No domain was found username=%s client-id=%s server-name=%s : no domain was found to handle request",
-	       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
+	       username ? username : "", client_id ? client_id : "", serverName ? serverName : "");
 	return NULL;
 }
 

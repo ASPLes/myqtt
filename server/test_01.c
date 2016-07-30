@@ -3115,6 +3115,29 @@ axl_bool  test_20 (void) {
 	} /* end if */
 	myqtt_conn_close (conn);
 
+	/* check username@<server-name> */
+	printf ("Test 20: checking username/password -- right password (checking client-id=test_20_02@test_20.context)\n");
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_set_auth (opts, "test_20_user", "test_20_password");
+	conn = myqtt_conn_new (myqtt_ctx, "test_20_02@test_20.context", axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it SHOULD connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+
+	/* check username@<server-name> */
+	printf ("Test 20: checking username/password -- right password (checking username=test_20_02@test_20.context)\n");
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_set_auth (opts, "test_20_user@test_20.context", "test_20_password");
+	conn = myqtt_conn_new (myqtt_ctx, "test_20_02", axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it SHOULD connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+	
+
 	printf ("Test 20: checking username/password -- right password but account disabled\n");
 	__mod_auth_mysql_run_query_for_test (ctx, "UPDATE user SET is_active = '0' WHERE username = 'test_20_user'");
 	opts = myqtt_conn_opts_new ();
