@@ -994,6 +994,7 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 					     "publish0", "int",
 					     "publish1", "int",
 					     "publish2", "int",
+					     "ping", "int",
 					     "description", "text",
 					     NULL);
 
@@ -1011,6 +1012,7 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 					     "publish0", "int",
 					     "publish1", "int",
 					     "publish2", "int",
+					     "ping", "int",
 					     "description", "text",
 					     NULL);
 					     
