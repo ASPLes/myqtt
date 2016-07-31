@@ -2966,8 +2966,8 @@ axl_bool  test_20 (void) {
 
 	/* domain to make it work */
 	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO domain (name, is_active, default_acl) VALUES ('test_20.context', 1, 3)");
-	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, is_active) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), 'test_20_02', 0, 1)");
-	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, is_active) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), 'test_20_06', 0, 1)");
+	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, is_active, allow_mqtt, allow_mqtt_ws, allow_mqtt_tls, allow_mqtt_wss) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), 'test_20_02', 0, 1, 1, 1, 1, 1)");
+	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, is_active, allow_mqtt, allow_mqtt_ws, allow_mqtt_tls, allow_mqtt_wss) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), 'test_20_06', 0, 1, 1, 1, 1, 1)");
 
 	/* acls to disallow/allow */
 	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO domain_acl (domain_id,is_active, topic_filter, publish) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), 1, 'myqtt/allowed/+', 1)");
@@ -3093,7 +3093,7 @@ axl_bool  test_20 (void) {
 
 	/* enable auth */
 	printf ("Test 20: checking username/password -- wrong password\n");
-	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, username, password, is_active) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), 'test_20_02', 1, 'test_20_user', 'fjf', 1)");
+	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, username, password, is_active, allow_mqtt, allow_mqtt_ws, allow_mqtt_tls, allow_mqtt_wss) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), 'test_20_02', 1, 'test_20_user', 'fjf', 1, 1, 1, 1, 1)");
 	opts = myqtt_conn_opts_new ();
 	myqtt_conn_opts_set_auth (opts, "test_20_user", "test_20_password");
 	conn = myqtt_conn_new (myqtt_ctx, "test_20_02", axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
@@ -3105,7 +3105,7 @@ axl_bool  test_20 (void) {
 
 	printf ("Test 20: checking username/password -- right password\n");
 	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM user");
-	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, username, password, is_active) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), 'test_20_02', 1, 'test_20_user', 'DE:B0:65:DA:A7:CA:0F:43:12:31:4C:AF:0D:32:46:90', 1)");
+	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, username, password, is_active, allow_mqtt, allow_mqtt_ws, allow_mqtt_tls, allow_mqtt_wss) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), 'test_20_02', 1, 'test_20_user', 'DE:B0:65:DA:A7:CA:0F:43:12:31:4C:AF:0D:32:46:90', 1, 1, 1, 1, 1)");
 	opts = myqtt_conn_opts_new ();
 	myqtt_conn_opts_set_auth (opts, "test_20_user", "test_20_password");
 	conn = myqtt_conn_new (myqtt_ctx, "test_20_02", axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
@@ -3149,8 +3149,19 @@ axl_bool  test_20 (void) {
 	} /* end if */
 	myqtt_conn_close (conn);
 
+	printf ("Test 20: checking username/password -- right password but protocol not allowed\n");
+	__mod_auth_mysql_run_query_for_test (ctx, "UPDATE user SET is_active = '1', allow_mqtt = '0' WHERE username = 'test_20_user'");
+	opts = myqtt_conn_opts_new ();
+	myqtt_conn_opts_set_auth (opts, "test_20_user", "test_20_password");
+	conn = myqtt_conn_new (myqtt_ctx, "test_20_02", axl_true, 30, listener_host, listener_port, opts, NULL, NULL);
+	if (myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it SHOULD NOT  connect to %s:%s because protocol plain mqtt not allowed..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conn);
+
 	printf ("Test 20: checking username/password -- right password but domain disabled\n");
-	__mod_auth_mysql_run_query_for_test (ctx, "UPDATE user SET is_active = '1' WHERE username = 'test_20_user'");
+	__mod_auth_mysql_run_query_for_test (ctx, "UPDATE user SET is_active = '1', allow_mqtt = '1' WHERE username = 'test_20_user'");
 	__mod_auth_mysql_run_query_for_test (ctx, "UPDATE domain SET is_active = '0' WHERE name = 'test_20.context'");
 	opts = myqtt_conn_opts_new ();
 	myqtt_conn_opts_set_auth (opts, "test_20_user", "test_20_password");
@@ -3254,7 +3265,7 @@ axl_bool  test_21 (void) {
 	} /* end if */
 
 	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO domain (name, is_active, default_acl) VALUES ('example2.com', 1, 3)");
-	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, is_active) VALUES ((SELECT id FROM domain WHERE name = 'example2.com'), 'username1', 0, 1)");
+	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, is_active, allow_mqtt, allow_mqtt_ws, allow_mqtt_tls, allow_mqtt_wss) VALUES ((SELECT id FROM domain WHERE name = 'example2.com'), 'username1', 0, 1, 1, 1, 1, 1)");
 
 	printf ("Test 21: checking connection cannot work..\n");
 	conn = myqtt_conn_new (myqtt_ctx, "username1", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
