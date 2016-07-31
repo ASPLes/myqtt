@@ -960,7 +960,6 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 					     "id", "autoincrement int",
 					     "is_active", "int",
 					     "domain_id", "int",
-					     "user_id", "int", 
 					     "require_auth", "int",
 					     "clientid", "varchar(512)",
 					     "username", "varchar(512)",
