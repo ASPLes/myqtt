@@ -186,7 +186,7 @@ struct _MyQttdDomain {
 	MyQttdUsers  * users;
 
 	/* reference to settings */
-	const char          * use_settings;
+	char                * use_settings;
 	MyQttdDomainSetting * settings;
 };
 
