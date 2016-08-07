@@ -52,6 +52,7 @@ void myqttd_domain_free (axlPointer _domain)
  	axl_free (domain->name);
  	axl_free (domain->storage_path);
 	axl_free (domain->users_db);
+	axl_free (domain->use_settings);
 
 	/* check and stop context if it is started */
 	if (domain->initialized)  
@@ -156,7 +157,9 @@ axl_bool   myqttd_domain_add  (MyQttdCtx  * ctx,
 	domain->users_db     = axl_strdup (user_db);
 
 	/* setup new domain settings */
-	domain->use_settings = use_settings;
+	if (domain->use_settings)
+		axl_free (domain->use_settings);
+	domain->use_settings = axl_strdup (use_settings);
 
 	/* configure active */
 	domain->is_active    = is_active;
@@ -601,8 +604,10 @@ int               myqttd_domain_conn_count (MyQttdDomain * domain)
 	if (! domain->initialized)
 		return 0;
 
-	/* list of connections currently watched */
-	return axl_list_length (domain->myqtt_ctx->conn_list);
+	/* list of connections currently watched plus the amount of
+	 * connections are about to be watched because they are
+	 * waiting in the readers queue to be accepted. */
+	return axl_list_length (domain->myqtt_ctx->conn_list) + myqtt_async_queue_items (domain->myqtt_ctx->reader_queue);
 }
 
 /** 
@@ -624,7 +629,7 @@ int               myqttd_domain_conn_count_all (MyQttdDomain * domain)
 		return 0;
 
 	/* list of connections currently watched */
-	return axl_list_length (domain->myqtt_ctx->conn_list) + axl_list_length (domain->myqtt_ctx->srv_list);
+	return myqttd_domain_conn_count (domain) + axl_list_length (domain->myqtt_ctx->srv_list);
 }
 
 /** 
