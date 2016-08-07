@@ -566,8 +566,12 @@ axl_bool common_connect_send_and_check (MyQttCtx   * myqtt_ctx,
 
 	/* check content */
 	if (! axl_cmp ((const char *) myqtt_msg_get_app_msg (msg), check_reply ? check_reply : message)) {
-		if (! skip_error_reporting)
+		if (! skip_error_reporting) {
 			printf ("ERROR: expected to find different content..\n");
+			printf ("        Expected: [%s]\n", check_reply ? check_reply : message);
+			printf ("        Received: [%s]\n", (const char *) myqtt_msg_get_app_msg (msg));
+
+		}
 
 		/* close connection */
 		myqtt_conn_close (conn);
@@ -1050,7 +1054,7 @@ MyQttPublishCodes test_07_handle_publish (MyQttdCtx * ctx,       MyQttdDomain * 
 		printf ("Test --: publish received on domain: %s\n", domain->name);
 
 		/* get current connections */
-		result = axl_strdup_printf ("%d", axl_list_length (myqtt_ctx->conn_list) + axl_list_length (myqtt_ctx->srv_list));
+		result = axl_strdup_printf ("%d", myqttd_domain_conn_count (domain));
 
 		printf ("Test --: current connections are: %s\n", result);
 
@@ -1071,6 +1075,9 @@ axl_bool  test_07 (void) {
 	MyQttConn       * conns[60];
 	int               iterator;
 	char            * client_id;
+	MyQttdDomain    * domain;
+
+	printf ("Test 07: PHASE ONE: checking standard settings\n");
 
 	/* call to init the base library and close it */
 	printf ("Test 07: init library and server engine (using test_02.conf)..\n");
@@ -1080,6 +1087,18 @@ axl_bool  test_07 (void) {
 		return axl_false;
 	} /* end if */
 
+	/* check domains loaded and settings */
+	domain = myqttd_domain_find_by_name (ctx, "test_01.context");
+	if (domain == NULL) {
+		printf ("Test 07: failed to get domain by name after initialization. Expected to find domain object loaded by name test_01.context\n");
+		return axl_false;
+	} /* end if */
+
+	if (! axl_cmp (domain->use_settings, "basic")) {
+		printf ("Test 07: expected to find use settings 'basic' but found: %s\n", domain->use_settings);
+		return axl_false;
+	}
+
 	myqtt_ctx = common_init_ctx ();
 	if (! myqtt_init_ctx (myqtt_ctx)) {
 		printf ("Error: unable to initialize MyQtt library..\n");
@@ -1087,9 +1106,9 @@ axl_bool  test_07 (void) {
 	} /* end if */
 	
 	/* connect to test_01.context and create more than 5 connections */
-	printf ("Test 07: creating 50 connections..\n");
+	printf ("Test 07: creating 49 connections (limit is 50)..\n");
 	iterator = 0;
-	while (iterator < 50) {
+	while (iterator < 49) {
 		/* call to get client id */
 		client_id       = axl_strdup_printf ("test_02_%d", iterator);
 		conns[iterator] = myqtt_conn_new (myqtt_ctx, client_id, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
@@ -1108,25 +1127,41 @@ axl_bool  test_07 (void) {
 	myqttd_ctx_add_on_publish (ctx, test_07_handle_publish, NULL);
 
 	/* connect and send message */
-	printf ("Test 07: requesting number of connections remotely..\n");
+	printf ("Test 07: requesting number of connections remotely (we expected to receive 50, which are 49 + the connection we are using to check)..\n");
 	if (! common_connect_send_and_check (NULL, 
 				      /* client id, user and password */
 				      "test_02", "user-test-02", "test1234", 
 				      /* we've got 6 connections because we have 50 plus the
 					 connection that is being requesting the get-connections */
-				      "get-connections", "", "51", MYQTT_QOS_0, axl_false)) {
+				      "get-connections", "", "50", MYQTT_QOS_0, axl_false)) {
 		printf ("Test --: unable to connect and send message...\n");
 		return axl_false;
 	} /* end if */
+
+	printf ("Test 07: create 50th connection to cope with limit configured..\n");
+	client_id       = axl_strdup_printf ("test_02_%d", 49);
+	conns[49] = myqtt_conn_new (myqtt_ctx, client_id, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	axl_free (client_id);
 	
-	/* check limits */
-	conns[iterator] = myqtt_conn_new (myqtt_ctx, "test_02", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
-	if (myqtt_conn_is_ok (conns[iterator], axl_false)) {
-		printf ("ERROR: it worked and it shouldn't...connect to %s:%s..\n", listener_host, listener_port);
+	if (! myqtt_conn_is_ok (conns[49], axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
 		return axl_false;
 	} /* end if */
-	myqtt_conn_close (conns[iterator]);
 
+	printf ("Test 07: NOW checking LIMITs ...\n");
+	
+	/* check limits */
+	printf ("Test 07: CHECKING: again connection with limit 51 reached, no more connections should be possible...\n");
+	conns[50] = myqtt_conn_new (myqtt_ctx, "test_02", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (myqtt_conn_is_ok (conns[50], axl_false)) {
+		printf ("ERROR: it worked and it shouldn't...connect to %s:%s..\n", listener_host, listener_port);
+		printf ("       We tried to connect as test_02 clientid, which should activate domain=test_01.context with use-settings=basic\n");
+		return axl_false;
+	} /* end if */
+	myqtt_conn_close (conns[50]);
+	printf ("Test 07: perfect, no more connections were possible\n");
+
+	printf ("Test 07: closing them..\n");
 	iterator = 0;
 	while (iterator < 50) {
 		/* close connection */
@@ -1134,11 +1169,15 @@ axl_bool  test_07 (void) {
 		/* next iterator */
 		iterator++;
 	} /* end while */
+	printf ("Test --: \n");
+	printf ("Test --: \n");
+
+	printf ("Test 07: PHASE TWO: checking standard settings\n");
 
 	/* connect to test_01.context and create more than 5 connections */
-	printf ("Test 07: creating 10 connections (standard sensting)..\n");
+	printf ("Test 07: creating 10 connections (standard settings)..\n");
 	iterator = 0;
-	while (iterator < 10) {
+	while (iterator < 9) {
 		/* create connection */
 		client_id = axl_strdup_printf ("test_04_%d", iterator);
 		conns[iterator] = myqtt_conn_new (myqtt_ctx, client_id, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
@@ -1160,18 +1199,28 @@ axl_bool  test_07 (void) {
 				      "test_04", NULL, NULL,
 				      /* we've got 6 connections because we have 5 plus the
 					 connection that is being requesting the get-connections */
-				      "get-connections", "", "11", MYQTT_QOS_0, axl_false)) {
+				      "get-connections", "", "10", MYQTT_QOS_0, axl_false)) {
 		printf ("Test --: unable to connect and send message...\n");
 		return axl_false;
 	} /* end if */
 
+	client_id       = axl_strdup_printf ("test_04_%d", 9);
+	conns[9] = myqtt_conn_new (myqtt_ctx, client_id, axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	axl_free (client_id);
+	
+	if (! myqtt_conn_is_ok (conns[9], axl_false)) {
+		printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
 	/* check limits */
-	conns[iterator] = myqtt_conn_new (myqtt_ctx, "test_04", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
-	if (myqtt_conn_is_ok (conns[iterator], axl_false)) {
+	printf ("Test 07: CHECKING: requesting a new connection to the domain (IT SHOULD NOT WORK because limits reached)..\n");
+	conns[10] = myqtt_conn_new (myqtt_ctx, "test_04", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (myqtt_conn_is_ok (conns[10], axl_false)) {
 		printf ("ERROR: it worked and it shouldn't...connect to %s:%s..\n", listener_host, listener_port);
 		return axl_false;
 	} /* end if */
-	myqtt_conn_close (conns[iterator]);
+	myqtt_conn_close (conns[10]);
 
 	iterator = 0;
 	while (iterator < 10) {
@@ -2811,7 +2860,7 @@ axl_bool  test_18 (void) {
 	}
 
 	if (myqtt_conn_is_ok (conn, axl_false)) {
-		printf ("ERROR: expected to find connection failure due to publish deny action that should have close the connection..\n");
+		printf ("ERROR: expected to find connection failure due to publish deny action that should have close the connection (1), test-18, after publishing myqtt/not-allowed-allowed/topic..\n");
 		return axl_false;
 	} /* end if */
 
@@ -2903,7 +2952,7 @@ axl_bool  test_19 (void) {
 	}
 
 	if (myqtt_conn_is_ok (conn, axl_false)) {
-		printf ("ERROR: expected to find connection failure due to publish deny action that should have close the connection..\n");
+		printf ("ERROR: expected to find connection failure due to publish deny action that should have close the connection, test-19, after publishing myqtt/not-allowed-allowed/topic..\n");
 		return axl_false;
 	} /* end if */
 
@@ -2970,7 +3019,7 @@ axl_bool  test_20 (void) {
 	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, is_active, allow_mqtt, allow_mqtt_ws, allow_mqtt_tls, allow_mqtt_wss) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), 'test_20_06', 0, 1, 1, 1, 1, 1)");
 
 	/* acls to disallow/allow */
-	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO domain_acl (domain_id,is_active, topic_filter, publish) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), 1, 'myqtt/allowed/+', 1)");
+	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO domain_acl (domain_id, is_active, topic_filter, publish) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), '1', 'myqtt/allowed/+', '1')");
 		
 
 	/* create connection to local server and test domain support */
@@ -3031,7 +3080,7 @@ axl_bool  test_20 (void) {
 	}
 
 	if (myqtt_conn_is_ok (conn, axl_false)) {
-		printf ("ERROR: expected to find connection failure due to publish deny action that should have close the connection..\n");
+		printf ("ERROR: expected to find connection failure due to publish deny action that should have close the connection, test-20, after publishing myqtt/not-allowed/topic..\n");
 		return axl_false;
 	} /* end if */
 
@@ -3173,6 +3222,45 @@ axl_bool  test_20 (void) {
 	myqtt_conn_close (conn);
 
 
+	/**** CHECK DENIED ACLS ****/
+	
+	/* prepare module */
+	printf ("Test 20: cleaning MySQL tables to start test...\n");
+	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM domain");
+	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM user");
+	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM domain_acl");
+
+	/* domain to make it work */
+	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO domain (name, is_active, default_acl) VALUES ('test_20.context', 1, 1)"); /* domain with default accep accept */
+	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, is_active, allow_mqtt, allow_mqtt_ws, allow_mqtt_tls, allow_mqtt_wss) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), 'test_20_02', 0, 1, 1, 1, 1, 1)");
+	
+	/* acl to disable this particular topic: action_if_matches = 3 */
+	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO domain_acl (domain_id, is_active, topic_filter, publish, action_if_matches) VALUES ((SELECT id FROM domain WHERE name = 'test_20.context'), '1', 'myqtt/not-allowed/+', '1', '3')");
+		
+
+	printf ("Test 20: connecting to myqtt server (client ctx = %p)..\n", myqtt_ctx);
+	conn = myqtt_conn_new (myqtt_ctx, "test_20_02", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		printf ("ERROR: it shouldn't connect to %s:%s..\n", listener_host, listener_port);
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 20: sending allowed publish (2)..\n");
+	if (! myqtt_conn_pub (conn, "myqtt/allowed/topic2", "this is a test", 14, MYQTT_QOS_2, axl_false, 10)) {
+		printf ("ERROR: failed to publish message ...(2)..\n");
+		return axl_false;
+	}
+
+	/* now publish content to certain topics ... but I should only
+	 * receive some of them */
+	printf ("Test 20: sending not ALLOWED publish (1)..\n");
+	if (myqtt_conn_pub (conn, "myqtt/not-allowed/topic", "this is a test", 14, MYQTT_QOS_2, axl_false, 10)) {
+		printf ("ERROR: failed EXPECTED TO NOT BE ABLE to publish message ...(1)..\n");
+		return axl_false;
+	}
+
+	myqtt_conn_close (conn);
+
 	printf ("Test 20: finishing context..\n");
 	myqtt_exit_ctx (myqtt_ctx, axl_true);
 
@@ -3264,17 +3352,21 @@ axl_bool  test_21 (void) {
 		return axl_false;
 	} /* end if */
 
+	__mod_auth_mysql_run_query_for_test (ctx, "DELETE FROM domain");
 	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO domain (name, is_active, default_acl) VALUES ('example2.com', 1, 3)");
 	__mod_auth_mysql_run_query_for_test (ctx, "INSERT INTO user (domain_id,clientid,require_auth, is_active, allow_mqtt, allow_mqtt_ws, allow_mqtt_tls, allow_mqtt_wss) VALUES ((SELECT id FROM domain WHERE name = 'example2.com'), 'username1', 0, 1, 1, 1, 1, 1)");
 
-	printf ("Test 21: checking connection cannot work..\n");
+	printf ("Test 21: checking connection that should work..\n");
 	conn = myqtt_conn_new (myqtt_ctx, "username1", axl_true, 30, listener_host, listener_port, NULL, NULL, NULL);
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
-		printf ("ERROR: it SHOULD NOT  connect to %s:%s because account is disabled..\n", listener_host, listener_port);
+		printf ("ERROR: it SHOULD connect to %s:%s because account is disabled..\n", listener_host, listener_port);
 		return axl_false;
 	} /* end if */
 	myqtt_conn_close (conn);
 	printf ("Test 21: connected right!\n");
+
+	/* call to disable signal handling */
+	myqttd_signal_install (ctx, axl_true, axl_true, NULL /* null handler */);
 
 	/* finish server */
 	myqttd_exit (ctx, axl_true, axl_true);
@@ -3282,9 +3374,6 @@ axl_bool  test_21 (void) {
 	printf ("Test 20: finishing context..\n");
 	myqtt_exit_ctx (myqtt_ctx, axl_true);
 
-	/* call to disable signal handling */
-	myqttd_signal_install (ctx, axl_true, axl_true, NULL /* null handler */);
-		
 	return axl_true;
 }
 
