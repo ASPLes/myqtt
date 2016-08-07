@@ -91,6 +91,9 @@ axlPointer __mod_auth_mysql_get_by_name (MyQttdCtx * ctx, MYSQL_RES * result, MY
 	unsigned      int iterator;
 	unsigned      int num_fields;
 
+	/* set field seek to restart mysql_fetch_field calls */
+	mysql_field_seek (result, 0);
+
 	/* get number of fields */
 	num_fields = mysql_num_fields (result);
 	iterator   = 0;
@@ -808,17 +811,51 @@ MyQttPublishCodes __mod_auth_mysql_on_publish_report (MyQttdCtx * ctx,       MyQ
 	return result;
 }
 
+MyQttPublishCodes __mod_auth_mysql_get_default_acl (MyQttdCtx * ctx, MyQttConn * conn)
+{
+	/* report value configured on the provided connection */
+	int default_acl = PTR_TO_INT (myqtt_conn_get_data (conn, "mod:mysql:auth:default_acl"));
+	if (default_acl > 0)
+		return default_acl;
+	
+	return MYQTT_PUBLISH_OK; /* if nothing is configured, default allow */
+}
+
+/** 
+ * @internal Do not use this function. It's just for debugging purposes 
+ */
+void __mod_auth_mysql_show_mysql_row (MYSQL_RES * acls, MYSQL_ROW row)
+{
+	MYSQL_FIELD  * field;
+	int            iterator   = 0;
+	int            num_fields;
+
+	mysql_field_seek (acls, 0);
+
+	num_fields = mysql_num_fields (acls);
+	while (iterator < num_fields) {
+		field = mysql_fetch_field (acls);
+		printf (" row[%d] = %s (%s)\n", iterator, row[iterator], field ? field->name : "unknown");
+		iterator++;
+	}
+	return;
+}
+
+
 MyQttPublishCodes __mod_auth_mysql_apply_acl (MyQttdCtx * ctx, MyQttdDomain * domain, MyQttCtx * myqtt_ctx,
 					      MyQttConn * conn, MyQttMsg * msg, axl_bool apply_after, axl_bool is_domain_acl, MYSQL_RES * acls)
 {
-	MYSQL_ROW    row;
-	axl_bool     local_apply_after;
-	const char * topic_filter;
+	MYSQL_ROW            row;
+	axl_bool             local_apply_after;
+	const char         * topic_filter;
+	MyQttPublishCodes    action_if_matches;
+	/* get default acl action to report it in case action_if_matches does not define any valid code: namely 0 */
+	MyQttPublishCodes    default_acl_action  = __mod_auth_mysql_get_default_acl (ctx, conn);
 
 	/* check acl received */
 	if (acls == NULL)
 		return MYQTT_PUBLISH_DUNNO;
-	
+
 	/* reset to the first position */
 	mysql_data_seek (acls, 0);
 
@@ -827,6 +864,7 @@ MyQttPublishCodes __mod_auth_mysql_apply_acl (MyQttdCtx * ctx, MyQttdDomain * do
 	while (row) {
 
 		if (is_domain_acl) {
+
 			/* domain acl, get apply_after status */
 			local_apply_after = myqtt_support_strtod (__mod_auth_mysql_get_by_name (ctx, acls, row, "apply_after"), NULL);
 			if (local_apply_after != apply_after) {
@@ -839,17 +877,29 @@ MyQttPublishCodes __mod_auth_mysql_apply_acl (MyQttdCtx * ctx, MyQttdDomain * do
 		/* check topic to see if it matches with message topic */
 		topic_filter = __mod_auth_mysql_get_by_name (ctx, acls, row, "topic_filter");
 		if (myqtt_reader_topic_filter_match (myqtt_msg_get_topic (msg), topic_filter)) {
+
+			/* get action if matches */
+			action_if_matches = myqtt_support_strtod (__mod_auth_mysql_get_by_name (ctx, acls, row, "action_if_matches"), NULL);
+			if (action_if_matches == 0) {
+				/* let domain default configuration decide */
+				action_if_matches = default_acl_action;
+			} /* end if */
+			
 			/* filter matches, apply option indicated */
 			if (myqtt_support_strtod (__mod_auth_mysql_get_by_name (ctx, acls, row, "w"), NULL))
-				return MYQTT_PUBLISH_OK;
+				return action_if_matches;
+			
 			if (myqtt_support_strtod (__mod_auth_mysql_get_by_name (ctx, acls, row, "publish"), NULL))
-				return MYQTT_PUBLISH_OK;
+				return action_if_matches;
+			
 			if (myqtt_msg_get_qos (msg) == MYQTT_QOS_0 && myqtt_support_strtod (__mod_auth_mysql_get_by_name (ctx, acls, row, "publish0"), NULL))
-				return MYQTT_PUBLISH_OK;
+				return action_if_matches;
+			
 			if (myqtt_msg_get_qos (msg) == MYQTT_QOS_1 && myqtt_support_strtod (__mod_auth_mysql_get_by_name (ctx, acls, row, "publish1"), NULL))
-				return MYQTT_PUBLISH_OK;
+				return action_if_matches;
+			
 			if (myqtt_msg_get_qos (msg) == MYQTT_QOS_2 && myqtt_support_strtod (__mod_auth_mysql_get_by_name (ctx, acls, row, "publish2"), NULL))
-				return MYQTT_PUBLISH_OK;
+				return action_if_matches;
 		} /* end if */
 		
 
@@ -859,17 +909,6 @@ MyQttPublishCodes __mod_auth_mysql_apply_acl (MyQttdCtx * ctx, MyQttdDomain * do
 
 	return MYQTT_PUBLISH_DUNNO; /* no acl reported nothing especial, so let's continue */
 }
-
-MyQttPublishCodes __mod_auth_mysql_get_default_acl (MyQttdCtx * ctx, MyQttConn * conn)
-{
-	/* report value configured on the provided connection */
-	int default_acl = PTR_TO_INT (myqtt_conn_get_data (conn, "mod:mysql:auth:default_acl"));
-	if (default_acl > 0)
-		return default_acl;
-	
-	return MYQTT_PUBLISH_OK; /* if nothing is configured, default allow */
-}
-
 
 MyQttPublishCodes __mod_auth_mysql_on_publish_aux (MyQttdCtx * ctx,        MyQttdDomain * domain, 
 						   MyQttCtx  * myqtt_ctx,  MyQttConn    * conn, 
@@ -1059,6 +1098,7 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 					     "publish2", "int",
 					     "ping", "int",
 					     "description", "text",
+					     "action_if_matches", "int",
 					     NULL);
 
 		/* user_acl table */
@@ -1077,6 +1117,7 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 					     "publish2", "int",
 					     "ping", "int",
 					     "description", "text",
+					     "action_if_matches", "int",
 					     NULL);
 					     
 		
