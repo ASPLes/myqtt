@@ -164,4 +164,6 @@ void     __myqtt_storage_get_values_from_file_name (MyQttCtx * ctx, const char *
 
 int      __myqtt_storage_get_size_from_file_name (MyQttCtx * ctx, const char * file_name, int * position);
 
+void     __myqtt_storage_error_report (MyQttCtx * ctx, const char * format, ...);
+
 #endif

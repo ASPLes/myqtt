@@ -148,7 +148,7 @@ axl_bool __myqtt_storage_init_base_storage (MyQttCtx * ctx)
 
 	/* create base storage path directory */
 	if (! myqtt_support_file_test (ctx->storage_path, FILE_EXISTS | FILE_IS_DIR)) {
-		if (mkdir (ctx->storage_path, 0700)) {
+		if (myqtt_mkdir (ctx, ctx->storage_path, 0700)) {
 			/* release */
 			myqtt_mutex_unlock (&ctx->ref_mutex);
 
@@ -160,7 +160,7 @@ axl_bool __myqtt_storage_init_base_storage (MyQttCtx * ctx)
 	/* create retained directory */
 	full_path = myqtt_support_build_filename (ctx->storage_path, "retained", NULL);
 	if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
-		if (mkdir (full_path, 0700)) {
+		if (myqtt_mkdir (ctx, full_path, 0700)) {
 			/* release */
 			myqtt_mutex_unlock (&ctx->ref_mutex);
 
@@ -216,7 +216,7 @@ axl_bool myqtt_storage_init_offline (MyQttCtx * ctx, const char * client_identif
 	/* lock during check */
 	full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, NULL);
 	if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
-		if (mkdir (full_path, 0700)) {
+		if (myqtt_mkdir (ctx, full_path, 0700)) {
 			/* restore umask */
 			umask (umask_mode);
 
@@ -233,7 +233,7 @@ axl_bool myqtt_storage_init_offline (MyQttCtx * ctx, const char * client_identif
 	if ((storage & MYQTT_STORAGE_MSGS) == MYQTT_STORAGE_MSGS) {
 		full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, "msgs", NULL);
 		if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
-			if (mkdir (full_path, 0700)) {
+			if (myqtt_mkdir (ctx, full_path, 0700)) {
 				/* restore umask */
 				umask (umask_mode);
 
@@ -249,7 +249,7 @@ axl_bool myqtt_storage_init_offline (MyQttCtx * ctx, const char * client_identif
 	if ((storage & MYQTT_STORAGE_ALL) == MYQTT_STORAGE_ALL) {
 		full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, "subs", NULL);
 		if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
-			if (mkdir (full_path, 0700)) {
+			if (myqtt_mkdir (ctx, full_path, 0700)) {
 				/* restore umask */
 				umask (umask_mode);
 
@@ -265,7 +265,7 @@ axl_bool myqtt_storage_init_offline (MyQttCtx * ctx, const char * client_identif
 	if ((storage & MYQTT_STORAGE_ALL) == MYQTT_STORAGE_ALL) {
 		full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, "will", NULL);
 		if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
-			if (mkdir (full_path, 0700)) {
+			if (myqtt_mkdir (ctx, full_path, 0700)) {
 				/* restore umask */
 				umask (umask_mode);
 
@@ -281,7 +281,7 @@ axl_bool myqtt_storage_init_offline (MyQttCtx * ctx, const char * client_identif
 	if ((storage & MYQTT_STORAGE_PKGIDS) == MYQTT_STORAGE_PKGIDS) {
 		full_path = myqtt_support_build_filename (ctx->storage_path, client_identifier, "pkgids", NULL);
 		if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
-			if (mkdir (full_path, 0700)) {
+			if (myqtt_mkdir (ctx, full_path, 0700)) {
 				/* restore umask */
 				umask (umask_mode);
 
@@ -404,6 +404,11 @@ axl_bool __myqtt_storage_remove_files_from_dir (MyQttCtx * ctx, const char * cle
 	struct dirent * entry;
 	DIR           * dir;
 	char          * full_path;
+
+	/* if directory does not exists, just say ok and leave it like
+	 * this */
+	if (! myqtt_support_file_test (clear_files_in_dir, FILE_EXISTS | FILE_IS_DIR))
+		return axl_true;
 
 	/* open dir */
 	dir = opendir (clear_files_in_dir);
@@ -839,7 +844,7 @@ axl_bool myqtt_storage_sub_offline      (MyQttCtx      * ctx,
 
 	/* create parent directory if it wasn't created */
 	if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
-		if (mkdir (full_path, 0700)) {
+		if (myqtt_mkdir (ctx, full_path, 0700)) {
 			/* get log */
 			__myqtt_storage_error_report (ctx, "Unable to create topic filter directory to store subscription: %s", full_path);
 
@@ -1430,8 +1435,10 @@ axl_bool       myqtt_storage_retain_msg_set (MyQttCtx            * ctx,
 		/* directory exists, check to remove previous subscription */
 		__myqtt_storage_sub_exists (ctx, full_path, topic_name, strlen (topic_name), axl_true, axl_true, NULL, NULL, NULL);
 	} else {
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "Found path %s does not exists, calling myqtt_mkdir ()", full_path);
+		
 		/* directory is not present, try to create it */
-		if (myqtt_mkdir (full_path, 0700)) {
+		if (myqtt_mkdir (ctx, full_path, 0700)) {
 			__myqtt_storage_error_report (ctx, "Failed to create directory %s, unable to storage retained message, mkdir() failed", full_path);
 			axl_free (hash_value);
 			axl_free (full_path);
@@ -1465,14 +1472,14 @@ axl_bool       myqtt_storage_retain_msg_set (MyQttCtx            * ctx,
 		axl_free (full_path);
 		return axl_false;
 	} /* end if */
-	
+
 	/* close this initial file */
 	fclose (handle);
 	
 	/* now write message content */
 	aux_path = axl_strdup_printf ("%s.msg", full_path);
 	axl_free (full_path);
-	
+
 	/* open handle */
 	handle = fopen (aux_path, "w");
 	if (! handle) {
