@@ -2036,7 +2036,7 @@ void __myqtt_reader_process_socket (MyQttCtx  * ctx,
  * @return axl_true if the item to be managed was clearly read or axl_false if
  * an error on registering the item was produced.
  */
-axl_bool   myqtt_reader_register_watch (MyQttReaderData * data, axlList * con_list, axlList * srv_list)
+axl_bool   myqtt_reader_register_watch (MyQttReaderData * data, axlList * conn_list, axlList * srv_list)
 {
 	MyQttConn * connection;
 #if defined(ENABLE_MYQTT_LOG)
@@ -2064,9 +2064,10 @@ axl_bool   myqtt_reader_register_watch (MyQttReaderData * data, axlList * con_li
 		}
 			
 		/* now we have a first connection, we can start to wait */
-		myqtt_log (MYQTT_LEVEL_DEBUG, "new connection (conn-id=%d, %p, context=%p) to be watched (%d)", 
-			   myqtt_conn_get_id (connection), connection, ctx, myqtt_conn_get_socket (connection));
-		axl_list_append (con_list, connection);
+		axl_list_append (conn_list, connection);
+		
+		myqtt_log (MYQTT_LEVEL_DEBUG, "new connection (conn-id=%d, %p, context=%p) to be watched (%d), watching total: %d", 
+			   myqtt_conn_get_id (connection), connection, ctx, myqtt_conn_get_socket (connection), axl_list_length (conn_list));
 
 		break;
 	case LISTENER:
@@ -2094,7 +2095,7 @@ axl_bool   myqtt_reader_register_watch (MyQttReaderData * data, axlList * con_li
  */
 MyQttReaderData * __myqtt_reader_change_io_mech (MyQttCtx        * ctx,
 						   axlPointer       * on_reading, 
-						   axlList          * con_list, 
+						   axlList          * conn_list, 
 						   axlList          * srv_list, 
 						   MyQttReaderData * data)
 {
@@ -2113,7 +2114,7 @@ MyQttReaderData * __myqtt_reader_change_io_mech (MyQttCtx        * ctx,
 	myqtt_async_queue_push (ctx->reader_stopped, INT_TO_PTR(1));
 	
 	/* free data use the function that includes that knoledge */
-	myqtt_reader_register_watch (data, con_list, srv_list);
+	myqtt_reader_register_watch (data, conn_list, srv_list);
 	
 	/* lock */
 	myqtt_log (MYQTT_LEVEL_DEBUG, "lock until new API is installed");
@@ -2129,7 +2130,7 @@ MyQttReaderData * __myqtt_reader_change_io_mech (MyQttCtx        * ctx,
 
 /* do a foreach operation */
 void myqtt_reader_foreach_impl (MyQttCtx        * ctx, 
-				axlList         * con_list, 
+				axlList         * conn_list, 
 				axlList         * srv_list, 
 				MyQttReaderData * data)
 {
@@ -2142,7 +2143,7 @@ void myqtt_reader_foreach_impl (MyQttCtx        * ctx,
 		goto foreach_impl_notify;
 
 	/* foreach the connection list */
-	cursor = axl_list_cursor_new (con_list);
+	cursor = axl_list_cursor_new (conn_list);
 	while (axl_list_cursor_has_item (cursor)) {
 
 		/* notify, if the connection is ok */
@@ -2420,7 +2421,7 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
  * should stop.
  */
 axl_bool      myqtt_reader_read_queue (MyQttCtx  * ctx,
-					axlList    * con_list, 
+					axlList    * conn_list, 
 					axlList    * srv_list, 
 					axlPointer * on_reading)
 {
@@ -2441,12 +2442,12 @@ axl_bool      myqtt_reader_read_queue (MyQttCtx  * ctx,
 			/* change io mechanism */
 			data = __myqtt_reader_change_io_mech (ctx,
 							       on_reading, 
-							       con_list, 
+							       conn_list, 
 							       srv_list, 
 							       data);
 		} else if (data->type == FOREACH) {
 			/* do a foreach operation */
-			myqtt_reader_foreach_impl (ctx, con_list, srv_list, data);
+			myqtt_reader_foreach_impl (ctx, conn_list, srv_list, data);
 
 		} /* end if */
 
@@ -2454,7 +2455,7 @@ axl_bool      myqtt_reader_read_queue (MyQttCtx  * ctx,
 			axl_free (data);
 		}
 
-	}while (should_continue && !myqtt_reader_register_watch (data, con_list, srv_list));
+	}while (should_continue && !myqtt_reader_register_watch (data, conn_list, srv_list));
 
 	return should_continue;
 }
@@ -2464,7 +2465,7 @@ axl_bool      myqtt_reader_read_queue (MyQttCtx  * ctx,
  * more connections to watch, to check if it has to terminate or to
  * check at run time the I/O waiting mechanism used.
  * 
- * @param con_list The set of connections already watched.
+ * @param conn_list The set of connections already watched.
  *
  * @param srv_list The set of listener connections already watched.
  *
@@ -2474,7 +2475,7 @@ axl_bool      myqtt_reader_read_queue (MyQttCtx  * ctx,
  * @return axl_true to flag the process to continue working to to stop.
  */
 axl_bool      myqtt_reader_read_pending (MyQttCtx  * ctx,
-					  axlList    * con_list, 
+					  axlList    * conn_list, 
 					  axlList    * srv_list, 
 					  axlPointer * on_reading)
 {
@@ -2497,17 +2498,17 @@ axl_bool      myqtt_reader_read_pending (MyQttCtx  * ctx,
 		/* check if the io/wait mech have changed */
 		if (data->type == IO_WAIT_CHANGED) {
 			/* change io mechanism */
-			data = __myqtt_reader_change_io_mech (ctx, on_reading, con_list, srv_list, data);
+			data = __myqtt_reader_change_io_mech (ctx, on_reading, conn_list, srv_list, data);
 
 		} else if (data->type == FOREACH) {
 			/* do a foreach operation */
-			myqtt_reader_foreach_impl (ctx, con_list, srv_list, data);
+			myqtt_reader_foreach_impl (ctx, conn_list, srv_list, data);
 
 		} /* end if */
 
 		/* watch the request received, maybe a connection or a
 		 * myqtt reader command to process  */
-		myqtt_reader_register_watch (data, con_list, srv_list);
+		myqtt_reader_register_watch (data, conn_list, srv_list);
 		
 	} /* end while */
 
