@@ -41,6 +41,26 @@
 #include <myqtt-ctx-private.h>
 #include <dirent.h>
 
+/*
+ * @internal Allows to report an storage error, giving errno error,
+ * and current uid and gid.
+ */
+void __myqtt_storage_error_report (MyQttCtx * ctx, const char * format, ...)
+{
+	char * error_msg;
+	va_list args;
+	
+	/* open stdargs */
+	va_start (args, format);
+	error_msg = axl_stream_strdup_printfv (format, args);
+	va_end (args);
+
+	myqtt_log (MYQTT_LEVEL_CRITICAL, "STORAGE ERROR: %s, error was: %s, errno=%d, uid=%d, gid=%d", error_msg, myqtt_errno_get_error (errno), errno, getuid (), getgid ());
+	axl_free (error_msg);
+	return;
+}
+
+
 /** 
  * \defgroup myqtt_storage MyQtt Storage: Plugable storage API 
  */
@@ -131,8 +151,8 @@ axl_bool __myqtt_storage_init_base_storage (MyQttCtx * ctx)
 		if (mkdir (ctx->storage_path, 0700)) {
 			/* release */
 			myqtt_mutex_unlock (&ctx->ref_mutex);
-			
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s, error was: %s", ctx->storage_path, myqtt_errno_get_error (errno));
+
+			__myqtt_storage_error_report (ctx, "Unable to create storage directory %s", ctx->storage_path);
 			return axl_false;
 		} /* end if */
 	} /* end if */
@@ -143,8 +163,8 @@ axl_bool __myqtt_storage_init_base_storage (MyQttCtx * ctx)
 		if (mkdir (full_path, 0700)) {
 			/* release */
 			myqtt_mutex_unlock (&ctx->ref_mutex);
-			
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s for retained messages, error was: %s", full_path, myqtt_errno_get_error (errno));
+
+			__myqtt_storage_error_report (ctx, "Unable to create storage directory %s for retained messages", full_path);
 			axl_free (full_path);
 			return axl_false;
 		} /* end if */
@@ -200,7 +220,7 @@ axl_bool myqtt_storage_init_offline (MyQttCtx * ctx, const char * client_identif
 			/* restore umask */
 			umask (umask_mode);
 
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s, error was: %s", full_path, myqtt_errno_get_error (errno));
+			__myqtt_storage_error_report (ctx, "Unable to create storage directory %s", full_path);
 			axl_free (full_path);
 			return axl_false;
 		} /* end if */
@@ -216,8 +236,8 @@ axl_bool myqtt_storage_init_offline (MyQttCtx * ctx, const char * client_identif
 			if (mkdir (full_path, 0700)) {
 				/* restore umask */
 				umask (umask_mode);
-				
-				myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s for messages, error was: %s", full_path, myqtt_errno_get_error (errno));
+
+				__myqtt_storage_error_report (ctx, "Unable to create storage directory %s for messages", full_path);
 				axl_free (full_path);
 				return axl_false;
 			} /* end if */
@@ -232,8 +252,8 @@ axl_bool myqtt_storage_init_offline (MyQttCtx * ctx, const char * client_identif
 			if (mkdir (full_path, 0700)) {
 				/* restore umask */
 				umask (umask_mode);
-				
-				myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s for subscriptions, error was: %s", full_path, myqtt_errno_get_error (errno));
+
+				__myqtt_storage_error_report (ctx, "Unable to create storage directory %s for subscriptions", full_path);
 				axl_free (full_path);
 				return axl_false;
 			} /* end if */
@@ -248,8 +268,8 @@ axl_bool myqtt_storage_init_offline (MyQttCtx * ctx, const char * client_identif
 			if (mkdir (full_path, 0700)) {
 				/* restore umask */
 				umask (umask_mode);
-				
-				myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s for messages, error was: %s", full_path, myqtt_errno_get_error (errno));
+
+				__myqtt_storage_error_report (ctx, "Unable to create storage directory %s for messages", full_path);
 				axl_free (full_path);
 				return axl_false;
 			} /* end if */
@@ -264,8 +284,8 @@ axl_bool myqtt_storage_init_offline (MyQttCtx * ctx, const char * client_identif
 			if (mkdir (full_path, 0700)) {
 				/* restore umask */
 				umask (umask_mode);
-				
-				myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create storage directory %s for messages, error was: %s", full_path, myqtt_errno_get_error (errno));
+
+				__myqtt_storage_error_report (ctx, "Unable to create storage directory %s for messages", full_path);
 				axl_free (full_path);
 				return axl_false;
 			} /* end if */
@@ -388,7 +408,7 @@ axl_bool __myqtt_storage_remove_files_from_dir (MyQttCtx * ctx, const char * cle
 	/* open dir */
 	dir = opendir (clear_files_in_dir);
 	if (dir == NULL) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to open directory %s for file deletion, error was: %s", clear_files_in_dir, myqtt_errno_get_error (errno)); 
+		__myqtt_storage_error_report (ctx, "Failed to open directory %s for file deletion", clear_files_in_dir);
 		return axl_false;
 	}
 	
@@ -555,7 +575,7 @@ axl_bool __myqtt_storage_read_content_into_reference (MyQttCtx * ctx, const char
 
 	/* get size */
 	if (stat (file_path, &stat_ref) != 0) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to get stat(%s), errno was: %d", file_path, errno);
+		__myqtt_storage_error_report (ctx, "Failed to get stat(%s)", file_path);
 		return axl_false;
 	} /* end if */
 
@@ -572,7 +592,7 @@ axl_bool __myqtt_storage_read_content_into_reference (MyQttCtx * ctx, const char
 	/* open file */
 	handle = fopen (file_path, "r");
 	if (! handle) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to open file at %s, error was: %s", file_path, myqtt_errno_get_error (errno));
+		__myqtt_storage_error_report (ctx, "Unable to open file at %s", file_path);
 		return axl_false;
 	}
 	
@@ -821,7 +841,7 @@ axl_bool myqtt_storage_sub_offline      (MyQttCtx      * ctx,
 	if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR)) {
 		if (mkdir (full_path, 0700)) {
 			/* get log */
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to create topic filter directory to store subscription: %s (error was: %s)", full_path, myqtt_errno_get_error (errno));
+			__myqtt_storage_error_report (ctx, "Unable to create topic filter directory to store subscription: %s", full_path);
 
 			axl_free (full_path);
 			axl_free (hash_value);
@@ -860,7 +880,7 @@ axl_bool myqtt_storage_sub_offline      (MyQttCtx      * ctx,
 	sub_file = fopen (full_path, "w");
 	if (sub_file == NULL) {
 		/* report log */
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to save subscription, failed to write to file '%s', error was: %s", full_path, myqtt_errno_get_error (errno));
+		__myqtt_storage_error_report (ctx, "Unable to save subscription, failed to write to file '%s'", full_path);
 		axl_free (full_path);
 		return axl_false;
 	} /* end if */
@@ -869,7 +889,7 @@ axl_bool myqtt_storage_sub_offline      (MyQttCtx      * ctx,
 	written = fwrite (topic_filter, 1, topic_filter_len, sub_file);
 	if (written != topic_filter_len) {
 		/* report log */
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "fwrite() call failed to write expected bytes (%d), written (%d), error was: %s", topic_filter_len, written, myqtt_errno_get_error (errno));
+		__myqtt_storage_error_report (ctx, "fwrite() call failed to write expected bytes (%d), written (%d)", topic_filter_len, written);
 		return axl_false;
 	} /* end if */
 
@@ -1074,7 +1094,7 @@ int __myqtt_storage_iteration (MyQttCtx * ctx, const char * client_identifier, M
 	/* try to open path */
 	sub_dir = opendir (full_path);
 	if (sub_dir == NULL) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to open %s, error was: %s", full_path, myqtt_errno_get_error (errno));
+		__myqtt_storage_error_report (ctx, "Unable to open %s", full_path);
 		axl_free (full_path);
 		return axl_false;
 	} /* end if */
@@ -1234,13 +1254,13 @@ axlPointer myqtt_storage_store_msg_offline (MyQttCtx      * ctx,
 	handle = fopen (full_path, "w");
 	if (! handle) {
 		/* report failure */
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to store message at %s, error was: %s", full_path, myqtt_errno_get_error (errno));
+		__myqtt_storage_error_report (ctx, "Failed to store message at %s", full_path);
 		axl_free (full_path);
 		return NULL;
 	} /* end if */
 	
 	if (fwrite (app_msg, 1, app_msg_size, handle) != app_msg_size) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to storage message at %s, error was: %s", full_path, myqtt_errno_get_error (errno));
+		__myqtt_storage_error_report (ctx, "Failed to storage message at %s", full_path);
 		fclose (handle);
 		axl_free (full_path);
 		return NULL;
@@ -1412,7 +1432,7 @@ axl_bool       myqtt_storage_retain_msg_set (MyQttCtx            * ctx,
 	} else {
 		/* directory is not present, try to create it */
 		if (myqtt_mkdir (full_path, 0700)) {
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to create directory %s, unable to storage retained message, mkdir() failed, errno=%d", full_path, errno);
+			__myqtt_storage_error_report (ctx, "Failed to create directory %s, unable to storage retained message, mkdir() failed", full_path);
 			axl_free (hash_value);
 			axl_free (full_path);
 			return axl_false;
@@ -1433,7 +1453,7 @@ axl_bool       myqtt_storage_retain_msg_set (MyQttCtx            * ctx,
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Saving retained message at %s", full_path);
 	handle = fopen (full_path, "w");
 	if (! handle) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to open file %s, error was: %s", full_path, myqtt_errno_get_error (errno));
+		__myqtt_storage_error_report (ctx, "Failed to open file %s", full_path);
 		axl_free (full_path);
 		return axl_false;
 	} /* end if */
@@ -1441,8 +1461,7 @@ axl_bool       myqtt_storage_retain_msg_set (MyQttCtx            * ctx,
 	/* write subscription */
 	if (fwrite (topic_name, 1, topic_filter_len, handle) != topic_filter_len) {
 		fclose (handle);
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to store topic filter value at %s, error was: %s", 
-			   full_path, myqtt_errno_get_error (errno));
+		__myqtt_storage_error_report (ctx, "Unable to store topic filter value at %s", full_path);
 		axl_free (full_path);
 		return axl_false;
 	} /* end if */
@@ -1457,7 +1476,7 @@ axl_bool       myqtt_storage_retain_msg_set (MyQttCtx            * ctx,
 	/* open handle */
 	handle = fopen (aux_path, "w");
 	if (! handle) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to open file %s, error was: %s", aux_path, myqtt_errno_get_error (errno));
+		__myqtt_storage_error_report (ctx, "Failed to open file %s", aux_path);
 		axl_free (full_path);
 		return axl_false;
 	} /* end if */
@@ -1465,8 +1484,7 @@ axl_bool       myqtt_storage_retain_msg_set (MyQttCtx            * ctx,
 	/* write subscription */
 	if (fwrite (app_msg, 1, app_msg_size, handle) != app_msg_size) {
 		fclose (handle);
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to store topic filter value at %s, error was: %s", 
-			   full_path, myqtt_errno_get_error (errno));
+		__myqtt_storage_error_report (ctx, "Unable to store topic filter value at %s", full_path);
 		axl_free (full_path);
 		return axl_false;
 	}
@@ -2195,7 +2213,7 @@ void __myqtt_storage_get_retained_topics_dir (MyQttCtx * ctx, const char * topic
 	/* try to open path */
 	sub_dir = opendir (full_path);
 	if (sub_dir == NULL) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to open %s, error was: %s", full_path, myqtt_errno_get_error (errno));
+		__myqtt_storage_error_report (ctx, "Unable to open %s", full_path);
 		return;
 	} /* end if */
 
@@ -2296,7 +2314,7 @@ axlList * myqtt_storage_get_retained_topics (MyQttCtx * ctx, const char * topic_
 	/* try to open path */
 	sub_dir = opendir (full_path);
 	if (sub_dir == NULL) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to open %s, error was: %s", full_path, myqtt_errno_get_error (errno));
+		__myqtt_storage_error_report (ctx, "Unable to open %s", full_path);
 		axl_free (full_path);
 		return NULL;
 	} /* end if */
