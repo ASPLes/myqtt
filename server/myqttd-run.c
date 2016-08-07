@@ -848,13 +848,14 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 	} /* end if */
 
 	/*** PHASE 1: check connections to the domain ***/
+	msg ("Checking domain=%s initialized=%d, use-settings=%s", domain->name, domain->initialized, domain->use_settings ? domain->use_settings : "");
 	if (domain->initialized && domain->use_settings) {
 		if (domain->settings) {
 			/* get current connections (plus 1, as we are simulating handling it) */
 			connections = myqttd_domain_conn_count_all (domain) + 1;
 			
-			/* msg ("Connections: %d/%d (%s -- %p)", connections, domain->settings->conn_limit,
-			   domain->use_settings, domain->settings); */
+			msg ("Connections: %d/%d (%s -- %p)", connections, domain->settings->conn_limit,
+			     domain->use_settings, domain->settings); 
 
 			/* checking limits */
 			if (connections > domain->settings->conn_limit) {
@@ -1041,11 +1042,12 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 	} /* end if */
 
 	/* reached this point, the connecting user is enabled and authenticated */
-	msg ("Connection accepted for username=%s client-id=%s server-name=%s conn-id=%d : selected domain=%s",
+	msg ("Connection accepted for username=%s client-id=%s server-name=%s conn-id=%d : selected domain=%s, connections=%d",
 	     myqttd_ensure_str (username), 
 	     myqttd_ensure_str (client_id), 
 	     myqttd_ensure_str (server_Name), 
-	     conn->id, domain->name);
+	     conn->id, domain->name,
+	     myqttd_domain_conn_count (domain));
 	
 	/* report connection accepted */
 	return codes;
