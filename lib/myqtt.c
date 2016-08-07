@@ -1371,30 +1371,51 @@ void        myqtt_sleep (long microseconds)
  * otherwise -1 is returned. Function also returns -1 when path is
  * NULL or mode is less than 0.
  */
-int    myqtt_mkdir (const char * path, int mode)
+int    myqtt_mkdir (MyQttCtx * ctx, const char * path, int mode)
 {
 	char ** items;
 	char  * full_path;
 	char  * aux;
 	int     iterator;
 	int     value = 0;
-	
+
+	/* check parameters received */
 	if (path == NULL || mode < 0)
 		return -1;
+	if (strlen (path) == 0)
+		return -1;
+	if (path[0] == '/' && strlen (path) == 1)
+		return -1;
+
+	/* check if the directory exists */
+	if (myqtt_support_file_test (path, FILE_EXISTS))
+		return 0; /* directory already exists, doing nothing */
 
 	items     = axl_stream_split (path, 1, "/");
-	full_path = axl_strdup (items[0]);
-	iterator  = 1;
+	if (path [0] == '/') {
+		full_path = axl_strdup_printf ("/%s", items[1]);
+		iterator  = 2;
+	} else {
+		full_path = axl_strdup (items[0]);
+		iterator  = 1;
+	}
 
 	while (full_path) {
+
+		/* myqtt_log (MYQTT_LEVEL_CRITICAL, "myqtt_mkdir: Checking path %s", full_path); */
+		
 		/* check if the directory exists */
 		if (! myqtt_support_file_test (full_path, FILE_EXISTS)) {
+			/* myqtt_log (MYQTT_LEVEL_CRITICAL, "myqtt_mkdir: %s does not exists, calling to create", full_path);*/
+			
 			/* it doesn't exists, try to create it*/
 			value = mkdir (full_path, mode);
-			if (value != 0)
+			if (value != 0) {
+				__myqtt_storage_error_report (ctx, "Unable to create path %s", full_path);
 				break; /* creation failed, report to
 					* the caller but first break
 					* the loop */
+			}
 		}
 
 		/* now check if the next component is defined and
