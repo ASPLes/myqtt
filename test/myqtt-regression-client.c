@@ -702,11 +702,15 @@ character.                                                                    |"
 
 axl_bool test_00_c (void) {
 
+	MyQttCtx * ctx = myqtt_ctx_new ();
+	char * full_path;
+	char       buffer[2048];
+
 	/* 1 */
 	if (system ("rm -rf test-00-c") != 0)
 		printf ("Test 00-c: no need to remove old directory..\n");
 
-	if (myqtt_mkdir ("test-00-c/prueba/value/test", 0700)) {
+	if (myqtt_mkdir (ctx, "test-00-c/prueba/value/test", 0700)) {
 		printf ("ERROR: failed to create directory (1)..\n");
 		return axl_false;
 	}
@@ -717,7 +721,7 @@ axl_bool test_00_c (void) {
 	if (system ("rm -rf test-00-c") != 0)
 		printf ("Test 00-c: no need to remove old directory..\n");
 
-	if (myqtt_mkdir ("test-00-c", 0700)) {
+	if (myqtt_mkdir (ctx, "test-00-c", 0700)) {
 		printf ("ERROR: failed to create directory (2)..\n");
 		return axl_false;
 	}
@@ -728,7 +732,7 @@ axl_bool test_00_c (void) {
 	if (system ("rm -rf test-00-c") != 0)
 		printf ("Test 00-c: no need to remove old directory..\n");
 
-	if (myqtt_mkdir ("test-00-c/prueba", 0700)) {
+	if (myqtt_mkdir (ctx, "test-00-c/prueba", 0700)) {
 		printf ("ERROR: failed to create directory (3)..\n");
 		return axl_false;
 	}
@@ -736,12 +740,25 @@ axl_bool test_00_c (void) {
 		printf ("ERROR: expected to find a directory (3)..\n");
 
 	/* 4 */
-	if (myqtt_mkdir ("test-00-c/prueba/value/test", 0700)) {
+	if (myqtt_mkdir (ctx, "test-00-c/prueba/value/test", 0700)) {
 		printf ("ERROR: failed to create directory (1)..\n");
 		return axl_false;
 	}
 	if (! myqtt_support_file_test ("test-00-c/prueba/value/test", FILE_EXISTS | FILE_IS_DIR))
 		printf ("ERROR: expected to find a directory (1)..\n");
+
+	/* 5 */
+	printf ("Test --: Checking to create full routes with: %s/test-00-c-5/prueba/value/venga/hombre\n", getcwd (buffer, 2048));
+	full_path = myqtt_support_build_filename (getcwd (buffer, 2048), "test-00-c-5", "prueba", "value", "venga", "hombre", NULL);
+	if (myqtt_mkdir (ctx, full_path, 0700)) {
+		printf ("ERROR: failed to create directory (%s)..\n", full_path);
+		return axl_false;
+	}
+	if (! myqtt_support_file_test (full_path, FILE_EXISTS | FILE_IS_DIR))
+		printf ("ERROR: expected to find a directory (%s)..\n", full_path);
+
+	axl_free (full_path);
+	myqtt_ctx_free (ctx);
 	
 	return axl_true;
 }
