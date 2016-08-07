@@ -831,8 +831,8 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 				/* unable to initializae context */
 				myqtt_mutex_unlock (&domain->mutex);
 
-				error ("Login failed for username=%s client-id=%s server-name=%s : Unable to initialize domain context",
-				       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
+				error ("Login failed for username=%s client-id=%s server-name=%s ip=%s : Unable to initialize domain context",
+				       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "", myqtt_conn_get_host (conn));
 
 				return MYQTT_CONNACK_SERVER_UNAVAILABLE;
 			} /* end if */
@@ -841,8 +841,8 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 	} /* end if */
 
 	if (! domain->initialized) {
-		error ("Login failed for username=%s client-id=%s server-name=%s : Unable to initialize domain context (2)",
-		       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "");
+		error ("Login failed for username=%s client-id=%s server-name=%s ip=%s : Unable to initialize domain context (2)",
+		       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "", myqtt_conn_get_host (conn));
 		
 		return MYQTT_CONNACK_SERVER_UNAVAILABLE;
 	} /* end if */
@@ -859,8 +859,8 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 
 			/* checking limits */
 			if (connections > domain->settings->conn_limit) {
-				error ("Login failed for username=%s client-id=%s server-name=%s : Connection rejected for username=%s client-id=%s server-name=%s domain=%s settings=%s : connection limit reached %d/%d",
-				       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "",
+				error ("Login failed for username=%s client-id=%s server-name=%s ip=%s : Connection rejected for username=%s client-id=%s server-name=%s domain=%s settings=%s : connection limit reached %d/%d",
+				       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "", myqtt_conn_get_host (conn),
 				       myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name), domain->name, 
 				       domain->use_settings, connections, domain->settings->conn_limit);
 
@@ -911,8 +911,8 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 				goto check_client_id_in_use_again;
 			} /* end if */
 
-			error ("Login failed for username=%s client-id=%s server-name=%s : Rejected CONNECT request because client id %s is already in use, denying connect",
-			       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "",
+			error ("Login failed for username=%s client-id=%s server-name=%s ip=%s : Rejected CONNECT request because client id %s is already in use, denying connect",
+			       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "", myqtt_conn_get_host (conn),
 			       conn->client_identifier);
 
 			return MYQTT_CONNACK_IDENTIFIER_REJECTED;
@@ -946,8 +946,9 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 	/* init storage if it has session */
 	if (! conn2->clean_session) {
 		if (! myqtt_storage_init (domain->myqtt_ctx, conn2, MYQTT_STORAGE_ALL)) {
-			error ("Login failed for username=%s client-id=%s server-name=%s : Unable to init storage service for provided client identifier '%s', unable to accept connection",
-			       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "", conn2->client_identifier);
+			error ("Login failed for username=%s client-id=%s server-name=%s ip=%s : Unable to init storage service for provided client identifier '%s', unable to accept connection",
+			       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "", myqtt_conn_get_host (conn),
+			       conn2->client_identifier);
 
 			return MYQTT_CONNACK_SERVER_UNAVAILABLE;
 		} /* end if */
@@ -1005,8 +1006,8 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 	/* find the domain that can handle this connection and do the AUTH operation at once */
 	domain = myqttd_domain_find_by_indications (ctx, conn, username, client_id, password, server_Name);
 	if (domain == NULL) {
-		error ("Login failed for username=%s client-id=%s server-name=%s : no domain was found to handle request",
-		       myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name));
+		error ("Login failed for username=%s client-id=%s server-name=%s ip=%s : no domain was found to handle request",
+		       myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name), myqtt_conn_get_host (conn));
 
 		/* implement a pause to disable brute force attacks */
 		/* setup default value if nothing is configured */
