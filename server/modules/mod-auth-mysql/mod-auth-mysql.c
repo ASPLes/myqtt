@@ -362,6 +362,10 @@ MYSQL_RES * mod_auth_mysql_run_query (MyQttdCtx * ctx, axlNode * dsn_node, const
 	/* clear query */
 	axl_stream_trim (complete_query);
 
+	if (HAS_ATTR_VALUE (dsn_node, "debug", "yes")) {
+		msg ("DEBUG: Running query: %s", complete_query);
+	} /* end if */
+
 	/* report result */
 	result = mod_auth_mysql_run_query_s (ctx, dsn_node, complete_query);
 
@@ -738,6 +742,12 @@ axl_bool     __mod_auth_mysql_auth_user (MyQttdCtx    * ctx,
 
 		/* get result */
 		result  = axl_cmp (digest_password, row[1]);
+
+		if (HAS_ATTR_VALUE (dsn_node, "debug", "yes")) {
+			/* report database password found and what was provided by the calling user */
+			msg ("Checking password [%s] == [%s], result %d", digest_password, row[1], result);
+		} /* end if */
+		
 		user_id = myqtt_support_strtod (row[0], NULL);
 		axl_free (digest_password);
 		if (result)
