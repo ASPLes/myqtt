@@ -232,6 +232,10 @@ struct _MyQttCtx {
 	MyQttOnSubscribeHandler     on_subscribe;
 	axlPointer                  on_subscribe_data;
 
+	/** references to the on unsubscribe handler */
+	MyQttOnUnSubscribeHandler     on_unsubscribe;
+	axlPointer                    on_unsubscribe_data;
+
 	/** on publish message */
 	MyQttOnPublish              on_publish;
 	axlPointer                  on_publish_data;

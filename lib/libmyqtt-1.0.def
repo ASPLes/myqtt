@@ -147,6 +147,7 @@ myqtt_ctx_set_on_publish
 myqtt_ctx_set_on_release
 myqtt_ctx_set_on_store
 myqtt_ctx_set_on_subscribe
+myqtt_ctx_set_on_unsubscribe
 myqtt_ctx_unref
 myqtt_ctx_unref2
 myqtt_errno_get_error
