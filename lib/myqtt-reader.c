@@ -1041,6 +1041,9 @@ void __myqtt_reader_move_online_to_offline (MyQttCtx * ctx, MyQttConn * conn)
 
 void __myqtt_reader_handle_disconnect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn * conn)
 {
+
+	/* notify client disconnect */
+	
 	myqtt_log (MYQTT_LEVEL_DEBUG, "Received DISCONNECT notification for conn-id=%d from %s:%s, closing connection..", conn->id, conn->host, conn->port);
 	myqtt_conn_shutdown (conn);
 
@@ -1240,6 +1243,8 @@ void __myqtt_reader_handle_unsubscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttM
 
 	/* get topic filter */
 	while (desp < msg->size) {
+
+		/* get next topic filter to unsubscribe */
 		topic_filter = __myqtt_reader_get_utf8_string (ctx, msg->payload + desp, msg->size - desp);
 		if (topic_filter == NULL) {
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to process topic filter from received UNSUBSCRIBE request from conn-id=%d from %s:%s, closing connection..", 
@@ -1258,6 +1263,18 @@ void __myqtt_reader_handle_unsubscribe (MyQttCtx * ctx, MyQttConn * conn, MyQttM
 				myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send to storage unsubscribe received"); 
 			} /* end if */
 		} /* end if */
+
+		/* notify unsubscribe to see what to do */
+		if (ctx->on_unsubscribe) {
+			if (! ctx->on_unsubscribe (ctx, conn, topic_filter, ctx->on_unsubscribe_data)) {
+				/* unsuback operation not accepted by handler */
+				axl_free (topic_filter); /* free topic filter */
+				continue;
+			} /* end if */
+
+			/* reached this point, on unsubscribe operation was accepted */
+		} /* end if */
+			
 
 		/* CONNECTION CONTEXT: remove subscription from the connection */
 		myqtt_mutex_lock (&conn->op_mutex);
