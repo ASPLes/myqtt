@@ -992,8 +992,10 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 
 	/* check if we have databases configured */
 	config = myqtt_support_build_filename (myqttd_sysconfdir (ctx), "myqtt", "mysql", "mysql.xml", NULL);
-	if (config == NULL)
+	if (config == NULL) {
+		error ("Failed to init mod-auth-mysql, unable to build configuration file path (allocation memory problem)\n");
 		return axl_false; /* allocation failure */
+	} /* end if */
 	
 	if (! myqtt_support_file_test (config, FILE_EXISTS)) {
 		
@@ -1155,7 +1157,7 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 	/* register on subscribe */
 	/* myqttd_ctx_add_on_subscribe (ctx, __mod_auth_mysql_on_subscribe, NULL);  */
 	
-	
+	msg ("mod-auth-mysql started a ready\n");	
 	return axl_true;
 }
 
