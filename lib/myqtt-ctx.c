@@ -264,12 +264,12 @@ void        myqtt_ctx_set_on_header             (MyQttCtx               * ctx,
 }
 
 /** 
- * @brief Allows toconfigure a handler that will be called everything
+ * @brief Allows to configure a handler that will be called every time
  * a subscription request is received. The function must return the
  * QoS that will accept or even return \ref MYQTT_QOS_DENIED to reject
  * the subscription.
  *
- * Only can be one handler configured at time.
+ * Only one handler can be configured at time.
  *
  * @param ctx The context where the operation takes place.
  * 
@@ -293,6 +293,43 @@ void        myqtt_ctx_set_on_subscribe          (MyQttCtx               * ctx,
 
 	return;
 }
+
+/** 
+ * @brief Allows to configure a handler that will be called every time
+ * an unsubscription indication is received. 
+ *
+ * The function must return the axl_true to accept the unsuback
+ * operation but certainly it can return axl_false to ignore the
+ * indication. However, it is important to understand that this is not
+ * covered by the MQTT standard: you have to accept this indication
+ * (it's not a request), though you ignore this request in the case
+ * you are building a specific scenario.
+ *
+ * Only one handler can be configured at time.
+ *
+ * @param ctx The context where the operation takes place.
+ * 
+ * @param on_unsubscribe The handler to be called when an unsuback is received. See \ref MyQttOnUnSubscribeHandler for more information.
+ *
+ * @param on_unsubscribe_data A user defined pointer to be passed to the handler configured when it is called.
+ *
+ */
+void        myqtt_ctx_set_on_unsubscribe        (MyQttCtx                  * ctx,
+						 MyQttOnUnSubscribeHandler   on_unsubscribe,
+						 axlPointer                  on_unsubscribe_data)
+{
+	if (ctx == NULL)
+		return;
+
+	/* configure handlers */
+	myqtt_mutex_lock (&ctx->ref_mutex);
+	ctx->on_unsubscribe_data = on_unsubscribe_data;
+	ctx->on_unsubscribe      = on_unsubscribe;
+	myqtt_mutex_unlock (&ctx->ref_mutex);
+
+	return;
+}
+
 
 /** 
  * @brief Allows to configure the on store handler at context level.

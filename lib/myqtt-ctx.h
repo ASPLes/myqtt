@@ -71,6 +71,10 @@ void        myqtt_ctx_set_on_subscribe          (MyQttCtx               * ctx,
 						 MyQttOnSubscribeHandler  on_subscribe,
 						 axlPointer               on_subscribe_data);
 
+void        myqtt_ctx_set_on_unsubscribe        (MyQttCtx                  * ctx,
+						 MyQttOnUnSubscribeHandler   on_unsubscribe,
+						 axlPointer                  on_unsubscribe_data);
+
 void        myqtt_ctx_set_on_header             (MyQttCtx               * ctx,
 						 MyQttOnHeaderReceived    on_header,
 						 axlPointer               on_header_data);
