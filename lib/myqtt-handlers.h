@@ -621,6 +621,32 @@ typedef MyQttConnAckTypes (*MyQttOnConnectHandler) (MyQttCtx * ctx, MyQttConn * 
  */
 typedef MyQttQos          (*MyQttOnSubscribeHandler) (MyQttCtx * ctx, MyQttConn * conn, const char * topic_filter, MyQttQos qos, axlPointer user_data);
 
+
+/** 
+ * @brief Async notification handler that is called to notify that a
+ * unsubscribe request has been received. The function can return
+ * axl_false to deny unsubscription, but this is highly not
+ * recommended because this will break MQTT standard where you cannot
+ * refuse processing an unsubscribe operation.
+ *
+ * It can also be used as a way to track subscription/unsubscription taking place.
+ *
+ * @param ctx The context wherethe operation takes place.
+ *
+ * @param conn The connection where the UNSUBACK request was received.
+ *
+ * @param topic_filter The topic filter requested on the UNSUBACK packet.
+ *
+ * @param user_data User defined pointer received on the function and
+ * provided at the configuration handler.
+ *
+ * @return The handler must return axl_true to accept unsubscription
+ * operation, otherwise, axl_false can be returned (NOT RECOMMENDED)
+ * to ignore request to unsubscribe.
+ * 
+ */
+typedef axl_bool              (*MyQttOnUnSubscribeHandler) (MyQttCtx * ctx, MyQttConn * conn, const char * topic_filter, axlPointer user_data);
+
 /** 
  * @brief Async notification handler that gets called once a PUBLISH
  * message is received on a listener connection. This handler allows
