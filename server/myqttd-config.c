@@ -490,7 +490,7 @@ int             myqttd_config_get_number (MyQttdCtx * ctx,
 	/* check values received */
 	v_return_val_if_fail (ctx && path && attr_name, -2);
 
-	msg ("Getting value at path %s (%s)", path, attr_name);
+	/* msg ("Getting value at path %s (%s)", path, attr_name); */
 
 	/* get the node */
 	node = axl_doc_get (ctx->config, path);
@@ -499,7 +499,7 @@ int             myqttd_config_get_number (MyQttdCtx * ctx,
 		return -3;
 	}
 
-	msg ("  Translating value to a number %s=%s", attr_name, ATTR_VALUE (node, attr_name));
+	/* msg ("  Translating value to a number %s=%s", attr_name, ATTR_VALUE (node, attr_name)); */
 
 	/* now get the value */
 	value = myqtt_support_strtod (ATTR_VALUE (node, attr_name), &error);
