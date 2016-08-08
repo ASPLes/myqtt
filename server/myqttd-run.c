@@ -484,8 +484,48 @@ MyQttQos __myqttd_run_on_subscribe_msg (MyQttCtx * myqtt_ctx, MyQttConn * conn, 
 		} /* end if */
 	}
 
+	/* call to check if we allow this subscription : PENDING FIXME */
+
+	/* report subscribe operation received */
+	msg ("SUBSCRIBE for username=%s client-id=%s server-name=%s conn-id=%d ip=%s domain=%s : %s",
+	     myqttd_ensure_str (myqtt_conn_get_username (conn)), 
+	     myqttd_ensure_str (myqtt_conn_get_client_id (conn)),
+	     myqttd_ensure_str (myqtt_conn_get_server_name (conn)),
+	     conn->id,
+
+	     /* report clean session and report ip connected */
+	     myqtt_conn_get_host (conn),
+	     
+	     /* report domain selected and topic filter subscribed */
+	     domain->name,
+	     topic_filter);
+
 	/* return same qos as received */
 	return qos;
+}
+
+axl_bool __myqttd_run_on_unsubscribe_msg (MyQttCtx * myqtt_ctx, MyQttConn * conn, const char * topic_filter, axlPointer user_data)
+{
+	/* get reference to the domain */
+	MyQttdDomain * domain          = user_data;
+	MyQttdCtx    * ctx             = domain->ctx;
+
+	/* report subscribe operation received */
+	msg ("UNSUBACK for username=%s client-id=%s server-name=%s conn-id=%d ip=%s domain=%s : %s",
+	     myqttd_ensure_str (myqtt_conn_get_username (conn)), 
+	     myqttd_ensure_str (myqtt_conn_get_client_id (conn)),
+	     myqttd_ensure_str (myqtt_conn_get_server_name (conn)),
+	     conn->id,
+
+	     /* report clean session and report ip connected */
+	     myqtt_conn_get_host (conn),
+	     
+	     /* report domain selected and topic filter subscribed */
+	     domain->name,
+	     topic_filter);
+
+
+	return axl_true; /* always accept unsuback */
 }
 
 axl_bool __myqttd_run_on_header_msg (MyQttCtx * myqtt_ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _domain)
@@ -639,8 +679,9 @@ void __myqttd_init_domain_context (MyQttdCtx * ctx, MyQttdDomain * domain)
 	/* configure on header msg */
 	myqtt_ctx_set_on_header (domain->myqtt_ctx, __myqttd_run_on_header_msg, domain);
 
-	/* configure on subscribe msg */
+	/* configure on subscribe/unsubscribe topic filter */
 	myqtt_ctx_set_on_subscribe (domain->myqtt_ctx, __myqttd_run_on_subscribe_msg, domain);
+	myqtt_ctx_set_on_unsubscribe (domain->myqtt_ctx, __myqttd_run_on_unsubscribe_msg, domain);
 
 	/* configure store and release */
 	myqtt_ctx_set_on_store (domain->myqtt_ctx, __myqttd_run_on_store_msg, domain);
@@ -807,6 +848,30 @@ MyQttConn * __myqttd_run_internal_copy (MyQttCtx * ctx, MyQttConn * ref)
 	return conn;
 }
 
+void __myqttd_run_on_connection_close (MyQttConn * conn, axlPointer _data)
+{
+	MyQttdDomain * domain = _data;
+	MyQttdCtx    * ctx    = domain->ctx;
+
+	/* reached this point, the connecting user is enabled and authenticated */
+	msg ("DISCONNECT Connection close detected username=%s client-id=%s server-name=%s conn-id=%d clean-session=%d will=%d ip=%s : domain=%s, connections=%d",
+	     myqttd_ensure_str (myqtt_conn_get_username (conn)), 
+	     myqttd_ensure_str (myqtt_conn_get_client_id (conn)), 
+	     myqttd_ensure_str (myqtt_conn_get_server_name (conn)), 
+	     conn->id,
+
+	     /* report clean session and report ip connected */
+	     conn->clean_session,
+	     (conn->will_topic && conn->will_msg) ? 1 : 0,
+	     myqtt_conn_get_host (conn),
+	     
+	     /* report domain selected and connections handled at this point */
+	     domain->name,
+	     myqttd_domain_conn_count (domain));
+	return;
+}
+
+
 MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx, 
 							MyQttConn      * conn, 
 							MyQttCtx       * myqtt_ctx, 
@@ -848,14 +913,14 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 	} /* end if */
 
 	/*** PHASE 1: check connections to the domain ***/
-	msg ("Checking domain=%s initialized=%d, use-settings=%s", domain->name, domain->initialized, domain->use_settings ? domain->use_settings : "");
+	/* msg ("Checking domain=%s initialized=%d, use-settings=%s", domain->name, domain->initialized, domain->use_settings ? domain->use_settings : "");*/
 	if (domain->initialized && domain->use_settings) {
 		if (domain->settings) {
 			/* get current connections (plus 1, as we are simulating handling it) */
 			connections = myqttd_domain_conn_count_all (domain) + 1;
 			
-			msg ("Connections: %d/%d (%s -- %p)", connections, domain->settings->conn_limit,
-			     domain->use_settings, domain->settings); 
+			/* msg ("Connections: %d/%d (%s -- %p)", connections, domain->settings->conn_limit,
+			   domain->use_settings, domain->settings);  */
 
 			/* checking limits */
 			if (connections > domain->settings->conn_limit) {
@@ -959,6 +1024,10 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 	axl_hash_remove (myqtt_ctx->client_ids, conn2->client_identifier);
 	myqtt_mutex_unlock (&myqtt_ctx->client_ids_m);
 
+	/* setup a connection close handler to have notifications to
+	 * the log and possible other modules */
+	myqtt_conn_set_on_close (conn2, axl_true, __myqttd_run_on_connection_close, domain);
+
 	/* register new connection into the new reader */
 	myqtt_reader_watch_connection (domain->myqtt_ctx, conn2);
 
@@ -996,6 +1065,7 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 	const char   * password     = myqtt_conn_get_password (conn);
 	const char   * client_id    = myqtt_conn_get_client_id (conn);
 	const char   * server_Name  = myqtt_conn_get_server_name (conn);
+	const char   * error_label  = "";
 
 	/* login failure pause */
 	long           pause_value;
@@ -1007,8 +1077,19 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 	/* find the domain that can handle this connection and do the AUTH operation at once */
 	domain = myqttd_domain_find_by_indications (ctx, conn, username, client_id, password, server_Name);
 	if (domain == NULL) {
-		error ("Login failed for username=%s client-id=%s server-name=%s ip=%s : no domain was found to handle request",
-		       myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name), myqtt_conn_get_host (conn));
+		/* define error label according to the values provided */
+		error_label = "no domain was found to handle request";
+		if (username && password && client_id)
+			error_label = "no domain was found to handle request, login failure, wrong username, client-id OR password ";
+		else if (username && client_id)
+			error_label = "no domain was found to handle request, login failure, maybe missing password? ";
+		else if (client_id)
+			error_label = "no domain was found to handle request, login failure, wrong client-id? ";
+
+		/* report error */
+		error ("Login failed for username=%s client-id=%s server-name=%s ip=%s : %s",
+		       myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name), myqtt_conn_get_host (conn),
+		       error_label);
 
 		/* implement a pause to disable brute force attacks */
 		/* setup default value if nothing is configured */
@@ -1051,7 +1132,7 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 	} /* end if */
 
 	/* reached this point, the connecting user is enabled and authenticated */
-	msg ("Connection accepted for username=%s client-id=%s server-name=%s conn-id=%d clean-session=%d will=%d ip=%s : selected domain=%s, connections=%d",
+	msg ("CONNECT accepted for username=%s client-id=%s server-name=%s conn-id=%d clean-session=%d will=%d ip=%s : domain=%s, connections=%d",
 	     myqttd_ensure_str (username), 
 	     myqttd_ensure_str (client_id), 
 	     myqttd_ensure_str (server_Name), 
