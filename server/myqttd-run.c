@@ -1002,6 +1002,7 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 
 	/* conn limits */
 	MyQttConnAckTypes    codes;
+	char         * conn_host;
 
 	/* find the domain that can handle this connection and do the AUTH operation at once */
 	domain = myqttd_domain_find_by_indications (ctx, conn, username, client_id, password, server_Name);
@@ -1033,22 +1034,40 @@ MyQttConnAckTypes  myqttd_run_handle_on_connect (MyQttCtx * myqtt_ctx, MyQttConn
 	 * 
 	 ***/
 
+	/* retain conn_host because
+	 * myqtt_run_send_connection_to_domain "transfer" all data
+	 * from this connection into another */
+	conn_host = axl_strdup (myqtt_conn_get_host (conn));
+
 	/* activate domain to have it working */
 	codes = myqttd_run_send_connection_to_domain (ctx, conn, myqtt_ctx, domain, username, client_id, server_Name);
 	if (codes != MYQTT_CONNACK_DEFERRED) {
 		/* do not output an error message here because that
 		 * error message is already sent by
 		 * myqttd_run_send_connection_to_domain */
+		
+		axl_free (conn_host);
 		return codes;
 	} /* end if */
 
 	/* reached this point, the connecting user is enabled and authenticated */
-	msg ("Connection accepted for username=%s client-id=%s server-name=%s conn-id=%d : selected domain=%s, connections=%d",
+	msg ("Connection accepted for username=%s client-id=%s server-name=%s conn-id=%d clean-session=%d will=%d ip=%s : selected domain=%s, connections=%d",
 	     myqttd_ensure_str (username), 
 	     myqttd_ensure_str (client_id), 
 	     myqttd_ensure_str (server_Name), 
-	     conn->id, domain->name,
+	     conn->id,
+
+	     /* report clean session and report ip connected */
+	     conn->clean_session,
+	     (conn->will_topic && conn->will_msg) ? 1 : 0,
+	     conn_host,
+	     
+	     /* report domain selected and connections handled at this point */
+	     domain->name,
 	     myqttd_domain_conn_count (domain));
+
+	/* release reference */
+	axl_free (conn_host);
 	
 	/* report connection accepted */
 	return codes;
