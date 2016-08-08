@@ -1,3 +1,4 @@
 <mod-auth-mysql>
-  <dsn name='__main__' db="db_name" dbuser="db_user" dbpassword="db_password" dbhost="127.0.0.1" dbport="" />
+  <!-- you can use debug='yes' to enable query debug run by the module -->
+  <dsn name='__main__' db="db_name" dbuser="db_user" dbpassword="db_password" dbhost="127.0.0.1" dbport="" debug='no' />
 </mod-auth-mysql>
