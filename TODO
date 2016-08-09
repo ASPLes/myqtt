@@ -4,6 +4,19 @@
 
 * Add support for clustering for epic configurations
 
+--== Security notes ==--
+
+* Updated web page to include notes about MyQtt security features
+  provided:
+
+  - No anonymous account support by default
+  - Topic space isolation
+  - Users namespace isolation : different domains running with different settings
+  - Support for security protocols MQTT-TLS and MQTT over TLS Websocket
+  - Support to disable plain protocols MQTT and MQTT over WebSocket
+
+* Finish mod-sql-injection-blocker
+
 --== things that should be reviewed ==--
 
 * Review https://dzone.com/refcardz/getting-started-with-mqtt and
