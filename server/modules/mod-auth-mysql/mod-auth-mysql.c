@@ -701,8 +701,9 @@ axl_bool     __mod_auth_mysql_auth_user (MyQttdCtx    * ctx,
 		return axl_false;
 	if (! __mod_auth_mysql_check_input (ctx, clientid)) 
 		return axl_false;
-	if (! __mod_auth_mysql_check_input (ctx, password)) 
-		return axl_false;
+	/* now need to check password input because it is md5d before checking */
+	/* if (! __mod_auth_mysql_check_input (ctx, password)) 
+	   return axl_false; */
 
 	/* check if the domain exists in the database */
 	res      = mod_auth_mysql_run_query (ctx, dsn_node, "SELECT * FROM domain WHERE is_active = '1' AND  name = '%s'", myqttd_domain_get_name (domain));
