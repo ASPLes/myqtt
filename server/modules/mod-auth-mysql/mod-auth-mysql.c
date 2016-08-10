@@ -74,7 +74,18 @@ axl_bool __mod_auth_mysql_check_input (MyQttdCtx * ctx, const char * input)
 	if (input == NULL || strlen (input) == 0)
 		return axl_true; /* empty string, clean string */
 	while (input [iterator]) {
-		if (input[iterator] == '\'' || input[iterator] == '-' || input[iterator] == ';')
+		/* block string terminator */
+		if (input[iterator] == '\'' || 
+		    /* block string terminator */
+		    input[iterator] == '"' || 
+		    /* block sql comment */
+		    input[iterator] == '-' || 
+		    /* block sentence separator */
+		    input[iterator] == ';' || 
+		    /* block 1=1 */
+		    input[iterator] == '=' || 
+		    /* block separator that allows ' and 1=1 ', ' or 1=1' */
+		    input[iterator] == ' ')
 			return axl_false;
 		
 		/* next position */
