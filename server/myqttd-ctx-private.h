@@ -131,6 +131,16 @@ struct _MyQttdCtx {
 	MyQttHash            * domain_settings;
 	MyQttdDomainSetting  * default_setting;
 
+	/** 
+	 * @brief List of on day change registered handlers 
+	 */
+	axlList             * on_day_change_handlers;
+
+	/** 
+	 * @brief List of on day change registered handlers 
+	 */
+	axlList             * on_month_change_handlers;
+	
 };
 
 /** 
@@ -260,5 +270,10 @@ struct _MyQttdDomainSetting {
 	int         day_message_quota;
 	
 };
+
+typedef struct _MyQttdHandlePtr {
+	axlPointer handler;
+	axlPointer ptr;
+} MyQttdHandlerPtr;
 
 #endif
