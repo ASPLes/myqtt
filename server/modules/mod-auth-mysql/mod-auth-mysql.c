@@ -458,6 +458,85 @@ MYSQL_RES * mod_auth_mysql_run_query (MyQttdCtx * ctx, axlNode * dsn_node, const
 }
 
 /** 
+ * @brief Handler called when day changes.
+ */
+void mod_auth_mysql_change_day (MyQttdCtx * ctx, long new_value, axlPointer user_data)
+{
+	MYSQL_RES * res;
+	MYSQL_ROW   row;
+	long        now;
+	axlNode   * dsn_node = user_data;
+
+	/* get all usage records before setting them to 0 */
+	res = mod_auth_mysql_run_query_s (ctx,  dsn_node, "SELECT user_id, current_day_usage FROM user_msg_tracking WHERE current_day_usage > 0");
+
+	/* handle data to record history */
+	now = myqttd_now ();
+	
+	/* get next row */
+	row = mysql_fetch_row (res);
+	while (row) {
+
+		/* in the following sentence, we substract 100 to now to make sure it references to the previous day where the quota was consumed */
+		if (! mod_auth_mysql_run_query (ctx, dsn_node, "INSERT INTO user_msg_tracking_history (user_id, stamp, day_usage) VALUES ('%s', '%d', '%s')",
+						row[0], now - 100, row[1])) {
+			error ("Failed to insert user msg tracking history (day)..");
+		} /* end if */
+
+		/* next row */
+		row = mysql_fetch_row (res);
+	} /* end while */
+
+	/* release previous data */
+	mysql_free_result (res);
+
+	/* reset day usage for all mail plans */
+	mod_auth_mysql_run_query_s (ctx, dsn_node,"UPDATE user_msg_tracking SET current_day_usage = '0'");
+
+	return;
+}
+
+/** 
+ * @brief Handler called when month changes.
+ */
+void mod_auth_mysql_change_month (MyQttdCtx * ctx, long new_value, axlPointer user_data)
+{
+	MYSQL_RES   * res;
+	MYSQL_ROW     row;
+	long          now;
+	axlNode     * dsn_node = user_data;
+
+	/* get all usage records before setting them to 0 */
+	res = mod_auth_mysql_run_query_s (ctx,  dsn_node, "SELECT user_id, current_month_usage FROM use_msg_tracking WHERE current_month_usage > 0");
+	
+	/* handle data to record history */
+	now = myqttd_now ();
+	
+	/* get next row */
+	row = mysql_fetch_row (res);
+	while (row) {
+
+		/* in the following sentence, we substract 100 to now to make sure it references to the previous day where the quota was consumed */
+		if (! mod_auth_mysql_run_query (ctx, dsn_node, "INSERT INTO user_msg_month_history (user_id, stamp, month_usage) VALUES ('%s', '%d', '%s')",
+						row[0], now - 100, row[1])) {
+			error ("Failed to insert user msg month tracking (month)..");
+		} /* end if */
+
+		/* next row */
+		row = mysql_fetch_row (res);
+	} /* end while */
+
+	/* release previous data */
+	mysql_free_result (res);
+
+	/* reset day usage for all mail plans */
+	mod_auth_mysql_run_query (ctx, dsn_node, "UPDATE user_msg_tracking SET current_month_usage = '0'");
+
+	return;
+}
+
+
+/** 
  * @brief Allows to check if the table has the provided attribute
  *
  * @param ctx The context where the operation will take place.
@@ -1220,7 +1299,7 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 					     "description", "text",
 					     NULL);
 
-		/* user table */
+		/* user_msg_tracking table */
 		mod_auth_mysql_ensure_table (ctx, dsn_node,
 					     "user_msg_tracking",
 					     "id", "autoincrement int",
@@ -1229,6 +1308,28 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 					     "current_day_usage", "int", 
 					     /* current month usage */
 					     "current_month_usage", "int",
+					     NULL);
+
+		/* user_msg_tracking_history table */
+		mod_auth_mysql_ensure_table (ctx, dsn_node,
+					     "user_msg_tracking_history",
+					     "id", "autoincrement int",
+					     "user_id", "int",
+					     /* stamp */
+					     "stamp", "int",
+					     /* current day usage */
+					     "day_usage", "int", 
+					     NULL);
+
+		/* user_msg_month_history table */
+		mod_auth_mysql_ensure_table (ctx, dsn_node,
+					     "user_msg_month_history",
+					     "id", "autoincrement int",
+					     "user_id", "int",
+					     /* stamp */
+					     "stamp", "int",
+					     /* current day usage */
+					     "month_usage", "int", 
 					     NULL);
 
 		/* user log */
@@ -1316,6 +1417,10 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 
 	/* register on subscribe */
 	/* myqttd_ctx_add_on_subscribe (ctx, __mod_auth_mysql_on_subscribe, NULL);  */
+
+	/* add on day and on month change notification */
+	myqttd_add_on_day_change (ctx, mod_auth_mysql_change_day, dsn_node);
+	myqttd_add_on_month_change (ctx, mod_auth_mysql_change_month, dsn_node);
 	
 	msg ("mod-auth-mysql started a ready\n");	
 	return axl_true;
