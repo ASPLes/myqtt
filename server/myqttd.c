@@ -360,6 +360,15 @@ void myqttd_exit (MyQttdCtx * ctx,
 	/* cleanup domains */
 	myqttd_domain_cleanup (ctx);
 
+	/* release on day change handlers */
+	axl_list_free (ctx->on_day_change_handlers);
+	ctx->on_day_change_handlers = NULL;
+
+	/* release on month change handlers */
+	axl_list_free (ctx->on_month_change_handlers);
+	ctx->on_month_change_handlers = NULL;
+
+
 	/* free ctx */
 	if (free_ctx)
 		myqttd_ctx_free (ctx);
@@ -1533,6 +1542,135 @@ const char    * myqttd_ensure_str      (const char * string)
 		return string;
 	return "";
 }
+
+/** 
+ * @brief Allows to get current epoch (now).
+ *
+ * @return Number of seconds that represents epoch now.
+ */
+long     myqttd_now (void)
+{
+	struct timeval       now;
+	gettimeofday (&now, NULL);
+
+	/* report now tv_sec */
+	return now.tv_sec;
+}
+
+/** 
+ * @brief Valvula date item that allows selecting which item must be
+ * configured or notified.
+ */
+typedef enum {
+	/** 
+	 * @brief Changes and configurations that refers to day.
+	 */
+	MYQTTD_DATE_ITEM_DAY = 1,
+	/** 
+	 * @brief Chnages and configurations that refers to month.
+	 */
+	MYQTTD_DATE_ITEM_MONTH = 2,
+} MyQttdDateItem;
+
+
+void __myqttd_common_add_on_date_change (MyQttdCtx * ctx, MyQttdOnDateChange on_change, axlPointer ptr, MyQttdDateItem item_type)
+{
+	MyQttdHandlerPtr * data;
+
+	if (ctx == NULL || on_change == NULL)
+		return;
+
+	/* create the list to store handlers */
+	switch (item_type) {
+	case MYQTTD_DATE_ITEM_DAY:
+		if (! ctx->on_day_change_handlers) {
+			ctx->on_day_change_handlers = axl_list_new (axl_list_equal_ptr, axl_free);
+
+			/* check memory allocation */
+			if (! ctx->on_day_change_handlers) {
+				error ("Memory allocation for on day change handlers failed..");
+				return;
+			} /* end if */
+		} /* end if */
+		break;
+	case MYQTTD_DATE_ITEM_MONTH:
+		if (! ctx->on_month_change_handlers) {
+			ctx->on_month_change_handlers = axl_list_new (axl_list_equal_ptr, axl_free);
+
+			/* check memory allocation */
+			if (! ctx->on_month_change_handlers) {
+				error ("Memory allocation for on month change handlers failed..");
+				return;
+			} /* end if */
+		} /* end if */
+
+		break;
+	}
+
+	/* get holder */
+	data = axl_new (MyQttdHandlerPtr, 1);
+	if (! data) {
+		error ("Memory allocation for on day/month change handlers failed (2)..");
+		return;
+	}
+
+	/* store into list */
+	data->handler = on_change;
+	data->ptr     = ptr;
+
+	switch (item_type) {
+	case MYQTTD_DATE_ITEM_DAY:
+		axl_list_append (ctx->on_day_change_handlers, data);
+		break;
+	case MYQTTD_DATE_ITEM_MONTH:
+		axl_list_append (ctx->on_month_change_handlers, data);
+		break;
+	} /* end switch */
+
+	msg ("On date change added (month handlers: %d, day handlers: %d)", 
+	     axl_list_length (ctx->on_day_change_handlers), axl_list_length (ctx->on_month_change_handlers));
+
+	return;
+}
+
+
+
+/** 
+ * @brief Allows to add a handler to will be called every time a day
+ * change is detected.
+ *
+ * @param ctx The context where the operation will take place.
+ *
+ * @param on_day_change The change handler that will be called when
+ * the event is detected.
+ *
+ * @param ptr Pointer to user defined data.
+ */
+void myqttd_add_on_day_change (MyQttdCtx * ctx, MyQttdOnDateChange on_day_change, axlPointer ptr)
+{
+	/* add handler as day change notifier */
+	__myqttd_common_add_on_date_change (ctx, on_day_change, ptr, MYQTTD_DATE_ITEM_DAY);
+	return;
+}
+
+/** 
+ * @brief Allows to add a handler to will be called every time a month
+ * change is detected.
+ *
+ * @param ctx The context where the operation will take place.
+ *
+ * @param on_month_change The change handler that will be called when
+ * the event is detected.
+ *
+ * @param ptr Pointer to user defined data.
+ */
+void myqttd_add_on_month_change (MyQttdCtx * ctx, MyQttdOnDateChange on_month_change, axlPointer ptr)
+{
+	/* add handler as month change notifier */
+	__myqttd_common_add_on_date_change (ctx, on_month_change, ptr, MYQTTD_DATE_ITEM_MONTH);
+	return;
+}
+
 
 /* @} */
 

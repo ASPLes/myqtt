@@ -272,6 +272,13 @@ void            myqttd_sleep           (MyQttdCtx * ctx,
 
 const char    * myqttd_ensure_str      (const char * string);
 
+long            myqttd_now (void);
+
+void            myqttd_add_on_day_change   (MyQttdCtx * ctx, MyQttdOnDateChange on_day_change, axlPointer ptr);
+
+void            myqttd_add_on_month_change (MyQttdCtx * ctx, MyQttdOnDateChange on_day_change, axlPointer ptr);
+
+
 #endif
 
 /* @} */
