@@ -1363,6 +1363,8 @@ void        myqtt_sleep (long microseconds)
  * fails, the call will return. This call differs from mkdir() in the
  * sense it is able to handle cases like a/b/c
  *
+ * @param ctx The context where the operation is taking place.
+ *
  * @param path The path to create
  *
  * @param mode The mode to create each directory component in the route
