@@ -310,6 +310,80 @@ MYSQL_RES *     mod_auth_mysql_run_query_s   (MyQttdCtx * ctx, axlNode * dsn_nod
 	return result;
 }
 
+/** 
+ * @brief Allows to run a query and report the value found at the
+ * first row on the provided column as a integer.
+ *
+ * @param ctx The context where the operation will take place.
+ *
+ * @param col_name The column name where to get the result.
+ *
+ * @param query The query string to run.
+ *
+ * @param ... Additional arguments to the query string.
+ *
+ * @return -1 in case of errors or the value reported at the first
+ * row of the query result at the column requested. Note that if the
+ * result is defined but it has NULL or empty string, 0 is returned.
+ */
+long             __mod_auth_mysql_run_query_as_long (MyQttdCtx  * ctx,
+						     axlNode    * dsn_node,
+						     const char * query, 
+						     ...)
+{
+	MYSQL_RES * result;
+	char      * complete_query;
+	va_list     args;
+	MYSQL_ROW   row;
+	long        int_result;
+
+	/* open std args */
+	va_start (args, query);
+
+	/* create complete query */
+	complete_query = axl_stream_strdup_printfv (query, args);
+	if (complete_query == NULL) {
+		complete_query = __mod_auth_mysql_escape_query (query);
+		error ("Query failed, axl_stream_strdup_printfv reported error for query: %s\n", complete_query);
+		error ("Returning -1 at __mod_auth_mysql_run_query_as_long\n");
+		axl_free (complete_query);
+		return -1;
+	} /* end if */
+
+	/* close std args */
+	va_end (args);
+
+	/* clear query */
+	axl_stream_trim (complete_query);
+
+	/* run query */
+	result = mod_auth_mysql_run_query_s (ctx, dsn_node, complete_query);
+	if (result == NULL) {
+		/* get complete query */
+		axl_free (complete_query);
+		complete_query = __mod_auth_mysql_escape_query (query);
+		error ("Query failed: %s\n", complete_query);
+		axl_free (complete_query);
+		return -1; 
+	}
+	axl_free (complete_query);
+
+	/* get first row */
+	row = mysql_fetch_row (result);
+	if (row == NULL || row[0] == NULL || strlen (row[0]) == 0)
+		return 0;
+
+	/* get result */
+	int_result = strtol (row[0], NULL, 10);
+
+	/* release the result */
+	if (PTR_TO_INT (result) != axl_true)
+		mysql_free_result (result);
+
+	return int_result;
+}
+
+
 void __mod_auth_mysql_run_query_for_test (MyQttdCtx * ctx, const char * query)
 {
 	/* get dsn database configuration node */
@@ -328,7 +402,6 @@ void __mod_auth_mysql_run_query_for_test (MyQttdCtx * ctx, const char * query)
 
 	return;
 }
-
 
 /** 
  * @brief Allows to run the provided query reporting the result.
@@ -678,6 +751,7 @@ axl_bool     __mod_auth_mysql_auth_user (MyQttdCtx    * ctx,
 	axlNode   * dsn_node;
 	axl_bool    anonymous;
 	int         default_acl;
+	int         apply_message_quota;
 	char      * digest_password;
 	axl_bool    result;
 	int         user_id;
@@ -720,6 +794,10 @@ axl_bool     __mod_auth_mysql_auth_user (MyQttdCtx    * ctx,
 	/* get default domain acl */
 	default_acl = myqtt_support_strtod (__mod_auth_mysql_get_by_name (ctx, res, row, "default_acl"), NULL);
 	myqtt_conn_set_data (conn, "mod:mysql:auth:default_acl", INT_TO_PTR (default_acl));
+
+	/* get apply_message_quota */
+	apply_message_quota = myqtt_support_strtod (__mod_auth_mysql_get_by_name (ctx, res, row, "apply_message_quota"), NULL);
+	myqtt_conn_set_data (conn, "mod:mysql:auth:message_quota", INT_TO_PTR (apply_message_quota));
 
 	/* domain is defined in tables, let's continue, but first,
 	 * check for anonymous connections accepted for this domain */
@@ -973,7 +1051,9 @@ MyQttPublishCodes __mod_auth_mysql_on_publish (MyQttdCtx * ctx,       MyQttdDoma
 	MYSQL_RES           * users_acls  = NULL;
 	MYSQL_RES           * domain_acls = NULL;
 	MyQttPublishCodes     result;
-
+	int                   apply_message_quota;
+	long                  current_day_usage;
+	long                  current_month_usage;
 
 	/* get acls for domain requested */
 	domain_acls = mod_auth_mysql_run_query (ctx, dsn_node, "SELECT * FROM domain_acl WHERE is_active = '1' AND  domain_id = (SELECT id FROM domain WHERE is_active = '1' AND name = '%s')",
@@ -989,6 +1069,52 @@ MyQttPublishCodes __mod_auth_mysql_on_publish (MyQttdCtx * ctx,       MyQttdDoma
 	/* release memory */
 	mysql_free_result (users_acls);
 	mysql_free_result (domain_acls);
+
+	if (result == MYQTT_PUBLISH_OK && user_id > 0) {
+		/* check if record exists or not */
+		if (! __mod_auth_mysql_run_query_as_long (ctx, dsn_node, "SELECT count(*) FROM user_msg_tracking WHERE user_id = '%d'", user_id)) {
+			/* record does not exists, insert an empty one for this user */
+			mod_auth_mysql_run_query (ctx, dsn_node, "INSERT INTO user_msg_tracking (current_day_usage, current_month_usage, user_id) VALUES (0, 0, '%d')", user_id);
+		} /* end if */
+		
+		/* get current messages */
+		current_day_usage   = __mod_auth_mysql_run_query_as_long (ctx, dsn_node, "SELECT current_day_usage FROM user_msg_tracking WHERE user_id = '%d'", user_id);
+		if (current_day_usage >= 0)
+			current_day_usage++;
+		
+		current_month_usage = __mod_auth_mysql_run_query_as_long (ctx, dsn_node, "SELECT current_month_usage FROM user_msg_tracking WHERE user_id = '%d'", user_id);
+		if (current_month_usage >= 0)
+			current_month_usage++;
+
+		/* ok, operation ok, now track publish limits, it any */
+		apply_message_quota = PTR_TO_INT (myqtt_conn_get_data (conn, "mod:mysql:auth:message_quota"));
+		if (apply_message_quota) {
+			
+			/* limit here if quota has been reached */
+			if (current_day_usage > myqttd_domain_get_day_message_quota (domain)) {
+				/* report to the log */
+				error ("Publish rejected for user-id=%d, clientid=%s, username=%s, ip=%s, protocol=%s : daily quota has been reached (%d messages)",
+				       user_id,
+				       myqtt_conn_get_client_id (conn)  ? myqtt_conn_get_client_id (conn) : "",
+				       myqtt_conn_get_username (conn) ? myqtt_conn_get_username (conn) : "", myqtt_conn_get_host (conn), __mod_auth_mysql_get_protocol (conn), current_day_usage);
+				return MYQTT_PUBLISH_DISCARD;
+			} /* end if */
+
+			/* month check*/
+			if (current_month_usage > myqttd_domain_get_month_message_quota (domain)) {
+				/* report to the log */
+				error ("Publish rejected for user-id=%d, myqtt_conn_get_client_id (conn)=%s, username=%s, ip=%s, protocol=%s : monthly quota has been reached (%d messages)",
+				       user_id,
+				       myqtt_conn_get_client_id (conn)  ? myqtt_conn_get_client_id (conn) : "",
+				       myqtt_conn_get_username (conn) ? myqtt_conn_get_username (conn) : "", myqtt_conn_get_host (conn), __mod_auth_mysql_get_protocol (conn), current_day_usage);
+				return MYQTT_PUBLISH_DISCARD;
+			} /* end if */
+			
+		} /* end if */
+
+		/* reached this point, publish has not been limited by quota, update database database */
+		mod_auth_mysql_run_query (ctx, dsn_node, "UPDATE user_msg_tracking SET current_day_usage = current_day_usage + 1, current_month_usage = current_month_usage + 1 WHERE user_id = '%d'", user_id);
+	} /* end if */
 
 	/* call to report data...nice and clean code! how beatiful! */
 	return result;
@@ -1071,6 +1197,7 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 					     "default_acl", "int",
 					     "name", "varchar(512)",
 					     "anonymous", "int",
+					     "apply_message_quota", "int",
 					     "description", "text",
 					     NULL);
 
@@ -1091,6 +1218,17 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 					     "allow_mqtt_wss", "int",
 					     /* description */
 					     "description", "text",
+					     NULL);
+
+		/* user table */
+		mod_auth_mysql_ensure_table (ctx, dsn_node,
+					     "user_msg_tracking",
+					     "id", "autoincrement int",
+					     "user_id", "int",
+					     /* current day usage */
+					     "current_day_usage", "int", 
+					     /* current month usage */
+					     "current_month_usage", "int",
 					     NULL);
 
 		/* user log */
