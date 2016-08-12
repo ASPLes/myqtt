@@ -1216,6 +1216,10 @@ axl_bool myqttd_run_domain_settings_load (MyQttdCtx * ctx, axlDoc * doc)
 	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/storage-messages-limit", "int", &(ctx->default_setting->storage_messages_limit), -1);
 	/* storage-quota-limit */
 	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/storage-quota-limit", "int", &(ctx->default_setting->storage_quota_limit), -1);
+	/* month-message-quota */
+	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/month-message-quota", "int", &(ctx->default_setting->month_message_quota), -1);
+	/* day-message-quota */
+	__myqttd_run_get_value (ctx, doc, "/myqtt/domain-settings/global-settings/day-message-quota", "int", &(ctx->default_setting->day_message_quota), -1);
 
 	/* get first definition */
 	node = axl_doc_get (doc, "/myqtt/domain-settings/domain-setting");
@@ -1268,6 +1272,14 @@ axl_bool myqttd_run_domain_settings_load (MyQttdCtx * ctx, axlDoc * doc)
 		/* storage-quota-limit (meastured in KB: all values configured will be multiplied by 1024) */
 		__myqttd_run_get_value_by_node (ctx, node, "storage-quota-limit", "int", &(setting->storage_quota_limit),
 						ctx->default_setting->storage_quota_limit);
+
+		/* month-message-quota : number of messages allowed per month */
+		__myqttd_run_get_value_by_node (ctx, node, "month-message-quota", "int", &(setting->month_message_quota),
+						ctx->default_setting->month_message_quota);
+		
+		/* day-message-quota : number of messages allowed per month */
+		__myqttd_run_get_value_by_node (ctx, node, "day-message-quota", "int", &(setting->day_message_quota),
+						ctx->default_setting->day_message_quota);
 
 		/* get next module */
 		node = axl_node_get_next_called (node, "domain-setting");
