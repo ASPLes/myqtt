@@ -14,6 +14,9 @@
   - Users namespace isolation : different domains running with different settings
   - Support for security protocols MQTT-TLS and MQTT over TLS Websocket
   - Support to disable plain protocols MQTT and MQTT over WebSocket
+  - Support to disable wild cards for a given domain or globally
+    (forces subscribing users to "know" what to subscribe, removing
+    any "discovery" capability).
 
 * Finish mod-sql-injection-blocker
 
