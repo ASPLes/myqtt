@@ -55,6 +55,10 @@ axl_bool          myqttd_domain_add  (MyQttdCtx  * ctx,
 
 const char      * myqttd_domain_get_name (MyQttdDomain * domain);
 
+long              myqttd_domain_get_month_message_quota (MyQttdDomain * domain);
+
+long              myqttd_domain_get_day_message_quota (MyQttdDomain * domain);
+
 MyQttdDomain    * myqttd_domain_find_by_name (MyQttdCtx   * ctx,
 					      const char  * name);
 

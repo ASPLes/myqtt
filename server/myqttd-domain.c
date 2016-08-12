@@ -647,6 +647,50 @@ const char      * myqttd_domain_get_name (MyQttdDomain * domain)
 }
 
 /** 
+ * @brief Allows to get current month message quota currently
+ * configured for the given domain, according to its settings.
+ *
+ * @param domain A reference to the domain where the operation takes place.
+ *
+ * @return Current cuota or -1 if no cuota was configured. The
+ * function returns 0 if NULL domain reference is received.
+ */ 
+long              myqttd_domain_get_month_message_quota (MyQttdDomain * domain)
+{
+	/* check for null reference */
+	if (domain == NULL)
+		return 0;
+
+	/* check input values and report currently configured value */
+	if (domain && domain->settings)
+		return domain->settings->month_message_quota;
+	
+	return -1;
+}
+	
+/** 
+ * @brief Allows to get current day message quota currently
+ * configured for the given domain, according to its settings.
+ *
+ * @param domain A reference to the domain where the operation takes place.
+ *
+ * @return Current cuota or -1 if no cuota was configured. The
+ * function returns 0 if NULL domain reference is received.
+ */ 
+long              myqttd_domain_get_day_message_quota (MyQttdDomain * domain)
+{
+	/* check for null reference */
+	if (domain == NULL)
+		return 0;
+
+	/* check input values and report currently configured value */
+	if (domain && domain->settings)
+		return domain->settings->month_message_quota;
+	
+	return -1;
+}
+
+/** 
  * @brief Allows to get currently loaded users backend for the
  * provided domain (or NULL if nothing is still loaded).
  *
