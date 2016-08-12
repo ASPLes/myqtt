@@ -238,13 +238,13 @@ struct _MyQttdListenerActivatorData {
 struct _MyQttdDomainSetting {
 
 	/* operational limits or configurations */
-	axl_bool   require_auth;
-	axl_bool   restrict_ids;
-	axl_bool   drop_conn_same_client_id;
+	axl_bool    require_auth;
+	axl_bool    restrict_ids;
+	axl_bool    drop_conn_same_client_id;
 
 	/* connections and messages */
-	int        conn_limit;
-	int        message_size_limit;
+	int         conn_limit;
+	int         message_size_limit;
 
 	/* storage ilmits */
 	int         storage_messages_limit;
@@ -253,7 +253,11 @@ struct _MyQttdDomainSetting {
 	int         storage_quota_limit;
 
 	/* reference to disable_wild_card_support */
-	axl_bool       disable_wildcard_support;
+	axl_bool    disable_wildcard_support;
+
+	/* quota for number of messages per day and montly */
+	int         month_message_quota;
+	int         day_message_quota;
 	
 };
 
