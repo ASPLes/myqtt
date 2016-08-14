@@ -453,6 +453,13 @@ int main (int argc, char ** argv)
 		}
 	}
 
+	/* ensure tracking file is created and in place */
+	if (! __myqttd_ctx_ensure_day_month_in_place (ctx)) {
+		error ("Failed to create tracking file, please review permissions");
+		return -1;
+	} /* end if */
+	       
+
 	/* drop a log */
 	msg ("%sMyqttd STARTED OK (pid: %d, myqtt ctx refs: %d)", exarg_is_defined ("child") ? "CHILD: " : "", getpid (),
 	     myqtt_ctx_ref_count (myqtt_ctx));
