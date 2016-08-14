@@ -685,7 +685,7 @@ long              myqttd_domain_get_day_message_quota (MyQttdDomain * domain)
 
 	/* check input values and report currently configured value */
 	if (domain && domain->settings)
-		return domain->settings->month_message_quota;
+		return domain->settings->day_message_quota;
 	
 	return -1;
 }
