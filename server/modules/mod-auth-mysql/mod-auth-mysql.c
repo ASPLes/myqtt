@@ -1419,8 +1419,8 @@ static int  mod_auth_mysql_init (MyQttdCtx * _ctx)
 	/* myqttd_ctx_add_on_subscribe (ctx, __mod_auth_mysql_on_subscribe, NULL);  */
 
 	/* add on day and on month change notification */
-	myqttd_add_on_day_change (ctx, mod_auth_mysql_change_day, dsn_node);
-	myqttd_add_on_month_change (ctx, mod_auth_mysql_change_month, dsn_node);
+	myqttd_ctx_add_on_day_change (ctx, mod_auth_mysql_change_day, dsn_node);
+	myqttd_ctx_add_on_month_change (ctx, mod_auth_mysql_change_month, dsn_node);
 	
 	msg ("mod-auth-mysql started a ready\n");	
 	return axl_true;
