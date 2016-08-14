@@ -274,10 +274,9 @@ const char    * myqttd_ensure_str      (const char * string);
 
 long            myqttd_now (void);
 
-void            myqttd_add_on_day_change   (MyQttdCtx * ctx, MyQttdOnDateChange on_day_change, axlPointer ptr);
+long            myqttd_get_month (void);
 
-void            myqttd_add_on_month_change (MyQttdCtx * ctx, MyQttdOnDateChange on_day_change, axlPointer ptr);
-
+long            myqttd_get_day (void);
 
 #endif
 
