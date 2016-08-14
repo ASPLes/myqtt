@@ -414,6 +414,243 @@ axl_bool        myqttd_ctx_is_child       (MyQttdCtx * ctx)
 }
 
 /** 
+ * @brief Allows to notify day change on currently registered
+ * handlers.
+ *
+ * @param ctx The context where the operation will take place.
+ *
+ * @param new_value The new day to notify.
+ *
+ * @param item_type that is being notified.
+ */
+void myqttd_ctx_notify_date_change (MyQttdCtx * ctx, long new_value, MyQttdDateItem item_type)
+{
+	MyQttdHandlerPtr     * ptr;
+	int                    iterator;
+	MyQttdOnDateChange     on_day_change;
+	axlList              * list = NULL;
+
+	if (ctx == NULL)
+		return;
+
+	switch (item_type) {
+	case MYQTTD_DATE_ITEM_DAY:
+		list = ctx->on_day_change_handlers;
+		break;
+	case MYQTTD_DATE_ITEM_MONTH:
+		list = ctx->on_month_change_handlers;
+		break;
+	} /* end switch */
+
+	/* check to avoid working with a null reference */
+	if (! list) 
+		return;
+
+	/* iterate over all handlers */
+	iterator = 0;
+	while (iterator < axl_list_length (list)) {
+		/* get myqttd handler */
+		ptr = axl_list_get_nth (list, iterator);
+		if (ptr && ptr->handler) {
+			/* get the handler */
+			on_day_change = ptr->handler;
+			on_day_change (ctx, new_value, ptr->ptr);
+		} /* end if */
+
+		/* next iterator */
+		iterator++;
+	}
+
+	return;
+}
+
+void __myqttd_ctx_save_current_month_day (MyQttdCtx * ctx)
+{
+	char     * tracking_file = axl_strdup_printf ("%s/myqttd-time-tracking.xml", myqttd_runtime_datadir (ctx));
+	FILE     * _file;
+	char     * content;
+	
+	/* open file */
+	_file = fopen (tracking_file, "w");
+	if (! _file) {
+		error ("Failed to open file %s to write time tracking state, error was errno=%d (%s)",
+		       tracking_file, errno, myqtt_errno_get_error (errno));
+		axl_free (tracking_file);
+		return;
+	} /* end if */
+
+	/* create time tracking content */
+	content = axl_strdup_printf ("<time-tracking day='%d' month='%d' />", myqttd_get_day (), myqttd_get_month ());
+
+	/* write into the file, check result and report in case of failure */
+	if (! fwrite (content, 1, strlen (content), _file) != strlen (content))
+		error ("Failed to write time tracking content into %s, error was errno=%d (%s)",
+		       tracking_file, errno, myqtt_errno_get_error (errno));
+		
+	axl_free (content);
+	fclose (_file);
+	axl_free (tracking_file);
+	
+	return;
+}
+
+/** 
+ * @internal Function that ensures that we have a tracking file
+ * (myqttd-time-tracking.xml file) when myqttd server starts and every
+ * time this function is called. If the file exists, it does anything. 
+ *
+ * The function returns axl_true in the case everything finished ok
+ * (either because the file was created or because the file was
+ * there).
+ */
+axl_bool __myqttd_ctx_ensure_day_month_in_place (MyQttdCtx * ctx)
+{
+	axlDoc   * doc = NULL;
+	axlNode  * node;
+	axlError * err = NULL;
+	char     * tracking_file = axl_strdup_printf ("%s/myqttd-time-tracking.xml", myqttd_runtime_datadir (ctx));
+
+	/* check if the does not exists, in such case, go straight to
+	 * create a new one */
+	if (! myqtt_support_file_test (tracking_file, FILE_EXISTS)) {
+		/* file does not exists, create an empty one */
+		goto create_new_file;
+	} /* end if */
+	
+	/* parse from file */
+	doc = axl_doc_parse_from_file (tracking_file, &err);
+	if (doc == NULL) {
+		error ("Failed to open file %s to check time tracking, error was: %s, recovering and creating a new one..",
+		       tracking_file, axl_error_get (err));
+		axl_free (tracking_file);
+		axl_error_free (err);
+
+		/* recover corrupt file */
+		goto create_new_file;
+	} /* end if */
+	
+	if (doc) {
+		node = axl_doc_get (doc, "/time-tracking");
+		if (! node) 
+			goto create_new_file;
+		if (! HAS_ATTR (node, "day"))
+			goto create_new_file;
+		if (! HAS_ATTR (node, "month"))
+			goto create_new_file;
+
+		/* reached this point, everything is in place */
+		axl_doc_free (doc);
+		axl_free (tracking_file);
+		return axl_true; /* file in place */
+	} /* end if */
+
+create_new_file:
+	axl_doc_free (doc);
+	axl_free (tracking_file);
+
+	/* save current content */
+	__myqttd_ctx_save_current_month_day (ctx);
+	
+	return axl_true; 
+}
+
+void __myqttd_ctx_get_stored_month_day (MyQttdCtx  * ctx,
+					long       * month,
+					long       * day)
+{
+	axlDoc   * doc;
+	axlNode  * node;
+	axlError * err = NULL;
+	char     * tracking_file = axl_strdup_printf ("%s/myqttd-time-tracking.xml", myqttd_runtime_datadir (ctx));
+
+	/* set default values */
+	(*month) = 0;
+	(*day)   = 0;
+	
+	/* parse from file */
+	doc = axl_doc_parse_from_file (tracking_file, &err);
+	if (! doc) {
+		error ("Unable to get month and day values from %s, failed to parse content error was: %s",
+		       tracking_file, axl_error_get (err));
+		axl_error_free (err);
+		axl_free (tracking_file);
+		return;
+	} /* end if */
+
+	/* get node inside */
+	node = axl_doc_get (doc, "/time-tracking");
+	if (node && HAS_ATTR (node, "day") && HAS_ATTR (node, "month")) {
+		/* get month and day and set it */
+		(*month) = myqtt_support_strtod (ATTR_VALUE (node, "month"), NULL);
+		(*day)   = myqtt_support_strtod (ATTR_VALUE (node, "day"), NULL);
+	} /* end if */
+
+	/* release document */
+	axl_doc_free (doc);
+	axl_free (tracking_file);
+	return;
+	
+}
+
+
+#if defined(__MYQTTD_ENABLE_DEBUG_CODE__)
+/** 
+ * @internal Variable used by regression tests to ensure time tracking
+ * code is running and doing its function.
+ */
+long __myqttd_ctx_time_tracking_beacon = 0;
+#endif
+
+/** 
+ * @internal Handler that tracks and triggers that day or month have
+ * changed.
+ *
+ */
+axl_bool __myqttd_ctx_time_tracking        (MyQttCtx     * _ctx, 
+					    axlPointer     user_data,
+					    axlPointer     user_data2)
+{
+	MyQttdCtx          * ctx = user_data;
+	long                 stored_day;
+	long                 stored_month;
+
+	/* check if there is something stored and if not, store content */
+	__myqttd_ctx_ensure_day_month_in_place (ctx);
+	
+	/* get current day and month values */
+	__myqttd_ctx_get_stored_month_day (ctx, &stored_month, &stored_day);
+
+	if (stored_month != myqttd_get_month ()) {
+		/* ok, day changed, save it */
+		__myqttd_ctx_save_current_month_day (ctx);
+
+		/* notify */
+		msg ("MyQttd month change detected");
+		myqttd_ctx_notify_date_change (ctx, myqttd_get_month (), MYQTTD_DATE_ITEM_MONTH);
+
+	} /* end if */
+
+	if (stored_day != myqttd_get_day ()) {
+		/* ok, day changed, save it */
+		__myqttd_ctx_save_current_month_day (ctx);
+
+		/* notify */
+		msg ("Myqttd engine day change detected, notifying..");
+		myqttd_ctx_notify_date_change (ctx, myqttd_get_day (), MYQTTD_DATE_ITEM_DAY);
+		
+	} /* end if */
+
+#if defined(__MYQTTD_ENABLE_DEBUG_CODE__)
+	/* update number of calls */
+	__myqttd_ctx_time_tracking_beacon++;
+#endif
+
+	return axl_false; /* do not remove the event, please fire it
+			   * again in the future */
+}
+
+
+/** 
  * @brief Deallocates the myqttd context provided.
  * 
  * @param ctx The context reference to terminate.
@@ -467,5 +704,104 @@ void            myqttd_ctx_free (MyQttdCtx * ctx)
 
 	return;
 }
+
+void __myqttd_ctx_common_add_on_date_change (MyQttdCtx * ctx, MyQttdOnDateChange on_change, axlPointer ptr, MyQttdDateItem item_type)
+{
+	MyQttdHandlerPtr * data;
+
+	if (ctx == NULL || on_change == NULL)
+		return;
+
+	/* create the list to store handlers */
+	switch (item_type) {
+	case MYQTTD_DATE_ITEM_DAY:
+		if (! ctx->on_day_change_handlers) {
+			ctx->on_day_change_handlers = axl_list_new (axl_list_equal_ptr, axl_free);
+
+			/* check memory allocation */
+			if (! ctx->on_day_change_handlers) {
+				error ("Memory allocation for on day change handlers failed..");
+				return;
+			} /* end if */
+		} /* end if */
+		break;
+	case MYQTTD_DATE_ITEM_MONTH:
+		if (! ctx->on_month_change_handlers) {
+			ctx->on_month_change_handlers = axl_list_new (axl_list_equal_ptr, axl_free);
+
+			/* check memory allocation */
+			if (! ctx->on_month_change_handlers) {
+				error ("Memory allocation for on month change handlers failed..");
+				return;
+			} /* end if */
+		} /* end if */
+
+		break;
+	}
+
+	/* get holder */
+	data = axl_new (MyQttdHandlerPtr, 1);
+	if (! data) {
+		error ("Memory allocation for on day/month change handlers failed (2)..");
+		return;
+	}
+
+	/* store into list */
+	data->handler = on_change;
+	data->ptr     = ptr;
+
+	switch (item_type) {
+	case MYQTTD_DATE_ITEM_DAY:
+		axl_list_append (ctx->on_day_change_handlers, data);
+		break;
+	case MYQTTD_DATE_ITEM_MONTH:
+		axl_list_append (ctx->on_month_change_handlers, data);
+		break;
+	} /* end switch */
+
+	msg ("On date change added (month handlers: %d, day handlers: %d)", 
+	     axl_list_length (ctx->on_day_change_handlers), axl_list_length (ctx->on_month_change_handlers));
+
+	return;
+}
+
+
+
+/** 
+ * @brief Allows to add a handler to will be called every time a day
+ * change is detected.
+ *
+ * @param ctx The context where the operation will take place.
+ *
+ * @param on_day_change The change handler that will be called when
+ * the event is detected.
+ *
+ * @param ptr Pointer to user defined data.
+ */
+void myqttd_ctx_add_on_day_change (MyQttdCtx * ctx, MyQttdOnDateChange on_day_change, axlPointer ptr)
+{
+	/* add handler as day change notifier */
+	__myqttd_ctx_common_add_on_date_change (ctx, on_day_change, ptr, MYQTTD_DATE_ITEM_DAY);
+	return;
+}
+
+/** 
+ * @brief Allows to add a handler to will be called every time a month
+ * change is detected.
+ *
+ * @param ctx The context where the operation will take place.
+ *
+ * @param on_month_change The change handler that will be called when
+ * the event is detected.
+ *
+ * @param ptr Pointer to user defined data.
+ */
+void myqttd_ctx_add_on_month_change (MyQttdCtx * ctx, MyQttdOnDateChange on_month_change, axlPointer ptr)
+{
+	/* add handler as month change notifier */
+	__myqttd_ctx_common_add_on_date_change (ctx, on_month_change, ptr, MYQTTD_DATE_ITEM_MONTH);
+	return;
+}
+
 
 /* @} */
