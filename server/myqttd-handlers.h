@@ -308,7 +308,7 @@ typedef MyQttConn * (*MyQttdListenerActivator) (MyQttdCtx  * ctx,
  *
  * @param new_value The new value being notified: may it be day or month value.
  *
- * @param user_data User defined pointer to be defined at \ref valvulad_add_on_day_change
+ * @param user_data User defined pointer to be defined at \ref myqttd_ctx_add_on_day_change
  */
 typedef void (*MyQttdOnDateChange) (MyQttdCtx * ctx, long new_value, axlPointer user_data);
 
