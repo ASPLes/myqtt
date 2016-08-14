@@ -1172,20 +1172,20 @@ MyQttPublishCodes __mod_auth_mysql_on_publish (MyQttdCtx * ctx,       MyQttdDoma
 			/* limit here if quota has been reached */
 			if (current_day_usage > myqttd_domain_get_day_message_quota (domain)) {
 				/* report to the log */
-				error ("Publish rejected for user-id=%d, clientid=%s, username=%s, ip=%s, protocol=%s : daily quota has been reached (%d messages)",
-				       user_id,
-				       myqtt_conn_get_client_id (conn)  ? myqtt_conn_get_client_id (conn) : "",
-				       myqtt_conn_get_username (conn) ? myqtt_conn_get_username (conn) : "", myqtt_conn_get_host (conn), __mod_auth_mysql_get_protocol (conn), current_day_usage);
+				msg ("Publish rejected for user-id=%d, clientid=%s, username=%s, ip=%s, protocol=%s : daily quota has been reached (%d messages)",
+				     user_id,
+				     myqtt_conn_get_client_id (conn)  ? myqtt_conn_get_client_id (conn) : "",
+				     myqtt_conn_get_username (conn) ? myqtt_conn_get_username (conn) : "", myqtt_conn_get_host (conn), __mod_auth_mysql_get_protocol (conn), current_day_usage);
 				return MYQTT_PUBLISH_DISCARD;
 			} /* end if */
 
 			/* month check*/
 			if (current_month_usage > myqttd_domain_get_month_message_quota (domain)) {
 				/* report to the log */
-				error ("Publish rejected for user-id=%d, clientid=%s, username=%s, ip=%s, protocol=%s : monthly quota has been reached (%d messages)",
-				       user_id,
-				       myqtt_conn_get_client_id (conn)  ? myqtt_conn_get_client_id (conn) : "",
-				       myqtt_conn_get_username (conn) ? myqtt_conn_get_username (conn) : "", myqtt_conn_get_host (conn), __mod_auth_mysql_get_protocol (conn), current_month_usage);
+				msg ("Publish rejected for user-id=%d, clientid=%s, username=%s, ip=%s, protocol=%s : monthly quota has been reached (%d messages)",
+				     user_id,
+				     myqtt_conn_get_client_id (conn)  ? myqtt_conn_get_client_id (conn) : "",
+				     myqtt_conn_get_username (conn) ? myqtt_conn_get_username (conn) : "", myqtt_conn_get_host (conn), __mod_auth_mysql_get_protocol (conn), current_month_usage);
 				return MYQTT_PUBLISH_DISCARD;
 			} /* end if */
 			
