@@ -244,6 +244,9 @@ axl_bool  myqttd_init (MyQttdCtx   * ctx,
 	/* init domain module */
 	myqttd_domain_init (ctx);
 
+	/* install event to track day and month change */
+	myqtt_thread_pool_new_event (ctx->myqtt_ctx, 2000000, __myqttd_ctx_time_tracking, ctx, NULL);
+
 	/* init ok */
 	return axl_true;
 } /* end if */
@@ -1558,117 +1561,34 @@ long     myqttd_now (void)
 }
 
 /** 
- * @brief Valvula date item that allows selecting which item must be
- * configured or notified.
+ * @brief Allows to get current month.
+ *
+ * @return Current month reported.
  */
-typedef enum {
-	/** 
-	 * @brief Changes and configurations that refers to day.
-	 */
-	MYQTTD_DATE_ITEM_DAY = 1,
-	/** 
-	 * @brief Chnages and configurations that refers to month.
-	 */
-	MYQTTD_DATE_ITEM_MONTH = 2,
-} MyQttdDateItem;
-
-
-void __myqttd_common_add_on_date_change (MyQttdCtx * ctx, MyQttdOnDateChange on_change, axlPointer ptr, MyQttdDateItem item_type)
+long         myqttd_get_month (void)
 {
-	MyQttdHandlerPtr * data;
-
-	if (ctx == NULL || on_change == NULL)
-		return;
-
-	/* create the list to store handlers */
-	switch (item_type) {
-	case MYQTTD_DATE_ITEM_DAY:
-		if (! ctx->on_day_change_handlers) {
-			ctx->on_day_change_handlers = axl_list_new (axl_list_equal_ptr, axl_free);
-
-			/* check memory allocation */
-			if (! ctx->on_day_change_handlers) {
-				error ("Memory allocation for on day change handlers failed..");
-				return;
-			} /* end if */
-		} /* end if */
-		break;
-	case MYQTTD_DATE_ITEM_MONTH:
-		if (! ctx->on_month_change_handlers) {
-			ctx->on_month_change_handlers = axl_list_new (axl_list_equal_ptr, axl_free);
-
-			/* check memory allocation */
-			if (! ctx->on_month_change_handlers) {
-				error ("Memory allocation for on month change handlers failed..");
-				return;
-			} /* end if */
-		} /* end if */
-
-		break;
-	}
-
-	/* get holder */
-	data = axl_new (MyQttdHandlerPtr, 1);
-	if (! data) {
-		error ("Memory allocation for on day/month change handlers failed (2)..");
-		return;
-	}
-
-	/* store into list */
-	data->handler = on_change;
-	data->ptr     = ptr;
-
-	switch (item_type) {
-	case MYQTTD_DATE_ITEM_DAY:
-		axl_list_append (ctx->on_day_change_handlers, data);
-		break;
-	case MYQTTD_DATE_ITEM_MONTH:
-		axl_list_append (ctx->on_month_change_handlers, data);
-		break;
-	} /* end switch */
-
-	msg ("On date change added (month handlers: %d, day handlers: %d)", 
-	     axl_list_length (ctx->on_day_change_handlers), axl_list_length (ctx->on_month_change_handlers));
-
-	return;
-}
-
-
-
-/** 
- * @brief Allows to add a handler to will be called every time a day
- * change is detected.
- *
- * @param ctx The context where the operation will take place.
- *
- * @param on_day_change The change handler that will be called when
- * the event is detected.
- *
- * @param ptr Pointer to user defined data.
- */
-void myqttd_add_on_day_change (MyQttdCtx * ctx, MyQttdOnDateChange on_day_change, axlPointer ptr)
-{
-	/* add handler as day change notifier */
-	__myqttd_common_add_on_date_change (ctx, on_day_change, ptr, MYQTTD_DATE_ITEM_DAY);
-	return;
+	time_t      t;
+	struct tm * tmp;
+	
+	t = time(NULL);
+	tmp = localtime (&t);
+	
+	return tmp->tm_mon;
 }
 
 /** 
- * @brief Allows to add a handler to will be called every time a month
- * change is detected.
+ * @brief Allows to get current day.
  *
- * @param ctx The context where the operation will take place.
- *
- * @param on_month_change The change handler that will be called when
- * the event is detected.
- *
- * @param ptr Pointer to user defined data.
+ * @return Current day reported.
  */
-void myqttd_add_on_month_change (MyQttdCtx * ctx, MyQttdOnDateChange on_month_change, axlPointer ptr)
+long         myqttd_get_day (void)
 {
-	/* add handler as month change notifier */
-	__myqttd_common_add_on_date_change (ctx, on_month_change, ptr, MYQTTD_DATE_ITEM_MONTH);
-	return;
+	 time_t      t;
+	 struct tm * tmp;
+	 
+	 t = time(NULL);
+	 tmp = localtime (&t);
+	 return tmp->tm_mday;
 }
 
 
