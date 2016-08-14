@@ -115,6 +115,22 @@ typedef enum {
 	MYQTTD_INIT_HANDLER   = 3,
 } MyQttdModHandler;
 
+/** 
+ * @brief Valvula date item that allows selecting which item must be
+ * configured or notified.
+ */
+typedef enum {
+	/** 
+	 * @brief Changes and configurations that refers to day.
+	 */
+	MYQTTD_DATE_ITEM_DAY = 1,
+	/** 
+	 * @brief Chnages and configurations that refers to month.
+	 */
+	MYQTTD_DATE_ITEM_MONTH = 2,
+} MyQttdDateItem;
+
+
 #endif
 
 /** 
