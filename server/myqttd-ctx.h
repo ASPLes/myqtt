@@ -94,8 +94,26 @@ void            myqttd_ctx_wait           (MyQttdCtx * ctx,
 
 axl_bool        myqttd_ctx_is_child       (MyQttdCtx * ctx);
 
-void            myqttd_ctx_free           (MyQttdCtx * ctx);
+void            myqttd_ctx_notify_date_change    (MyQttdCtx * ctx, long new_value, MyQttdDateItem item_type);
+
+void            myqttd_ctx_add_on_day_change     (MyQttdCtx * ctx, MyQttdOnDateChange on_day_change, axlPointer ptr);
+
+void            myqttd_ctx_add_on_month_change   (MyQttdCtx * ctx, MyQttdOnDateChange on_day_change, axlPointer ptr);
+
+
+void            myqttd_ctx_free                  (MyQttdCtx * ctx);
 
 /* @} */
+
+/* @internal time tracking functions */
+axl_bool        __myqttd_ctx_ensure_day_month_in_place (MyQttdCtx * ctx);
+
+axl_bool        __myqttd_ctx_time_tracking             (MyQttCtx     * _ctx, 
+							axlPointer     user_data,
+							axlPointer     user_data2);
+
+void            __myqttd_ctx_get_stored_month_day      (MyQttdCtx  * ctx,
+							long       * month,
+							long       * day);
 
 #endif
