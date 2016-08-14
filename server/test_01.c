@@ -3377,6 +3377,143 @@ axl_bool  test_21 (void) {
 	return axl_true;
 }
 
+void __test_22_on_day_change (MyQttdCtx * ctx, long new_value, axlPointer user_data)
+{
+	MyQttAsyncQueue * queue = user_data;
+	printf ("Test 22: on DAY change handler called with new-value=%ld (current %ld)\n", new_value, myqttd_get_day ());
+	myqtt_async_queue_push (queue, INT_TO_PTR (new_value));
+	return;
+}
+
+void __test_22_on_month_change (MyQttdCtx * ctx, long new_value, axlPointer user_data)
+{
+	MyQttAsyncQueue * queue = user_data;
+	printf ("Test 22: on MONTH change handler called with new-value=%ld (current %ld)\n", new_value, myqttd_get_month ());
+	myqtt_async_queue_push (queue, INT_TO_PTR (new_value));
+	return;
+}
+
+
+axl_bool test_22 (void) {
+
+	MyQttdCtx       * ctx;
+	long              month;
+	long              day;
+	MyQttCtx        * myqtt_ctx;
+	MyQttAsyncQueue * queue;
+	long              value;
+	extern long       __myqttd_ctx_time_tracking_beacon;
+	long              tracking_status;
+	int               iterator;
+	
+	/* remove file */
+	myqtt_ctx = myqtt_ctx_new ();
+	myqtt_mkdir (myqtt_ctx, "reg-test-22/", 0700);
+	myqtt_ctx_free (myqtt_ctx);
+
+	/* remove file if exists */
+	myqttd_unlink ("reg-test-22/myqttd-time-tracking.xml");
+	
+	/* call to init the base library and close it */
+	printf ("Test 22: init library and server engine..\n");
+	ctx       = common_init_ctxd (NULL, "test_22.conf");
+	if (ctx == NULL) {
+		printf ("Test 00: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 22: checking run time data dir location: %s\n", myqttd_runtime_datadir (ctx));
+	
+	printf ("Test 22: creating day month in place...\n");
+	if (! __myqttd_ctx_ensure_day_month_in_place (ctx)) {
+		printf ("Test 22: failed to create tracking file..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 22: get values from it..\n");
+	__myqttd_ctx_get_stored_month_day (ctx, &month, &day);
+
+	if (month != myqttd_get_month ()) {
+
+		printf ("Test 22: expected to find same MONTH value (%ld != %ld) reported by myqttd_get_month () and stored\n",
+			month, myqttd_get_month ());
+		return axl_false;
+		
+	} /* end if */
+
+	if (day != myqttd_get_day ()) {
+
+		printf ("Test 22: expected to find same DAY value (%ld != %ld) reported by myqttd_get_day () and stored\n",
+			day, myqttd_get_day ());
+		return axl_false;
+		
+	} /* end if */
+
+	/* now register some handlers to ensure they are called */
+	queue = myqtt_async_queue_new ();
+	myqttd_ctx_add_on_day_change (ctx, __test_22_on_day_change, queue);
+	myqttd_ctx_add_on_month_change (ctx, __test_22_on_month_change, queue);
+
+	/* notify day change */
+	printf ("Test 22: notify day change ... (manual notification)..\n");
+	myqttd_ctx_notify_date_change (ctx, 14, MYQTTD_DATE_ITEM_DAY);
+
+	printf ("Test 22: notify month change ... (manual notification)..\n");
+	myqttd_ctx_notify_date_change (ctx, 6, MYQTTD_DATE_ITEM_MONTH);
+
+	printf ("Test 22: waiting for pushed values..\n");
+	value = PTR_TO_INT (myqtt_async_queue_pop (queue));
+	printf ("Test 22: value received=%ld (1)\n", value);
+	if (value != 14 && value != 6) {
+		printf ("Expected to receive different value..\n");
+		return axl_false;
+	} /* end if */
+
+	value = PTR_TO_INT (myqtt_async_queue_pop (queue));
+	printf ("Test 22: value received=%ld (2)\n", value);
+	if (value != 14 && value != 6) {
+		printf ("Expected to receive different value..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 22: now ensuring tracking code executes, currently with: %ld...\n", __myqttd_ctx_time_tracking_beacon);
+	tracking_status = __myqttd_ctx_time_tracking_beacon;
+	while (axl_true) {
+		printf ("Test 22: waiting 3 seconds...\n");
+		myqtt_sleep (3000000);
+		if (__myqttd_ctx_time_tracking_beacon > tracking_status) {
+			printf ("Test 22: found tracking beacon code updated from %ld to %ld...nice!\n",
+				tracking_status, __myqttd_ctx_time_tracking_beacon);
+			break;
+		} /* end if */
+	}
+	
+
+	/* unref queue */
+	myqtt_async_queue_unref (queue);
+
+	/* finish server */
+	printf ("Test 22: finishing context..\n");
+	myqttd_exit (ctx, axl_true, axl_true);
+
+	printf ("Test 22: now ensuring tracking code do not execute, currently with: %ld...\n", __myqttd_ctx_time_tracking_beacon);
+	tracking_status = __myqttd_ctx_time_tracking_beacon;
+	iterator = 0;
+	while (iterator < 2) {
+		printf ("Test 22: waiting 3 seconds...\n");
+		myqtt_sleep (3000000);
+		if (__myqttd_ctx_time_tracking_beacon != tracking_status) {
+			printf ("ERROR: Test 22: found tracking beacon code updated from %ld to %ld...AFTER stopping context..something is failing!\n",
+				tracking_status, __myqttd_ctx_time_tracking_beacon);
+			return axl_false;
+		} /* end if */
+
+		/* next step */
+		iterator++;
+	}
+
+	return axl_true;
+}
 
 
 #define CHECK_TEST(name) if (run_test_name == NULL || axl_cmp (run_test_name, name))
@@ -3555,6 +3692,9 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_21")
 	run_test (test_21, "Test 21: check auth mysql backend ");
+
+	CHECK_TEST("test_22")
+	run_test (test_22, "Test 22: time tracking (day and month change) ");
 
 	/* check support to limit amount of subscriptions a user can
 	 * do */
