@@ -45,8 +45,11 @@
  * names. */
 BEGIN_C_DECLS
 
-MyQttdCtx * ctx = NULL;
-axlDoc    * mod_ssl_conf = NULL;
+MyQttdCtx * ctx             = NULL;
+axlDoc    * mod_ssl_conf    = NULL;
+axl_bool    __mod_ssl_debug = axl_false;  /* set <mod-ssl debug='yes'>
+					   * .. to enable this, at
+					   * /etc/myqtt/ssl/ssl.conf */
 
 /** MyQttdUsersUnloadDb **/
 void __mod_ssl_unload (MyQttdCtx * ctx, 
@@ -74,6 +77,27 @@ axlNode * __mod_ssl_get_default_certificate (MyQttdCtx * ctx, MyQttCtx * my_ctx)
 	/* reached this point no certificate is flagged as default,
 	   then return first */
 	return axl_doc_get (mod_ssl_conf, "/mod-ssl/certificates/cert");
+}
+
+axlNode *  __mod_ssl_get_certificate_node_by_name (MyQttdCtx * ctx, const char * serverName)
+{
+	axlNode * node;
+
+	node = axl_doc_get (mod_ssl_conf, "/mod-ssl/certificates/cert");
+	if (node == NULL)
+		return NULL;
+	while (node) {
+		if (axl_cmp (serverName, ATTR_VALUE (node, "serverName"))) {
+			/* node found, report it */
+			return node;
+		} /* end if */
+
+		/* get next <cert> node */
+		node = axl_node_get_next_called (node, "cert");
+	} /* end while */
+
+	/* reached this point no certificate was found, so report NULL */
+	return NULL;
 }
 
 
@@ -118,6 +142,66 @@ MyQttConn * __mod_ssl_start_listener (MyQttdCtx * ctx, MyQttCtx * my_ctx, axlNod
 	return listener; /* basic configuration done */
 }
 
+char * __mod_ssl_sni_common_handler (MyQttCtx   * myqtt_ctx,
+				     MyQttConn  * conn,
+				     const char * serverName,
+				     axlPointer   user_data,
+				     const char * attr_name)
+{
+	MyQttdCtx * ctx = user_data;
+	axlNode   * node;
+
+	/* find certificate node by Name */
+	node = __mod_ssl_get_certificate_node_by_name (ctx, serverName);
+	if (! node) {
+		wrn ("No certificate was found for serverName=%s, requeted by connecting ip=%s",
+		     serverName, myqtt_conn_get_host_ip (conn));
+		return NULL; /* no node certificate was found, finish
+			      * here */
+	} /* end if */
+
+	if (! HAS_ATTR (node, attr_name)) {
+		wrn ("No certificate was found for serverName=%s, requeted by connecting ip=%s, node %s attribute was not defined",
+		     serverName, myqtt_conn_get_host_ip (conn), attr_name);
+		return NULL; /* no crt attr was found, finish here */
+	} /* end if */
+
+	/* ok, now report certificate location */
+	if (__mod_ssl_debug)
+		msg ("Reporting certificate %s=%s for serverName=%s", attr_name, ATTR_VALUE (node, attr_name), serverName);
+
+	/* report certificate */
+	return axl_strdup (ATTR_VALUE (node, attr_name));
+}
+
+char * __mod_ssl_sni_certificate_handler (MyQttCtx   * myqtt_ctx,
+					  MyQttConn  * conn,
+					  const char * serverName,
+					  axlPointer   user_data)
+{
+	/* find and report certificate according to serverName */
+	return __mod_ssl_sni_common_handler (myqtt_ctx, conn, serverName, user_data, "crt");
+}
+
+char * __mod_ssl_sni_private_handler (MyQttCtx   * myqtt_ctx,
+				      MyQttConn  * conn,
+				      const char * serverName,
+				      axlPointer   user_data)
+{
+	/* find and report private according to serverName */
+	return __mod_ssl_sni_common_handler (myqtt_ctx, conn, serverName, user_data, "key");
+}
+
+char * __mod_ssl_chain_certificate_handler  (MyQttCtx   * myqtt_ctx,
+					     MyQttConn  * conn,
+					     const char * serverName,
+					     axlPointer   user_data)
+{
+	/* find and report chain certificate according to serverName */
+	return __mod_ssl_sni_common_handler (myqtt_ctx, conn, serverName, user_data, "chain");
+}
+
+
 /** 
  * @brief Init function, perform all the necessary code to register
  * handlers, configure MyQtt, and any other init task. The function
@@ -128,6 +212,7 @@ static int  mod_ssl_init (MyQttdCtx * _ctx)
 {
 	char     * config;
 	axlError * err = NULL;
+	axlNode  * node;
 
 	/* configure the module */
 	MYQTTD_MOD_PREPARE (_ctx);
@@ -153,11 +238,23 @@ static int  mod_ssl_init (MyQttdCtx * _ctx)
 	} /* end if */
 	axl_free (config);
 
-	/* regster listener activator */
+	/* setup ssl debug */
+	node            = axl_doc_get (mod_ssl_conf, "mod-ssl");
+	__mod_ssl_debug = (node && HAS_ATTR_VALUE (node, "debug", "yes"));
+
+	/* register listener activator: make myqttd server to support the following protocols: mqtt-tls, tls, ssl and mqtt-ssl */
 	myqttd_ctx_add_listener_activator (ctx, "mqtt-tls", __mod_ssl_start_listener, NULL);
 	myqttd_ctx_add_listener_activator (ctx, "tls", __mod_ssl_start_listener, NULL);
 	myqttd_ctx_add_listener_activator (ctx, "ssl", __mod_ssl_start_listener, NULL);
 	myqttd_ctx_add_listener_activator (ctx, "mqtt-ssl", __mod_ssl_start_listener, NULL);
+
+	/* install handlers for SNI support: certificate selection
+	 * based on Server Name Indication */
+	myqtt_tls_listener_set_certificate_handlers (MYQTTD_MYQTT_CTX (ctx),
+						     __mod_ssl_sni_certificate_handler,
+						     __mod_ssl_sni_private_handler,
+						     __mod_ssl_chain_certificate_handler,
+						     ctx);
 	
 	return axl_true;
 }
@@ -236,15 +333,21 @@ END_C_DECLS
  *
  * \htmlinclude ssl.example.conf.tmp
  *
- * As you can see, the ssl.conf include a list of certificates
- * associated to the <b>serverName</b> (the common name requested
- * through SNI, or Host: header requested through the WebSocket
- * bridge).
+ * This file (ssl.conf) includes a list of certificates associated to
+ * the <b>serverName</b> (the common name requested through SNI, or
+ * Host: header requested through the WebSocket bridge).
  *
  * The first certificate declared as <b>default="yes"</b> will be used
  * in the case no serverName matches. If no certificate is declared as
  * such, the first certificate on the list will be used as default
  * certificate.
+ *
+ * \section myqttd_mod_ssl_enable_debug Enabling mod-ssl debug
+ *
+ * You can enable debug flag so mod-ssl module will drop more logs
+ * into the console and logs. For that just set <b>debug='yes'</b>
+ * inside top <b>&lt;mod-ssl></b> node, at the ssl.conf, usually
+ * located at /etc/myqtt/ssl/ssl.conf
  * 
  *
  */
