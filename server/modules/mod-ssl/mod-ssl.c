@@ -228,6 +228,7 @@ static int  mod_ssl_init (MyQttdCtx * _ctx)
 	} /* end if */
 
 	/* try to load configuration */
+	msg ("mod-ssl: opening configuration file at: %s", config);
 	mod_ssl_conf = axl_doc_parse_from_file (config, &err);
 	if (config == NULL) {
 		error ("Unable to load configuration from %s, axl_doc_parse_from_file failed: %s",
