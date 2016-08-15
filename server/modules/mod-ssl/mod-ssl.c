@@ -154,14 +154,14 @@ char * __mod_ssl_sni_common_handler (MyQttCtx   * myqtt_ctx,
 	/* find certificate node by Name */
 	node = __mod_ssl_get_certificate_node_by_name (ctx, serverName);
 	if (! node) {
-		wrn ("No certificate was found for serverName=%s, requeted by connecting ip=%s",
+		wrn ("No certificate was found for serverName=%s, requested by connecting ip=%s",
 		     serverName, myqtt_conn_get_host_ip (conn));
 		return NULL; /* no node certificate was found, finish
 			      * here */
 	} /* end if */
 
 	if (! HAS_ATTR (node, attr_name)) {
-		wrn ("No certificate was found for serverName=%s, requeted by connecting ip=%s, node %s attribute was not defined",
+		wrn ("No certificate was found for serverName=%s, requested by connecting ip=%s, node %s attribute was not defined",
 		     serverName, myqtt_conn_get_host_ip (conn), attr_name);
 		return NULL; /* no crt attr was found, finish here */
 	} /* end if */
