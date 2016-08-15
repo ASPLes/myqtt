@@ -1611,7 +1611,7 @@ axl_bool  test_10 (void) {
 	MyQttdDomain    * domain;
 
 	/* call to init the base library and close it */
-	printf ("Test 10: init library and server engine (using test_02.conf)..\n");
+	printf ("Test 10: init library and server engine (using test_10.conf)..\n");
 	ctx       = common_init_ctxd (NULL, "test_10.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
@@ -2137,7 +2137,7 @@ axl_bool  test_11 (void) {
 	} /* end if */
 
 	/* call to init the base library and close it */
-	printf ("Test 11: init library and server engine (using test_02.conf)..\n");
+	printf ("Test 11: init library and server engine (using test_10.conf)..\n");
 	ctx       = common_init_ctxd (NULL, "test_10.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
@@ -2269,7 +2269,7 @@ axl_bool  test_12 (void) {
 	} /* end if */
 
 	/* call to init the base library and close it */
-	printf ("Test 12: init library and server engine (using test_02.conf)..\n");
+	printf ("Test 12: init library and server engine (using test_12.conf)..\n");
 	ctx       = common_init_ctxd (NULL, "test_12.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
@@ -2393,7 +2393,7 @@ axl_bool  test_13 (void) {
 	} /* end if */
 
 	/* call to init the base library and close it */
-	printf ("Test 13: init library and server engine (using test_02.conf)..\n");
+	printf ("Test 13: init library and server engine (using test_12.conf)..\n");
 	ctx       = common_init_ctxd (NULL, "test_12.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
@@ -2531,7 +2531,7 @@ axl_bool  test_14 (void) {
 	/* MyQttdDomain    * domain;*/
 
 	/* call to init the base library and close it */
-	printf ("Test 14: init library and server engine (using test_02.conf)..\n");
+	printf ("Test 14: init library and server engine (using test_12.conf)..\n");
 	ctx       = common_init_ctxd (NULL, "test_12.conf");
 	if (ctx == NULL) {
 		printf ("Test 00: failed to start library and server engine..\n");
