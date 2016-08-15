@@ -139,7 +139,7 @@ static int  mod_web_socket_init (MyQttdCtx * _ctx)
 						  myqtt_support_build_filename (myqttd_sysconfdir (ctx), "myqtt", "web-socket", NULL));
 	config = myqtt_support_domain_find_data_file (MYQTTD_MYQTT_CTX (_ctx), "web-socket", "web-socket.conf");
 	if (config == NULL) {
-		error ("Unable to find ssl.conf file under expected locations, failed to activate Web-Socket support (try checking %s/myqtt/web-socket/web-socket.conf)",
+		error ("Unable to find web-socket.conf file under expected locations, failed to activate Web-Socket support (try checking %s/myqtt/web-socket/web-socket.conf)",
 		       myqttd_sysconfdir (ctx));
 		return axl_false;
 	} /* end if */
