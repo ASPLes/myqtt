@@ -22,6 +22,9 @@
 
 --== things that should be reviewed ==--
 
+* Add support to get a list of subscribed topics, by domain, and user...
+  Only for users authorized..
+
 * Review https://dzone.com/refcardz/getting-started-with-mqtt and
   get in contact with the author to get MyQtt included.
 
