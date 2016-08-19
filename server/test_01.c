@@ -92,7 +92,10 @@ void write_content_into_file (const char * file, const char * content)
 		printf ("ERROR: failed to open file %s, error was errno%d\n", file, errno);
 		exit (-1);
 	} /* end if */
-	fwrite (content, 1, strlen (content), f);
+	if (fwrite (content, 1, strlen (content), f) != strlen (content)) {
+	        printf ("ERROR: fwrite () reported different content than expected..\n");
+		exit (-1);
+	}
 	fclose (f);
 
 	
