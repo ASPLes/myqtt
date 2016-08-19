@@ -8,7 +8,7 @@ INCLUDE_WEBSOCKET_FLAGS=-DENABLE_WEBSOCKET_SUPPORT $(NOPOLL_CFLAGS) -I$(top_srcd
 INCLUDE_WEBSOCKET_LIBS=$(NOPOLL_LIBS) $(top_builddir)/web-socket/libmyqtt-web-socket-1.0.la 
 endif
 
-EXTRA_DIST = mod-auth-mysql.xml  
+EXTRA_DIST = mod-auth-mysql.xml mysql.example.xml
 
 INCLUDES = -Wall -g -ansi -I../.. -I../../../lib/ -DCOMPILATION_DATE=`date +%s` \
 	   -DVERSION=\"$(MYQTTD_VERSION)\" \

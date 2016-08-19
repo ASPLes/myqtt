@@ -122,6 +122,10 @@ Requires: libmyqtt-1.0
   /usr/bin/myqttd
   /etc/myqtt/mods-available
   /etc/myqtt/myqtt.example.conf
+  /etc/myqtt/domains.d/skeleton.conf
+  /etc/myqtt/plans.d/basic.conf
+  /etc/myqtt/plans.d/no-limits.conf
+  /etc/myqtt/plans.d/standard.conf
 %post -n myqttd-server
 chkconfig myqtt on
 if [ ! -d /etc/myqtt/mods-enabled ]; then
@@ -190,7 +194,7 @@ Requires: libmyqtt-tls-1.0
 TLS extension support for libMyQtt (develpment headers)
 %files -n libmyqtt-tls-1.0-dev
   /usr/include/myqtt/myqtt-tls.h
-
+  /usr/lib64/pkgconfig/myqtt-tls-1.0.pc
 
 # libmyqtt-websocket-1.0 package
 %package -n libmyqtt-websocket-1.0
@@ -220,7 +224,7 @@ Requires: libmyqtt-websocket-1.0
 WebSocket extension support for libMyQtt (develpment headers)
 %files -n libmyqtt-websocket-1.0-dev
   /usr/include/myqtt/myqtt-web-socket.h
-
+  /usr/lib64/pkgconfig/myqtt-web-socket-1.0.pc
 
 # myqtt-client-1.0 package
 %package -n myqtt-client-1.0
@@ -243,6 +247,7 @@ Requires: python
 %description  -n python-myqtt
 MyQtt command line client
 %files -n python-myqtt
+%if 0%{?el6}
   /usr/lib/python2.6/site-packages/myqtt/__init__.py
   /usr/lib/python2.6/site-packages/myqtt/__init__.pyc
   /usr/lib/python2.6/site-packages/myqtt/__init__.pyo
@@ -250,6 +255,16 @@ MyQtt command line client
   /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_10.so
   /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_10.so.0
   /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_10.so.0.0.0
+%endif
+%if 0%{?el7}
+  /usr/lib/python2.7/site-packages/myqtt/__init__.py
+  /usr/lib/python2.7/site-packages/myqtt/__init__.pyc
+  /usr/lib/python2.7/site-packages/myqtt/__init__.pyo
+  /usr/lib/python2.7/site-packages/myqtt/libpy_myqtt_10.a
+  /usr/lib/python2.7/site-packages/myqtt/libpy_myqtt_10.so
+  /usr/lib/python2.7/site-packages/myqtt/libpy_myqtt_10.so.0
+  /usr/lib/python2.7/site-packages/myqtt/libpy_myqtt_10.so.0.0.0
+%endif
 
 # python-myqtt-dev package
 %package -n python-myqtt-dev
@@ -278,6 +293,7 @@ Requires: python
 %description  -n python-myqtt-tls
 Python bindings for libMyQtt TLS
 %files -n python-myqtt-tls
+%if 0%{?el6}
   /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_tls_10.so.0
   /usr/lib/python2.6/site-packages/myqtt/tls.py
   /usr/lib/python2.6/site-packages/myqtt/tls.pyc
@@ -285,6 +301,16 @@ Python bindings for libMyQtt TLS
   /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_tls_10.so.0.0.0
   /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_tls_10.so
   /usr/lib/python2.6/site-packages/myqtt/libpy_myqtt_tls_10.a
+%endif
+%if 0%{?el7}
+  /usr/lib/python2.7/site-packages/myqtt/libpy_myqtt_tls_10.so.0
+  /usr/lib/python2.7/site-packages/myqtt/tls.py
+  /usr/lib/python2.7/site-packages/myqtt/tls.pyc
+  /usr/lib/python2.7/site-packages/myqtt/tls.pyo
+  /usr/lib/python2.7/site-packages/myqtt/libpy_myqtt_tls_10.so.0.0.0
+  /usr/lib/python2.7/site-packages/myqtt/libpy_myqtt_tls_10.so
+  /usr/lib/python2.7/site-packages/myqtt/libpy_myqtt_tls_10.a
+%endif
 
 
 # libmyqttd-server-1.0 package
@@ -315,6 +341,20 @@ Extension auth plugin to provide auth-xml backend
   /usr/lib/myqtt/modules/mod-auth-xml.so
   /etc/myqtt/mods-available/mod-auth-xml.xml
 
+# myqttd-mod-auth-mysql package
+%package -n myqttd-mod-auth-mysql
+Summary: Extension auth plugin to provide auth MySQL backend
+Group: System Environment/Libraries
+Requires: libmyqtt-1.0
+%description  -n myqttd-mod-auth-mysql
+Extension auth plugin to provide auth-mysql backend
+%files -n myqttd-mod-auth-mysql
+  /usr/lib/myqtt/modules/mod-auth-mysql.a
+  /usr/lib/myqtt/modules/mod-auth-mysql.so.0
+  /usr/lib/myqtt/modules/mod-auth-mysql.so.0.0.0
+  /usr/lib/myqtt/modules/mod-auth-mysql.so
+  /etc/myqtt/mods-available/mod-auth-mysql.xml
+  /etc/myqtt/mysql/mysql.example.xml
 
 # myqttd-mod-ssl package
 %package -n myqttd-mod-ssl
