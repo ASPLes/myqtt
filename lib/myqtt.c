@@ -1100,8 +1100,8 @@ void myqtt_exit_ctx (MyQttCtx * ctx, axl_bool  free_ctx)
 	 * 
 	 * In the past, this call was done, however, it is showed that
 	 * user applications on top of myqtt that wants to handle
-	 * signals, emitted to all threads running (including the pool)
-	 * causes many non-easy to solve problem related to race
+	 * signals, emitted to all threads running (including the
+	 * pool) causes many non-easy to solve problem related to race
 	 * conditions.
 	 * 
 	 * At the end, to release the thread pool is not a big
