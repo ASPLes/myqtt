@@ -1835,7 +1835,7 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	if (msg->qos == MYQTT_QOS_1 || msg->qos == MYQTT_QOS_2) {
 
 		/** 
-		 *		Req        Resp      Req        Resp
+		 *		Req        Resp          Req        Resp
 		 *
 		 * QoS 0 :   PUBLISH ->  no reply
 		 *
@@ -1888,7 +1888,6 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 
 		/* set packet id in reply */
 		myqtt_set_16bit (msg->packet_id, reply + 2);
-
 
 		/* send message */
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Sending reply %s (%d) to packet-id=%d, conn-id=%d (%p)", 
