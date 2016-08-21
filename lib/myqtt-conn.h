@@ -123,7 +123,7 @@ axl_bool            myqtt_conn_ping            (MyQttConn           * conn,
 
 axl_bool            myqtt_conn_close           (MyQttConn  * conn);
 
-MyQttConnOpts     * myqtt_conn_opts_new (void);
+MyQttConnOpts     * myqtt_conn_opts_new        (void);
 
 void                myqtt_conn_opts_set_auth (MyQttConnOpts * opts, 
 					      const    char * username, 
