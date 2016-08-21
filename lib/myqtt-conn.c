@@ -3084,8 +3084,9 @@ axl_bool            myqtt_conn_ping            (MyQttConn           * conn,
  * @brief Allows to cleanly close the connection by sending the
  * DISCONNECT control packet.
  *
- * After the connection is closed it mustn't be used. If no other
- * references are acquired to the connection, it is then released. 
+ * After the connection is closed it must not be used. If no other
+ * references are acquired to the connection, it is then released
+ * (resources).
  *
  * In the case the connection is a listener or a master listener, it
  * is just closed without sending DISCONNECT message.
@@ -3100,6 +3101,7 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
 	int             refcount = 0;
 	unsigned char * msg;
 	int             size;
+	int             timeout;
 
 #if defined(ENABLE_MYQTT_LOG)
 	MyQttCtx * ctx;
@@ -3124,6 +3126,9 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
 	connection->close_called = axl_true;
 	myqtt_mutex_unlock (&connection->op_mutex);
 
+	/* get timeout to limit close operation internally */
+	timeout = myqtt_conn_get_timeout (ctx);
+
 	/* release connection options if they were configured having
 	   reconnect enabled and reuse disabled */
 	if (connection && connection->opts) {
@@ -3135,18 +3140,32 @@ axl_bool                    myqtt_conn_close                  (MyQttConn * conne
 
 	/* ensure that all messages were sent before closing the
 	 * connection in the case it is found to be working */
-	while (connection->sequencer_messages > 0 && myqtt_conn_is_ok (connection, axl_false)) {
+	while (timeout > 0 && connection->sequencer_messages > 0 && myqtt_conn_is_ok (connection, axl_false)) {
 
 		if (connection->sequencer_messages > 0) {
 
 			/* still pending messages, wait a little bit */
+			timeout = timeout - 10000;
 			myqtt_sleep (10000);
+			
 
 			continue;
 		}
 		break; /* messages pending are zero */
 	}
 
+	/** ensure that all wait and peer replies are satisfied ***/
+	while (timeout > 0 && myqtt_conn_is_ok (connection, axl_false)) {
+		if (axl_hash_items (connection->wait_replies) > 0 || axl_hash_items (connection->peer_wait_replies) > 0) {
+			/* still pending messages, wait a little bit */
+			timeout = timeout - 10000;
+			myqtt_sleep (10000);
+			continue;
+		} /* end if */
+
+		break; /* reached this point no wait replies or peer wait replies there */
+	} /* end while */
+	
 	/* close this connection */
 	if (myqtt_conn_is_ok (connection, axl_false) && connection->role == MyQttRoleInitiator) {
 		myqtt_log (MYQTT_LEVEL_DEBUG, "closing a connection id=%d", connection->id);
