@@ -103,7 +103,7 @@ void myqtt_thread_pool_set_num             (int  number);
 int  myqtt_thread_pool_get_num             (void);
 
 void myqtt_thread_pool_set_exclusive_pool  (MyQttCtx        * ctx,
-					     axl_bool           value);
+					     axl_bool         value);
 
 /* internal API */
 void myqtt_thread_pool_add_internal        (MyQttCtx        * ctx, 
