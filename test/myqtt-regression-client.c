@@ -3165,13 +3165,14 @@ axl_bool test_17c_common (const char * label, const char * topic, const char * m
 	myqtt_msg_unref (msg);
 
 	/* close connection and release message */
+	printf ("Test %s: closing connnection=%p, conn-id=%d (peer-wait-replies=%d, wait-replies=%d) \n",
+		label, conn, myqtt_conn_get_id (conn), axl_hash_items (conn->peer_wait_replies), axl_hash_items (conn->wait_replies));
 	myqtt_conn_close (conn);
 
 	/* release queue */
 	myqtt_async_queue_unref (queue);
 
 	/* release context */
-	printf ("Test %s: releasing context..\n", label);
 	myqtt_exit_ctx (ctx, axl_true);
 
 	return axl_true;
