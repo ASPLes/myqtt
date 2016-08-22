@@ -5852,15 +5852,5 @@ void                __myqtt_conn_shutdown_and_record_error (MyQttConn     * conn
 	return;
 }
 
-void myqtt_conn_report_and_close (MyQttConn * conn, const char * msg)
-{
-	MyQttCtx * ctx;
-	ctx = conn->ctx;
-	myqtt_log (MYQTT_LEVEL_CRITICAL, "%s from conn-id=%d from %s:%s, closing connection..", 
-		   msg, conn->id, conn->host, conn->port);
-	myqtt_conn_shutdown (conn);
-	return;
-}
-
 /* @} */
 
