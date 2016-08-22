@@ -229,6 +229,52 @@ axlPointer __myqtt_sequencer_run (axlPointer _data)
 					   data->type, size, data->message_size, data->step, errno); 
 				goto release_message;
 			} /* end if */
+
+			/* if (conn->role == MyQttRoleListener && data->type == MYQTT_PUBCOMP) {
+				printf ("PUBCOMP: message sent (myqtt_msg_send_raw) did not report error, conn-id=%d, conn=%p, ctx=%p, conn-status=%d, errno=%d, size=%d, step=%d..\n",
+					conn->id, conn, ctx, myqtt_conn_is_ok (conn, axl_false), errno, size, data->step);
+				printf ("byte 1 (%c) = %d %d %d %d  %d %d %d %d\n",
+					data->message[0],
+					myqtt_get_bit (data->message[0], 7),
+					myqtt_get_bit (data->message[0], 6),
+					myqtt_get_bit (data->message[0], 5),
+					myqtt_get_bit (data->message[0], 4),
+					myqtt_get_bit (data->message[0], 3),
+					myqtt_get_bit (data->message[0], 2),
+					myqtt_get_bit (data->message[0], 1),
+					myqtt_get_bit (data->message[0], 0));
+				printf ("byte 2 (%c) = %d %d %d %d  %d %d %d %d\n",
+					data->message[1],
+					myqtt_get_bit (data->message[1], 7),
+					myqtt_get_bit (data->message[1], 6),
+					myqtt_get_bit (data->message[1], 5),
+					myqtt_get_bit (data->message[1], 4),
+					myqtt_get_bit (data->message[1], 3),
+					myqtt_get_bit (data->message[1], 2),
+					myqtt_get_bit (data->message[1], 1),
+					myqtt_get_bit (data->message[1], 0));
+				printf ("byte 3 (%c) = %d %d %d %d  %d %d %d %d\n",
+					data->message[2],
+					myqtt_get_bit (data->message[2], 7),
+					myqtt_get_bit (data->message[2], 6),
+					myqtt_get_bit (data->message[2], 5),
+					myqtt_get_bit (data->message[2], 4),
+					myqtt_get_bit (data->message[2], 3),
+					myqtt_get_bit (data->message[2], 2),
+					myqtt_get_bit (data->message[2], 1),
+					myqtt_get_bit (data->message[2], 0));
+				printf ("byte 3 (%c) = %d %d %d %d  %d %d %d %d\n",
+					data->message[3],
+					myqtt_get_bit (data->message[3], 7),
+					myqtt_get_bit (data->message[3], 6),
+					myqtt_get_bit (data->message[3], 5),
+					myqtt_get_bit (data->message[3], 4),
+					myqtt_get_bit (data->message[3], 3),
+					myqtt_get_bit (data->message[3], 2),
+					myqtt_get_bit (data->message[3], 1),
+					myqtt_get_bit (data->message[3], 0));
+					} */
+			
 			
 			/* increase step */
 			data->step += size;
