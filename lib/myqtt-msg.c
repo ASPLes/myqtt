@@ -212,16 +212,16 @@ axl_bool myqtt_msg_encode_remaining_length (MyQttCtx * ctx, unsigned char * inpu
  */
 int      myqtt_msg_decode_remaining_length (MyQttCtx * ctx, unsigned char * input, int * out_position)
 {
-	int multiplier = 1;
-	int value = 0;
-	int iterator = 0;
+	int           multiplier   = 1;
+	int           value        = 0;
+	int           iterator     = 0;
 	unsigned char encoded_byte;
 
 	do {
 		/* myqtt_log (MYQTT_LEVEL_DEBUG, "%d) current value is %d", iterator, value); */
 		encoded_byte = input[iterator];
-		value += (encoded_byte & 0x7f) * multiplier;
-		multiplier = multiplier * 128;
+		value       += (encoded_byte & 0x7f) * multiplier;
+		multiplier   = multiplier * 128;
 		if (iterator > 3)
 			return -1;
 
@@ -572,6 +572,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	unsigned char  * buffer = NULL;
 	MyQttCtx       * ctx    = myqtt_conn_get_ctx (connection);
 	int              iterator;
+	MyQttMsgType     msg_type;
 
 	/* check here port sharing for this connection before reading
 	 * the content. The function returns axl_true if the
@@ -604,8 +605,10 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 			myqtt_msg_free (msg);
 			axl_free (buffer);
 
-			connection->buffer     = NULL;
-			connection->last_msg = NULL;
+			connection->buffer          = NULL;
+			connection->last_msg        = NULL;
+			connection->remaining_bytes = 0;
+			connection->bytes_read      = 0;
 
 			__myqtt_conn_shutdown_and_record_error (
 				connection, MyQttProtocolError, 
@@ -633,8 +636,10 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 		 * to restore expected state of bytes_read. */
 		bytes_read = msg->size;
 
-		connection->buffer     = NULL;
-		connection->last_msg = NULL;
+		connection->buffer          = NULL;
+		connection->last_msg        = NULL;
+		connection->remaining_bytes = 0;
+		connection->bytes_read      = 0;
 
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Incoming message + buffer complete (expected to receive %d, which completes total size: %d)", remaining, msg->size);
 		goto process_buffer;
@@ -642,6 +647,22 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	
 	/* parse msg header, read the first line */
 	bytes_read = myqtt_msg_receive_raw (connection, header, 2);
+
+	/* bytes read debugging code */
+	/* printf ("Bytes read: %d\n", bytes_read);
+	if (bytes_read == 2) {
+		printf ("byte 2 (%c) = %d %d %d %d  %d %d %d %d\n",
+			header[1],
+			myqtt_get_bit (header[1], 7),
+			myqtt_get_bit (header[1], 6),
+			myqtt_get_bit (header[1], 5),
+			myqtt_get_bit (header[1], 4),
+			myqtt_get_bit (header[1], 3),
+			myqtt_get_bit (header[1], 2),
+			myqtt_get_bit (header[1], 1),
+			myqtt_get_bit (header[1], 0));
+			} */
+	
 	if (bytes_read == -2) {
 
 	no_data_was_found:
@@ -733,8 +754,44 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 
 	/* report content received */
 	iterator  = 0;
+	msg_type  = (header[0] & 0xf0) >> 4;
 	remaining = myqtt_msg_decode_remaining_length (ctx, header + 1, &iterator);
 	myqtt_log (MYQTT_LEVEL_DEBUG, "New packet received, header size indication is: %d (iterator=%d)", remaining, iterator);
+
+	/* check message size reported by header is right */
+	if (remaining == -1) {
+		__myqtt_conn_shutdown_and_record_error (
+			connection, MyQttProtocolError, "Received a header indication with a wrong message size header-byte-2=%d", header[1]);
+		return NULL;
+	} /* end if */
+
+	if (msg_type == MYQTT_PUBACK ||
+	    msg_type == MYQTT_PUBREC ||
+	    msg_type == MYQTT_PUBCOMP ||
+	    msg_type == MYQTT_PUBREL) {
+		if (remaining != 2) {
+			/* debug header code */
+			/* printf ("byte 2 (%c) = %d %d %d %d  %d %d %d %d, remaining = %d\n",
+				header[1],
+				myqtt_get_bit (header[1], 7),
+				myqtt_get_bit (header[1], 6),
+				myqtt_get_bit (header[1], 5),
+				myqtt_get_bit (header[1], 4),
+				myqtt_get_bit (header[1], 3),
+				myqtt_get_bit (header[1], 2),
+				myqtt_get_bit (header[1], 1),
+				myqtt_get_bit (header[1], 0),
+				remaining); */
+			
+			/* close connection because remaining bytes
+			 * indicated in the header does not match with
+			 * the expected value */
+			__myqtt_conn_shutdown_and_record_error (
+				connection, MyQttProtocolError, "Received a MQTT msg %s with header indication with remaining bytes=%d when expected 2 bytes",
+				myqtt_msg_get_type_str2 (msg_type), remaining);
+			return NULL;
+		} /* end if */
+	} /* end if */
 	
 	/* create a msg */
 	msg = axl_new (MyQttMsg, 1);
@@ -749,15 +806,14 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	myqtt_mutex_create (&(msg->mutex));
 
 	/* report the message type and qos */
-	msg->type    = (header[0] & 0xf0) >> 4;
+	msg->type    = msg_type;
 	msg->qos     = (header[0] & 0x06) >> 1;
 	msg->dup     = myqtt_get_bit (header[0], 3);
 	msg->retain  = myqtt_get_bit (header[0], 0);
 
-
 	/* check qos value here */
 	if (msg->qos < MYQTT_QOS_0 || msg->qos > MYQTT_QOS_2) {
-		myqtt_conn_report_and_close (connection, "Received a message with an unsupported QoS. It is not 0, 1 nor 2");
+		__myqtt_conn_shutdown_and_record_error (connection, MyQttProtocolError, "Received a message with an unsupported QoS. It is not 0, 1 nor 2");
 		myqtt_mutex_destroy (&(msg->mutex));
 		axl_free (msg);
 		return NULL;
@@ -769,7 +825,7 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 	if (ctx->on_header) {
 		/* call defined on header */
 		if (! ctx->on_header (ctx, connection, msg, ctx->on_header_data)) {
-			myqtt_conn_report_and_close (connection, "On header rejected message, closing connection");
+			__myqtt_conn_shutdown_and_record_error (connection, MyQttConnectionForcedClose, "On header rejected message, closing connection");
 			myqtt_mutex_destroy (&(msg->mutex));
 			axl_free (msg);
 			return NULL;
@@ -829,6 +885,8 @@ MyQttMsg * myqtt_msg_get_next     (MyQttConn * connection)
 		
 		/* save remaining bytes */
 		connection->remaining_bytes = msg->size - bytes_read;
+		/* printf ("myqtt_msg_get_next (conn-id=%d): configured remaining_bytes=%d  (msg->size=%d - bytes_read=%d)\n",
+		   connection->id, connection->remaining_bytes, msg->size, bytes_read); */
 
 		/* save read bytes */
 		connection->bytes_read      = bytes_read;
@@ -948,9 +1006,9 @@ const char  * myqtt_msg_get_type_str2         (MyQttMsgType  type)
 axl_bool             myqtt_msg_send_raw     (MyQttConn * connection, const unsigned char  * a_msg, int  msg_size)
 {
 
-	MyQttCtx  * ctx    = myqtt_conn_get_ctx (connection);
-	int          bytes  = 0;
- 	int          total  = 0;
+	MyQttCtx  * ctx       = myqtt_conn_get_ctx (connection);
+	int          bytes    = 0;
+ 	int          total    = 0;
 	char       * error_msg;
  	int          fds;
  	int          wait_result;
@@ -968,8 +1026,8 @@ axl_bool             myqtt_msg_send_raw     (MyQttConn * connection, const unsig
  		if ((errno == MYQTT_EWOULDBLOCK) || (errno == MYQTT_EAGAIN) || (bytes == -2)) {
  		implement_retry:
  			myqtt_log (MYQTT_LEVEL_WARNING, 
- 				    "unable to write data to socket (requested %d but written %d), socket not is prepared to write, doing wait",
- 				    msg_size, total);
+				   "Unable to write data to socket (requested %d but written %d), socket not is prepared to write, doing wait",
+				   msg_size, total);
  
  			/* create and configure waiting set */
  			if (on_write == NULL) {
@@ -1174,8 +1232,6 @@ void          _myqtt_msg_free (MyQttMsg * msg, const char * caller)
 
 	if (msg == NULL)
 		return;
-
-	/* printf ("%s : releasing %p\n", caller, msg); */
 
 	/* free msg payload (first checking for content, and, if not
 	 * defined, then payload) */
