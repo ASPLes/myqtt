@@ -389,9 +389,6 @@ axl_bool               myqtt_conn_ref_internal           (MyQttConn   * conn,
 void                   myqtt_conn_set_initial_accept     (MyQttConn   * conn,
 							  axl_bool      status);
 
-void                   myqtt_conn_report_and_close       (MyQttConn   * conn, 
-							  const char  * msg);
-
 axl_bool               __myqtt_conn_pub_send_and_handle_reply (MyQttCtx      * ctx, 
 							       MyQttConn     * conn, 
 							       int             packet_id, 
