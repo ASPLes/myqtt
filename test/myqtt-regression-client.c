@@ -3130,6 +3130,7 @@ axl_bool test_17c_common (const char * label, const char * topic, const char * m
 	myqtt_conn_set_on_msg (conn, test_03_on_message, queue);
 
 	/* publish a message with retention */
+	printf ("Test %s: sending message over conn-id=%d, conn=%p, ctx=%p, size=%d, qos=%d\n", label, conn->id, conn, ctx, (int) strlen (msg_content), qos);
 	if (! myqtt_conn_pub (conn, topic, (axlPointer) msg_content, strlen (msg_content), qos, retain_flag, 10)) {
 		printf ("ERROR -- %s (line %d): unable to publish retained message.. myqtt_conn_pub () failed..\n",
 			label, __AXL_LINE__);
