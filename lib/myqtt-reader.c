@@ -1073,7 +1073,6 @@ void __myqtt_reader_handle_disconnect (MyQttCtx * ctx, MyQttMsg * msg, MyQttConn
 void __myqtt_reader_handle_wait_reply (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg * msg, axlPointer _data)
 {
 	MyQttAsyncQueue        * queue;
-	char                   * str;
 
  	/* check if this is a listener */
 	if (conn->role != MyQttRoleInitiator) {
@@ -1083,9 +1082,7 @@ void __myqtt_reader_handle_wait_reply (MyQttCtx * ctx, MyQttConn * conn, MyQttMs
 		case MYQTT_PINGRESP:
 
 			/* create message, report, release and stop  */
-			str = axl_strdup_printf ("Received %s request over a connection that is not an initiator", myqtt_msg_get_type_str (msg));
-			myqtt_conn_report_and_close (conn, str);
-			axl_free (str);
+			__myqtt_conn_shutdown_and_record_error (conn, MyQttProtocolError, "Received %s request over a connection that is not an initiator", myqtt_msg_get_type_str (msg));
 			return;
 
 		default:
@@ -1104,17 +1101,17 @@ void __myqtt_reader_handle_wait_reply (MyQttCtx * ctx, MyQttConn * conn, MyQttMs
 		myqtt_log (MYQTT_LEVEL_CRITICAL, "%s message size=%d without header and remaining length is insufficient", myqtt_msg_get_type_str (msg), msg->size);
 
 		if (msg->type == MYQTT_SUBACK)
-			myqtt_conn_report_and_close (conn, "Received poorly formed SUBACK request that do not contains bare minimum bytes");
+			__myqtt_conn_shutdown_and_record_error (conn, MyQttProtocolError, "Received poorly formed SUBACK request that do not contains bare minimum bytes");
 		else if (msg->type == MYQTT_UNSUBACK)
-			myqtt_conn_report_and_close (conn, "Received poorly formed UNSUBACK request that do not contains bare minimum bytes");
+			__myqtt_conn_shutdown_and_record_error (conn, MyQttProtocolError, "Received poorly formed UNSUBACK request that do not contains bare minimum bytes");
 		else if (msg->type == MYQTT_PINGRESP)
-			myqtt_conn_report_and_close (conn, "Received poorly formed PINGRESP request that contains unexpected content");
+			__myqtt_conn_shutdown_and_record_error (conn, MyQttProtocolError, "Received poorly formed PINGRESP request that contains unexpected content");
 		else if (msg->type == MYQTT_PUBACK)
-			myqtt_conn_report_and_close (conn, "Received poorly formed PUBACK request that contains unexpected content");
+			__myqtt_conn_shutdown_and_record_error (conn, MyQttProtocolError, "Received poorly formed PUBACK request that contains unexpected content");
 		else if (msg->type == MYQTT_PUBREC)
-			myqtt_conn_report_and_close (conn, "Received poorly formed PUBREC request that contains unexpected content");
+			__myqtt_conn_shutdown_and_record_error (conn, MyQttProtocolError, "Received poorly formed PUBREC request that contains unexpected content");
 		else if (msg->type == MYQTT_PUBCOMP)
-			myqtt_conn_report_and_close (conn, "Received poorly formed PUBCOMP request that contains unexpected content");
+			__myqtt_conn_shutdown_and_record_error (conn, MyQttProtocolError, "Received poorly formed PUBCOMP request that contains unexpected content");
 
 		return;
 	} /* end if */
@@ -1176,7 +1173,7 @@ void __myqtt_reader_handle_wait_reply (MyQttCtx * ctx, MyQttConn * conn, MyQttMs
 		myqtt_mutex_unlock (&conn->op_mutex);
 
 		/* too late, unable to deliver message to wait reply */
-		myqtt_log (MYQTT_LEVEL_WARNING, 
+		myqtt_log (MYQTT_LEVEL_CRITICAL, 
 			   "Received a %s message but queue to handle reply wasn't ready to acquire a reference (myqtt_async_queue_ref() failed)...it seems we arrived too late or packet id=%d do not match anything on our side",
 			   myqtt_msg_get_type_str (msg), msg->packet_id);
 		return;
@@ -1765,6 +1762,8 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	/***
 	 * @internal Reached this point, we can continue with the operation.
 	 */
+	/* if (conn->role == MyQttRoleListener)
+	   printf ("PUBLISH: received conn-id=%d, conn=%p, ctx=%p, size=%d, qos=%d\n",  conn->id, conn, ctx, msg->app_message_size, msg->qos); */
 
 	/* now, for QoS1 we have to reply with a puback */
 	if (msg->qos == MYQTT_QOS_2) {
@@ -1846,6 +1845,9 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 		 */
 
 		if (msg->qos == MYQTT_QOS_2) {
+			/* if (conn->role == MyQttRoleListener)
+			   printf ("PUBREL: waiting for PUBREL conn-id=%d, conn=%p, ctx=%p\n", conn->id, conn, ctx); */
+			
 			/* get PUBREL as reply of our last PUBREC message */
 			myqtt_log (MYQTT_LEVEL_DEBUG, "Waiting for PUBREL reply for packet-id=%d conn-id=%d (%p)", msg->packet_id, conn->id, conn);
 			response = __myqtt_reader_get_reply (conn, msg->packet_id, 60, axl_true);
@@ -1893,6 +1895,8 @@ void __myqtt_reader_handle_publish (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Sending reply %s (%d) to packet-id=%d, conn-id=%d (%p)", 
 			   (msg->qos == MYQTT_QOS_1) ? "PUBACK" : "PUBCOMP", reply[1], msg->packet_id, conn->id, conn);
 
+		/* if (conn->role == MyQttRoleListener && msg->qos == MYQTT_QOS_2)
+		   printf ("PUBCOMP: sending PUBCOMP to conn-id=%d, conn=%p, ctx=%p,\n", conn->id, conn, ctx); */
 		if (! myqtt_sequencer_send (conn, (msg->qos == MYQTT_QOS_1) ? MYQTT_PUBACK : MYQTT_PUBCOMP, reply, 4))
 			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to send %s message, errno=%d", (msg->qos == MYQTT_QOS_1) ? "PUBACK" : "PUBCOMP", errno);
 
@@ -1947,29 +1951,47 @@ void __myqtt_reader_process_socket (MyQttCtx  * ctx,
 {
 
 	MyQttMsg         * msg;
+	/* char               temp_buffer[10024];
+	   int                temp_buffer_bytes_read; 
+	   MyQttMsgType       msg_type = -1; */
 
-	myqtt_log (MYQTT_LEVEL_DEBUG, "something to read conn-id=%d", myqtt_conn_get_id (conn));
+	/* temp_buffer_bytes_read = recv (conn->session, temp_buffer, 10023, MSG_PEEK | MSG_DONTWAIT);
+	if (temp_buffer_bytes_read > 0) {
+		msg_type = (temp_buffer[0] & 0xf0) >> 4;
+		printf ("Something to read conn-id=%d, remaining_bytes=%d, bytes_read=%d : %s (size: %d)\n",
+			myqtt_conn_get_id (conn), conn->remaining_bytes, conn->bytes_read, conn->remaining_bytes > 0 ? "DATA" : myqtt_msg_get_type_str2 (msg_type), temp_buffer_bytes_read);
+			} */
+	
 
 	/* before doing anything, check if the conn is broken */
-	if (! myqtt_conn_is_ok (conn, axl_false))
+	if (! myqtt_conn_is_ok (conn, axl_false)) {
+		/* printf ("Not handling (1) : %s\n", myqtt_msg_get_type_str2 (msg_type)); */
 		return;
+	}
 
 	/* check for unwatch requests */
-	if (conn->reader_unwatch) 
+	if (conn->reader_unwatch) {
+		/* printf ("Not handling (2) : %s\n", myqtt_msg_get_type_str2 (msg_type)); */
 		return;
+	}
 
 	/* check for preread handler */
 	if (conn->preread_handler) {
 		/* call pre read handler */
 		conn->preread_handler (ctx, myqtt_conn_get_data (conn, "_vo:li:master"), conn, conn->opts, conn->preread_user_data);
+		/* printf ("Not handling (3) : %s\n", myqtt_msg_get_type_str2 (msg_type)); */
 		return;
 	} /* end if */
 
 	/* read all msgs received from remote site */
 	msg   = myqtt_msg_get_next (conn);
-	if (msg == NULL) 
+	if (msg == NULL)  {
+		/* printf ("Not handling (4), remaining_bytes=%d, bytes_read=%d : %s\n", conn->remaining_bytes, conn->bytes_read, myqtt_msg_get_type_str2 (msg_type)); */
 		return;
+	}
 
+	/* printf ("myqtt_msg_get_next (conn), remaining_bytes=%d, bytes_read=%d, conn-id=%d : %s\n", conn->remaining_bytes, conn->bytes_read, myqtt_conn_get_id (conn), myqtt_msg_get_type_str (msg)); */
+	
 	/* myqtt_log (MYQTT_LEVEL_DEBUG, "Handling message received %p, type: %s", msg, myqtt_msg_get_type_str (msg)); */
 
 	/* according to message type, handle it */
@@ -2011,10 +2033,14 @@ void __myqtt_reader_process_socket (MyQttCtx  * ctx,
 		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_wait_reply, axl_false);
 		break;
 	case MYQTT_PUBREL:
+		/* if (conn->role == MyQttRoleListener)
+		   printf ("PUBREL: received conn-id=%d, conn=%p, ctx=%p\n",  conn->id, conn, ctx); */
 		/* handle PUBREC packet */
 		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_wait_reply, axl_false);
 		break;
 	case MYQTT_PUBCOMP:
+		/* if (conn->role == MyQttRoleInitiator)
+		   printf ("PUBCOMP: received conn-id=%d, conn=%p, ctx=%p\n", conn->id, conn, ctx); */
 		/* handle PUBCOMP packet */
 		__myqtt_reader_async_run (conn, msg, __myqtt_reader_handle_wait_reply, axl_false);
 		break;
@@ -2395,10 +2421,12 @@ MyQttMsg  * __myqtt_reader_get_reply          (MyQttConn * conn, int packet_id, 
 			   axl_check_undef (conn->host), 
 			   axl_check_undef (conn->port), conn->session);
 	} else if (msg == NULL && timeout_reached) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "QUEUE: timeout reached waiting for packet_id=%d with fqueue=%p over conn-id=%d conn=%p, conn-status=%d from %s:%s (socket: %d)", 
+		gettimeofday (&now, NULL);
+		myqtt_log (MYQTT_LEVEL_CRITICAL, "QUEUE: timeout reached waiting for packet_id=%d with fqueue=%p over conn-id=%d conn=%p, conn-status=%d from %s:%s (socket: %d), started: %ld, finished: %ld", 
 			   packet_id, queue, conn->id, conn, myqtt_conn_is_ok (conn, axl_false),
 			   axl_check_undef (conn->host), 
-			   axl_check_undef (conn->port), conn->session);
+			   axl_check_undef (conn->port), conn->session,
+			   start.tv_sec, now.tv_sec);
 	} else if (msg == NULL) {
 		myqtt_log (MYQTT_LEVEL_CRITICAL, 
 			   "QUEUE: connection failed during wait for packet_id=%d with queue=%p over conn-id=%d conn=%p, conn-status=%d from %s:%s (socket: %d)", 
