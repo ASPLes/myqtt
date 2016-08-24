@@ -156,11 +156,21 @@ def install_arguments():
     help_message     = "Easy config options are a standard and easy way to (re)configure your MyQttd server in a quick and controlled way. Currently we support the following modes: %s Use -x for additional information" % easy_config_keys
     parser.add_option("-e", "--easy-config", dest="easy_config", metavar="INSTALL-OPTION",
                       help=help_message)
-    parser.add_option("-y", "--assume-yes", dest="assume_yes", action="store_true", default=False,
-                      help="Signal the tool to assume 'yes' response to all security and warning questions")
+    parser.add_option ("-x", "--explain-easy-config", dest="explain_easy_config", action="store_true", default=False)
+
+    # run time options
     parser.add_option("-d", "--debug", dest="show_some_debug", action="store_true", default=False,
                       help="Allows to make the tool to show some debug while operating")
-    parser.add_option ("-x", "--explain-easy-config", dest="explain_easy_config", action="store_true", default=False)
+    parser.add_option("-y", "--assume-yes", dest="assume_yes", action="store_true", default=False,
+                      help="Signal the tool to assume 'yes' response to all security and warning questions")
+
+    # module management
+    parser.add_option("-i", "--enable-mod", dest="enable_mod", metavar="MOD",
+                      help="Allows to enable a given module (-i 'mod in')")
+    parser.add_option("-o", "--disable-mod", dest="disable_mod", metavar="MOD",
+                      help="Allows to disable a given module (-o 'mod out')")
+    parser.add_option("-m", "--list-modules", dest="list_modules", action="store_true", default=False,
+                      help="Allows to list all modules available")
     
     # parse options received
     (options, args) = parser.parse_args ()
@@ -399,7 +409,7 @@ def disable_mod (mod_name):
         return (True, None) # nothing to do
 
     # linking
-    cmd = "rm -f %s/%s.xml" % (mod_enabled, mod_name)
+    cmd = "rm -f %s" % mod_name
     dbg ("Disabling module: %s" % cmd)
     (status, info) = run_cmd (cmd)
     if status:
@@ -531,13 +541,82 @@ def reconfigure_myqtt_easy (options, args):
     # report caller we have received an option that is not supported
     return (False, "Received an option that is not supported: %s" % options.easy_config)
 
+def list_modules ():
+    # get configuration location
+    (status, conf_location) = get_conf_location ()
+    if not status:
+        return (False, "Failed to list modules, unable to get conf location: %s" % conf_location)
+
+    import os
+    result = []
+    mod_dir = "%s/mods-available" % os.path.dirname (conf_location)
+    dbg ("Listing modules found at: %s" % mod_dir)
+    modules = os.listdir (mod_dir)
+    for mod in modules:
+        if mod:
+            mod = mod.strip ()
+        if not mod:
+            continue
+
+        mod = mod.replace (".xml", "")
+        result.append (mod)
+    # end for
+
+    # report modules found
+    return (True, result)
+
+def is_mod_enabled (mod):
+
+    # get configuration location
+    (status, conf_location) = get_conf_location ()
+    if not status:
+        return False
+
+    import os
+    mod_enabled_xml = "%s/mods-enabled/%s.xml" % (os.path.dirname (conf_location), mod)
+    return os.path.exists (mod_enabled_xml)
+
 
 ### MAIN ###
 if __name__ == "__main__":
     # install arguments and process them
     (options, args) = install_arguments ()
 
-    if options.explain_easy_config:
+    if options.list_modules:
+        (status, modules) = list_modules ()
+        if not status:
+            print "ERROR: failed to list modules, error was: %s" % modules
+            sys.exit (-1)
+        # end if
+        
+        for mod in modules:
+            status = ""
+            if is_mod_enabled (mod):
+                status = " (enabled)"
+            print " - %s%s" % (mod, status)
+        sys.exit (0)
+
+    elif options.enable_mod:
+
+        (status, info) = enable_mod (options.enable_mod)
+        if status:
+            print "Mod %s enabled. Restart myqtt server" % options.enable_mod
+            sys.exit (0)
+
+        print "ERROR: %s" % info
+        sys.exit (-1)
+
+    elif options.disable_mod:
+
+        (status, info) = disable_mod (options.disable_mod)
+        if status:
+            print "Mod %s disabled. Restart myqtt server" % options.disable_mod
+            sys.exit (0)
+
+        print "ERROR: %s" % info
+        sys.exit (-1)
+    
+    elif options.explain_easy_config:
         for key in easy_config_modes:
             print "- %s : %s" % (key, easy_config_modes[key])
         sys.exit (0)
