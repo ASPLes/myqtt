@@ -447,9 +447,9 @@ MyQttPublishCodes __myqttd_run_on_publish_msg (MyQttCtx * myqtt_ctx, MyQttConn *
 		iterator++;
 	} /* end while */
 
-	msg ("%s : PUB id %d (%s:%s) -> [%s] (qos %d, size %d, total %d) : ok", domain->name, myqtt_msg_get_id (msg), 
+	msg ("PUB id %d (%s:%s) -> [%s] (qos %d, size %d, total %d, domain: %s) : ok", myqtt_msg_get_id (msg), 
 	     myqtt_conn_get_host (conn), myqtt_conn_get_port (conn), myqtt_msg_get_topic (msg),
-	     myqtt_msg_get_qos (msg), myqtt_msg_get_app_msg_size (msg), myqtt_msg_get_payload_size (msg));
+	     myqtt_msg_get_qos (msg), myqtt_msg_get_app_msg_size (msg), myqtt_msg_get_payload_size (msg), domain->name);
 	
 	return MYQTT_PUBLISH_OK; /* allow publish */
 }
@@ -922,8 +922,8 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 			/* msg ("Connections: %d/%d (%s -- %p)", connections, domain->settings->conn_limit,
 			   domain->use_settings, domain->settings);  */
 
-			/* checking limits */
-			if (connections > domain->settings->conn_limit) {
+			/* checking limits, but only when they are bigger than -1 and 0 */
+			if (domain->settings->conn_limit > 0 && connections > domain->settings->conn_limit) {
 				error ("Login failed for username=%s client-id=%s server-name=%s ip=%s : Connection rejected for username=%s client-id=%s server-name=%s domain=%s settings=%s : connection limit reached %d/%d",
 				       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "", myqtt_conn_get_host (conn),
 				       myqttd_ensure_str (username), myqttd_ensure_str (client_id), myqttd_ensure_str (server_Name), domain->name, 
