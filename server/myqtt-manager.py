@@ -49,7 +49,8 @@ from optparse import OptionParser
 
 easy_config_modes = {
     "check" : "Does no change but ensures that the configurations is right, creating missing users, missing directories, etc",
-    "anonymous-home" : "Allows to reconfigure MyQttD server for a home/office solution without any security so all connections are accepted. It is good for easy configuration but NOT RECOMMENDED if security is something important for you"
+    "anonymous-home" : "Allows to reconfigure MyQttD server for a home/office solution without any security so all connections are accepted. It is good for easy configuration but NOT RECOMMENDED if security is something important for you",
+    "auth-xml" : "Allows to reconfigure MyQttD server for a home/office solution with connection authentication enabled to accept connection. A good choice in the case you want accept MQTT requests but enforcing connections to be authenticated. This setup also allows MQTT virtual-hosting by grupping users under domains with topic isolation. You can use this option for one group of users or multiple"
 }
 
 show_debug = False
@@ -417,8 +418,8 @@ def disable_mod (mod_name):
         return (False, "Failed to link module, error was: %s" % info)
     
     return (True, None)
-    
-def reconfigure_myqtt_anonymous_home ():
+
+def reconfigure_myqtt_anonymous_home (options, args):
 
     # ensure myqtt.conf is in place
     (status, info) = ensure_myqtt_conf_in_place ()
@@ -543,6 +544,86 @@ def check_myqtt_config ():
     
     return (True, "MyQtt configuration check done")
 
+def reconfigure_myqtt_auth_xml (options, args):
+
+    # ensure myqtt.conf is in place
+    (status, info) = ensure_myqtt_conf_in_place ()
+    if not status:
+        return (False, info)
+
+    # ensure system user exists
+    (status, user_group) = ensure_myqtt_user_exists ()
+    if not status:
+        return (False, user_group)
+
+    # ensure known directories
+    (status, info) = ensure_myqtt_directories ()
+    if not status:
+        return (False, info)
+
+    # disable-empty all domains
+    # get configuration location
+    (status, doc, conf_location) = get_configuration_doc ()
+    if not status:
+        return (False, "Unable to ensure user exists, error was: %s" % doc)
+
+    # get first node inside myqtt domains node
+    myqtt_domains = doc.get ("/myqtt/myqtt-domains")
+    if not myqtt_domains:
+        return (False, "Unable to find <myqtt-domains> node inside /myqtt xml-path")
+
+    # find and erase all configuration
+    node = myqtt_domains.first_child
+    while node:
+
+        # remove node
+        node.remove ()
+        
+        # next node
+        node = myqtt_domains.first_child
+    # end while
+
+    # ensure domains.d directory exists
+    conf_dir = os.path.dirname (conf_location)
+    if not os.path.exists ("%s/domains.d" % conf_dir):
+        # create directory
+        (status, info) = run_cmd ("mkdir -p %s/domains.d" % conf_dir)
+        if status:
+            return (False, "Unable to create directory, error was: %s" % info)
+        # ensure permissions
+        (status, info) = run_cmd ("chown -R %s %s/domains.d" % (user_group, conf_dir))
+        if status:
+            return (False, "Unable to fix directory owners, error was: %s" % info)
+        # end if
+    # end if
+
+    # enable mod-auth-xml
+    (status, info) = enable_mod ("mod-auth-xml")
+    if not status:
+        return (False, "Unable to activate configuration, failed to enable module: %s" % info)
+
+    # disable myqtt module
+    (status, info) = disable_mod ("mod-auth-mysql")
+    if not status:
+        return (False, "Unable to disable configuration, failed to disable module: %s" % info)
+
+
+    # add include node
+    node = axl.Node ("include")
+    node.attr ("dir", "/etc/myqtt/domains.d/")
+    myqtt_domains.set_child (node)
+
+    # save configuration file
+    doc.file_dump (conf_location, 4)
+
+    # restart service
+    (status, info) = myqtt_restart_service ()
+    if not status:
+        return (False, "Failed to restart service after configuration, error was: %s" % info)
+    
+
+    return (True, "MyQtt mod-auth-xml backend configuration done")
+
 def reconfigure_myqtt_easy (options, args):
 
     if not options.assume_yes:
@@ -559,9 +640,11 @@ def reconfigure_myqtt_easy (options, args):
 
     # according to the configuration do some setup
     if options.easy_config == "anonymous-home":
-        return reconfigure_myqtt_anonymous_home ()
+        return reconfigure_myqtt_anonymous_home (options, args)
     elif options.easy_config == "check":
         return check_myqtt_config ()
+    elif options.easy_config == "auth-xml":
+        return reconfigure_myqtt_auth_xml (options, args)
 
     
 
