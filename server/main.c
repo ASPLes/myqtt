@@ -129,6 +129,9 @@ int  main_init_exarg (int argc, char ** argv)
 	exarg_install_arg ("show-plans", NULL, EXARG_NONE,
 			   "Allows to show currently configured myqtt plans in xml format");
 
+	exarg_install_arg ("show-config", NULL, EXARG_NONE,
+			   "Allows to show current configuration a single consolidated file as a result of including everything. Useful to debug and to check what is being included");
+
 	/* call to parse arguments */
 	exarg_parse (argc, argv);
 
@@ -154,8 +157,29 @@ int  main_init_exarg (int argc, char ** argv)
 			node = axl_node_get_next_called (node, "domain-setting");
 		}
 		printf ("</domain-settings>\n");
+
+		axl_doc_free (doc);
 		exit (0);
 		
+	} /* end if */
+
+	if (exarg_is_defined ("show-config")) {
+		
+		/* check and get config location */
+		config = main_common_get_config_location (ctx, myqtt_ctx_new ());
+		doc    = __myqttd_config_load_from_file (ctx, config);
+		if (! doc) {
+			printf ("ERROR: failed to load configuration file from %s\n", config ? config : "/etc/myqtt/myqtt.conf");
+			exit (-1);
+		} /* end if */
+		/* dump, check status and print content */
+		if (axl_doc_dump_pretty (doc, &content, &size, 4)) {
+			printf ("%s\n", content);
+			axl_free (content);
+		} /* end if */
+
+		axl_doc_free (doc);
+		exit (0);
 	} /* end if */
 
 	/* check for version request */
