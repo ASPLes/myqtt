@@ -156,23 +156,27 @@ def install_arguments():
     # add easy config option
     easy_config_keys = ",".join (easy_config_modes)
     help_message     = "Easy config options are a standard and easy way to (re)configure your MyQttd server in a quick and controlled way. Currently we support the following modes: %s Use -x for additional information" % easy_config_keys
-    parser.add_option("-e", "--easy-config", dest="easy_config", metavar="INSTALL-OPTION",
+    parser.add_option ("-e", "--easy-config", dest="easy_config", metavar="INSTALL-OPTION",
                       help=help_message)
     parser.add_option ("-x", "--explain-easy-config", dest="explain_easy_config", action="store_true", default=False)
 
     # run time options
-    parser.add_option("-d", "--debug", dest="show_some_debug", action="store_true", default=False,
+    parser.add_option ("-d", "--debug", dest="show_some_debug", action="store_true", default=False,
                       help="Allows to make the tool to show some debug while operating")
-    parser.add_option("-y", "--assume-yes", dest="assume_yes", action="store_true", default=False,
+    parser.add_option ("-y", "--assume-yes", dest="assume_yes", action="store_true", default=False,
                       help="Signal the tool to assume 'yes' response to all security and warning questions")
 
     # module management
-    parser.add_option("-i", "--enable-mod", dest="enable_mod", metavar="MOD",
+    parser.add_option ("-i", "--enable-mod", dest="enable_mod", metavar="MOD",
                       help="Allows to enable a given module (-i 'mod in')")
-    parser.add_option("-o", "--disable-mod", dest="disable_mod", metavar="MOD",
+    parser.add_option ("-o", "--disable-mod", dest="disable_mod", metavar="MOD",
                       help="Allows to disable a given module (-o 'mod out')")
-    parser.add_option("-m", "--list-modules", dest="list_modules", action="store_true", default=False,
+    parser.add_option ("-m", "--list-modules", dest="list_modules", action="store_true", default=False,
                       help="Allows to list all modules available")
+
+    # domain management
+    parser.add_option ("-n", "--list-domains", dest="list_domains", action="store_true", default=False,
+                       help="Allows to list all domains installed at this point and linked to the configuration")
     
     # parse options received
     (options, args) = parser.parse_args ()
@@ -607,7 +611,6 @@ def reconfigure_myqtt_auth_xml (options, args):
     if not status:
         return (False, "Unable to disable configuration, failed to disable module: %s" % info)
 
-
     # add include node
     node = axl.Node ("include")
     node.attr ("dir", "/etc/myqtt/domains.d/")
@@ -686,6 +689,38 @@ def is_mod_enabled (mod):
     mod_enabled_xml = "%s/mods-enabled/%s.xml" % (os.path.dirname (conf_location), mod)
     return os.path.exists (mod_enabled_xml)
 
+def list_domains (options, args):
+
+    # load and get configuration
+    (status, doc, conf_location) = get_configuration_doc ()
+    if not status:
+        return (False, doc)
+
+    # get first domain and iterate over all of them
+    result = {}
+    domain = doc.get ("/myqtt/myqtt-domains/domain")
+    while domain:
+
+        item = {}
+        item['name']         = domain.attr ("name")
+        item['storage']      = domain.attr ("storage")
+        item['users_db']     = domain.attr ("users-db")
+        item['use_settings'] = domain.attr ("use-settings")
+        item['is_active']    = True
+        if domain.has_attr ("is-active") and domain.attr ("is-active") in ["no", "0", "false"]:
+            item['is_active'] = False
+
+        # add item to the result
+        result.append (item)
+
+        # get next domain 
+        domain = domain.next_called ("domain")
+        
+    # end while
+
+    # report 
+    return (True, result)
+
 
 ### MAIN ###
 if __name__ == "__main__":
@@ -741,5 +776,24 @@ if __name__ == "__main__":
         # reached this point, finish
         print "INFO: easy reconfigure done (%s) -- %s" % (options.easy_config, info)
         sys.exit (0)
+
+    elif options.list_domains:
+        # call to list current domains
+        (status, domains) = list_domains (options, args)
+        if not status:
+            print "ERROR: failed to list domains, error was: %s" % domains
+            sys.exit (-1)
+
+        for domain in domains:
+            status = ""
+            if domain['is_active']:
+                status = "(active)"
+            
+            print "- %s %s" % (domain['name'], status)
+            
+        # end if
+        sys.exit (0)
+            
+    
 
 
