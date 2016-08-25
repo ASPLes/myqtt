@@ -177,6 +177,8 @@ def install_arguments():
     # domain management
     parser.add_option ("-n", "--list-domains", dest="list_domains", action="store_true", default=False,
                        help="Allows to list all domains installed at this point and linked to the configuration")
+    parser.add_option ("", "--create-domain", dest="create_domain", metavar="domain_name",
+                       help="Allows to create a domain using current authentication backend configured. If no backend is configured, it will create default structures")
     
     # parse options received
     (options, args) = parser.parse_args ()
@@ -229,8 +231,23 @@ def get_configuration_doc ():
     if not status:
         return (False, "Unable to ensure user, failed to get config location: %s" % conf_location, None)
 
+    # dump current configuration
+    import hashlib
+    import random
+    import time
+    temp_file_name = "/tmp/%s" % hashlib.md5 ("%s/%s" % (random.randint (1, 100000), time.time ())).hexdigest ()
+    (status, info) = run_cmd ("myqttd --show-config > %s" % temp_file_name)
+    if status:
+        return (False, "Unable to get configuration, error was: %s" % info)
+
     # parse configuration file
-    (doc, err) = axl.file_parse (conf_location)
+    (doc, err) = axl.file_parse (temp_file_name)
+
+    # remove file before checking anything
+    if os.path.exists (temp_file_name):
+        os.unlink (temp_file_name)
+        
+    # check output parsed
     if not doc:
         return (False, "Unable to parse configuration located at %s, error was: %s. Please review, fix it and then rerun the tool." % (conf_location, err.msg), None)
 
@@ -697,9 +714,15 @@ def list_domains (options, args):
         return (False, doc)
 
     # get first domain and iterate over all of them
-    result = {}
+    result = []
     domain = doc.get ("/myqtt/myqtt-domains/domain")
     while domain:
+
+        if "skeleton-dont-use-please" in domain.attr ("name"):
+            # get next domain 
+            domain = domain.next_called ("domain")
+            
+            continue
 
         item = {}
         item['name']         = domain.attr ("name")
@@ -720,6 +743,142 @@ def list_domains (options, args):
 
     # report 
     return (True, result)
+
+def is_single_label_domain (label):
+    """
+    Allows to check if the label provided represents a valid host name
+    value. For example srv-app, localdomain and any other single
+    domain name value (no .).
+    """
+
+    # do quick check
+    if "." in label:
+        return False
+
+    import re
+    return not re.match ("^[a-z0-9A-Z-_]+$", label) is None
+
+
+def is_domain (domain_name):
+    """
+    Allows to check if the provided name is a domain valid name (like
+    dominio.com or value.dominio.com).
+
+    The function returns True in the case it is a valid domain name,
+    otherwise False is returned.
+    """
+    if domain_name is None or len (domain_name) == 0:
+        return False
+    
+    value = str (domain_name)
+    if value[0] == "@":
+        value = value[1:]
+    
+    import re
+    return not re.match ("^([a-z0-9A-Z-_]+\.)+[a-zA-Z]+$", value) is None
+
+def mod_auth_mysql_add_domain (domain_name, options, args):
+
+    return (False, "Still not implemented (mod-auth-mysql)")
+
+def create_domain (options, args):
+
+    # domain name
+    domain_name = options.create_domain
+    if domain_name:
+        domain_name = domain_name.strip ()
+    if not domain_name:
+        return (False, "Domain name is not defined")
+
+    # check domain name has a valid domain name value
+    if not is_domain (domain_name) and not is_single_label_domain (domain_name):
+        return (False, "Received a domain value %s that is not a valid domain name. It has to be something similar to mqtt.domain.com or mqtt-server" % domain_name)
+    
+    # call to list current domains
+    (status, domains) = list_domains (options, args)
+    if not status:
+        print "ERROR: failed to list domains, error was: %s" % domains
+        sys.exit (-1)
+
+    for domain in domains:
+        if domain['name'] == options.create_domain:
+            return (False, "Unable to create domain %s, it already exists" % domain['name'])
+        # end if
+    # end for
+
+    # get run time location
+    (status, run_time_location) = get_runtime_datadir ()
+    if not status:
+        return (False, "Unable to find run time location, error was: %s" % run_time_location)
+
+    # get configuration location
+    (status, conf_location) = get_conf_location ()
+    if not status:
+        return (False, conf_location)
+
+    # ensure system user exists
+    (status, user_group) = ensure_myqtt_user_exists ()
+    if not status:
+        return (False, user_group)
+
+    # ensure domains.d directory exists
+    conf_dir = os.path.dirname (conf_location)
+    conf_dir = "%s/domains.d" % conf_dir
+    if not os.path.exists (conf_dir):
+        return (False, "Unable to continue, directory %s does not exists. Is this MyQtt server configured by myqtt-manager.py? If not, this option will not work" % conf_dir)
+    # end if
+
+    # run time location
+    dbs_dir = run_time_location.replace ("/myqtt", "/myqtt-dbs")
+
+    # create domain inside configuration
+    full_run_time_location = "%s/%s" % (run_time_location, domain_name)
+    full_dbs_dir           = "%s/%s" % (dbs_dir , domain_name)
+    file_content           = "<domain name='%s' storage='%s' users-db='%s' use-settings='no-limit' />\n" % (domain_name, full_run_time_location, full_dbs_dir)
+    open ("%s/%s.conf" % (conf_dir, domain_name), "w").write (file_content)
+
+    # now create directories associated to this domain name
+    if not os.path.exists (full_run_time_location):
+        (status, info) = run_cmd ("mkdir -p %s" % full_run_time_location)
+        if status:
+            return (False, "Unable to create directory, error was: %s" % info)
+        # end if
+    # end if
+
+    if not os.path.exists (full_dbs_dir):
+        (status, info) = run_cmd ("mkdir -p %s" % full_dbs_dir)
+        if status:
+            return (False, "Unable to create directory, error was: %s" % info)
+        # end if
+    # end if
+
+    # check what backend is being used
+    mod_auth_xml   = is_mod_enabled ("mod-auth-xml")
+    mod_auth_mysql = is_mod_enabled ("mod-auth-mysql")
+
+    if mod_auth_xml:
+        # now create initial users.xml file
+        users_xml = "%s/users.xml" % full_dbs_dir
+        if not os.path.exists (users_xml):
+            open (users_xml, "w").write ("<myqtt-users />")
+        # end if
+    # end if
+
+    # ensurep permissions
+    (status, info) = run_cmd ("chown -R %s %s %s" % (user_group, full_run_time_location, full_dbs_dir))
+    if status:
+        return (False, "Unable to change directory permissions, error was: %s" % info)
+    # end if
+
+    # if mysql backend enabled, add domain into it
+    if mod_auth_mysql:
+        (status, info) = mod_auth_mysql_add_domain (domain_name, options, args)
+        if not status:
+            return (False, "Unable to add domain to MySQL backend, error was: %s" % info)
+        # end if
+    # end if
+    
+    return (True, "Domain %s created" % domain_name)
 
 
 ### MAIN ###
@@ -793,6 +952,19 @@ if __name__ == "__main__":
             
         # end if
         sys.exit (0)
+
+    elif options.create_domain:
+        # call to create domain
+        (status, info) = create_domain (options, args)
+        if not status:
+            print "ERROR: failed to create domain %s, error was: %s" % (options.create_domain, info)
+            sys.exit (-1)
+        # end if
+
+        print "INFO: domain %s created -- %s" % (options.create_domain, info)
+        sys.exit (0)
+        
+                
             
     
 
