@@ -55,6 +55,7 @@ easy_config_modes = {
 show_debug = False
 
 def dbg (message):
+    
     if not show_debug:
         return
 
@@ -518,6 +519,30 @@ def reconfigure_myqtt_anonymous_home ():
     
     return (True, "Anonymous-home configuration done")
 
+def check_myqtt_config ():
+
+    # ensure myqtt.conf is in place
+    (status, info) = ensure_myqtt_conf_in_place ()
+    if not status:
+        return (False, info)
+
+    # ensure system user exists
+    (status, user_group) = ensure_myqtt_user_exists ()
+    if not status:
+        return (False, user_group)
+
+    # ensure known directories
+    (status, info) = ensure_myqtt_directories ()
+    if not status:
+        return (False, info)
+
+    # restart service
+    (status, info) = myqtt_restart_service ()
+    if not status:
+        return (False, "Failed to restart service after configuration, error was: %s" % info)
+    
+    return (True, "MyQtt configuration check done")
+
 def reconfigure_myqtt_easy (options, args):
 
     if not options.assume_yes:
@@ -535,6 +560,8 @@ def reconfigure_myqtt_easy (options, args):
     # according to the configuration do some setup
     if options.easy_config == "anonymous-home":
         return reconfigure_myqtt_anonymous_home ()
+    elif options.easy_config == "check":
+        return check_myqtt_config ()
 
     
 
