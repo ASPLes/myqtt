@@ -179,6 +179,10 @@ def install_arguments():
                        help="Allows to list all domains installed at this point and linked to the configuration")
     parser.add_option ("", "--create-domain", dest="create_domain", metavar="domain_name",
                        help="Allows to create a domain using current authentication backend configured. If no backend is configured, it will create default structures")
+
+    # account management
+    parser.add_option ("-a", "--add-account", dest="add_account", metavar="client-id[,username,password] domain",
+                       help="Allows to add the provided client-id account, optionally providing a username and password into the provided domain.")
     
     # parse options received
     (options, args) = parser.parse_args ()
@@ -880,6 +884,47 @@ def create_domain (options, args):
     
     return (True, "Domain %s created" % domain_name)
 
+def add_account (options, args):
+
+    if len (args) == 0:
+        return (False, "Not provided domain where to add requested account")
+
+    domain_name = args[0]
+
+    # call to list current domains
+    (status, domains) = list_domains (options, args)
+    if not status:
+        print "ERROR: failed to list domains, error was: %s" % domains
+        sys.exit (-1)
+
+    domain_found = False
+    for domain in domains:
+        if domain['name'] == domain_name:
+            domain_found = True
+            break
+        # end if
+    # end for
+
+    if not domain_found:
+        return (False, "Domain %s was not found. Please create it or be sure about the domain you want your account be created" % domain_name)
+    
+    account   = options.add_account
+    items     = account.split (",")
+    if len (items) not in [1, 3]:
+        return (False, "Received account indication which is not a single client-id or client-id,username,password: %s" % account)
+
+    client_id = items[0]
+    username  = None
+    password  = None
+    if len (items) > 1:
+        username = items[1]
+        password = items[2]
+    # end if
+
+    print "Creating account %s (user %s:%s) and domain %s" % (client_id, username, password, domain_name)
+    # FIXME 
+    return (True, "Account %s (%s) added" % (client_id, domain_name))
+
 
 ### MAIN ###
 if __name__ == "__main__":
@@ -954,8 +999,22 @@ if __name__ == "__main__":
         sys.exit (0)
 
     elif options.create_domain:
+        
         # call to create domain
         (status, info) = create_domain (options, args)
+        if not status:
+            print "ERROR: failed to create domain %s, error was: %s" % (options.create_domain, info)
+            sys.exit (-1)
+        # end if
+
+        print "INFO: domain %s created -- %s" % (options.create_domain, info)
+        sys.exit (0)
+
+
+    elif options.add_account:
+        
+        # call to create domain
+        (status, info) = add_account (options, args)
         if not status:
             print "ERROR: failed to create domain %s, error was: %s" % (options.create_domain, info)
             sys.exit (-1)
