@@ -314,6 +314,15 @@ def myqtt_restart_service ():
     # service restarted
     return (True, None)
 
+def myqtt_reload_service ():
+    cmd = "service myqtt reload"
+    (status, info) = run_cmd (cmd)
+    if status:
+        return (False, "MyQttD reload failed, error was: %s" % info)
+
+    # service reload
+    return (True, None)
+
 
 def get_runtime_datadir ():
     (status, info) = run_cmd ("myqttd --conf-location | grep RUNTIME_DATADIR")
@@ -838,7 +847,7 @@ def create_domain (options, args):
     # create domain inside configuration
     full_run_time_location = "%s/%s" % (run_time_location, domain_name)
     full_dbs_dir           = "%s/%s" % (dbs_dir , domain_name)
-    file_content           = "<domain name='%s' storage='%s' users-db='%s' use-settings='no-limit' />\n" % (domain_name, full_run_time_location, full_dbs_dir)
+    file_content           = "<domain name='%s' storage='%s' users-db='%s' use-settings='no-limits' />\n" % (domain_name, full_run_time_location, full_dbs_dir)
     open ("%s/%s.conf" % (conf_dir, domain_name), "w").write (file_content)
 
     # now create directories associated to this domain name
@@ -881,6 +890,12 @@ def create_domain (options, args):
             return (False, "Unable to add domain to MySQL backend, error was: %s" % info)
         # end if
     # end if
+
+    # reload myqtt to have domain loaded
+    (status, info) = myqtt_reload_service ()
+    if not status:
+        # report error found after reloading
+        return (False, "Domain %s was added but it failed to reload. You will have to restart myqtt" % domain_name)
     
     return (True, "Domain %s created" % domain_name)
 
