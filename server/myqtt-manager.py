@@ -177,12 +177,14 @@ def install_arguments():
     # domain management
     parser.add_option ("-n", "--list-domains", dest="list_domains", action="store_true", default=False,
                        help="Allows to list all domains installed at this point and linked to the configuration")
-    parser.add_option ("", "--create-domain", dest="create_domain", metavar="domain_name",
+    parser.add_option ("-g", "--create-domain", dest="create_domain", metavar="domain_name",
                        help="Allows to create a domain using current authentication backend configured. If no backend is configured, it will create default structures")
 
     # account management
     parser.add_option ("-a", "--add-account", dest="add_account", metavar="client-id[,username,password] domain",
                        help="Allows to add the provided client-id account, optionally providing a username and password into the provided domain.")
+    parser.add_option ("-t", "--set-account-password", dest="set_account_password", metavar="client-id[,username],password domain",
+                       help="Allows to set/change username/password  to the provided client-id account.")
     
     # parse options received
     (options, args) = parser.parse_args ()
@@ -994,6 +996,73 @@ def add_account_mod_auth_xml (client_id, username, password, domain_name, users_
 
     return (True, "User added")
 
+def update_account_mod_auth_xml (client_id, username, password, domain_name, users_xml):
+
+    # open document
+    (doc, err) = axl.file_parse (users_xml)
+    if not doc:
+        return (False, "Unable to add account, axl.file_parse (%s) failed, error was: %s" % (users_xml, err.msg))
+    
+    # get password format
+    node = doc.get ("/myqtt-users")
+    if not node:
+        return (False, "Unknown format found at %s. Expected to find <myqtt-users> node at the top" % users_xml)
+
+    if password:
+        password_format = 0
+        if node.has_attr ("password-format"):
+            value = node.attr ("password-format")
+            if value == "plain":
+                password_format = 0
+            elif value == "md5":
+                password_format = 1
+            elif value == "sha1":
+                password_format = 2
+            # end if
+        # end if
+
+        (status, password) = format_password (password, password_format)
+        if not status:
+            return (False, "Unable to format password, error was: %s" % password)
+        # end if
+    # end if
+
+    # check if the clientid is already added
+    node       = doc.get ("/myqtt-users/user")
+    node_found = False
+    while node:
+        if node.attr ("id") == client_id:
+            node_found = True
+            break
+        # end if
+        
+        # get next <user /> node 
+        node = node.next_called ("user")
+    # end while
+
+    if not node_found:
+        return (False, "Unable to find client-id %s" % client_id)
+
+    if username:
+        node.attr ("username", username)
+        
+    # end if
+    if password:
+        node.attr ("password", password)
+    # end if
+
+    # save configuration file
+    doc.file_dump (users_xml, 4)
+
+    # restart myqtt server
+    (status, info) = myqtt_restart_service ()
+    if not status:
+        return (False, "User was added by failed to restart myqtt service, error was: %s.." % info)
+    # end if
+
+    return (True, "User updated")
+
+
 def add_account (options, args):
 
     if len (args) == 0:
@@ -1047,6 +1116,62 @@ def add_account (options, args):
 
     # never reached
     return (True, "Account %s (%s) added" % (client_id, domain_name))
+
+def set_account_password (options, args):
+    
+    if len (args) == 0:
+        return (False, "Not provided domain where to add requested account")
+
+    domain_name = args[0]
+
+    # call to list current domains
+    (status, domains) = list_domains (options, args)
+    if not status:
+        print "ERROR: failed to list domains, error was: %s" % domains
+        sys.exit (-1)
+
+    domain_found = False
+    for domain in domains:
+        if domain['name'] == domain_name:
+            domain_found = True
+            break
+        # end if
+    # end for
+
+    if not domain_found:
+        return (False, "Domain %s was not found. Please create it or be sure about the domain you want your account be created" % domain_name)
+    
+    account   = options.set_account_password
+    items     = account.split (",")
+    if len (items) not in [2, 3]:
+        return (False, "Received account indication which is not a single client-id,password or client-id,username,password: %s" % account)
+
+    client_id = items[0]
+    username  = None
+    password  = items[1]
+    if len (items) > 2:
+        username = items[1]
+        password = items[2]
+    # end if
+
+    # build users db dir
+    (status, run_time_location) = get_runtime_datadir ()
+    if not status:
+        return (False, "Unable to find run time location, error was: %s" % run_time_location)
+    users_xml = "%s/%s/users.xml" % (run_time_location.replace ("myqtt", "myqtt-dbs"), domain_name)
+    print "Creating account %s (user %s:%s) and domain %s" % (client_id, username, password, domain_name)
+    if is_mod_enabled ("mod-auth-xml") and os.path.exists (users_xml):
+        dbg ("users.xml database exists (%s)" % users_xml)
+        return update_account_mod_auth_xml (client_id, username, password, domain_name, users_xml)
+    
+    # if is_mod_enabled ("mod-auth-mysql"):
+    #   return add_account_mod_auth_mysql (client_id, username, password, domain_name)
+    else:
+        return (False, "Unable to add account requested, no suitable auth backend was detected")
+
+    # never reached
+    return (True, "Account %s (%s) updated" % (client_id, domain_name))
+    
 
 
 ### MAIN ###
@@ -1143,7 +1268,19 @@ if __name__ == "__main__":
             sys.exit (-1)
         # end if
 
-        print "INFO: domain %s created -- %s" % (options.create_domain, info)
+        print "INFO: account created -- %s" % info
+        sys.exit (0)
+        
+    elif options.set_account_password:
+        
+        # call to create domain
+        (status, info) = set_account_password (options, args)
+        if not status:
+            print "ERROR: failed to account %s, error was: %s" % (options.set_account_password, info)
+            sys.exit (-1)
+        # end if
+
+        print "INFO: account updated -- %s" % info
         sys.exit (0)
         
                 
