@@ -175,7 +175,7 @@ def install_arguments():
                       help="Allows to list all modules available")
 
     # domain management
-    parser.add_option ("-n", "--list-domains", dest="list_domains", action="store_true", default=False,
+    parser.add_option ("-l", "--list-domains", dest="list_domains", action="store_true", default=False,
                        help="Allows to list all domains installed at this point and linked to the configuration")
     parser.add_option ("-g", "--create-domain", dest="create_domain", metavar="domain_name",
                        help="Allows to create a domain using current authentication backend configured. If no backend is configured, it will create default structures")
@@ -187,6 +187,8 @@ def install_arguments():
                        help="Allows to set/change username/password  to the provided client-id account.")
     parser.add_option ("-r", "--remove-account", dest="remove_account", metavar="client_id domain",
                        help="Allows to remove the provided client-id account from the given domain.")
+    parser.add_option ("-s", "--list-accounts", dest="list_accounts", metavar="domain",
+                       help="Allows list all accounts on the provided domain.")
     
     # parse options received
     (options, args) = parser.parse_args ()
@@ -1096,7 +1098,7 @@ def add_account (options, args):
         return (False, "Unable to add account requested, no suitable auth backend was detected")
 
     # never reached
-    return (True, "Account %s (%s) added" % (client_id, domain_name))
+    return (False, "Never reached")
 
 def domain_exists (domain_name):
 
@@ -1160,7 +1162,7 @@ def set_account_password (options, args):
         return (False, "Unable to add account requested, no suitable auth backend was detected")
 
     # never reached
-    return (True, "Account %s (%s) updated" % (client_id, domain_name))
+    return (False, "Never reached")
 
 def remove_account_mod_auth_xml (client_id, domain_name, users_xml):
     # open document
@@ -1230,7 +1232,64 @@ def remove_account (options, args):
         return (False, "Unable to remove account requested, no suitable auth backend was detected")
 
     # never reached
-    return (True, "Account %s (%s) removed" % (client_id, domain_name))
+    return (False, "Never reached")
+
+def list_accounts_mod_auth_xml (domain_name, users_xml):
+    
+    # open document
+    (doc, err) = axl.file_parse (users_xml)
+    if not doc:
+        return (False, "Unable to add account, axl.file_parse (%s) failed, error was: %s" % (users_xml, err.msg))
+    
+    # check if the clientid is already added
+    result     = []
+    node       = doc.get ("/myqtt-users/user")
+    while node:
+        # get username
+        username = None
+        if node.has_attr ("username"):
+            username = node.attr ("username")
+        # end if
+
+        # save item into result
+        item = { 'clientid' : node.attr ("id"), 'username' : username }
+        result.append (item)
+        
+        # get next <user /> node 
+        node = node.next_called ("user")
+    # end while
+
+    return (True, result)
+
+
+def list_accounts (options, args):
+
+    domain_name = options.list_accounts
+
+    # check if domain exists
+    if not domain_exists (domain_name):
+        return (False, "Domain %s was not found. Please be sure about the domain you want accounts be listed" % domain_name)
+    
+    # build users db dir
+    (status, run_time_location) = get_runtime_datadir ()
+    if not status:
+        return (False, "Unable to find run time location, error was: %s" % run_time_location)
+    
+    users_xml = "%s/%s/users.xml" % (run_time_location.replace ("myqtt", "myqtt-dbs"), domain_name)
+    dbg ("Listings accounts for domain %s" % domain_name)
+
+    # according to the backend, update the user
+    if is_mod_enabled ("mod-auth-xml") and os.path.exists (users_xml):
+        dbg ("users.xml database exists (%s)" % users_xml)
+        return list_accounts_mod_auth_xml (domain_name, users_xml)
+    
+    # if is_mod_enabled ("mod-auth-mysql"):
+    #   return add_account_mod_auth_mysql (client_id, username, password, domain_name)
+    else:
+        return (False, "Unable to remove account requested, no suitable auth backend was detected")
+
+    # never reached
+    return (False, "Never reached")
     
 
 
@@ -1353,6 +1412,21 @@ if __name__ == "__main__":
         # end if
 
         print "INFO: account removed -- %s" % info
+        sys.exit (0)
+
+    elif options.list_accounts:
+        
+        # call to create domain
+        (status, accounts) = list_accounts (options, args)
+        if not status:
+            print "ERROR: failed to list accounts %s, error was: %s" % (options.list_accounts, accounts)
+            sys.exit (-1)
+        # end if
+
+        print "Accounts for domain %s" % options.list_accounts
+        for account in accounts:
+            print " - client-id=%s  username=%s" % (account['clientid'], account['username'])
+        # end for
         sys.exit (0)
 
                 
