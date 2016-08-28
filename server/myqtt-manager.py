@@ -937,6 +937,9 @@ def is_mod_enabled (mod):
 
 def list_domains (options, args):
 
+    # This function works both for mod-auth-xml and mod-auth-mysql
+    # backend.
+
     # load and get configuration
     (status, doc, conf_location) = get_configuration_doc ()
     if not status:
@@ -1006,12 +1009,14 @@ def is_domain (domain_name):
     import re
     return not re.match ("^([a-z0-9A-Z-_]+\.)+[a-zA-Z]+$", value) is None
 
-def mod_auth_mysql_add_domain (domain_name, options, args):
-
+def mod_auth_mysql_get_credentials ():
+    """
+    return (status, info, dbname, dbuser, dbpass)
+    """
     # get configuration location
     (status, conf_location) = get_conf_location ()
     if not status:
-        return (False, "Unable to add domain in mysql database, error was: %s" % conf_location)
+        return (False, "Unable to add domain in mysql database, error was: %s" % conf_location, None, None, None)
 
     # get values
     conf_dir = os.path.dirname (conf_location)
@@ -1019,13 +1024,23 @@ def mod_auth_mysql_add_domain (domain_name, options, args):
     # now open it and check current connection
     (doc, err) = axl.file_parse ("%s/mysql/mysql.xml" % conf_dir)
     if not doc:
-        return (False, "Unable to open file %s/mysql/mysql.xml, error was: %s" % (conf_dir, err.msg))
+        return (False, "Unable to open file %s/mysql/mysql.xml, error was: %s" % (conf_dir, err.msg), None, None, None)
 
     node  = doc.get ("/mod-auth-mysql/dsn")
 
+    # report values found
+    return (True, None, node.attr ("db"), node.attr ("dbuser"), node.attr ("dbpassword"))
+
+def mod_auth_mysql_add_domain (domain_name, options, args):
+
+    # get configuration location
+    (status, info, db, dbuser, dbpass) = mod_auth_mysql_get_credentials ()
+    if not status:
+        return (False, "Unable to add domain in mysql database, error was: %s" % info)
+
     # build query
     query = "INSERT INTO domain (is_active, default_acl, name, anonymous, apply_message_quota) VALUES (1, 1, '%s', 0, 0)" % domain_name
-    cmd   = "mysql -u '%s' --password='%s' %s -e \"%s\" -h localhost" % (node.attr ("dbuser"), node.attr ("dbpassword"), node.attr ("db"), query)
+    cmd   = "mysql -u '%s' --password='%s' %s -e \"%s\" -h localhost" % (dbuser, dbpass, db, query)
     (status, info) = run_cmd (cmd)
     if status:
         return (False, "Failed to add myqtt domain, SQL command failed, error was: %s" % info)
@@ -1133,11 +1148,13 @@ def create_domain (options, args):
 def format_password (password, password_format):
     import hashlib
     
-    # get md5 password
+    # get plain password
     if password_format == 0:
         return (True, password)
+    # get md5 password
     elif password_format == 1:
         value = hashlib.md5 (password).hexdigest ().upper()
+    # get sha1 password
     elif password_format == 2:
         value = hashlib.sha (password).hexdigest ().upper()
     else:
@@ -1156,7 +1173,48 @@ def format_password (password, password_format):
     # end while
 
     return (True, value)
-    
+
+def add_account_mod_auth_mysql (clientid, username, password, domain_name):
+
+    # get configuration location
+    (status, info, db, dbuser, dbpass) = mod_auth_mysql_get_credentials ()
+    if not status:
+        return (False, "Unable to add domain in mysql database, error was: %s" % info)
+
+    # check if the user already exists
+    query = "SELECT * FROM user WHERE (SELECT id FROM domain WHERE domain ='%s') and clientid = '%s'" % (domain_name, clientid)
+    cmd   = "mysql -u '%s' --password='%s' %s -e \"%s\" -h localhost" % (dbuser, dbpass, db, query)
+    (status, info) = run_cmd (cmd)
+    if not status:
+        return (False, "Failed to check if the user already exists, error was: %s" % info)
+
+    if username in info:
+        return (False, "User %s already exists" % username)
+
+    # build query
+    require_auth = '0'
+    if username and password:
+        require_auth = '1'
+
+    # format password
+    if password:
+        (status, password) = format_password (password, 1)
+        if not status:
+            return (False, "Unable to format password, error was: %s" % password)
+        # end if
+    # end if
+
+    # query
+    query = "INSERT INTO user (is_active, domain_id, require_auth, clientid, username, password, allow_mqtt, allow_mqtt_ws, allow_mqtt_wss, allow_mqtt_tls) " + \
+            " VALUES ('1', (SELECT id FROM domain WHERE name = '%s'), '%s', '%s', '%s', '%s', '1', '1', '1', '1')" % \
+            (domain_name, require_auth, clientid, username, password)
+    cmd   = "mysql -u '%s' --password='%s' %s -e \"%s\" -h localhost" % (dbuser, dbpass, db, query)
+    (status, info) = run_cmd (cmd)
+    if status:
+        return (False, "Failed to check if the user already exists, error was: %s" % info)
+
+    return (True, "User added")
+
 
 def add_account_mod_auth_xml (client_id, username, password, domain_name, users_xml):
 
@@ -1324,8 +1382,8 @@ def add_account (options, args):
     if is_mod_enabled ("mod-auth-xml") and os.path.exists (users_xml):
         dbg ("users.xml database exists (%s)" % users_xml)
         return add_account_mod_auth_xml (client_id, username, password, domain_name, users_xml)
-    # if is_mod_enabled ("mod-auth-mysql"):
-    #   return add_account_mod_auth_mysql (client_id, username, password, domain_name)
+    if is_mod_enabled ("mod-auth-mysql"):
+        return add_account_mod_auth_mysql (client_id, username, password, domain_name)
     else:
         return (False, "Unable to add account requested, no suitable auth backend was detected")
 
