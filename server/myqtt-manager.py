@@ -48,10 +48,12 @@ import axl
 from optparse import OptionParser
 
 easy_config_modes = {
-    "check" : "Does no change but ensures that the configurations is right, creating missing users, missing directories, etc",
+    "check"          : "Does no change but ensures that the configurations is right, creating missing users, missing directories, etc",
     "anonymous-home" : "Allows to reconfigure MyQttD server for a home/office solution without any security so all connections are accepted. It is good for easy configuration but NOT RECOMMENDED if security is something important for you",
-    "auth-xml" : "Allows to reconfigure MyQttD server for a home/office solution with connection authentication enabled to accept connection. A good choice in the case you want accept MQTT requests but enforcing connections to be authenticated. This setup also allows MQTT virtual-hosting by grupping users under domains with topic isolation. You can use this option for one group of users or multiple"
+    "auth-xml"       : "Allows to reconfigure MyQttD server for a home/office solution with authentication enabled using XML as backend (mod-auth-xml). A good choice in the case you want accept MQTT requests but enforcing connections to be authenticated. This setup also allows MQTT virtual-hosting by grupping users under domains with topic isolation. You can use this option for one group of users or multiple",
+    "auth-mysql"     : "Allows to reconfigure MyQttD server for a datacenter/office solution with authentication enabled using MySQL as backend (mod-auth-mysql). A good choice in the case you want accept MQTT requests but enforcing connections to be authenticated. This setup also allows MQTT virtual-hosting by grupping users under domains with topic isolation. You can use this option for one group of users or multiple"
 }
+easy_config_modes_index = ["check", "anonymous-home", "auth-xml", "auth-mysql"]
 
 show_debug = False
 
@@ -663,6 +665,214 @@ def reconfigure_myqtt_auth_xml (options, args):
 
     return (True, "MyQtt mod-auth-xml backend configuration done")
 
+mysql_user = None
+mysql_pass = None
+
+def test_mysql_connection (mysql_xml, db, dbuser, dbpassword, dbhost):
+
+    # check current connections
+    cmd = "mysql -u '%s' --password='%s' %s -e 'show tables' -h localhost" % (dbuser, dbpassword, db)
+    (status, info) = run_cmd (cmd)
+    if status == 0:
+        # status ok, and working ok too
+        return (True, None, True)
+
+    # get mysql admin user
+    global mysql_user
+    mysql_user = raw_input ("Please, enter MySQL admin user (root): ")
+    if mysql_user:
+        mysql_user = mysql_user.strip ()
+    if not mysql_user:
+        mysql_user = "root"
+
+    # get mysql admin password
+    global mysql_pass
+    from getpass import getpass
+    mysql_pass = getpass ("Please, enter MySQL admin password (%s): " % mysql_user)
+    if mysql_pass:
+        mysql_pass = mysql_pass.strip ()
+
+
+    # call to check this
+    cmd = "mysql -u '%s' --password='%s' -e 'select * from mysql.user' -h localhost" % (mysql_user, mysql_pass)
+    (status, info) = run_cmd (cmd)
+    if status != 0:
+        return (False, "Failed to check MySQL admin connection, error was: %s" % info, False)
+
+    # reached this point, admin credentials works
+    # (status, info, working = False)
+    return (True, None, False)
+
+def gen_random ():
+    
+    import hashlib
+    import random
+    import time
+    
+    value = hashlib.md5 ("%s--%s" % (random.randint (1, 100000), time.time ())).hexdigest ()
+    return value[:8]
+
+def create_mysql_connection (mysql_xml):
+    # values to configure
+    
+    db     = "myqtt_%s" % gen_random ()
+    dbuser = "myqtt_%s" % gen_random ()
+    dbpass = gen_random () + gen_random ()
+    
+    # create user
+    cmd = "mysql -u '%s' --password='%s' -e \"create user '%s' identified by '%s'\" -h localhost" % (mysql_user, mysql_pass, dbuser, dbpass)
+    (status, info) = run_cmd (cmd)
+    if status:
+        return (False, "Failed to create mysql user, error was: %s" % info)
+
+    # create database
+    cmd = "mysql -u '%s' --password='%s' -e 'create database `%s`' -h localhost" % (mysql_user, mysql_pass, db)
+    (status, info) = run_cmd (cmd)
+    if status:
+        return (False, "Failed to create mysql database, error was: %s" % info)
+
+    # associate user and database
+    query = "INSERT INTO mysql.db (Select_priv, Insert_priv, Update_priv, Delete_priv, Alter_priv, Lock_tables_priv, Execute_priv, Index_priv, " + \
+            "                      Create_view_priv, Show_view_priv, Create_priv, Drop_priv, Create_tmp_table_priv, Grant_priv, Event_priv, " + \
+            "                      Trigger_priv, References_priv, Create_routine_priv, Alter_routine_priv, User, Db, Host) VALUES " + \
+            "                      ('Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'N', 'N', 'N', 'Y', 'Y', 'Y', '%s', '%s', 'localhost')" % \
+            (dbuser, db)
+    cmd = 'mysql -u \'%s\' --password=\'%s\' -e "%s" -h localhost' % (mysql_user, mysql_pass, query)
+    (status, info) = run_cmd (cmd)
+    if status:
+        return (False, "Failed to associate database, error was: %s" % info)
+
+    # flush privileges
+    cmd = "mysql -u '%s' --password='%s' -e 'flush privileges' -h localhost" % (mysql_user, mysql_pass)
+    (status, info) = run_cmd (cmd)
+    if status:
+        return (False, "Failed to create mysql database, error was: %s" % info)
+
+    # now save these values into the document
+    (doc, err) = axl.file_parse (mysql_xml)
+    if not doc:
+        return (False, "Unable to open file mysql_xml, error was: %s" % (mysql_xml, err.msg))
+
+    node = doc.get ("/mod-auth-mysql/dsn")
+    node.attr ("db", db)
+    node.attr ("dbuser", dbuser)
+    node.attr ("dbpassword", dbpass)
+
+    # save configuration file
+    doc.file_dump (mysql_xml, 4)
+    
+    
+    # return status, info
+    return (True, None)
+
+def reconfigure_myqtt_auth_mysql (options, args):
+
+    # ensure myqtt.conf is in place
+    (status, info) = ensure_myqtt_conf_in_place ()
+    if not status:
+        return (False, info)
+
+    # ensure system user exists
+    (status, user_group) = ensure_myqtt_user_exists ()
+    if not status:
+        return (False, user_group)
+
+    # ensure known directories
+    (status, info) = ensure_myqtt_directories ()
+    if not status:
+        return (False, info)
+
+    # disable-empty all domains
+    # get configuration location
+    (status, doc, conf_location) = get_configuration_doc ()
+    if not status:
+        return (False, "Unable to ensure user exists, error was: %s" % doc)
+
+    # get first node inside myqtt domains node
+    myqtt_domains = doc.get ("/myqtt/myqtt-domains")
+    if not myqtt_domains:
+        return (False, "Unable to find <myqtt-domains> node inside /myqtt xml-path")
+
+    # find and erase all configuration
+    node = myqtt_domains.first_child
+    while node:
+
+        # remove node
+        node.remove ()
+        
+        # next node
+        node = myqtt_domains.first_child
+    # end while
+
+    # ensure domains.d directory exists
+    conf_dir = os.path.dirname (conf_location)
+    if not os.path.exists ("%s/domains.d" % conf_dir):
+        # create directory
+        (status, info) = run_cmd ("mkdir -p %s/domains.d" % conf_dir)
+        if status:
+            return (False, "Unable to create directory, error was: %s" % info)
+        # ensure permissions
+        (status, info) = run_cmd ("chown -R %s %s/domains.d" % (user_group, conf_dir))
+        if status:
+            return (False, "Unable to fix directory owners, error was: %s" % info)
+        # end if
+    # end if
+
+    # add include node
+    node = axl.Node ("include")
+    node.attr ("dir", "%s/domains.d/" % conf_dir)
+    myqtt_domains.set_child (node)
+
+    # save configuration file
+    doc.file_dump (conf_location, 4)
+
+    # configure mod-auth-mysql
+    if not os.path.exists ("%s/mysql/mysql.xml" % conf_dir) and os.path.exists ("%s/mysql/mysql.example.xml" % conf_dir):
+        # configure mysql.xml file
+        cmd = "cp %s/mysql/mysql.example.xml %s/mysql/mysql.xml" % (conf_dir, conf_dir)
+        (status, info) = run_cmd (cmd)
+        if status:
+            return (False, "Unable to create mysql.xml file, error was: %s" % info)
+        # end if
+    # end if
+
+    # now open it and check current connection
+    (doc, err) = axl.file_parse ("%s/mysql/mysql.xml" % conf_dir)
+    if not doc:
+        return (False, "Unable to open file %s/mysql/mysql.xml, error was: %s" % (conf_dir, err.msg))
+
+    node = doc.get ("/mod-auth-mysql/dsn")
+    (status, info, working) = test_mysql_connection ("%s/mysql/mysql.xml" % conf_dir, node.attr ("db"), node.attr ("dbuser"), node.attr ("dbpassword"), node.attr ("dbhost"))
+    if not status:
+        return (False, "Unable to test mysql connection. Is mysql installed? Error was: %s" % info)
+
+    if not working:
+        # now create a database
+        (status, info) = create_mysql_connection ("%s/mysql/mysql.xml" % conf_dir)
+        if not status:
+            return (False, "Unable to create mysql connection, error was: %s" % info)
+        # end if
+    # end if
+
+    # disable mod-auth-xml
+    (status, info) = disable_mod ("mod-auth-xml")
+    if not status:
+        return (False, "Unable to activate configuration, failed to enable module: %s" % info)
+
+    # enable mod-auth-mysql  module
+    (status, info) = enable_mod ("mod-auth-mysql")
+    if not status:
+        return (False, "Unable to disable configuration, failed to disable module: %s" % info)
+
+    # restart service
+    (status, info) = myqtt_restart_service ()
+    if not status:
+        return (False, "Failed to restart service after configuration, error was: %s" % info)
+    
+
+    return (True, "MyQtt mod-auth-mysql backend configuration done")
+
+
 def reconfigure_myqtt_easy (options, args):
 
     if not options.assume_yes:
@@ -684,8 +894,8 @@ def reconfigure_myqtt_easy (options, args):
         return check_myqtt_config ()
     elif options.easy_config == "auth-xml":
         return reconfigure_myqtt_auth_xml (options, args)
-
-    
+    elif options.easy_config == "auth-mysql":
+        return reconfigure_myqtt_auth_mysql (options, args)
 
     # report caller we have received an option that is not supported
     return (False, "Received an option that is not supported: %s" % options.easy_config)
@@ -1333,8 +1543,10 @@ if __name__ == "__main__":
         sys.exit (-1)
     
     elif options.explain_easy_config:
-        for key in easy_config_modes:
-            print "- %s : %s" % (key, easy_config_modes[key])
+        import textwrap
+        for key in easy_config_modes_index:
+            print " %16s : %s" % ("- " + key, "\n                    ".join (textwrap.wrap (easy_config_modes[key], 80)))
+            print 
         sys.exit (0)
             
     elif options.easy_config:
