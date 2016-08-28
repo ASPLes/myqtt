@@ -1008,7 +1008,30 @@ def is_domain (domain_name):
 
 def mod_auth_mysql_add_domain (domain_name, options, args):
 
-    return (False, "Still not implemented (mod-auth-mysql)")
+    # get configuration location
+    (status, conf_location) = get_conf_location ()
+    if not status:
+        return (False, "Unable to add domain in mysql database, error was: %s" % conf_location)
+
+    # get values
+    conf_dir = os.path.dirname (conf_location)
+    
+    # now open it and check current connection
+    (doc, err) = axl.file_parse ("%s/mysql/mysql.xml" % conf_dir)
+    if not doc:
+        return (False, "Unable to open file %s/mysql/mysql.xml, error was: %s" % (conf_dir, err.msg))
+
+    node  = doc.get ("/mod-auth-mysql/dsn")
+
+    # build query
+    query = "INSERT INTO domain (is_active, default_acl, name, anonymous, apply_message_quota) VALUES (1, 1, '%s', 0, 0)" % domain_name
+    cmd   = "mysql -u '%s' --password='%s' %s -e \"%s\" -h localhost" % (node.attr ("dbuser"), node.attr ("dbpassword"), node.attr ("db"), query)
+    (status, info) = run_cmd (cmd)
+    if status:
+        return (False, "Failed to add myqtt domain, SQL command failed, error was: %s" % info)
+
+    # domain added, move next
+    return (True, None)
 
 def create_domain (options, args):
 
@@ -1084,20 +1107,19 @@ def create_domain (options, args):
             # setup default password format sha1
             open (users_xml, "w").write ("<myqtt-users password-format='sha1' />")
         # end if
+    elif mod_auth_mysql:
+        # if mysql backend enabled, add domain into it
+        (status, info) = mod_auth_mysql_add_domain (domain_name, options, args)
+        if not status:
+            return (False, "Unable to add domain to MySQL backend, error was: %s" % info)
+        # end if
+    # end if        
     # end if
 
     # ensurep permissions
     (status, info) = run_cmd ("chown -R %s %s %s" % (user_group, full_run_time_location, full_dbs_dir))
     if status:
         return (False, "Unable to change directory permissions, error was: %s" % info)
-    # end if
-
-    # if mysql backend enabled, add domain into it
-    if mod_auth_mysql:
-        (status, info) = mod_auth_mysql_add_domain (domain_name, options, args)
-        if not status:
-            return (False, "Unable to add domain to MySQL backend, error was: %s" % info)
-        # end if
     # end if
 
     # reload myqtt to have domain loaded
