@@ -808,17 +808,9 @@ def create_domain (options, args):
     # check domain name has a valid domain name value
     if not is_domain (domain_name) and not is_single_label_domain (domain_name):
         return (False, "Received a domain value %s that is not a valid domain name. It has to be something similar to mqtt.domain.com or mqtt-server" % domain_name)
-    
-    # call to list current domains
-    (status, domains) = list_domains (options, args)
-    if not status:
-        print "ERROR: failed to list domains, error was: %s" % domains
-        sys.exit (-1)
 
-    for domain in domains:
-        if domain['name'] == options.create_domain:
-            return (False, "Unable to create domain %s, it already exists" % domain['name'])
-        # end if
+    if domain_exists (domain_name):
+        return (False, "Unable to create domain %s, it already exists" % domain_name)
     # end for
 
     # get run time location
@@ -1071,20 +1063,7 @@ def add_account (options, args):
     domain_name = args[0]
 
     # call to list current domains
-    (status, domains) = list_domains (options, args)
-    if not status:
-        print "ERROR: failed to list domains, error was: %s" % domains
-        sys.exit (-1)
-
-    domain_found = False
-    for domain in domains:
-        if domain['name'] == domain_name:
-            domain_found = True
-            break
-        # end if
-    # end for
-
-    if not domain_found:
+    if not domain_exists (domain_name):
         return (False, "Domain %s was not found. Please create it or be sure about the domain you want your account be created" % domain_name)
     
     account   = options.add_account
@@ -1105,7 +1084,7 @@ def add_account (options, args):
     if not status:
         return (False, "Unable to find run time location, error was: %s" % run_time_location)
     users_xml = "%s/%s/users.xml" % (run_time_location.replace ("myqtt", "myqtt-dbs"), domain_name)
-    print "Creating account %s (user %s:%s) and domain %s" % (client_id, username, password, domain_name)
+    dbg ("Creating account %s (user %s:%s) and domain %s" % (client_id, username, password, domain_name))
     if is_mod_enabled ("mod-auth-xml") and os.path.exists (users_xml):
         dbg ("users.xml database exists (%s)" % users_xml)
         return add_account_mod_auth_xml (client_id, username, password, domain_name, users_xml)
@@ -1117,18 +1096,13 @@ def add_account (options, args):
     # never reached
     return (True, "Account %s (%s) added" % (client_id, domain_name))
 
-def set_account_password (options, args):
-    
-    if len (args) == 0:
-        return (False, "Not provided domain where to add requested account")
-
-    domain_name = args[0]
+def domain_exists (domain_name):
 
     # call to list current domains
     (status, domains) = list_domains (options, args)
     if not status:
-        print "ERROR: failed to list domains, error was: %s" % domains
-        sys.exit (-1)
+        dbg ("ERROR: failed to list domains, error was: %s" % domains)
+        return False
 
     domain_found = False
     for domain in domains:
@@ -1138,7 +1112,19 @@ def set_account_password (options, args):
         # end if
     # end for
 
-    if not domain_found:
+    dbg ("Domain %s exists=%d" % (domain_name, domain_found))
+
+    return domain_found
+
+def set_account_password (options, args):
+    
+    if len (args) == 0:
+        return (False, "Not provided domain where to add requested account")
+
+    domain_name = args[0]
+
+    # check if domain exists
+    if not domain_exists (domain_name):
         return (False, "Domain %s was not found. Please create it or be sure about the domain you want your account be created" % domain_name)
     
     account   = options.set_account_password
@@ -1159,7 +1145,7 @@ def set_account_password (options, args):
     if not status:
         return (False, "Unable to find run time location, error was: %s" % run_time_location)
     users_xml = "%s/%s/users.xml" % (run_time_location.replace ("myqtt", "myqtt-dbs"), domain_name)
-    print "Creating account %s (user %s:%s) and domain %s" % (client_id, username, password, domain_name)
+    dbg ("Creating account %s (user %s:%s) and domain %s" % (client_id, username, password, domain_name))
     if is_mod_enabled ("mod-auth-xml") and os.path.exists (users_xml):
         dbg ("users.xml database exists (%s)" % users_xml)
         return update_account_mod_auth_xml (client_id, username, password, domain_name, users_xml)
