@@ -1182,10 +1182,10 @@ def add_account_mod_auth_mysql (clientid, username, password, domain_name):
         return (False, "Unable to add domain in mysql database, error was: %s" % info)
 
     # check if the user already exists
-    query = "SELECT * FROM user WHERE (SELECT id FROM domain WHERE domain ='%s') and clientid = '%s'" % (domain_name, clientid)
+    query = "SELECT * FROM user WHERE (SELECT id FROM domain WHERE name ='%s') and clientid = '%s'" % (domain_name, clientid)
     cmd   = "mysql -u '%s' --password='%s' %s -e \"%s\" -h localhost" % (dbuser, dbpass, db, query)
     (status, info) = run_cmd (cmd)
-    if not status:
+    if status:
         return (False, "Failed to check if the user already exists, error was: %s" % info)
 
     if username in info:
@@ -1490,6 +1490,20 @@ def remove_account_mod_auth_xml (client_id, domain_name, users_xml):
 
     return (True, "User removed")
 
+def remove_account_mod_auth_mysql (clientid, domain_name):
+    # get configuration location
+    (status, info, db, dbuser, dbpass) = mod_auth_mysql_get_credentials ()
+    if not status:
+        return (False, "Unable to add domain in mysql database, error was: %s" % info)
+
+    # check if the user already exists
+    query = "DELETE FROM user WHERE domain_id =  (SELECT id FROM domain WHERE name ='%s') and clientid = '%s'" % (domain_name, clientid)
+    cmd   = "mysql -u '%s' --password='%s' %s -e \"%s\" -h localhost" % (dbuser, dbpass, db, query)
+    (status, info) = run_cmd (cmd)
+    if status:
+        return (False, "Failed to remove user, error was: %s" % info)
+
+    return (True, "User removed")
 
 def remove_account (options, args):
     
@@ -1515,9 +1529,8 @@ def remove_account (options, args):
     if is_mod_enabled ("mod-auth-xml") and os.path.exists (users_xml):
         dbg ("users.xml database exists (%s)" % users_xml)
         return remove_account_mod_auth_xml (client_id, domain_name, users_xml)
-    
-    # if is_mod_enabled ("mod-auth-mysql"):
-    #   return add_account_mod_auth_mysql (client_id, username, password, domain_name)
+    elif is_mod_enabled ("mod-auth-mysql"):
+        return remove_account_mod_auth_mysql (client_id, domain_name)
     else:
         return (False, "Unable to remove account requested, no suitable auth backend was detected")
 
