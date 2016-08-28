@@ -185,6 +185,8 @@ def install_arguments():
                        help="Allows to add the provided client-id account, optionally providing a username and password into the provided domain.")
     parser.add_option ("-t", "--set-account-password", dest="set_account_password", metavar="client-id[,username],password domain",
                        help="Allows to set/change username/password  to the provided client-id account.")
+    parser.add_option ("-r", "--remove-account", dest="remove_account", metavar="client_id domain",
+                       help="Allows to remove the provided client-id account from the given domain.")
     
     # parse options received
     (options, args) = parser.parse_args ()
@@ -983,7 +985,7 @@ def add_account_mod_auth_xml (client_id, username, password, domain_name, users_
     # restart myqtt server
     (status, info) = myqtt_restart_service ()
     if not status:
-        return (False, "User was added by failed to restart myqtt service, error was: %s.." % info)
+        return (False, "User was added but failed to restart myqtt service, error was: %s.." % info)
     # end if
 
     return (True, "User added")
@@ -1049,7 +1051,7 @@ def update_account_mod_auth_xml (client_id, username, password, domain_name, use
     # restart myqtt server
     (status, info) = myqtt_restart_service ()
     if not status:
-        return (False, "User was added by failed to restart myqtt service, error was: %s.." % info)
+        return (False, "User was added but failed to restart myqtt service, error was: %s.." % info)
     # end if
 
     return (True, "User updated")
@@ -1119,7 +1121,7 @@ def domain_exists (domain_name):
 def set_account_password (options, args):
     
     if len (args) == 0:
-        return (False, "Not provided domain where to add requested account")
+        return (False, "Not provided domain where to update requested account")
 
     domain_name = args[0]
 
@@ -1145,7 +1147,9 @@ def set_account_password (options, args):
     if not status:
         return (False, "Unable to find run time location, error was: %s" % run_time_location)
     users_xml = "%s/%s/users.xml" % (run_time_location.replace ("myqtt", "myqtt-dbs"), domain_name)
-    dbg ("Creating account %s (user %s:%s) and domain %s" % (client_id, username, password, domain_name))
+    dbg ("Updating account %s (user %s:%s) from domain %s" % (client_id, username, password, domain_name))
+
+    # according to the backend, update the user
     if is_mod_enabled ("mod-auth-xml") and os.path.exists (users_xml):
         dbg ("users.xml database exists (%s)" % users_xml)
         return update_account_mod_auth_xml (client_id, username, password, domain_name, users_xml)
@@ -1157,6 +1161,76 @@ def set_account_password (options, args):
 
     # never reached
     return (True, "Account %s (%s) updated" % (client_id, domain_name))
+
+def remove_account_mod_auth_xml (client_id, domain_name, users_xml):
+    # open document
+    (doc, err) = axl.file_parse (users_xml)
+    if not doc:
+        return (False, "Unable to add account, axl.file_parse (%s) failed, error was: %s" % (users_xml, err.msg))
+    
+    # check if the clientid is already added
+    node       = doc.get ("/myqtt-users/user")
+    node_found = False
+    while node:
+        if node.attr ("id") == client_id:
+            node_found = True
+            break
+        # end if
+        
+        # get next <user /> node 
+        node = node.next_called ("user")
+    # end while
+
+    if not node_found:
+        return (False, "Unable to find client-id %s" % client_id)
+
+    # remove node
+    node.remove ()
+
+    # save configuration file
+    doc.file_dump (users_xml, 4)
+
+    # restart myqtt server
+    (status, info) = myqtt_restart_service ()
+    if not status:
+        return (False, "User was removed but failed to restart myqtt service, error was: %s.." % info)
+    # end if
+
+    return (True, "User removed")
+
+
+def remove_account (options, args):
+    
+    if len (args) == 0:
+        return (False, "Not provided domain where to remove requested account")
+
+    domain_name = args[0]
+
+    # check if domain exists
+    if not domain_exists (domain_name):
+        return (False, "Domain %s was not found. Please be sure about the domain you want your account be removed" % domain_name)
+    
+    client_id = options.remove_account
+
+    # build users db dir
+    (status, run_time_location) = get_runtime_datadir ()
+    if not status:
+        return (False, "Unable to find run time location, error was: %s" % run_time_location)
+    users_xml = "%s/%s/users.xml" % (run_time_location.replace ("myqtt", "myqtt-dbs"), domain_name)
+    dbg ("Removing account %s from domain %s" % (client_id, domain_name))
+
+    # according to the backend, update the user
+    if is_mod_enabled ("mod-auth-xml") and os.path.exists (users_xml):
+        dbg ("users.xml database exists (%s)" % users_xml)
+        return remove_account_mod_auth_xml (client_id, domain_name, users_xml)
+    
+    # if is_mod_enabled ("mod-auth-mysql"):
+    #   return add_account_mod_auth_mysql (client_id, username, password, domain_name)
+    else:
+        return (False, "Unable to remove account requested, no suitable auth backend was detected")
+
+    # never reached
+    return (True, "Account %s (%s) removed" % (client_id, domain_name))
     
 
 
@@ -1250,7 +1324,7 @@ if __name__ == "__main__":
         # call to create domain
         (status, info) = add_account (options, args)
         if not status:
-            print "ERROR: failed to account %s, error was: %s" % (options.add_account, info)
+            print "ERROR: failed to add account %s, error was: %s" % (options.add_account, info)
             sys.exit (-1)
         # end if
 
@@ -1262,13 +1336,25 @@ if __name__ == "__main__":
         # call to create domain
         (status, info) = set_account_password (options, args)
         if not status:
-            print "ERROR: failed to account %s, error was: %s" % (options.set_account_password, info)
+            print "ERROR: failed to update account %s, error was: %s" % (options.set_account_password, info)
             sys.exit (-1)
         # end if
 
         print "INFO: account updated -- %s" % info
         sys.exit (0)
+
+    elif options.remove_account:
         
+        # call to create domain
+        (status, info) = remove_account (options, args)
+        if not status:
+            print "ERROR: failed to remove account %s, error was: %s" % (options.remove_account, info)
+            sys.exit (-1)
+        # end if
+
+        print "INFO: account removed -- %s" % info
+        sys.exit (0)
+
                 
             
     
