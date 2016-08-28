@@ -38,6 +38,9 @@
  */
 
 #include <myqttd.h>
+#if defined(ENABLE_TLS_SUPPORT)
+#include <myqtt-tls.h>
+#endif
 
 /* use this declarations to avoid c++ compilers to mangle exported
  * names. */
@@ -60,6 +63,13 @@ typedef struct _ModAuthXmlBackend {
 	axlDoc       * doc;
 
 	axl_bool       anonymous;
+	/*
+	 * <myqtt-users password-format='plain|md5|sha1'>
+	 * 0 - plain : password as is, clear text
+	 * 1 - md5   : password md5 encoded
+	 * 2 - sha1  : password md5 encoded
+	 */
+	int            password_format;
 	axlNode      * global_acls;
 	
 	MyQttPublishCodes     no_match_policy;
@@ -113,7 +123,18 @@ axlPointer __mod_auth_xml_load (MyQttdCtx    * ctx,
 
 	/* configure anonymous status */
 	node = axl_doc_get (doc, "/myqtt-users");
-	backend->anonymous = HAS_ATTR_VALUE (node, "anonymous", "yes");
+	backend->anonymous        = HAS_ATTR_VALUE (node, "anonymous", "yes");
+
+	/* configure password format indication */
+	if (HAS_ATTR_VALUE (node, "password-format", "md5"))
+		backend->password_format = 1;
+	else if (HAS_ATTR_VALUE (node, "password-format", "sha1"))
+		backend->password_format = 2;
+	else {
+		/* just for clarity, if nothing is configured or
+		   "plain", password format is: plain (clear text) */
+		backend->password_format = 0;
+	} /* end if */
 
 	/* now get current global configuration */
 	backend->global_acls = axl_doc_get (backend->doc, "/myqtt-users/global-acls");
@@ -223,6 +244,10 @@ axl_bool     __mod_auth_xml_auth_user (MyQttdCtx    * ctx,
 	ModAuthXmlBackend * backend    = _backend;
 	axlNode           * node       = axl_doc_get (backend->doc, "/myqtt-users/user");
 	int                 check_mode = 0;
+	axl_bool            result;
+#if defined(ENABLE_TLS_SUPPORT)
+	char              * temp;
+#endif
 
 	/* check to authorize user if the is we have anonymous option
 	 * enabled */
@@ -242,13 +267,39 @@ axl_bool     __mod_auth_xml_auth_user (MyQttdCtx    * ctx,
 		case 3:
 			/* user and client id (and password) */
 			if (axl_cmp (client_id, ATTR_VALUE (node, "id")) && 
-			    axl_cmp (user_name, ATTR_VALUE (node, "username")) &&
-			    axl_cmp (password, ATTR_VALUE (node, "password"))) {
+			    axl_cmp (user_name, ATTR_VALUE (node, "username"))) {
 
-				/* anotate this node into the connection */
-				myqtt_conn_set_data (conn, "mod:auth:xml:user-node", node);
+				/* check password here */
+				result = axl_false;
+				switch (backend->password_format) {
+				case 0:
+					/* plain */
+					result = axl_cmp (password, ATTR_VALUE (node, "password"));
+					break;
+#if defined(ENABLE_TLS_SUPPORT)
+				case 1:
+					/* md5 */
+					temp   = myqtt_tls_get_digest (MYQTT_MD5, ATTR_VALUE (node, "password"));
+					result = axl_cmp (password, temp);
+					axl_free (temp);
+					break;
+				case 2:
+					/* sha1 */
+					temp   = myqtt_tls_get_digest (MYQTT_SHA1, ATTR_VALUE (node, "password"));
+					result = axl_cmp (password, temp);
+					axl_free (temp);
+					break;
+				} /* end switch */
+#endif
+
+				/* check authentication to store node
+				 * for later use and report result */
+				if (result) {
+					/* anotate this node into the connection */
+					myqtt_conn_set_data (conn, "mod:auth:xml:user-node", node);
+				} /* end if */
 				
-				return axl_true;
+				return result;
 			}
 			break;
 		case 2:
