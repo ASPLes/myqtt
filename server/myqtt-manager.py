@@ -873,7 +873,8 @@ def create_domain (options, args):
         # now create initial users.xml file
         users_xml = "%s/users.xml" % full_dbs_dir
         if not os.path.exists (users_xml):
-            open (users_xml, "w").write ("<myqtt-users />")
+            # setup default password format sha1
+            open (users_xml, "w").write ("<myqtt-users password-format='sha1' />")
         # end if
     # end if
 
@@ -898,6 +899,100 @@ def create_domain (options, args):
         return (False, "Domain %s was added but it failed to reload. You will have to restart myqtt" % domain_name)
     
     return (True, "Domain %s created" % domain_name)
+
+def format_password (password, password_format):
+    import hashlib
+    
+    # get md5 password
+    if password_format == 0:
+        return (True, password)
+    elif password_format == 1:
+        value = hashlib.md5 (password).hexdigest ().upper()
+    elif password_format == 2:
+        value = hashlib.sha (password).hexdigest ().upper()
+    else:
+        return (False, "ERROR: unsupported hash: " + password_format)
+        
+    # now we have to insert : every two chars
+    iterator = 2
+    
+    # hash len is the current length of the hash + every : placed. Because
+    # it is placed every two positions we multiply the length by 1,5 (-1)
+    # to avoid adding : at the end.
+    hash_len = len (value) * 1.5 -1
+    while iterator < hash_len:
+        value = value[:iterator] + ":" + value[iterator:]
+        iterator += 3
+    # end while
+
+    return (True, value)
+    
+
+def add_account_mod_auth_xml (client_id, username, password, domain_name, users_xml):
+
+    # open document
+    (doc, err) = axl.file_parse (users_xml)
+    if not doc:
+        return (False, "Unable to add account, axl.file_parse (%s) failed, error was: %s" % (users_xml, err.msg))
+    
+    # get password format
+    node = doc.get ("/myqtt-users")
+    if not node:
+        return (False, "Unknown format found at %s. Expected to find <myqtt-users> node at the top" % users_xml)
+
+    if password:
+        password_format = 0
+        if node.has_attr ("password-format"):
+            value = node.attr ("password-format")
+            if value == "plain":
+                password_format = 0
+            elif value == "md5":
+                password_format = 1
+            elif value == "sha1":
+                password_format = 2
+            # end if
+        # end if
+
+        (status, password) = format_password (password, password_format)
+        if not status:
+            return (False, "Unable to format password, error was: %s" % password)
+        # end if
+    # end if
+
+    # check if the clientid is already added
+    node = doc.get ("/myqtt-users/user")
+    while node:
+        if node.attr ("id") == client_id:
+            return (False, "Unable to add client-id %s into domain %s (%s). It already exists" % (client_id, domain_name, users_xml))
+        # end if
+        
+        # get next <user /> node 
+        node = node.next_called ("user")
+    # end while
+
+    user = axl.Node ("user")
+    user.attr ("id", client_id)
+    if username:
+        user.attr ("username", username)
+    # end if
+    if password:
+        user.attr ("password", password)
+    # end if
+
+    # set node into the document
+    node = doc.get ("/myqtt-users")
+    node.set_child (user)
+
+    # save configuration file
+    doc.file_dump (users_xml, 4)
+
+    # restart myqtt server
+    (status, info) = myqtt_restart_service ()
+    if not status:
+        return (False, "User was added by failed to restart myqtt service, error was: %s.." % info)
+    # end if
+
+    return (True, "User added")
 
 def add_account (options, args):
 
@@ -936,8 +1031,21 @@ def add_account (options, args):
         password = items[2]
     # end if
 
+    # build users db dir
+    (status, run_time_location) = get_runtime_datadir ()
+    if not status:
+        return (False, "Unable to find run time location, error was: %s" % run_time_location)
+    users_xml = "%s/%s/users.xml" % (run_time_location.replace ("myqtt", "myqtt-dbs"), domain_name)
     print "Creating account %s (user %s:%s) and domain %s" % (client_id, username, password, domain_name)
-    # FIXME 
+    if is_mod_enabled ("mod-auth-xml") and os.path.exists (users_xml):
+        dbg ("users.xml database exists (%s)" % users_xml)
+        return add_account_mod_auth_xml (client_id, username, password, domain_name, users_xml)
+    # if is_mod_enabled ("mod-auth-mysql"):
+    #   return add_account_mod_auth_mysql (client_id, username, password, domain_name)
+    else:
+        return (False, "Unable to add account requested, no suitable auth backend was detected")
+
+    # never reached
     return (True, "Account %s (%s) added" % (client_id, domain_name))
 
 
@@ -1031,7 +1139,7 @@ if __name__ == "__main__":
         # call to create domain
         (status, info) = add_account (options, args)
         if not status:
-            print "ERROR: failed to create domain %s, error was: %s" % (options.create_domain, info)
+            print "ERROR: failed to account %s, error was: %s" % (options.add_account, info)
             sys.exit (-1)
         # end if
 
