@@ -432,6 +432,8 @@ void myqttd_ctx_notify_date_change (MyQttdCtx * ctx, long new_value, MyQttdDateI
 
 	if (ctx == NULL)
 		return;
+	if (ctx->is_exiting)
+		return;
 
 	switch (item_type) {
 	case MYQTTD_DATE_ITEM_DAY:
@@ -449,6 +451,11 @@ void myqttd_ctx_notify_date_change (MyQttdCtx * ctx, long new_value, MyQttdDateI
 	/* iterate over all handlers */
 	iterator = 0;
 	while (iterator < axl_list_length (list)) {
+
+		/* avoid calling when myqttd is existing */
+		if (ctx->is_exiting)
+			return;
+
 		/* get myqttd handler */
 		ptr = axl_list_get_nth (list, iterator);
 		if (ptr && ptr->handler) {
@@ -614,6 +621,10 @@ axl_bool __myqttd_ctx_time_tracking        (MyQttCtx     * _ctx,
 	long                 stored_day;
 	long                 stored_month;
 
+	/* avoid calling when myqttd is existing */
+	if (ctx->is_exiting)
+		return axl_true; /* remove event */
+
 	/* check if there is something stored and if not, store content */
 	__myqttd_ctx_ensure_day_month_in_place (ctx);
 	
@@ -625,18 +636,22 @@ axl_bool __myqttd_ctx_time_tracking        (MyQttCtx     * _ctx,
 		__myqttd_ctx_save_current_month_day (ctx);
 
 		/* notify */
-		msg ("MyQttd month change detected");
-		myqttd_ctx_notify_date_change (ctx, myqttd_get_month (), MYQTTD_DATE_ITEM_MONTH);
+		if (! ctx->is_exiting) {
+			msg ("MyQttd month change detected");
+			myqttd_ctx_notify_date_change (ctx, myqttd_get_month (), MYQTTD_DATE_ITEM_MONTH);
+		} /* end if */
 
 	} /* end if */
-
+	
 	if (stored_day != myqttd_get_day ()) {
 		/* ok, day changed, save it */
 		__myqttd_ctx_save_current_month_day (ctx);
 
 		/* notify */
-		msg ("Myqttd engine day change detected, notifying..");
-		myqttd_ctx_notify_date_change (ctx, myqttd_get_day (), MYQTTD_DATE_ITEM_DAY);
+		if (! ctx->is_exiting) {
+			msg ("Myqttd engine day change detected, notifying..");
+			myqttd_ctx_notify_date_change (ctx, myqttd_get_day (), MYQTTD_DATE_ITEM_DAY);
+		} /* end if */
 		
 	} /* end if */
 
