@@ -213,7 +213,7 @@ axl_bool  test_01 (void) {
 	const char      * test_message = "This is test message (test-01)....";
 
 	/* cleanup test_01 storage */
-	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm -f {} \\;") != 0) {
 		printf ("ERROR: failed to initialize test..\n");
 		return axl_false;
 	} /* end if */
@@ -319,7 +319,7 @@ axl_bool  test_02 (void) {
 	char            * client_id;
 
 	/* cleanup test_01 storage */
-	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm -f {} \\;") != 0) {
 		printf ("ERROR: failed to initialize test..\n");
 		return axl_false;
 	} /* end if */
@@ -1378,7 +1378,7 @@ axl_bool  test_09 (void) {
 	int               value;
 
 	/* do some cleanup */
-	if (system ("find reg-test-03/storage/test_05 -type f -exec rm {} \\;") != 0) {
+	if (system ("find reg-test-03/storage/test_05 -type f -exec rm -f {} \\;") != 0) {
 		printf ("ERROR: failed to initialize test..\n");
 		return axl_false;
 	}
@@ -2128,13 +2128,13 @@ axl_bool  test_11 (void) {
 	/* MyQttdDomain    * domain;*/
 
 	/* cleanup test_01 storage */
-	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm -f {} \\;") != 0) {
 		/* printf ("ERROR: failed to initialize test..\n");
 		   return axl_false; */
 	} /* end if */
 
 	/* cleanup test_01 storage */
-	if (system ("find reg-test-02/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+	if (system ("find reg-test-02/storage/test_01 -type f  -exec rm -f {} \\;") != 0) {
 		/* printf ("ERROR: failed to initialize test..\n");
 		   return axl_false; */
 	} /* end if */
@@ -2260,13 +2260,13 @@ axl_bool  test_12 (void) {
 	/* MyQttdDomain    * domain;*/
 
 	/* cleanup test_01 storage */
-	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm -f {} \\;") != 0) {
 		printf ("ERROR: failed to initialize test..\n");
 		return axl_false;
 	} /* end if */
 
 	/* cleanup test_01 storage */
-	if (system ("find reg-test-02/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+	if (system ("find reg-test-02/storage/test_01 -type f  -exec rm -f {} \\;") != 0) {
 		printf ("ERROR: failed to initialize test..\n");
 		return axl_false;
 	} /* end if */
@@ -2384,13 +2384,13 @@ axl_bool  test_13 (void) {
 	/* MyQttdDomain    * domain;*/
 
 	/* cleanup test_01 storage */
-	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm -f {} \\;") != 0) {
 		printf ("ERROR: failed to initialize test..\n");
 		return axl_false;
 	} /* end if */
 
 	/* cleanup test_01 storage */
-	if (system ("find reg-test-02/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+	if (system ("find reg-test-02/storage/test_01 -type f  -exec rm -f {} \\;") != 0) {
 		printf ("ERROR: failed to initialize test..\n");
 		return axl_false;
 	} /* end if */
@@ -2525,7 +2525,7 @@ axl_bool  test_14 (void) {
 	MyQttAsyncQueue * queue;
 
 	/* cleanup test_01 storage */
-	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm {} \\;") != 0) {
+	if (system ("find reg-test-01/storage/test_01 -type f  -exec rm -f {} \\;") != 0) {
 		printf ("ERROR: failed to initialize test..\n");
 		return axl_false;
 	} /* end if */
