@@ -109,6 +109,9 @@ MyQttdUsers * myqttd_users_load (MyQttdCtx    * ctx,
 	if (ctx == NULL || conn == NULL || path == NULL)
 		return NULL;
 
+	if (strstr (path, "myqtt-dbs/skeleton")) 
+	        return NULL; /* skip comming paths that are not expected to be used */
+
 	/* reference to the data used during the load operation */
 	data = axl_new (MyQttdUserLoadData, 1);
 	if (data == NULL)
