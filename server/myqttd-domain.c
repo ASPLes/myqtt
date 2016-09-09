@@ -527,6 +527,10 @@ axl_bool          myqttd_domain_do_auth (MyQttdCtx    * ctx,
 	/* do a basic check operation for data received */
 	if (ctx == NULL || domain == NULL)
 		return axl_false;
+	
+	/* avoid checking template or skeleton domains */
+	if (strstr (domain->name, "dont-use-please"))
+	        return axl_false; 
 
 	msg ("Checking domain: %s, username=%s, client_id=%s", domain->name, myqttd_ensure_str (username), myqttd_ensure_str (client_id));
 	/* ensure we have loaded users object for this domain */
