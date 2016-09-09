@@ -141,6 +141,10 @@ struct _MyQttdCtx {
 	 */
 	axlList             * on_month_change_handlers;
 	
+	/** 
+	 * @brief Event id reference to stop it once started.
+	 */
+	long                  time_tracking_event_id;                   
 };
 
 /** 

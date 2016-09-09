@@ -245,7 +245,7 @@ axl_bool  myqttd_init (MyQttdCtx   * ctx,
 	myqttd_domain_init (ctx);
 
 	/* install event to track day and month change */
-	myqtt_thread_pool_new_event (ctx->myqtt_ctx, 2000000, __myqttd_ctx_time_tracking, ctx, NULL);
+	ctx-> time_tracking_event_id = myqtt_thread_pool_new_event (ctx->myqtt_ctx, 2000000, __myqttd_ctx_time_tracking, ctx, NULL);
 
 	/* init ok */
 	return axl_true;
@@ -317,7 +317,12 @@ void myqttd_exit (MyQttdCtx * ctx,
 	/* do not perform any change if a null context is received */
 	v_return_if_fail (ctx);
 
+	ctx->is_exiting = axl_true;
 	msg ("Finishing myqttd up (MyQttCtx: %p)..", ctx);
+
+	/* calling to stop tracking */
+	msg ("Stopping time tracking event id %ld (MyQttCtx: %p)..", ctx->time_tracking_event_id, ctx);
+	myqtt_thread_pool_remove_event (ctx->myqtt_ctx, ctx->time_tracking_event_id);
 
 	/* check to kill childs */
 	myqttd_process_kill_childs (ctx);
