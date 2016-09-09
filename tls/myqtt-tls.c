@@ -361,7 +361,8 @@ axl_bool __myqtt_conn_set_ssl_client_options (MyQttCtx * ctx, MyQttConn * conn, 
 	if (options && options->ca_certificate) {
 		myqtt_log ( MYQTT_LEVEL_DEBUG, "Setting CA certificate: %s", options->ca_certificate);
 		if (SSL_CTX_load_verify_locations (conn->ssl_ctx, options->ca_certificate, NULL) != 1) {
-			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Failed to configure CA certificate (%s), SSL_CTX_load_verify_locations () failed", options->ca_certificate);
+			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Failed to configure CA certificate (%s), SSL_CTX_load_verify_locations () failed, errno=%d : %s", 
+				    options->ca_certificate, errno, myqtt_errno_get_error (errno));
 			return axl_false;
 		} /* end if */
 		
@@ -369,14 +370,17 @@ axl_bool __myqtt_conn_set_ssl_client_options (MyQttCtx * ctx, MyQttConn * conn, 
 
 	/* enable default verification paths */
 	if (SSL_CTX_set_default_verify_paths (conn->ssl_ctx) != 1) {
-		myqtt_log ( MYQTT_LEVEL_CRITICAL, "Unable to configure default verification paths, SSL_CTX_set_default_verify_paths () failed");
+	        myqtt_log ( MYQTT_LEVEL_CRITICAL, "Unable to configure default verification paths, SSL_CTX_set_default_verify_paths () failed, errno=%d : %s",
+			    errno, myqtt_errno_get_error (errno));
 		return axl_false;
 	} /* end if */
 
 	if (options && options->chain_certificate) {
 		myqtt_log ( MYQTT_LEVEL_DEBUG, "Setting chain certificate: %s", options->chain_certificate);
 		if (SSL_CTX_use_certificate_chain_file (conn->ssl_ctx, options->chain_certificate) != 1) {
-			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Failed to configure chain certificate (%s), SSL_CTX_use_certificate_chain_file () failed", options->chain_certificate);
+			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Failed to configure chain certificate (%s), SSL_CTX_use_certificate_chain_file () failed, errno=%d : %s", 
+				    options->chain_certificate, errno, myqtt_errno_get_error (errno));
+			myqtt_tls_log_ssl (ctx);
 			return axl_false;
 		} /* end if */
 	} /* end if */
@@ -384,7 +388,9 @@ axl_bool __myqtt_conn_set_ssl_client_options (MyQttCtx * ctx, MyQttConn * conn, 
 	if (options && options->certificate) {
 		myqtt_log ( MYQTT_LEVEL_DEBUG, "Setting certificate: %s", options->certificate);
 		if (SSL_CTX_use_certificate_chain_file (conn->ssl_ctx, options->certificate) != 1) {
-			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Failed to configure client certificate (%s), SSL_CTX_use_certificate_file () failed", options->certificate);
+			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Failed to configure client certificate (%s), SSL_CTX_use_certificate_file () failed, errno=%d : %s", 
+				    options->certificate, errno, myqtt_errno_get_error (errno));
+			myqtt_tls_log_ssl (ctx);
 			return axl_false;
 		} /* end if */
 	} /* end if */
@@ -392,14 +398,18 @@ axl_bool __myqtt_conn_set_ssl_client_options (MyQttCtx * ctx, MyQttConn * conn, 
 	if (options && options->private_key) {
 		myqtt_log ( MYQTT_LEVEL_DEBUG, "Setting private key: %s", options->private_key);
 		if (SSL_CTX_use_PrivateKey_file (conn->ssl_ctx, options->private_key, SSL_FILETYPE_PEM) != 1) {
-			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Failed to configure private key (%s), SSL_CTX_use_PrivateKey_file () failed", options->private_key);
+			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Failed to configure private key (%s), SSL_CTX_use_PrivateKey_file () failed, errno=%d : %s", 
+				    options->private_key, errno, myqtt_errno_get_error (errno));
+			myqtt_tls_log_ssl (ctx);
 			return axl_false;
 		} /* end if */
 	} /* end if */
 
 	if (options && options->private_key && options->certificate) {
 		if (!SSL_CTX_check_private_key (conn->ssl_ctx)) {
-			myqtt_log ( MYQTT_LEVEL_CRITICAL, "Certificate and private key do not matches, verification fails, SSL_CTX_check_private_key ()");
+		  myqtt_log ( MYQTT_LEVEL_CRITICAL, "Certificate and private key do not matches, verification fails, SSL_CTX_check_private_key () failed, errno=%d : %s",
+			      errno, myqtt_errno_get_error (errno));
+			myqtt_tls_log_ssl (ctx);
 			return axl_false;
 		} /* end if */
 		myqtt_log ( MYQTT_LEVEL_DEBUG, "Certificate (%s) and private key (%s) matches", options->certificate, options->private_key);
@@ -994,8 +1004,8 @@ axl_bool __myqtt_tls_prepare_certificates (MyQttConn     * conn,
 	if (__ca_certificate) {
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Setting up CA certificate: %s", __ca_certificate);
 		if (SSL_CTX_load_verify_locations (conn->ssl_ctx, __ca_certificate, NULL) != 1) {
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to configure CA certificate (%s), SSL_CTX_load_verify_locations () failed", 
-				   __ca_certificate);
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to configure CA certificate (%s), SSL_CTX_load_verify_locations () failed, errno=%d : %s", 
+				   __ca_certificate, errno, myqtt_errno_get_error (errno));
 
 			/* dump error stack */
 			myqtt_conn_shutdown (conn);
@@ -1006,7 +1016,8 @@ axl_bool __myqtt_tls_prepare_certificates (MyQttConn     * conn,
 	
 	/* enable default verification paths */
 	if (SSL_CTX_set_default_verify_paths (conn->ssl_ctx) != 1) {
-		myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to configure default verification paths, SSL_CTX_set_default_verify_paths () failed");
+	        myqtt_log (MYQTT_LEVEL_CRITICAL, "Unable to configure default verification paths, SSL_CTX_set_default_verify_paths () failed, errno=%d : %s",
+		     errno, myqtt_errno_get_error (errno));
 
 		/* dump error stack */
 		myqtt_conn_shutdown (conn);
@@ -1017,8 +1028,8 @@ axl_bool __myqtt_tls_prepare_certificates (MyQttConn     * conn,
 	if (chain_certificate) {
 		myqtt_log (MYQTT_LEVEL_DEBUG, "Setting up chain certificate: %s", chain_certificate);
 		if (SSL_CTX_use_certificate_chain_file (conn->ssl_ctx, chain_certificate) != 1) {
-			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to configure chain certificate (%s), SSL_CTX_use_certificate_chain_file () failed", 
-				   chain_certificate);
+			myqtt_log (MYQTT_LEVEL_CRITICAL, "Failed to configure chain certificate (%s), SSL_CTX_use_certificate_chain_file () failed, errno=%d : %s", 
+				   chain_certificate, errno, myqtt_errno_get_error (errno));
 
 			/* dump error stack */
 			myqtt_conn_shutdown (conn);
