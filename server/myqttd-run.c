@@ -424,6 +424,10 @@ MyQttPublishCodes __myqttd_run_on_publish_msg (MyQttCtx * myqtt_ctx, MyQttConn *
 	MyQttdOnPublishData * data;
 	MyQttPublishCodes     code;
 
+	/* skip notification if myqttd is finishing */
+	if (ctx->is_exiting)
+		return MYQTT_PUBLISH_OK; /* skip notification */
+
 	while (iterator < axl_list_length (ctx->on_publish_handlers)) {
 		/* next data */
 		data = axl_list_get_nth (ctx->on_publish_handlers, iterator);
@@ -960,9 +964,11 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 		   check if we have to reply */
 		if (! domain->settings->drop_conn_same_client_id) {
 			/* client id found, reject it */
-			myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
 
 			if (retry > 0) {
+				/* release lock for now, and wait a bit, to reacquire it again */
+				myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
+
 				/* wait a little to ensure we are not
 				   just receiving same connection */
 				/* printf ("CALLING TO SLEEP ..retry=%d\n", retry); */
@@ -976,9 +982,13 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 				goto check_client_id_in_use_again;
 			} /* end if */
 
-			error ("Login failed for username=%s client-id=%s server-name=%s ip=%s : Rejected CONNECT request because client id %s is already in use, denying connect",
+			error ("Login failed for username=%s client-id=%s server-name=%s ip=%s : Rejected CONNECT request because client id %s is already in use from %s (socket: %d, status: %d), denying connect",
 			       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "", myqtt_conn_get_host (conn),
-			       conn->client_identifier);
+			       conn->client_identifier,
+			       myqtt_conn_get_host (conn2), myqtt_conn_get_socket (conn2), myqtt_conn_is_ok (conn2, axl_false));
+
+			/* release lock for now, and wait a bit, to reacquire it again */
+			myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
 
 			return MYQTT_CONNACK_IDENTIFIER_REJECTED;
 		} /* end if */
