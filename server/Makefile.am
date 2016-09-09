@@ -23,6 +23,12 @@ skeleton_DATA = skeleton.conf
 plansdir = $(sysconfdir)/myqtt/plans.d
 plans_DATA = basic.conf standard.conf no-limits.conf
 
+if ENABLE_MYSQL_SUPPORT
+include_mysql_support = -DENABLE_MYSQL_SUPPORT
+mod_auth_mysql = $(top_builddir)/server/modules/mod-auth-mysql/mod-auth-mysql.la
+endif
+
+
 # profile a flag to enable the source to code to react agaisnt the
 
 if ENABLE_TLS_SUPPORT
@@ -60,7 +66,7 @@ test_01_SOURCES = test_01.c test_01.h
 
 test_01_LDFLAGS = -Wl,-export-dynamic -ldl
 
-test_01_LDADD = $(AXL_LIBS) $(INCLUDE_TLS_LIBS) $(INCLUDE_WEBSOCKET_LIBS) libmyqttd.la $(top_builddir)/lib/libmyqtt-1.0.la $(top_builddir)/server/modules/mod-auth-mysql/mod-auth-mysql.la
+test_01_LDADD = $(AXL_LIBS) $(INCLUDE_TLS_LIBS) $(INCLUDE_WEBSOCKET_LIBS) libmyqttd.la $(top_builddir)/lib/libmyqtt-1.0.la $(mod_auth_mysql)
 
 lib_LTLIBRARIES  = libmyqttd.la
 

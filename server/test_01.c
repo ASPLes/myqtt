@@ -2975,6 +2975,7 @@ axl_bool  test_19 (void) {
 	
 }
 
+#if defined(ENABLE_MYSQL_SUPPORT)
 /* prototype to be able to use test function from mod-auth-mysql */
 void __mod_auth_mysql_run_query_for_test (MyQttdCtx * ctx, const char * query);
 
@@ -3379,6 +3380,7 @@ axl_bool  test_21 (void) {
 
 	return axl_true;
 }
+#endif
 
 void __test_22_on_day_change (MyQttdCtx * ctx, long new_value, axlPointer user_data)
 {
@@ -3690,11 +3692,13 @@ int main (int argc, char ** argv)
 	CHECK_TEST("test_19")
 	run_test (test_19, "Test 19: check user acls with mod-auth-xml");
 
+#if defined(ENABLE_MYSQL_SUPPORT)
 	CHECK_TEST("test_20")
 	run_test (test_20, "Test 20: check auth mysql backend ");
 
 	CHECK_TEST("test_21")
 	run_test (test_21, "Test 21: check auth mysql backend ");
+#endif
 
 	CHECK_TEST("test_22")
 	run_test (test_22, "Test 22: time tracking (day and month change) ");
