@@ -165,6 +165,9 @@ MYSQL * mod_auth_mysql_get_connection (MyQttdCtx      * ctx,
 				port,
 				NULL, 0) == NULL) {
 		axl_error_report (err, mysql_errno (conn), "Mysql connect error: %s, failed to run SQL command", mysql_error (conn));
+
+		/* close connection */
+		mysql_close (conn);
 		return NULL;
 	} /* end if */
 
@@ -508,6 +511,10 @@ void mod_auth_mysql_change_month (MyQttdCtx * ctx, long new_value, axlPointer us
 
 	/* get all usage records before setting them to 0 */
 	res = mod_auth_mysql_run_query_s (ctx,  dsn_node, "SELECT user_id, current_month_usage FROM use_msg_tracking WHERE current_month_usage > 0");
+	if (res == NULL) {
+		error ("SQL query for change_month failed...");
+		return;
+	} /* end if */
 	
 	/* handle data to record history */
 	now = myqttd_now ();
@@ -882,6 +889,9 @@ axl_bool     __mod_auth_mysql_auth_user (MyQttdCtx    * ctx,
 	 * check for anonymous connections accepted for this domain */
 	anonymous = myqtt_support_strtod (__mod_auth_mysql_get_by_name (ctx, res, row, "anonymous"), NULL);
 	if (anonymous && domain_selected) {
+		/* release result */
+		mysql_free_result (res);
+
 		/* accept connection since anonymous is enabled */
 		return __mod_auth_mysql_accept_user (ctx, domain, users, conn, -1, dsn_node); 
 	} /* end if */
