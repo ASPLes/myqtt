@@ -184,7 +184,7 @@ void common_queue_message_received (MyQttCtx * ctx, MyQttConn * conn, MyQttMsg *
 	MyQttAsyncQueue * queue = user_data;
 
 	/* push message received */
-	printf ("  Test --: queue received %p, msg=%p, msg-id=%d\n", queue, msg, myqtt_msg_get_id (msg));
+	printf ("Test --: queue received %p, msg=%p, msg-id=%d\n", queue, msg, myqtt_msg_get_id (msg));
 	myqtt_msg_ref (msg);
 	myqtt_async_queue_push (queue, msg);
 	return;
@@ -866,6 +866,87 @@ axl_bool  test_03 (void) {
 		
 	return axl_true;
 }
+
+
+axl_bool  test_03a (void) {
+	MyQttdCtx       * ctx;
+	MyQttConn       * conn;
+	MyQttConn       * conn2;
+	MyQttdDomain    * domain;
+
+	/* call to init the base library and close it */
+	printf ("Test 03-a: init library and server engine (using test_02.conf)..\n");
+	ctx       = common_init_ctxd (NULL, "test_02.conf");
+	if (ctx == NULL) {
+		printf ("Test 03-a: failed to start library and server engine..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 03-a: library and server engine started.. ok (ctxd = %p, ctx = %p\n", ctx, MYQTTD_MYQTT_CTX (ctx));
+
+	/* connect and send message */
+	printf ("Test 03-a: connect several times with test_02..\n");
+	if (! common_connect_send_and_check (NULL, "test_02", NULL, NULL, "myqtt/test", "This is test message (test-03)....", NULL, MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03-a: unable to connect and send message...\n");
+		return axl_false;
+	} /* end if */
+
+	/* connect and send message */
+	if (! common_connect_send_and_check (NULL, "test_02", NULL, NULL, "myqtt/test", "This is test message (test-03)....", NULL, MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03-a: unable to connect and send message...\n");
+		return axl_false;
+	} /* end if */
+
+	/* connect and send message */
+	if (! common_connect_send_and_check (NULL, "test_02", NULL, NULL, "myqtt/test", "This is test message (test-03)....", NULL, MYQTT_QOS_0, axl_false)) {
+		printf ("Test 03-a: unable to connect and send message...\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 03-a: Connect again ....\n");
+        conn = common_connect_and_subscribe (NULL, "test_02", "myqtt/test", MYQTT_QOS_0, axl_false);
+	if (conn == NULL) {
+		printf ("Test 03-a: unable to connect to the domain..\n");
+		return axl_false;
+	} /* end if */
+
+	domain = myqttd_domain_find_by_name (ctx, "test_01.context");
+	if (domain == NULL) {
+		printf ("Test 03-a: failed to get reference to domain (test_01.context)...unable to continue\n");
+		return axl_false;
+	} /* end if */
+	printf ("Test 03-a: Ref: %p\n", axl_hash_get (domain->myqtt_ctx->client_ids, (axlPointer) myqtt_conn_get_client_id (conn)));
+	if (! axl_hash_get (domain->myqtt_ctx->client_ids, (axlPointer) myqtt_conn_get_client_id (conn))) {
+		printf ("Test 03-a: failed to get clientid reference (%s) -> %p\n",
+			myqtt_conn_get_client_id (conn), 
+			axl_hash_get (domain->myqtt_ctx->client_ids, (axlPointer) myqtt_conn_get_client_id (conn)));
+		return axl_false;
+	} /* end if */
+
+	printf ("Test 03-a: Shutdown (without sending DISCONNECT) ....\n");
+	myqtt_conn_shutdown (conn);
+	myqtt_sleep (2000000);
+	printf ("Test 03-a: Ref: %p (after waiting 2 seconds)\n", axl_hash_get (domain->myqtt_ctx->client_ids, (axlPointer) myqtt_conn_get_client_id (conn)));
+
+	printf ("Test 03-a: Connect with same id (test_02) ....\n");
+        conn2 = common_connect_and_subscribe (NULL, "test_02", "myqtt/test", MYQTT_QOS_0, axl_false);
+	if (conn2 == NULL) {
+		printf ("Test 03-a: unable to connect to the domain..\n");
+		return axl_false;
+	} /* end if */
+
+	printf ("Test --: finishing MyQttdCtx..\n");
+	myqtt_exit_ctx (conn->ctx, axl_true);
+	myqtt_conn_close (conn);
+	myqtt_exit_ctx (conn2->ctx, axl_true);
+	myqtt_conn_close (conn2);
+	
+	/* finish server */
+	myqttd_exit (ctx, axl_true, axl_true);
+		
+	return axl_true;
+}
+
 
 MyQttPublishCodes test_04_handle_publish (MyQttdCtx * ctx,       MyQttdDomain * domain,  
 					  MyQttCtx  * myqtt_ctx, MyQttConn    * conn, 
@@ -3596,7 +3677,7 @@ int main (int argc, char ** argv)
 	printf ("** To gather information about memory consumed (and leaks) use:\n**\n");
 	printf ("**     >> libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes --error-limit=no ./test_01 [--debug]\n**\n");
 	printf ("** Providing --run-test=NAME will run only the provided regression test.\n");
-	printf ("** Available tests: test_00, test_01, test_02, test_03, test_04, test_05\n");
+	printf ("** Available tests: test_00, test_01, test_02, test_03, test_03a, test_04, test_05\n");
 	printf ("**                  test_06, test_07, test_08, test_09, test_10, test_10a, test_10b, test_11\n");
 	printf ("**                  test_12, test_13, test_14, test_15, test_16, test_17\n");
 	printf ("**\n");
@@ -3629,6 +3710,9 @@ int main (int argc, char ** argv)
 
 	CHECK_TEST("test_03")
 	run_test (test_03, "Test 03: domain selection (working with two domains based on client_id selection)");
+
+	CHECK_TEST("test_03a")
+	run_test (test_03a, "Test 03-a: connection client_id recovery on conn shutdown");
 
 	CHECK_TEST("test_04")
 	run_test (test_04, "Test 04: domain selection (working with two domains based on user/password selection)");

@@ -872,6 +872,12 @@ void __myqttd_run_on_connection_close (MyQttConn * conn, axlPointer _data)
 	     /* report domain selected and connections handled at this point */
 	     domain->name,
 	     myqttd_domain_conn_count (domain));
+
+	/* remove here connection from client_ids */
+	myqtt_mutex_lock (&domain->myqtt_ctx->client_ids_m);
+	axl_hash_remove (domain->myqtt_ctx->client_ids, (axlPointer) myqtt_conn_get_client_id (conn));
+	myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
+
 	return;
 }
 
@@ -1007,6 +1013,9 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 	 * without any function) */
 	conn2 = __myqttd_run_internal_copy (domain->myqtt_ctx, conn);
 	if (conn2 == NULL) {
+		/* release lock */
+		myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
+
 	        error ("ERROR: failed to allocate copy for incoming connection, rejecting connection");
 		return MYQTT_CONNACK_SERVER_UNAVAILABLE;
 	} /* end if */
@@ -1015,8 +1024,8 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 	axl_hash_insert_full (domain->myqtt_ctx->client_ids, 
 			      axl_strdup (conn2->client_identifier), axl_free,
 			      conn2, NULL);
+	/* release lock */
 	myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
-
 
 	/* init storage if it has session */
 	if (! conn2->clean_session) {
