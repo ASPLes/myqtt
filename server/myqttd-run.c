@@ -882,20 +882,20 @@ void __myqttd_run_on_connection_close (MyQttConn * conn, axlPointer _data)
 }
 
 
-MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx, 
-							MyQttConn      * conn, 
-							MyQttCtx       * myqtt_ctx, 
-							MyQttdDomain   * domain,
-							const char     * username, 
-							const char     * client_id, 
-							const char     * server_Name) 
+MyQttConnAckTypes    myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx, 
+							   MyQttConn      * conn, 
+							   MyQttCtx       * myqtt_ctx, 
+							   MyQttdDomain   * domain,
+							   const char     * username, 
+							   const char     * client_id, 
+							   const char     * server_Name) 
 {
 
 	int         connections;
 	MyQttConn * conn2;
 	int         retry;
 	int         conn_status;
-	char        conn_status_buf[2];
+	char        conn_status_buf[4];
 
 	/* ensure context is initialized */
 	if (! domain->initialized) {
