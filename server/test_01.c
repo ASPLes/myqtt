@@ -600,9 +600,13 @@ MyQttConn * common_connect_and_subscribe (MyQttCtx * myqtt_ctx, const char * cli
 {
 	MyQttConn       * conn;
 	int               sub_result;
+	axl_bool          release_on_error = axl_false;
 
 	/* create connection to local server and test domain support */
 	if (myqtt_ctx == NULL) {
+		/* flag to release on error */
+		release_on_error = axl_true;
+		
 		myqtt_ctx = common_init_ctx ();
 		if (! myqtt_init_ctx (myqtt_ctx)) {
 			if (! skip_error_reporting)
@@ -618,6 +622,10 @@ MyQttConn * common_connect_and_subscribe (MyQttCtx * myqtt_ctx, const char * cli
 	if (! myqtt_conn_is_ok (conn, axl_false)) {
 		if (! skip_error_reporting)
 			printf ("ERROR: unable to connect to %s:%s..\n", listener_host, listener_port);
+		if (release_on_error) {
+			myqtt_conn_close (conn); 
+			myqtt_exit_ctx (myqtt_ctx, axl_true);
+		} /* end if */
 		return NULL;
 	} /* end if */
 
@@ -628,6 +636,10 @@ MyQttConn * common_connect_and_subscribe (MyQttCtx * myqtt_ctx, const char * cli
 	if (! myqtt_conn_sub (conn, 10, topic, 0, &sub_result)) {
 		if (! skip_error_reporting)
 			printf ("ERROR: unable to subscribe, myqtt_conn_sub () failed, sub_result=%d", sub_result);
+		if (release_on_error) {
+			myqtt_conn_close (conn); 
+			myqtt_exit_ctx (myqtt_ctx, axl_true);
+		} /* end if */
 		return NULL;
 	} /* end if */	
 
@@ -872,6 +884,7 @@ axl_bool  test_03a (void) {
 	MyQttdCtx       * ctx;
 	MyQttConn       * conn;
 	MyQttConn       * conn2;
+	MyQttConn       * conn3;
 	MyQttdDomain    * domain;
 
 	/* call to init the base library and close it */
@@ -932,6 +945,14 @@ axl_bool  test_03a (void) {
         conn2 = common_connect_and_subscribe (NULL, "test_02", "myqtt/test", MYQTT_QOS_0, axl_false);
 	if (conn2 == NULL) {
 		printf ("Test 03-a: unable to connect to the domain..\n");
+		return axl_false;
+	} /* end if */
+
+	/* attempt to connect for the second time... */
+	printf ("Test 03-a: Connect for the second time (test_02 -- it shouldn't work)..\n");
+	conn3 = common_connect_and_subscribe (NULL, "test_02", "myqtt/test", MYQTT_QOS_0, axl_true);
+	if (conn3 != NULL) {
+		printf ("Test 03-a: CONNECTED but we shouldn't be able to connect..\n");
 		return axl_false;
 	} /* end if */
 
