@@ -894,6 +894,8 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 	int         connections;
 	MyQttConn * conn2;
 	int         retry;
+	int         conn_status;
+	char        conn_status_buf[2];
 
 	/* ensure context is initialized */
 	if (! domain->initialized) {
@@ -969,8 +971,13 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 		/* connection with same client identifier found, now
 		   check if we have to reply */
 		if (! domain->settings->drop_conn_same_client_id) {
+			/* same client id found, check if the
+			 * connection is working */
+			conn_status = recv (conn2->session, conn_status_buf, 1, MSG_PEEK | MSG_DONTWAIT);
+			msg ("CONNECT: received new connection with same client id=%s, current conn test conn_status=%d, errno=%d, old-socket=%d, socket=%d, old-conn-id=%d, conn-id=%d",
+			     conn2->client_identifier, conn_status, errno, conn2->session, conn->session, conn2->id, conn->id);
+			
 			/* client id found, reject it */
-
 			if (retry > 0) {
 				/* release lock for now, and wait a bit, to reacquire it again */
 				myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
@@ -988,10 +995,10 @@ MyQttConnAckTypes myqttd_run_send_connection_to_domain (MyQttdCtx      * ctx,
 				goto check_client_id_in_use_again;
 			} /* end if */
 
-			error ("Login failed for username=%s client-id=%s server-name=%s ip=%s : Rejected CONNECT request because client id %s is already in use from %s (socket: %d, status: %d), denying connect",
+			error ("Login failed for username=%s client-id=%s server-name=%s ip=%s : Rejected CONNECT request because client id %s is already in use from %s (socket: %d, status: %d, conn-id: %d), denying connect",
 			       username ? username : "", client_id ? client_id : "", server_Name ? server_Name : "", myqtt_conn_get_host (conn),
 			       conn->client_identifier,
-			       myqtt_conn_get_host (conn2), myqtt_conn_get_socket (conn2), myqtt_conn_is_ok (conn2, axl_false));
+			       myqtt_conn_get_host (conn2), myqtt_conn_get_socket (conn2), myqtt_conn_is_ok (conn2, axl_false), conn2->id);
 
 			/* release lock for now, and wait a bit, to reacquire it again */
 			myqtt_mutex_unlock (&domain->myqtt_ctx->client_ids_m);
