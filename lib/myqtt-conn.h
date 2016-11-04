@@ -192,10 +192,11 @@ void                myqtt_conn_connect_timeout        (MyQttCtx        * ctx,
 						       long               microseconds_to_wait);
 
 long                myqtt_conn_get_timeout            (MyQttCtx        * ctx);
+
 long                myqtt_conn_get_connect_timeout    (MyQttCtx        * ctx);
 
 axl_bool            myqtt_conn_is_ok                  (MyQttConn * conn, 
-							axl_bool   free_on_fail);
+						       axl_bool    free_on_fail);
 
 void                __myqtt_conn_shutdown_and_record_error (MyQttConn     * conn,
 							    MyQttStatus     status,
