@@ -593,13 +593,13 @@ void myqtt_thread_pool_setup               (MyQttCtx * ctx,
 }
 
 void myqtt_thread_pool_setup2              (MyQttCtx * ctx, 
-					     int         thread_max_limit, 
-					     int         thread_add_step,
-					     int         thread_add_period, 
-					     int         thread_remove_step,
-					     int         thread_remove_period, 
-					     axl_bool    auto_remove,
-					     axl_bool    preemtive)
+					    int         thread_max_limit, 
+					    int         thread_add_step,
+					    int         thread_add_period, 
+					    int         thread_remove_step,
+					    int         thread_remove_period, 
+					    axl_bool    auto_remove,
+					    axl_bool    preemtive)
 {
 	v_return_if_fail (ctx);
 

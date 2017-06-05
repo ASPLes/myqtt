@@ -60,14 +60,14 @@ void      myqttd_log_report (MyQttdCtx * ctx,
 				 int             line);
 
 void      myqttd_log_configure (MyQttdCtx * ctx,
-				    LogReportType   type,
-				    int             descriptor);
+				LogReportType   type,
+				int             descriptor);
 
 void      myqttd_log_manager_start (MyQttdCtx * ctx);
 
 void      myqttd_log_manager_register (MyQttdCtx * ctx,
-					   LogReportType   type,
-					   int             descriptor);
+				       LogReportType   type,
+				       int             descriptor);
 
 axl_bool  myqttd_log_is_enabled    (MyQttdCtx * ctx);
 
