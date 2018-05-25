@@ -1,1 +1,6 @@
 See http://www.aspl.es/mqtt for more information.
+
+This project has been deprecated. We have moved our efforts
+to our Scala+Akka+Ronda implementations that can be found at:
+
+https://github.com/ASPLes/reactive-myqtt
